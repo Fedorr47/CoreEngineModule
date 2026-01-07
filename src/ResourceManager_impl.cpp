@@ -10,4 +10,4 @@ module;
 #include <type_traits>
 #include <utility>
 
-module texture_manager;
+module resource_manager;
