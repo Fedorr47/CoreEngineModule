@@ -232,6 +232,7 @@ public:
 		{
 			return stg.LoadAsync(id, std::forward<Args>(args)...);
 		}
+		else
 		{
 			return stg.LoadOrGet(id, std::forward<Args>(args)...);
 		}
@@ -246,6 +247,7 @@ public:
 		{
 			return stg.LoadSync(id, std::forward<Args>(args)...);
 		}
+		else
 		{
 			return stg.LoadOrGet(id, std::forward<Args>(args)...);
 		}

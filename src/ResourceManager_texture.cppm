@@ -44,7 +44,7 @@ public:
 		requires std::same_as<std::remove_cvref_t<PropertiesType>, typename Resource::Properties>
 	Handle LoadAsync(std::string_view id, TextureIO& io, PropertiesType&& properties)
 	{
-		Id key{ id };
+		Id stableKey = Id{ id }
 		Handle handle{};
 
 		{
@@ -59,13 +59,16 @@ public:
 			entry.state = ResourceState::Loading;
 
 			handle = entry.textureHandle;
-			entries_.emplace(std::move(key), std::move(entry));
+			Id mapKey = stableKey;
+			entries_.emplace(std::move(mapKey), std::move(entry));
 		}
 
 		TextureProperties propertiesCopy = handle->GetProperties();
-		std::string path = propertiesCopy.filePath.empty() ? std::string(key) : propertiesCopy.filePath;
+		std::string path = propertiesCopy.filePath.empty() ? std::string(stableKey) : propertiesCopy.filePath;
 
-		io.jobs.Enqueue([this, key, propertiesCopy = std::move(propertiesCopy), path = std::move(path), &io]() mutable
+		TextureIO ioCopy = io;
+
+		io.jobs.Enqueue([this, key = std::move(stableKey), propertiesCopy = std::move(propertiesCopy), path = std::move(path), ioCopy]() mutable
 			{
 				auto cpuOpt = io.decoder.Decode(propertiesCopy, path);
 
@@ -209,13 +212,18 @@ public:
 				{
 					break;
 				}
+
 				gTexture = destroyQueue_.front();
 				destroyQueue_.pop_front();
 			}
 
 			if (gTexture.id != 0)
 			{
-				io.uploader.Destroy(gTexture);
+				TextureIO ioCopy = io;
+				ioCopy.render.Enqueue([ioCopy, gTexture]()
+					{
+						ioCopy.uploader.Destroy(gTexture);
+					});
 			}
 
 			++destroyed;
@@ -224,9 +232,9 @@ public:
 		while (uploaded < maxPerCall)
 		{
 			Id id{};
-			TextureCPUData cpuData{};
 			TextureProperties properties{};
 			Handle handle{};
+			TextureCPUData cpuData{};
 
 			{
 				std::scoped_lock lock(mutex_);
@@ -246,6 +254,7 @@ public:
 				}
 
 				TextureEntry& entry = it->second;
+
 				if (entry.state != ResourceState::Loading || !entry.pendingCpu.has_value())
 				{
 					continue;
@@ -257,35 +266,53 @@ public:
 				handle = entry.textureHandle;
 				properties = handle->GetProperties();
 			}
-			
 
-			std::optional<GPUTexture> gpuOpt = io.uploader.CreateAndUpload(cpuData, properties);
+			auto cpuPtr = std::make_shared<TextureCPUData>(std::move(cpuData));
+			TextureIO ioCopy = io;
+			Id idCopy = id;
+			auto props = std::move(properties);
 
-			{
-				std::scoped_lock lock(mutex_);
-
-				auto it = entries_.find(id);
-				if (it == entries_.end())
+			ioCopy.render.Enqueue([this, ioCopy, idCopy, cpuPtr, props, handle]()
 				{
-					continue;
-				}
+					auto gpuOpt = ioCopy.uploader.CreateAndUpload(*cpuPtr, props);
 
-				TextureEntry& entry = it->second;
+					std::scoped_lock lock(mutex_);
 
-				if (!gpuOpt)
-				{
-					entry.state = ResourceState::Failed;
-					entry.error = "GPU texture upload failed";
-				}
-				else
-				{
-					entry.textureHandle->SetResource(*gpuOpt);
-					entry.state = ResourceState::Loaded;
-					entry.error.clear();
-				}
-			}
+					auto it = entries_.find(idCopy);
+					if (it == entries_.end())
+					{
+						if (gpuOpt && gpuOpt->id != 0)
+						{
+							ioCopy.uploader.Destroy(*gpuOpt);
+						}
+						return;
+					}
 
-			++uploaded;	
+					TextureEntry& entry = it->second;
+
+					if (entry.textureHandle != handle || entry.state != ResourceState::Loading)
+					{
+						if (gpuOpt && gpuOpt->id != 0)
+						{
+							ioCopy.uploader.Destroy(*gpuOpt);
+						}
+						return;
+					}
+
+					if (!gpuOpt)
+					{
+						entry.state = ResourceState::Failed;
+						entry.error = "GPU texture upload failed";
+					}
+					else
+					{
+						entry.textureHandle->SetResource(*gpuOpt);
+						entry.state = ResourceState::Loaded;
+						entry.error.clear();
+					}
+				});
+
+			++uploaded;
 		}
 
 		return (uploaded + destroyed) > 0;
