@@ -1,6 +1,5 @@
 add_executable(ResourceManagerTests
-  test_texture_basic.cpp
-)
+  "TestTextureStorage.cpp")
 
 target_link_libraries(ResourceManagerTests
   PRIVATE
