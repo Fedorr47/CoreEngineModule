@@ -32,10 +32,9 @@ add_library(ResourceManagerLib STATIC)
 target_sources(ResourceManagerLib
   PUBLIC
     FILE_SET cxx_modules TYPE CXX_MODULES FILES
-      src/ResourceManager.cppm
-  PRIVATE
-      src/ResourceManager_impl.cpp
-)
+     "src/ResourceManager.ixx"
+     "src/ResourceManager_core.cppm"
+     "src/ResourceManager_texture.cppm" )
 
 set_property(TARGET ResourceManagerLib PROPERTY CXX_SCAN_FOR_MODULES ON)
 target_compile_features(ResourceManagerLib PUBLIC cxx_std_23)

@@ -1,4 +1,4 @@
-import texture_manager;
+import resource_manager;
 import std;
 
 int main() {
