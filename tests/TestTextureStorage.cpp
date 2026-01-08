@@ -18,7 +18,9 @@ TEST(TextureStorage, LoadAndCreateEntrySucceeds)
 
 	FakeTextureDecoder decoder{};
 	FakeTextureUploader uploader{};
-	auto io = MakeIO(decoder, uploader);
+	FakeJobSystem jobSystem{};
+	FakeRenderQueue renderQueue{};
+	auto io = MakeIO(decoder, uploader, jobSystem, renderQueue);
 
 	auto texture = ResManager.Load<TextureResource>("tex1", io, MakeProperties(TextureFormat::RGBA));
 	ASSERT_TRUE(texture);

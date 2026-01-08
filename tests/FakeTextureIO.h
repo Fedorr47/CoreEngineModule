@@ -80,7 +80,18 @@ struct FakeTextureUploader final : ITextureUploader
 	}
 };
 
-inline TextureIO MakeIO(FakeTextureDecoder& decoder, FakeTextureUploader& uploader)
+struct FakeJobSystem final : IJobSystem
 {
-	return TextureIO{ decoder, uploader };
+	void Enqueue(std::function<void()> job) override {};
+	void WaitIdle() override {}
+};
+
+struct FakeRenderQueue final : IRenderQueue
+{
+	void Enqueue(std::function<void()> job) override {};
+};
+
+inline TextureIO MakeIO(FakeTextureDecoder& decoder, FakeTextureUploader& uploader, FakeJobSystem & jobSystem, FakeRenderQueue& renderQueue)
+{
+	return TextureIO{ decoder, uploader, jobSystem, renderQueue };
 }

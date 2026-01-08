@@ -11,6 +11,7 @@ module;
 #include <type_traits>
 #include <utility>
 #include <stdexcept>
+#include <functional>
 
 export module resource_manager:core;
 
@@ -28,6 +29,12 @@ export enum class ResourceState : uint8_t
 	Loaded,
 	Failed,
 	Unknown
+};
+
+export enum class LoadMode : uint8_t
+{
+	Async,
+	Sync
 };
 
 export struct TextureProperties
@@ -69,10 +76,27 @@ public:
 	virtual void Destroy(GPUTexture texture) noexcept = 0;
 };
 
+export class IJobSystem
+{
+public:
+	virtual ~IJobSystem() = default;
+	virtual void Enqueue(std::function<void()> job) = 0;
+	virtual void WaitIdle() = 0;
+};
+
+export class IRenderQueue
+{
+public:
+	virtual ~IRenderQueue() = default;
+	virtual void Enqueue(std::function<void()> job) = 0;
+};
+
 export struct TextureIO
 {
 	ITextureDecoder& decoder;
 	ITextureUploader& uploader;
+	IJobSystem& jobs;
+	IRenderQueue& render;
 };
 
 export template <class Resource>
@@ -117,7 +141,7 @@ concept TexturePropertyType = requires(const T & propertyType)
 {
 	{ propertyType.width }  -> std::convertible_to<uint32_t>;
 	{ propertyType.height } -> std::convertible_to<uint32_t>;
-	propertyType.format;
+	{ propertyType.format } -> std::convertible_to<TextureFormat>;
 };
 
 template<typename T>
@@ -144,7 +168,7 @@ public:
 		{
 			if (auto alive = aliveResource->second.lock())
 			{
-				return aliveResource;
+				return alive;
 			}
 
 			cache_.erase(aliveResource);
@@ -192,16 +216,45 @@ private:
 export class ResourceManager
 {
 public:
+	using Id = std::string;
+
 	template <typename T, typename... Args>
-	std::shared_ptr<T> Load(const std::string& id, Args&&... argss)
+	std::shared_ptr<T> Load(std::string_view id, Args&&... argss)
 	{
 		return storage<T>().LoadOrGet(id, std::forward<Args>(argss)...);
 	}
 
-	template <typename T>
-	std::shared_ptr<T> Get(const std::string& id)
+	template <typename T, typename... Args>
+	std::shared_ptr<T> LoadAsync(std::string_view id, Args&&... args)
 	{
-		return storage<T>().Find(id);
+		auto& stg = storage<T>();
+		if constexpr (requires { stg.LoadAsync(id, std::forward<Args>(args)...); })
+		{
+			return stg.LoadAsync(id, std::forward<Args>(args)...);
+		}
+		{
+			return stg.LoadOrGet(id, std::forward<Args>(args)...);
+		}
+	}
+
+
+	template <typename T, typename... Args>
+	std::shared_ptr<T> LoadSync(std::string_view id, Args&&... args)
+	{
+		auto& stg = storage<T>();
+		if constexpr (requires { stg.LoadSync(id, std::forward<Args>(args)...); })
+		{
+			return stg.LoadSync(id, std::forward<Args>(args)...);
+		}
+		{
+			return stg.LoadOrGet(id, std::forward<Args>(args)...);
+		}
+	}
+
+	template <typename T>
+	std::shared_ptr<T> Get(std::string_view id)
+	{
+		return storage<T>().Find(Id{id});
 	}
 
 	template <typename T>

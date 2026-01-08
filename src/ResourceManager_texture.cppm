@@ -5,10 +5,13 @@ module;
 #include <string>
 #include <optional>
 #include <unordered_map>
+#include <mutex>
 
 export module resource_manager:texture;
 
 import :core;
+
+constexpr int SyncLoadNumberPerCall = 64;
 
 export using TextureResource = Texture<GPUTexture>;
 
@@ -34,36 +37,93 @@ public:
 		requires std::same_as<std::remove_cvref_t<PropertiesType>, typename Resource::Properties>
 	Handle LoadOrGet(std::string_view id, TextureIO& io, PropertiesType&& properties)
 	{
+		return LoadAsync(id, io, std::forward<PropertiesType>(properties));
+	}
+
+	template <typename PropertiesType>
+		requires std::same_as<std::remove_cvref_t<PropertiesType>, typename Resource::Properties>
+	Handle LoadAsync(std::string_view id, TextureIO& io, PropertiesType&& properties)
+	{
 		Id key{ id };
+		Handle handle{};
 
-		if (auto it = entries_.find(key); it != entries_.end())
 		{
-			return it->second.textureHandle;
+			std::scoped_lock lock(mutex_);
+			if (auto it = entries_.find(key); it != entries_.end())
+			{
+				return it->second.textureHandle;
+			}
+
+			TextureEntry entry{};
+			entry.textureHandle = std::make_shared<Resource>(std::forward<PropertiesType>(properties));
+			entry.state = ResourceState::Loading;
+
+			handle = entry.textureHandle;
+			entries_.emplace(std::move(key), std::move(entry));
 		}
 
-		TextureEntry entry{};
+		TextureProperties propertiesCopy = handle->GetProperties();
+		std::string path = propertiesCopy.filePath.empty() ? std::string(key) : propertiesCopy.filePath;
 
-		Handle texture = std::make_shared<Resource>(std::forward<PropertiesType>(properties));
-		entry.textureHandle = texture;
-		entry.state = ResourceState::Loading;
+		io.jobs.Enqueue([this, key, propertiesCopy = std::move(propertiesCopy), path = std::move(path), &io]() mutable
+			{
+				auto cpuOpt = io.decoder.Decode(propertiesCopy, path);
 
-		auto Result = ResourceTraits<Resource>::Load(key, io, entry.textureHandle->GetProperties());
-		entry.pendingCpu = std::move(Result.pendingCpu);
-		entry.state = Result.state;
-		entry.error = std::move(Result.error);
+				std::scoped_lock lock(mutex_);
 
-		if (entry.state == ResourceState::Loading && entry.pendingCpu.has_value())
+				auto it = entries_.find(key);
+				if (it == entries_.end())
+				{
+					return;
+				}
+
+				TextureEntry& entry = it->second;
+
+				if (entry.state != ResourceState::Loading)
+				{
+					return;
+				}
+
+				if (!cpuOpt)
+				{
+					entry.state = ResourceState::Failed;
+					entry.error = "Texture decode failed";
+					entry.pendingCpu.reset();
+					return;
+				}
+
+				entry.pendingCpu = std::move(*cpuOpt);
+				uploadQueue_.push_back(key);
+			});
+		
+		return handle;
+	}
+
+	template <typename PropertiesType>
+		requires std::same_as<std::remove_cvref_t<PropertiesType>, typename Resource::Properties>
+	Handle LoadSync(std::string_view id, TextureIO& io, PropertiesType&& properties)
+	{
+		auto handle = LoadAsync(id, io, std::forward<PropertiesType>(properties));
+
+		for (;;)
 		{
-			uploadQueue_.push_back(key);
-		}
+			auto state = GetState(id);
 
-		entries_.emplace(std::move(key), std::move(entry));
-		return texture;
+			if (state == ResourceState::Loaded || state == ResourceState::Failed)
+			{
+				return handle;
+			}
+
+			io.jobs.WaitIdle();
+
+			ProcessUploads(io, SyncLoadNumberPerCall, SyncLoadNumberPerCall);
+		}
 	}
 
 	Handle Find(std::string_view id) const
 	{
 		Id key{ id };
+		std::scoped_lock lock(mutex_);
 
 		if (auto it = entries_.find(key); it != entries_.end())
 		{
@@ -74,6 +134,8 @@ public:
 
 	void UnloadUnused()
 	{
+		std::scoped_lock lock(mutex_);
+
 		for (auto it = entries_.begin(); it != entries_.end(); )
 		{
 			if (it->second.textureHandle.use_count() == 1)
@@ -93,6 +155,8 @@ public:
 
 	void Clear()
 	{
+		std::scoped_lock lock(mutex_);
+
 		for (auto& [id, entry] : entries_)
 		{
 			if (entry.state == ResourceState::Loaded)
@@ -108,6 +172,8 @@ public:
 	ResourceState GetState(std::string_view id) const
 	{
 		Id key{ id };
+		std::scoped_lock lock(mutex_);
+
 		if (auto it = entries_.find(key); it != entries_.end())
 		{
 			return it->second.state;
@@ -120,6 +186,8 @@ public:
 	{
 		static const std::string errorStr{};
 		Id key{ id };
+		std::scoped_lock lock(mutex_);
+
 		if (auto it = entries_.find(key); it != entries_.end())
 		{
 			return it->second.error;
@@ -129,13 +197,21 @@ public:
 
 	bool ProcessUploads(TextureIO& io, std::size_t maxPerCall = 8, std::size_t maxDestroyedPerCall = 32)
 	{
-		std::size_t done = 0;
+		std::size_t uploaded = 0;
 		std::size_t destroyed = 0;
 
-		while (!destroyQueue_.empty() && destroyed < maxDestroyedPerCall)
+		while (destroyed < maxDestroyedPerCall)
 		{
-			GPUTexture gTexture = destroyQueue_.front();
-			destroyQueue_.pop_front();
+			GPUTexture gTexture{};
+			{
+				std::scoped_lock lock(mutex_);
+				if (destroyQueue_.empty())
+				{
+					break;
+				}
+				gTexture = destroyQueue_.front();
+				destroyQueue_.pop_front();
+			}
 
 			if (gTexture.id != 0)
 			{
@@ -145,41 +221,74 @@ public:
 			++destroyed;
 		}
 
-		while (!uploadQueue_.empty() && done < maxPerCall)
+		while (uploaded < maxPerCall)
 		{
-			Id id = std::move(uploadQueue_.front());
-			uploadQueue_.pop_front();
+			Id id{};
+			TextureCPUData cpuData{};
+			TextureProperties properties{};
+			Handle handle{};
 
-			auto it = entries_.find(id);
-			if (it == entries_.end())
 			{
-				continue;
-			}
+				std::scoped_lock lock(mutex_);
 
-			TextureEntry& entry = it->second;
-			if (entry.state != ResourceState::Loading || !entry.pendingCpu.has_value())
-			{
-				continue;
-			}
+				if (uploadQueue_.empty())
+				{
+					break;
+				}
 
-			std::optional<GPUTexture> gpuOpt = io.uploader.CreateAndUpload(*entry.pendingCpu, entry.textureHandle->GetProperties());
-			if (!gpuOpt)
-			{
-				entry.state = ResourceState::Failed;
-				entry.error = "GPU texture upload failed";
+				id = std::move(uploadQueue_.front());
+				uploadQueue_.pop_front();
+
+				auto it = entries_.find(id);
+				if (it == entries_.end())
+				{
+					continue;
+				}
+
+				TextureEntry& entry = it->second;
+				if (entry.state != ResourceState::Loading || !entry.pendingCpu.has_value())
+				{
+					continue;
+				}
+
+				cpuData = std::move(*entry.pendingCpu);
 				entry.pendingCpu.reset();
+
+				handle = entry.textureHandle;
+				properties = handle->GetProperties();
 			}
-			else
+			
+
+			std::optional<GPUTexture> gpuOpt = io.uploader.CreateAndUpload(cpuData, properties);
+
 			{
-				entry.textureHandle->SetResource(*gpuOpt);
-				entry.state = ResourceState::Loaded;
-				entry.pendingCpu.reset();
+				std::scoped_lock lock(mutex_);
+
+				auto it = entries_.find(id);
+				if (it == entries_.end())
+				{
+					continue;
+				}
+
+				TextureEntry& entry = it->second;
+
+				if (!gpuOpt)
+				{
+					entry.state = ResourceState::Failed;
+					entry.error = "GPU texture upload failed";
+				}
+				else
+				{
+					entry.textureHandle->SetResource(*gpuOpt);
+					entry.state = ResourceState::Loaded;
+					entry.error.clear();
+				}
 			}
 
-			++done;
+			++uploaded;	
 		}
 
-		return (done + destroyed) > 0;
+		return (uploaded + destroyed) > 0;
 	}
 
 private:
@@ -192,6 +301,7 @@ private:
 		}
 	}
 
+	mutable std::mutex mutex_{};
 	std::unordered_map<Id, TextureEntry> entries_;
 	std::deque<Id> uploadQueue_;
 	std::deque<GPUTexture> destroyQueue_;
