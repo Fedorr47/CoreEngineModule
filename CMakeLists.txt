@@ -39,6 +39,9 @@ target_sources(CoreEngineModuleLib
         src/ResourceManager.ixx
         src/ResourceManager_core.cppm
         src/ResourceManager_texture.cppm
+        src/GameTimer.cppm
+    PRIVATE
+        src/GameTimer_impl.cpp
 )
 
 set_property(TARGET CoreEngineModuleLib PROPERTY CXX_SCAN_FOR_MODULES ON)
