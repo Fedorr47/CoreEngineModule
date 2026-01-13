@@ -1,4 +1,4 @@
-module;                 // global module fragment
+module;
 
 #include <chrono>
 #include <algorithm>
@@ -32,6 +32,7 @@ void GameTimer::Start()
 	pausedTime_ += startTime - stopTime_;
 
 	previousTime_ = startTime;
+	currentTime_ = startTime;     // Important: keep total time correct before first Tick()
 	stopTime_ = time_point{};
 	stopped_ = false;
 }
@@ -96,7 +97,6 @@ FixedStepResult FixedStepScheduler::Advance(double frameDeltaSec)
 	}
 
 	result.tickToSimulate = tickCount;
-
 	result.alpha = std::clamp(accumulatedDeltaSec_ / fixedDeltaSec_, 0.0, 1.0);
 	return result;
 }

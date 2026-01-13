@@ -36,6 +36,7 @@ target_sources(CoreEngineModuleLib
         ${CMAKE_CURRENT_SOURCE_DIR}/src
       FILES
         src/Core.ixx
+        src/GameTimer.ixx
         src/ResourceManager.ixx
         src/ResourceManager_core.cppm
         src/ResourceManager_texture.cppm

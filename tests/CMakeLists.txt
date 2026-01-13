@@ -1,5 +1,6 @@
 add_executable(CoreEngineTests
-  "TestTextureStorage.cpp")
+  "TestTextureStorage.cpp"
+   "TestTimerBasic.cpp")
 
 target_link_libraries(CoreEngineTests
   PRIVATE

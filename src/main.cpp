@@ -1,4 +1,4 @@
-import resource_manager;
+import core;
 import std;
 
 int main() {
