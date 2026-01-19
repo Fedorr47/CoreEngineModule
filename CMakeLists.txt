@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Enable `import std;` support for targets created after this line
-set(CMAKE_CXX_MODULE_STD 1) # initializes target property CXX_MODULE_STD :contentReference[oaicite:3]{index=3}
+set(CMAKE_CXX_MODULE_STD 1)
 
 option(WITH_TESTS "Build tests" ON)
 
@@ -19,7 +19,7 @@ add_library(CoreEngineModuleLib STATIC)
 
 target_compile_features(CoreEngineModuleLib PUBLIC cxx_std_23)
 
-set_property(TARGET CoreEngineModuleLib PROPERTY CXX_SCAN_FOR_MODULES ON) # :contentReference[oaicite:4]{index=4}
+set_property(TARGET CoreEngineModuleLib PROPERTY CXX_SCAN_FOR_MODULES ON)
 
 target_sources(CoreEngineModuleLib
   PUBLIC
@@ -56,7 +56,7 @@ add_executable(app
 )
 
 target_compile_features(app PRIVATE cxx_std_23)
-set_property(TARGET app PROPERTY CXX_SCAN_FOR_MODULES ON) # :contentReference[oaicite:5]{index=5}
+set_property(TARGET app PROPERTY CXX_SCAN_FOR_MODULES ON)
 
 target_link_libraries(app PRIVATE CoreEngineModuleLib)
 
