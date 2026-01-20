@@ -11,7 +11,7 @@ import :render_core;
 import :render_graph;
 import :scene_bridge;
 
-export namespace render
+export namespace rendern
 {
 	struct RendererSettings
 	{
@@ -137,7 +137,7 @@ export namespace render
 				"#version 330 core\n"
 				"layout(location=0) in vec2 aPos;\n"
 				"layout(location=1) in vec2 aUV;\n"
-				"out vec2 cUV;\n"
+				"out vec2 vUV;\n"
 				"void main(){ vUV=aUV; gl_Position=vec4(aPos,0.0,1.0);}\n";
 
 			const std::string pixelShaderSource = 

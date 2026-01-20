@@ -6,7 +6,7 @@ module;
 
 export module core:shader_system;
 
-export namespace render
+export namespace rendern
 {
 	enum class ShaderBlobType : std::uint8_t
 	{

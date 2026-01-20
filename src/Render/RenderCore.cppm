@@ -12,7 +12,7 @@ export module core:render_core;
 import :resource_manager;
 import :rhi;
 
-export namespace render
+export namespace rendern
 {
 	struct FrameContext
 	{
@@ -118,7 +118,7 @@ export namespace render
 		}
 	};
 
-	class JobSystemImmediate final : public IRenderQueue
+	class JobSystemImmediate final : public IJobSystem
 	{
 	public:
 		void Enqueue(std::function<void()> job)

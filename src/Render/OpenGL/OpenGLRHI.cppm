@@ -20,7 +20,7 @@ export namespace rhi
 		std::function<void()> present;
 
 		// Optional: query the drawable extent (e.g. window size).
-		std::function<Extent2D()> getDrawbleExtent;
+		std::function<Extent2D()> getDrawableExtent;
 
 		// Optional: set swap interval (vsync). Use this if your window library supports it.
 		std::function<void(bool)> setVsync;
@@ -39,6 +39,45 @@ export namespace rhi
 
 	std::unique_ptr<IRHIDevice> CreateGLDevice(GLDeviceDesc desc = {});
 	std::unique_ptr<IRHISwapChain> CreateGLSwapChain(IRHIDevice& device, GLSwapChainDesc desc);
+}
+
+export namespace RHI_GL_UTILS
+{
+	void ThrowIfShaderCompilationFailed(GLuint shader, std::string_view debugName)
+	{
+		GLint success = 0;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+		if (success == GL_FALSE)
+		{
+			GLint logLength = 0;
+			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+			std::string infoLog;
+			infoLog.resize(std::max(0, logLength));
+			if (logLength > 0)
+			{
+				glGetShaderInfoLog(shader, logLength, nullptr, infoLog.data());
+			}
+			throw std::runtime_error(std::string("OpenGL shader compile failed (") + std::string(debugName) + "): " + infoLog);
+		}
+	}
+
+	void ThrowIfProgramLinkFailed(GLuint program, std::string_view debugName)
+	{
+		GLint success = 0;
+		glGetProgramiv(program, GL_LINK_STATUS, &success);
+		if (success == GL_FALSE)
+		{
+			GLint logLength = 0;
+			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+			std::string infoLog;
+			infoLog.resize(std::max(0, logLength));
+			if (logLength > 0)
+			{
+				glGetProgramInfoLog(program, logLength, nullptr, infoLog.data());
+			}
+			throw std::runtime_error(std::string("OpenGL program link failed (") + std::string(debugName) + "): " + infoLog);
+		}
+	}
 }
 
 namespace
@@ -177,35 +216,7 @@ namespace
 			const std::string defaultVersion = "#version 330 core\n";
 			return defaultVersion + std::string(source);
 		}
-	}
-
-	static void ThrowIfShaderCompilationFailed(GLuint shader, std::string_view debugName)
-	{
-		GLint success = 0;
-		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-		if (success == GL_FALSE)
-		{
-			GLint logLength = 0;
-			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-			std::string infoLog(static_cast<std::size_t>(logLength), '\0');
-			glGetShaderInfoLog(shader, logLength, nullptr, infoLog.data());
-			throw std::runtime_error("Shader compilation failed (" + std::string(debugName) + "): " + infoLog);
-		}
-	}
-
-	static void ThrowIfProgramLinkFailed(GLuint program, std::string_view debugName)
-	{
-		GLint success = 0;
-		glGetProgramiv(program, GL_LINK_STATUS, &success);
-		if (success == GL_FALSE)
-		{
-			GLint logLength = 0;
-			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
-			std::string infoLog(static_cast<std::size_t>(logLength), '\0');
-			glGetProgramInfoLog(program, logLength, nullptr, infoLog.data());
-			throw std::runtime_error("Program linking failed (" + std::string(debugName) + "): " + infoLog);
-		}
-	}
+	}	
 }
 
 namespace rhi
@@ -226,9 +237,9 @@ namespace rhi
 		rhi::SwapChainDesc GetDesc() const override
 		{
 			SwapChainDesc outDesc = desc_.base;
-			if (desc_.hooks.getDrawbleExtent)
+			if (desc_.hooks.getDrawableExtent)
 			{
-				outDesc.extent = desc_.hooks.getDrawbleExtent();
+				outDesc.extent = desc_.hooks.getDrawableExtent();
 			}
 			return outDesc;
 		}
@@ -362,7 +373,7 @@ namespace rhi
 			}
 		}
 
-		virtual BufferHandle CreateBuffer(const BufferDesc& desc)
+		BufferHandle CreateBuffer(const BufferDesc& desc)
 		{
 			GLuint bufferId = 0;
 			glGenBuffers(1, &bufferId);
@@ -375,7 +386,7 @@ namespace rhi
 			return BufferHandle{ static_cast<std::uint32_t>(bufferId) };
 		}
 
-		virtual void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes)
+		void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes)
 		{
 			const GLuint bufferId = static_cast<GLuint>(buffer.id);
 			if (bufferId == 0 || data.empty())
@@ -388,7 +399,7 @@ namespace rhi
 			glBindBuffer(target, 0);
 		}
 
-		virtual void DestroyBuffer(BufferHandle buffer) noexcept
+		void DestroyBuffer(BufferHandle buffer) noexcept
 		{
 			GLuint bufferId = static_cast<GLuint>(buffer.id);
 			if (bufferId != 0)
@@ -398,14 +409,14 @@ namespace rhi
 			}
 		}
 
-		virtual VertexArrayHandle CreateVertexArray(std::string_view debugName)
+		VertexArrayHandle CreateVertexArray(std::string_view debugName)
 		{
 			GLuint vaoId = 0;
 			glGenVertexArrays(1, &vaoId);
 			return VertexArrayHandle{ static_cast<std::uint32_t>(vaoId) };
 		}
 
-		virtual void SetVertexArrayLayout(VertexArrayHandle vao, BufferHandle vbo, std::span<const VertexAttributeDesc> attributes)
+		void SetVertexArrayLayout(VertexArrayHandle vao, BufferHandle vbo, std::span<const VertexAttributeDesc> attributes)
 		{
 			glBindVertexArray(static_cast<GLuint>(vao.id));
 			glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(vbo.id));
@@ -425,7 +436,7 @@ namespace rhi
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 		}
 
-		virtual void SetVertexArrayIndexBuffer(VertexArrayHandle vao, BufferHandle ibo, IndexType indexType)
+		void SetVertexArrayIndexBuffer(VertexArrayHandle vao, BufferHandle ibo, IndexType indexType)
 		{
 			glBindVertexArray(static_cast<GLuint>(vao.id));
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLuint>(ibo.id));
@@ -433,7 +444,7 @@ namespace rhi
 			glBindVertexArray(0);
 		}
 
-		virtual void DestroyVertexArray(VertexArrayHandle vao) noexcept
+		void DestroyVertexArray(VertexArrayHandle vao) noexcept
 		{
 			GLuint vaoId = static_cast<GLuint>(vao.id);
 			if (vaoId != 0)
@@ -443,7 +454,7 @@ namespace rhi
 			}
 		}
 
-		virtual ShaderHandle CreateShader(std::string_view debugName, std::string_view sourceOrBytecode)
+		ShaderHandle CreateShader(std::string_view debugName, std::string_view sourceOrBytecode)
 		{
 			const GLenum shaderType = GuessShaderType(debugName);
 			GLuint shaderId = glCreateShader(shaderType);
@@ -458,11 +469,11 @@ namespace rhi
 			glShaderSource(shaderId, 1, &sourceCStr, &length);
 			glCompileShader(shaderId);
 
-			ThrowIfProgramLinkFailed(shaderId, debugName);
+			RHI_GL_UTILS::ThrowIfShaderCompilationFailed(shaderId, debugName);
 			return ShaderHandle{ static_cast<std::uint32_t>(shaderId) };
 		}
 
-		virtual void DestroyShader(ShaderHandle shader) noexcept
+		void DestroyShader(ShaderHandle shader) noexcept
 		{
 			GLuint shaderId = static_cast<GLuint>(shader.id);
 			if (shaderId != 0)
@@ -471,7 +482,7 @@ namespace rhi
 			}
 		}
 
-		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader)
+		PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader)
 		{
 			GLuint programId = glCreateProgram();
 			if (programId == 0)
@@ -483,7 +494,7 @@ namespace rhi
 			glAttachShader(programId, static_cast<GLuint>(pixelShader.id));
 			glLinkProgram(programId);
 
-			ThrowIfProgramLinkFailed(programId, debugName);
+			RHI_GL_UTILS::ThrowIfProgramLinkFailed(programId, debugName);
 
 			glDetachShader(programId, static_cast<GLuint>(vertexShader.id));
 			glDetachShader(programId, static_cast<GLuint>(pixelShader.id));
@@ -491,7 +502,7 @@ namespace rhi
 			return PipelineHandle{ static_cast<std::uint32_t>(programId) };
 		}
 
-		virtual void DestroyPipeline(PipelineHandle pso) noexcept
+		void DestroyPipeline(PipelineHandle pso) noexcept
 		{
 			GLuint programId = static_cast<GLuint>(pso.id);
 			if (programId != 0)
@@ -500,7 +511,7 @@ namespace rhi
 			}
 		}
 
-		virtual void SubmitCommandList(CommandList&& commandList)
+		void SubmitCommandList(CommandList&& commandList)
 		{
 			for (const auto& command : commandList.commands)
 			{
@@ -508,7 +519,7 @@ namespace rhi
 			}
 		}
 
-		virtual TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) 
+		TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) 
 		{
 			if (!freeTextureDescIndices_.empty())
 			{
@@ -524,7 +535,7 @@ namespace rhi
 			return index;	
 		}
 
-		virtual void UpdateTextureDescriptor(TextureDescIndex index, TextureHandle texture) 
+		void UpdateTextureDescriptor(TextureDescIndex index, TextureHandle texture) 
 		{
 			if (index == 0)
 			{
@@ -538,7 +549,7 @@ namespace rhi
 			textureDescriptions_[vecIndex] = texture;
 		}
 
-		virtual void FreeTextureDescriptor(TextureDescIndex index) noexcept
+		void FreeTextureDescriptor(TextureDescIndex index) noexcept
 		{
 			if (index == 0)
 			{
@@ -552,7 +563,7 @@ namespace rhi
 			}
 		}
 
-		virtual FenceHandle CreateFence(bool signaled = false)
+		FenceHandle CreateFence(bool signaled = false)
 		{
 			const std::uint32_t fenceId = ++nextFenceId_;
 			GLFence fence;
@@ -562,7 +573,7 @@ namespace rhi
 			return FenceHandle{ fenceId };
 		}
 
-		virtual void DestroyFence(FenceHandle fence) noexcept
+		void DestroyFence(FenceHandle fence) noexcept
 		{
 			if (auto it = fences_.find(fence.id); it != fences_.end())
 			{
@@ -574,7 +585,7 @@ namespace rhi
 			}
 		}
 
-		virtual void SignalFence(FenceHandle fence)
+		void SignalFence(FenceHandle fence)
 		{
 			auto it = fences_.find(fence.id);
 			if (it == fences_.end())
@@ -589,7 +600,7 @@ namespace rhi
 			it->second.signaled = false;
 		}
 
-		virtual void WaitFence(FenceHandle fence)
+		void WaitFence(FenceHandle fence)
 		{
 			auto it = fences_.find(fence.id);
 			if (it == fences_.end())
@@ -618,7 +629,7 @@ namespace rhi
 			it->second.signaled = true;
 		}
 
-		virtual bool IsFenceSignaled(FenceHandle fence)
+		bool IsFenceSignaled(FenceHandle fence)
 		{
 			auto it = fences_.find(fence.id);
 			if (it == fences_.end())

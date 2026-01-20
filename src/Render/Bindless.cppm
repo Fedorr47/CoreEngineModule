@@ -9,7 +9,7 @@ import :rhi;
 // Higher level code should prefer descriptor indices instead of API-specific handles.
 // This keeps the renderer portable across different RHI backends (OpenGL/Vulkan/DX12).
 
-export namespace render
+export namespace rendern
 {
 	class BindlessTable
 	{

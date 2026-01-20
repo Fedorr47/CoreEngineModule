@@ -7,7 +7,7 @@ export module core:sync;
 
 import :rhi;
 
-export namespace render
+export namespace rendern
 {
 	struct FrameSyncDesc
 	{

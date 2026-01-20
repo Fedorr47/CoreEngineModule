@@ -8,7 +8,7 @@ export module core:scene_bridge;
 
 import :rhi;
 
-export namespace render
+export namespace rendern
 {
 	struct float4x4
 	{
