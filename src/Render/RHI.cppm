@@ -340,7 +340,7 @@ export namespace rhi
 		virtual ShaderHandle CreateShader(std::string_view debugName, std::string_view sourceOrBytecode) = 0;
 		virtual void DestroyShader(ShaderHandle shader) noexcept = 0;
 
-		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle fragmentShader) = 0;
+		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) = 0;
 		virtual void DestroyPipeline(PipelineHandle pso) noexcept = 0;
 
 		// Submission
