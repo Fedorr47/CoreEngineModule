@@ -133,28 +133,17 @@ export namespace rendern
 
 			device_.SetVertexArrayLayout(vao_, vbo_, attributes);
 
-			const std::string vertexShaderSource =
-				"#version 330 core\n"
-				"layout(location=0) in vec2 aPos;\n"
-				"layout(location=1) in vec2 aUV;\n"
-				"out vec2 vUV;\n"
-				"void main(){ vUV=aUV; gl_Position=vec4(aPos,0.0,1.0);}\n";
-
-			const std::string pixelShaderSource = 
-				"#version 330 core\n"
-				"in vec2 vUV;\n"
-				"out vec4 oColor;\n"
-				"uniform sampler2D uTex;\n"
-				"uniform int uUseTex;\n"
-				"uniform vec4 uColor;\n"
-				"void main(){\n"
-				"  vec4 c = uColor;\n"
-				"  if(uUseTex!=0) c = texture(uTex, vUV);\n"
-				"  oColor = c;\n"
-				"}\n";
-
-			const auto vertexShader = shaderLibrary_.GetOrCreateShader(ShaderKey{ "VS_FullScreen", {} }, vertexShaderSource);
-			const auto pixelShader = shaderLibrary_.GetOrCreateShader(ShaderKey{ "PS_FullScreen", {} }, pixelShaderSource);
+			const auto vertexShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_FullScreen",
+				.filePath = "assets/shaders/FullScreen.vert",
+				.defines = {}
+				});
+			const auto pixelShader = shaderLibrary_.GetOrCreateShader(ShaderKey{ 
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_FullScreen",
+				.filePath = "assets/shaders/FullScreen.frag",
+				.defines = {} });
 			pso_ = psoCache_.GetOrCreate("PSO_FullScreen", vertexShader, pixelShader);
 
 			state_.depth.testEnable = false;

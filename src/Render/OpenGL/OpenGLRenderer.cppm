@@ -10,6 +10,7 @@ import :rhi;
 import :rhi_gl;
 import :scene_bridge;
 import :resource_manager_core;
+import :shader_files;
 
 export namespace RHI_GL_UTILS
 {
@@ -83,26 +84,16 @@ export namespace rendern
 				-1.0f,  3.0f,  0.0f, 2.0f
 			};
 
-			static constexpr std::string_view vertexShaderSrc =
-				"#version 450 core\n"
-				"layout(location=0) in vec2 aPos;\n"
-				"layout(location=1) in vec2 aUV;\n"
-				"out vec2 vUV;\n"
-				"void main(){ vUV = aUV; gl_Position = vec4(aPos, 0.0, 1.0); }\n";
+			static constexpr const char* kVS = "assets/shaders/FullScreen.vert";
+			static constexpr const char* kFS = "assets/shaders/FullScreen.frag";
 
-			static constexpr std::string_view pixelShaderSrc =
-				"#version 450 core\n"
-				"in vec2 vUV;\n"
-				"layout(location=0) out vec4 oColor;\n"
-				"uniform sampler2D uTex;\n"
-				"uniform vec4 uFallbackColor;\n"
-				"uniform int uHasTex;\n"
-				"void main(){\n"
-				"  if (uHasTex != 0) oColor = texture(uTex, vUV);\n"
-				"  else oColor = uFallbackColor;\n"
-				"}\n";
+			const auto vsFile = rendern::LoadGLSLWithIncludes(kVS);
+			const auto fsFile = rendern::LoadGLSLWithIncludes(kFS);
 
-			program_ = RHI_GL_UTILS::CompileProgram(vertexShaderSrc, pixelShaderSrc);
+			const std::string vsSrc = vsFile.text;
+			const std::string fsSrc = fsFile.text;
+
+			program_ = RHI_GL_UTILS::CompileProgram(vsSrc, fsSrc);
 
 			glGenVertexArrays(1, &vao_);
 			glGenBuffers(1, &vbo_);

@@ -154,6 +154,7 @@ target_sources(CoreEngineModuleLib
         src/Render/SceneBridge.cppm
         src/Render/ShaderSystem.cppm
         src/Render/Sync.cppm
+        src/Render/ShaderFiles.cppm
 
         src/Render/OpenGL/OpenGLRHI.cppm
         src/Render/OpenGL/OpenGLCore.cppm
@@ -188,6 +189,11 @@ target_compile_definitions(CoreEngineModuleLib
 # App
 # ------------------------------------------------------------
 add_executable(app src/main.cpp)
+add_custom_command(TARGET app POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${CMAKE_SOURCE_DIR}/assets"
+          "$<TARGET_FILE_DIR:app>/assets"
+)
 target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)
 

@@ -11,6 +11,7 @@ export module core:render_core;
 
 import :resource_manager;
 import :rhi;
+import :shader_files;
 
 export namespace rendern
 {
@@ -21,12 +22,18 @@ export namespace rendern
 
 	struct ShaderKey
 	{
+		rhi::ShaderStage stage{ rhi::ShaderStage::Vertex };
 		std::string name;
+		std::string filePath;
 		std::vector<std::string> defines;
 
 		friend bool operator==(const ShaderKey& lhs, const ShaderKey& rhs)
 		{
-			return lhs.name == rhs.name && lhs.defines == rhs.defines;
+			return 
+				lhs.stage == rhs.stage
+				&& lhs.name == rhs.name
+				&& lhs.filePath == rhs.filePath
+				&& lhs.defines == rhs.defines;
 		}
 	};
 
@@ -49,7 +56,7 @@ export namespace rendern
 	public:
 		explicit ShaderLibrary(rhi::IRHIDevice& device) : device_(device) {}
 
-		rhi::ShaderHandle GetOrCreateShader(const ShaderKey& key, std::string_view sourceOrBytecode)
+		rhi::ShaderHandle GetOrCreateShader(const ShaderKey& key)
 		{
 			
 			if (auto it = shaderCache_.find(key); it != shaderCache_.end())
@@ -57,7 +64,8 @@ export namespace rendern
 				return it->second;
 			}
 
-			rhi::ShaderHandle shader = device_.CreateShader(key.name, sourceOrBytecode);
+			const auto textSource = LoadTextFile(std::filesystem::path(key.filePath));
+			rhi::ShaderHandle shader = device_.CreateShader(key.stage, key.name, textSource.text);
 			shaderCache_.emplace(key, shader);
 			return shader;
 		}

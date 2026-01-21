@@ -69,6 +69,14 @@ export namespace rhi
 		Clockwise
 	};
 
+	enum class ShaderStage : std::uint8_t
+	{
+		Vertex,
+		Pixel, // Fragment
+		Geometry,
+		Compute
+	};
+
 	struct BufferHandle
 	{
 		std::uint32_t id{};
@@ -337,7 +345,7 @@ export namespace rhi
 		virtual void DestroyVertexArray(VertexArrayHandle vao) noexcept = 0;
 
 		// Shaders and Pipelines
-		virtual ShaderHandle CreateShader(std::string_view debugName, std::string_view sourceOrBytecode) = 0;
+		virtual ShaderHandle CreateShader(ShaderStage stage, std::string_view debugName, std::string_view sourceOrBytecode) = 0;
 		virtual void DestroyShader(ShaderHandle shader) noexcept = 0;
 
 		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) = 0;
@@ -428,7 +436,7 @@ namespace rhi
 		void SetVertexArrayIndexBuffer(VertexArrayHandle, BufferHandle, IndexType) override {}
 		void DestroyVertexArray(VertexArrayHandle) noexcept override {}
 
-		ShaderHandle CreateShader(std::string_view, std::string_view) override
+		ShaderHandle CreateShader(ShaderStage stage, std::string_view, std::string_view) override
 		{
 			ShaderHandle handle{};
 			handle.id = ++nextId_;

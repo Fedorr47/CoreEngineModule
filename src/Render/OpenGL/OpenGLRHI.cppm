@@ -188,21 +188,6 @@ namespace
 		return (indexType == rhi::IndexType::UINT32) ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
 	}
 
-	static GLenum GuessShaderType(std::string_view debugName)
-	{
-		if (debugName.starts_with("VS") || debugName.starts_with("VS_"))
-		{
-			return GL_VERTEX_SHADER;
-		}
-		if (debugName.starts_with("PS") || debugName.starts_with("PS_") ||
-			debugName.starts_with("FS") || debugName.starts_with("FS_"))
-		{
-			return GL_FRAGMENT_SHADER;
-		}
-
-		return GL_FRAGMENT_SHADER;
-	}
-
 	static std::string EnsureGLSLVersion(std::string_view source)
 	{
 		const std::string versionDirective = "#version";
@@ -216,6 +201,23 @@ namespace
 			return defaultVersion + std::string(source);
 		}
 	}	
+
+	static GLenum ToGLShaderStage(rhi::ShaderStage stage)
+	{
+		switch (stage)
+		{
+		case rhi::ShaderStage::Vertex:
+			return GL_VERTEX_SHADER;
+		case rhi::ShaderStage::Pixel:
+			return GL_FRAGMENT_SHADER;
+		case rhi::ShaderStage::Geometry:
+			return GL_GEOMETRY_SHADER;
+		case rhi::ShaderStage::Compute:
+			return GL_COMPUTE_SHADER;
+		default:
+			return GL_FRAGMENT_SHADER;
+		}
+	}
 }
 
 namespace rhi
@@ -453,9 +455,12 @@ namespace rhi
 			}
 		}
 
-		ShaderHandle CreateShader(std::string_view debugName, std::string_view sourceOrBytecode)
+		ShaderHandle CreateShader(
+			ShaderStage stage,
+			std::string_view debugName, 
+			std::string_view sourceOrBytecode)
 		{
-			const GLenum shaderType = GuessShaderType(debugName);
+			const GLenum shaderType = ToGLShaderStage(stage);
 			GLuint shaderId = glCreateShader(shaderType);
 			if (shaderId == 0)
 			{

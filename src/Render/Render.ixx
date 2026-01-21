@@ -13,6 +13,7 @@ export import :sync;
 export import :rhi_gl;
 export import :render_core_gl;
 export import :renderer_gl;
+export import :shader_files;
 
 //export import :rhi_gl;
 //export import :render_core_gl;
