@@ -1,11 +1,21 @@
 module;
 
 #include <GL/glew.h>
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
 #include <functional>
-#include <string>
-#include <stdexcept>
 #include <memory>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <variant>
+#include <vector>
 
 export module core:rhi_gl;
 
@@ -16,13 +26,8 @@ export namespace rhi
 	// This keeps the GL backend independent from a specific windowing library (GLFW/SDL/etc.).
 	struct GLSwapChainHooks
 	{
-		// Called by presenting the swap chain.
 		std::function<void()> present;
-
-		// Optional: query the drawable extent (e.g. window size).
 		std::function<Extent2D()> getDrawableExtent;
-
-		// Optional: set swap interval (vsync). Use this if your window library supports it.
 		std::function<void(bool)> setVsync;
 	};
 
@@ -43,7 +48,7 @@ export namespace rhi
 
 export namespace RHI_GL_UTILS
 {
-	void ThrowIfShaderCompilationFailed(GLuint shader, std::string_view debugName)
+	inline void ThrowIfShaderCompilationFailed(GLuint shader, std::string_view debugName)
 	{
 		GLint success = 0;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -61,7 +66,7 @@ export namespace RHI_GL_UTILS
 		}
 	}
 
-	void ThrowIfProgramLinkFailed(GLuint program, std::string_view debugName)
+	inline void ThrowIfProgramLinkFailed(GLuint program, std::string_view debugName)
 	{
 		GLint success = 0;
 		glGetProgramiv(program, GL_LINK_STATUS, &success);
@@ -82,6 +87,25 @@ export namespace RHI_GL_UTILS
 
 namespace
 {
+	static std::uint32_t DefaultLocation(rhi::VertexSemantic sem, std::uint8_t semIndex) noexcept
+	{
+		switch (sem)
+		{
+		case rhi::VertexSemantic::Position:
+			return 0;
+		case rhi::VertexSemantic::Normal:
+			return 1;
+		case rhi::VertexSemantic::TexCoord:
+			return 2 + static_cast<std::uint32_t>(semIndex) * 4u;
+		case rhi::VertexSemantic::Color:
+			return 3;
+		case rhi::VertexSemantic::Tangent:
+			return 4;
+		default:
+			return 0;
+		}
+	}
+
 	static GLenum ToGLInternalFormat(rhi::Format format)
 	{
 		switch (format)
@@ -89,7 +113,7 @@ namespace
 		case rhi::Format::RGBA8_UNORM:
 			return GL_RGBA8;
 		case rhi::Format::BGRA8_UNORM:
-			return GL_RGBA8; // OpenGL does not have BGRA8 internal format, use RGBA8 instead.
+			return GL_RGBA8;
 		case rhi::Format::D32_FLOAT:
 			return GL_DEPTH_COMPONENT32F;
 		default:
@@ -111,11 +135,14 @@ namespace
 			return GL_RGBA;
 		}
 	}
-	
+
 	static GLenum ToGLType(rhi::Format format)
 	{
 		switch (format)
 		{
+		case rhi::Format::RGBA8_UNORM:
+		case rhi::Format::BGRA8_UNORM:
+			return GL_UNSIGNED_BYTE;
 		case rhi::Format::D32_FLOAT:
 			return GL_FLOAT;
 		default:
@@ -127,13 +154,25 @@ namespace
 	{
 		switch (op)
 		{
-		
+		case rhi::CompareOp::Never:
+			return GL_NEVER;
 		case rhi::CompareOp::Less:
 			return GL_LESS;
+		case rhi::CompareOp::Equal:
+			return GL_EQUAL;
 		case rhi::CompareOp::LessEqual:
 			return GL_LEQUAL;
-		default:
+		case rhi::CompareOp::Greater:
+			return GL_GREATER;
+		case rhi::CompareOp::NotEqual:
+			return GL_NOTEQUAL;
+		case rhi::CompareOp::GreaterEqual:
+			return GL_GEQUAL;
+		case rhi::CompareOp::Always:
 			return GL_ALWAYS;
+		default:
+
+			return GL_LEQUAL;
 		}
 	}
 
@@ -141,7 +180,7 @@ namespace
 	{
 		switch (mode)
 		{
-		
+
 		case rhi::CullMode::Front:
 			return GL_FRONT;
 		case rhi::CullMode::Back:
@@ -156,51 +195,92 @@ namespace
 		return (face == rhi::FrontFace::Clockwise) ? GL_CW : GL_CCW;
 	}
 
-	static GLenum ToGLBufferTarget(rhi::BufferBindFlag bindFlag)
+	static GLenum BufferTargetFor(rhi::BufferBindFlag bindFlag)
 	{
 		switch (bindFlag)
 		{
-		case rhi::BufferBindFlag::IndexBuffer:
+		case rhi::BufferBindFlag::VertexBuffer:    
+			return GL_ARRAY_BUFFER;
+		case rhi::BufferBindFlag::IndexBuffer:     
 			return GL_ELEMENT_ARRAY_BUFFER;
-		case rhi::BufferBindFlag::ConstantBuffer: [[fallthrough]];
-		case rhi::BufferBindFlag::UniformBuffer:
+		case rhi::BufferBindFlag::ConstantBuffer:  
 			return GL_UNIFORM_BUFFER;
-		default:
+		case rhi::BufferBindFlag::UniformBuffer:   
+			return GL_UNIFORM_BUFFER;
+		case rhi::BufferBindFlag::StructuredBuffer:
+			return GL_SHADER_STORAGE_BUFFER;
+		default:                                   
 			return GL_ARRAY_BUFFER;
 		}
 	}
 
-	static GLenum ToGLUsage(rhi::BufferUsageFlag usageFlag)
+	static GLenum BufferUsageFor(rhi::BufferUsageFlag usage)
 	{
-		switch (usageFlag)
+		switch (usage)
 		{
 		case rhi::BufferUsageFlag::Static:
 			return GL_STATIC_DRAW;
+		case rhi::BufferUsageFlag::Dynamic:
+			return GL_DYNAMIC_DRAW;
 		case rhi::BufferUsageFlag::Stream:
 			return GL_STREAM_DRAW;
 		default:
-			return GL_DYNAMIC_DRAW;
+			return GL_STATIC_DRAW;
 		}
 	}
 
-	static GLenum ToGLIndexType(rhi::IndexType indexType)
+	static GLenum ToGLIndexType(rhi::IndexType t)
 	{
-		return (indexType == rhi::IndexType::UINT32) ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
+		return (t == rhi::IndexType::UINT16) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+	}
+
+	static std::uint32_t IndexSizeBytes(rhi::IndexType t)
+	{
+		return (t == rhi::IndexType::UINT16) ? 2u : 4u;
 	}
 
 	static std::string EnsureGLSLVersion(std::string_view source)
 	{
-		const std::string versionDirective = "#version";
-		if (source.find(versionDirective) != std::string::npos)
+		constexpr std::string_view kVersion = "#version";
+		std::string_view vSource = source;
+		while (!vSource.empty() && (
+			vSource.front() == ' '
+			|| vSource.front() == '\t'
+			|| vSource.front() == '\r'
+			|| vSource.front() == '\n')
+			)
+		{
+			vSource.remove_prefix(1);
+		}
+
+		if (vSource.rfind(kVersion, 0) == 0)
 		{
 			return std::string(source);
 		}
-		else
-		{
-			const std::string defaultVersion = "#version 330 core\n";
-			return defaultVersion + std::string(source);
-		}
-	}	
+
+		std::string outStr;
+		outStr.reserve(source.size() + 32);
+		outStr += "#version 330 core\n";
+		outStr += source;
+		return outStr;
+	}
+
+	struct GLAttrib
+	{
+		GLuint location{};
+		GLint componentCount{};
+		GLenum type{};
+		GLboolean normalized{};
+		GLuint offsetBytes{};
+		std::uint32_t inputSlot{};
+	};
+
+	struct GLInputLayout
+	{
+		std::uint32_t strideBytes{};
+		std::vector<GLAttrib> attribs;
+		std::string debugName;
+	};
 
 	static GLenum ToGLShaderStage(rhi::ShaderStage stage)
 	{
@@ -218,6 +298,88 @@ namespace
 			return GL_FRAGMENT_SHADER;
 		}
 	}
+
+	static void VertexFormatToGL(rhi::VertexFormat format, GLint& outComponents, GLenum& outType)
+	{
+		switch (format)
+		{
+		case rhi::VertexFormat::R32G32B32_FLOAT:    
+			outComponents = 3; 
+			outType = GL_FLOAT; 
+			break;
+		case rhi::VertexFormat::R32G32_FLOAT:       
+			outComponents = 2; 
+			outType = GL_FLOAT; 
+			break;
+		case rhi::VertexFormat::R32G32B32A32_FLOAT: 
+			outComponents = 4; 
+			outType = GL_FLOAT; 
+			break;
+		case rhi::VertexFormat::R8G8B8A8_UNORM:     
+			outComponents = 4; 
+			outType = GL_UNSIGNED_BYTE; 
+			break;
+		default:                                    
+			outComponents = 4; 
+			outType = GL_FLOAT; 
+			break;
+		}
+	}
+
+	struct VaoKey
+	{
+		std::uint32_t layoutId{};
+		std::uint32_t vbId{};
+		std::uint32_t vbOffset{};
+		std::uint32_t vbStride{};
+		std::uint32_t ibId{};
+		std::uint32_t ibOffset{};
+		rhi::IndexType indexType{ rhi::IndexType::UINT16 };
+
+		friend bool operator==(const VaoKey& a, const VaoKey& b) noexcept
+		{
+			return a.layoutId == b.layoutId
+				&& a.vbId == b.vbId
+				&& a.vbOffset == b.vbOffset
+				&& a.vbStride == b.vbStride
+				&& a.ibId == b.ibId
+				&& a.ibOffset == b.ibOffset
+				&& a.indexType == b.indexType;
+		}
+	};
+
+	struct VaoKeyHash
+	{
+		std::size_t operator()(const VaoKey& key) const noexcept
+		{
+			std::size_t hash = 1469598103934665603ull;
+			auto mix = [&](std::uint64_t val)
+				{
+					hash ^= static_cast<std::size_t>(val) + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2);
+				};
+			mix(key.layoutId);
+			mix(key.vbId);
+			mix(key.vbOffset);
+			mix(key.vbStride);
+			mix(key.ibId);
+			mix(key.ibOffset);
+			mix(static_cast<std::uint32_t>(key.indexType));
+			return hash;
+		}
+	};
+
+	struct GLFence
+	{
+		GLsync sync{ nullptr };
+		bool signaled{ false };
+	};
+
+	struct VertexBufferState
+	{
+		rhi::BufferHandle buffer{};
+		std::uint32_t strideBytes{ 0 };
+		std::uint32_t offsetBytes{ 0 };
+	};
 }
 
 namespace rhi
@@ -235,7 +397,7 @@ namespace rhi
 		}
 		~GLSwapChain() override = default;
 
-		rhi::SwapChainDesc GetDesc() const override
+		SwapChainDesc GetDesc() const override
 		{
 			SwapChainDesc outDesc = desc_.base;
 			if (desc_.hooks.getDrawableExtent)
@@ -245,9 +407,9 @@ namespace rhi
 			return outDesc;
 		}
 
-		FramebufferHandle GetCurrentBackBuffer() const override
+		FrameBufferHandle GetCurrentBackBuffer() const override
 		{
-			return FramebufferHandle{ 0 };
+			return FrameBufferHandle{ 0 };
 		}
 
 		void Present() override
@@ -265,7 +427,7 @@ namespace rhi
 	private:
 		GLSwapChainDesc desc_{};
 	};
-	
+
 	class GLDevice final : public IRHIDevice
 	{
 	public:
@@ -275,7 +437,7 @@ namespace rhi
 			const GLubyte* vendor = glGetString(GL_VENDOR);
 			const GLubyte* renderer = glGetString(GL_RENDERER);
 			const GLubyte* version = glGetString(GL_VERSION);
-			
+
 			name_.reserve(256);
 			name_ += "OpenGL";
 			if (vendor)
@@ -295,19 +457,42 @@ namespace rhi
 			}
 		}
 
+		~GLDevice()
+		{
+			InvalidateVaoCache();
+
+			for (auto& [_, fence] : fences_)
+			{
+				if (fence.sync)
+				{
+					glDeleteSync(fence.sync);
+				}
+			}
+			fences_.clear();
+		}
+
 		std::string_view GetName() const override
 		{
 			return name_;
 		}
 
+		// ---------------- Textures ----------------
 		TextureHandle CreateTexture2D(Extent2D extent, Format format) override
 		{
 			GLuint textureId = 0;
 			glGenTextures(1, &textureId);
 			glBindTexture(GL_TEXTURE_2D, textureId);
 
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			if (format == rhi::Format::D32_FLOAT)
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			}
+			else
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -315,8 +500,16 @@ namespace rhi
 			const GLenum baseFormat = ToGLBaseFormat(format);
 			const GLenum type = ToGLType(format);
 
-			glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFormat), static_cast<GLsizei>(extent.width),
-				static_cast<GLsizei>(extent.height), 0, baseFormat, type, nullptr);
+			glTexImage2D(
+				GL_TEXTURE_2D
+				, 0
+				, static_cast<GLint>(internalFormat)
+				, static_cast<GLsizei>(extent.width)
+				, static_cast<GLsizei>(extent.height)
+				, 0
+				, baseFormat
+				, type
+				, nullptr);
 
 			glBindTexture(GL_TEXTURE_2D, 0);
 			return TextureHandle{ static_cast<std::uint32_t>(textureId) };
@@ -331,7 +524,8 @@ namespace rhi
 			}
 		}
 
-		FramebufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) override
+		// ---------------- Framebuffers ----------------
+		FrameBufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) override
 		{
 			GLuint framebufferId = 0;
 			glGenFramebuffers(1, &framebufferId);
@@ -356,16 +550,17 @@ namespace rhi
 
 			const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 			if (status != GL_FRAMEBUFFER_COMPLETE)
 			{
 				glDeleteFramebuffers(1, &framebufferId);
 				throw std::runtime_error("Failed to create framebuffer: incomplete framebuffer");
 			}
 
-			return FramebufferHandle{ static_cast<std::uint32_t>(framebufferId) };
+			return FrameBufferHandle{ static_cast<std::uint32_t>(framebufferId) };
 		}
 
-		void DestroyFramebuffer(FramebufferHandle framebuffer) noexcept override
+		void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 		{
 			GLuint framebufferId = static_cast<GLuint>(framebuffer.id);
 			if (framebufferId != 0)
@@ -374,33 +569,38 @@ namespace rhi
 			}
 		}
 
-		BufferHandle CreateBuffer(const BufferDesc& desc)
+		// ---------------- Buffers ----------------
+		BufferHandle CreateBuffer(const BufferDesc& desc) override
 		{
 			GLuint bufferId = 0;
 			glGenBuffers(1, &bufferId);
-			const GLenum target = ToGLBufferTarget(desc.bindFlag);
+
+			const GLenum target = BufferTargetFor(desc.bindFlag);
+			bufferTargets_[bufferId] = target;
+
 			glBindBuffer(target, bufferId);
-			glBufferData(target, static_cast<GLsizeiptr>(desc.sizeInBytes),nullptr, ToGLUsage(desc.usageFlag));
+			glBufferData(target, static_cast<GLsizeiptr>(desc.sizeInBytes), nullptr, BufferUsageFor(desc.usageFlag));
 			glBindBuffer(target, 0);
 
-			bufferTargets_.emplace(bufferId, target);
+			InvalidateVaoCache();
 			return BufferHandle{ static_cast<std::uint32_t>(bufferId) };
 		}
 
-		void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes)
+		void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes) override
 		{
 			const GLuint bufferId = static_cast<GLuint>(buffer.id);
 			if (bufferId == 0 || data.empty())
 			{
 				return;
 			}
-			const GLenum target = BufferTargetFor(bufferId);
+
+			const GLenum target = BufferTargetForId(bufferId);
 			glBindBuffer(target, bufferId);
 			glBufferSubData(target, static_cast<GLintptr>(offsetBytes), static_cast<GLsizeiptr>(data.size()), data.data());
 			glBindBuffer(target, 0);
 		}
 
-		void DestroyBuffer(BufferHandle buffer) noexcept
+		void DestroyBuffer(BufferHandle buffer) noexcept override
 		{
 			GLuint bufferId = static_cast<GLuint>(buffer.id);
 			if (bufferId != 0)
@@ -408,57 +608,68 @@ namespace rhi
 				glDeleteBuffers(1, &bufferId);
 				bufferTargets_.erase(bufferId);
 			}
+			InvalidateVaoCache();
 		}
-
-		VertexArrayHandle CreateVertexArray(std::string_view debugName)
+		
+		// ---------------- Input Layouts ----------------
+		InputLayoutHandle CreateInputLayout(const InputLayoutDesc& desc) override
 		{
-			GLuint vaoId = 0;
-			glGenVertexArrays(1, &vaoId);
-			return VertexArrayHandle{ static_cast<std::uint32_t>(vaoId) };
-		}
+			GLInputLayout glLayout{};
+			glLayout.strideBytes = desc.strideBytes;
+			glLayout.debugName = desc.debugName;
+			glLayout.attribs.reserve(desc.attributes.size());
 
-		void SetVertexArrayLayout(VertexArrayHandle vao, BufferHandle vbo, std::span<const VertexAttributeDesc> attributes)
-		{
-			glBindVertexArray(static_cast<GLuint>(vao.id));
-			glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(vbo.id));
-
-			for (auto attribute : attributes)
+			for (const auto& attribute : desc.attributes)
 			{
-				glEnableVertexAttribArray(static_cast<GLuint>(attribute.location));
-				glVertexAttribPointer(
-					static_cast<GLuint>(attribute.location),
-					static_cast<GLint>(attribute.componentCount),
-					static_cast<GLenum>(attribute.glType),
-					attribute.normalized ? GL_TRUE : GL_FALSE,
-					static_cast<GLsizei>(attribute.strideBytes),
-					reinterpret_cast<const void*>(static_cast<std::intptr_t>(attribute.offsetBytes)));
+				if (attribute.inputSlot != 0)
+				{
+					throw std::runtime_error("OpenGLRHI: multiple vertex input slots are not supported yet (inputSlot != 0).");
+				}
+
+				GLint comps = 0;
+				GLenum type = GL_FLOAT;
+				VertexFormatToGL(attribute.format, comps, type);
+
+				GLAttrib out{};
+				out.location = static_cast<GLuint>(DefaultLocation(attribute.semantic, attribute.semanticIndex));
+				out.componentCount = comps;
+				out.type = type;
+				out.normalized = (attribute.normalized ? GL_TRUE : GL_FALSE);
+				out.offsetBytes = static_cast<GLuint>(attribute.offsetBytes);
+				out.inputSlot = attribute.inputSlot;
+
+				glLayout.attribs.push_back(out);
 			}
-			glBindVertexArray(0);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			const std::uint32_t layoutId = static_cast<std::uint32_t>(inputLayouts_.size()) + 1u;
+			inputLayouts_.push_back(std::move(glLayout));
+
+			InvalidateVaoCache();
+			return rhi::InputLayoutHandle{ layoutId };
 		}
 
-		void SetVertexArrayIndexBuffer(VertexArrayHandle vao, BufferHandle ibo, IndexType indexType)
+		void DestroyInputLayout(InputLayoutHandle layout) noexcept override
 		{
-			glBindVertexArray(static_cast<GLuint>(vao.id));
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLuint>(ibo.id));
-			vaoIndexType_[static_cast<GLuint>(vao.id)] = indexType;
-			glBindVertexArray(0);
-		}
-
-		void DestroyVertexArray(VertexArrayHandle vao) noexcept
-		{
-			GLuint vaoId = static_cast<GLuint>(vao.id);
-			if (vaoId != 0)
+			const std::uint32_t layoutId = layout.id;
+			if (layoutId == 0)
 			{
-				glDeleteVertexArrays(1, &vaoId);
-				vaoIndexType_.erase(vaoId);
+				return;
 			}
+
+			const std::size_t idx = static_cast<std::size_t>(layoutId - 1);
+			if (idx < inputLayouts_.size())
+			{
+				inputLayouts_[idx] = GLInputLayout{};
+			}
+
+			InvalidateVaoCache();
 		}
 
+		// ---------------- Shaders / Pipeline ----------------
 		ShaderHandle CreateShader(
 			ShaderStage stage,
-			std::string_view debugName, 
-			std::string_view sourceOrBytecode)
+			std::string_view debugName,
+			std::string_view sourceOrBytecode) override
 		{
 			const GLenum shaderType = ToGLShaderStage(stage);
 			GLuint shaderId = glCreateShader(shaderType);
@@ -477,7 +688,7 @@ namespace rhi
 			return ShaderHandle{ static_cast<std::uint32_t>(shaderId) };
 		}
 
-		void DestroyShader(ShaderHandle shader) noexcept
+		void DestroyShader(ShaderHandle shader) noexcept override
 		{
 			GLuint shaderId = static_cast<GLuint>(shader.id);
 			if (shaderId != 0)
@@ -486,7 +697,7 @@ namespace rhi
 			}
 		}
 
-		PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader)
+		PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) override
 		{
 			GLuint programId = glCreateProgram();
 			if (programId == 0)
@@ -506,7 +717,7 @@ namespace rhi
 			return PipelineHandle{ static_cast<std::uint32_t>(programId) };
 		}
 
-		void DestroyPipeline(PipelineHandle pso) noexcept
+		void DestroyPipeline(PipelineHandle pso) noexcept override
 		{
 			GLuint programId = static_cast<GLuint>(pso.id);
 			if (programId != 0)
@@ -515,7 +726,8 @@ namespace rhi
 			}
 		}
 
-		void SubmitCommandList(CommandList&& commandList)
+		// ---------------- Command submission ----------------
+		void SubmitCommandList(CommandList&& commandList) override
 		{
 			for (const auto& command : commandList.commands)
 			{
@@ -523,7 +735,8 @@ namespace rhi
 			}
 		}
 
-		TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) 
+		// ---------------- Texture descriptors ----------------
+		TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) override
 		{
 			if (!freeTextureDescIndices_.empty())
 			{
@@ -536,10 +749,10 @@ namespace rhi
 
 			const TextureDescIndex index = static_cast<TextureDescIndex>(textureDescriptions_.size());
 			textureDescriptions_.push_back(texture);
-			return index;	
+			return index;
 		}
 
-		void UpdateTextureDescriptor(TextureDescIndex index, TextureHandle texture) 
+		void UpdateTextureDescriptor(TextureDescIndex index, TextureHandle texture) override
 		{
 			if (index == 0)
 			{
@@ -553,7 +766,7 @@ namespace rhi
 			textureDescriptions_[vecIndex] = texture;
 		}
 
-		void FreeTextureDescriptor(TextureDescIndex index) noexcept
+		void FreeTextureDescriptor(TextureDescIndex index) noexcept override
 		{
 			if (index == 0)
 			{
@@ -567,19 +780,32 @@ namespace rhi
 			}
 		}
 
-		FenceHandle CreateFence(bool signaled = false)
+		// ---------------- Fences ----------------
+		FenceHandle CreateFence(bool signaled = false) override
 		{
 			const std::uint32_t fenceId = ++nextFenceId_;
 			GLFence fence;
-			fence.sync = nullptr;
 			fence.signaled = signaled;
-			fences_.emplace(fenceId, fence);
+
+			if (!signaled)
+			{
+				fence.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+				glFlush();
+			}
+
+			fences_[fenceId] = fence;
 			return FenceHandle{ fenceId };
 		}
 
-		void DestroyFence(FenceHandle fence) noexcept
+		void DestroyFence(FenceHandle fence) noexcept override
 		{
-			if (auto it = fences_.find(fence.id); it != fences_.end())
+			const std::uint32_t fenceId = fence.id;
+			if (fenceId == 0)
+			{
+				return;
+			}
+
+			if (auto it = fences_.find(fenceId); it != fences_.end())
 			{
 				if (it->second.sync)
 				{
@@ -589,81 +815,89 @@ namespace rhi
 			}
 		}
 
-		void SignalFence(FenceHandle fence)
+		void SignalFence(FenceHandle fence) override
 		{
-			auto it = fences_.find(fence.id);
-			if (it == fences_.end())
+			GLFence* ptrFence = GetFence(fence);
+			if (!ptrFence)
 			{
 				return;
-			}if (it->second.sync)
-			{
-				glDeleteSync(it->second.sync);
-				it->second.sync = nullptr;
 			}
-			it->second.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-			it->second.signaled = false;
+
+			if (ptrFence->sync)
+			{
+				glDeleteSync(ptrFence->sync);
+			}
+
+			ptrFence->sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+			ptrFence->signaled = false;
+			glFlush();
 		}
 
-		void WaitFence(FenceHandle fence)
+		void WaitFence(FenceHandle fence) override
 		{
-			auto it = fences_.find(fence.id);
-			if (it == fences_.end())
+			GLFence* ptrFence = GetFence(fence);
+			if (!ptrFence)
 			{
 				return;
 			}
-			if (it->second.signaled)
+
+			if (ptrFence->signaled)
 			{
 				return;
 			}
-			if (!it->second.sync)
+
+			if (!ptrFence->sync)
 			{
+				ptrFence->signaled = true;
 				return;
 			}
 
 			while (true)
 			{
-				const GLenum result = glClientWaitSync(it->second.sync, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ULL);
-				if (result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED)
+				const GLenum res = glClientWaitSync(ptrFence->sync, GL_SYNC_FLUSH_COMMANDS_BIT, 1'000'000);
+				if (res == GL_ALREADY_SIGNALED || res == GL_CONDITION_SATISFIED)
 				{
 					break;
 				}
 			}
-			glDeleteSync(it->second.sync);
-			it->second.sync = nullptr;
-			it->second.signaled = true;
+
+			glDeleteSync(ptrFence->sync);
+			ptrFence->sync = nullptr;
+			ptrFence->signaled = true;
 		}
 
-		bool IsFenceSignaled(FenceHandle fence)
+		bool IsFenceSignaled(FenceHandle fence) override
 		{
-			auto it = fences_.find(fence.id);
-			if (it == fences_.end())
+			GLFence* ptrFence = GetFence(fence);
+			if (!ptrFence) 
 			{
 				return true;
-			}
-			if (it->second.signaled)
-			{
-				return true;
-			}
-			if (!it->second.sync)
-			{
-				return false;
 			}
 
-			const GLenum result = glClientWaitSync(it->second.sync, 0, 0);
-			if (result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED)
+			if (ptrFence->signaled)
 			{
-				glDeleteSync(it->second.sync);
-				it->second.sync = nullptr;
-				it->second.signaled = true;
+				return true;
+			}
+
+			if (!ptrFence->sync)
+			{
+				return true;
+			}
+
+			const GLenum res = glClientWaitSync(ptrFence->sync, 0, 0);
+			if (res == GL_ALREADY_SIGNALED || res == GL_CONDITION_SATISFIED)
+			{
+				glDeleteSync(ptrFence->sync);
+				ptrFence->sync = nullptr;
+				ptrFence->signaled = true;
 				return true;
 			}
 			return false;
 		}
 
 	private:
-		GLenum BufferTargetFor(GLuint bufferId)
+		GLenum BufferTargetForId(GLuint bufferId) const
 		{
-			
 			if (auto it = bufferTargets_.find(bufferId); it != bufferTargets_.end())
 			{
 				return it->second;
@@ -671,31 +905,146 @@ namespace rhi
 			return GL_ARRAY_BUFFER;
 		}
 
+		const GLInputLayout* GetLayout(rhi::InputLayoutHandle handle) const
+		{
+			const std::size_t idx = static_cast<std::size_t>(handle.id - 1);
+			if (handle.id == 0 || idx >= inputLayouts_.size())
+			{
+				return nullptr;
+			}
+			if (inputLayouts_[idx].strideBytes == 0 && inputLayouts_[idx].attribs.empty())
+			{
+				return nullptr;
+			}
+			return &inputLayouts_[idx];
+		}
+
 		TextureHandle ResolveTextureDesc(TextureDescIndex index)
 		{
-			if (index == 0 || index >= textureDescriptions_.size())
+			const std::size_t idx = static_cast<std::size_t>(index);
+			if (index == 0 || idx >= textureDescriptions_.size())
 			{
 				return TextureHandle{};
 			}
-			return textureDescriptions_[index];
+			return textureDescriptions_[idx];
 		}
 
+		GLFence* GetFence(rhi::FenceHandle handle)
+		{
+			if (handle.id == 0)
+			{
+				return nullptr;
+			}
+			if (auto it = fences_.find(handle.id); it != fences_.end())
+			{
+				return &it->second;
+			}
+			return nullptr;
+		}
+
+		void InvalidateVaoCache()
+		{
+			for (auto& [_, vao] : vaoCache_)
+			{
+				if (vao != 0)
+				{
+					glDeleteVertexArrays(1, &vao);
+				}
+			}
+			vaoCache_.clear();
+			boundVao_ = 0;
+		}
+
+		GLuint GetOrCreateVAO(bool requireIndexBuffer)
+		{
+			// Currently: support only slot 0.
+			if (currentLayout_.id == 0)
+			{
+				throw std::runtime_error("OpenGLRHI: Draw called without InputLayout bound.");
+			}
+			if (vertexBuffer_[0].buffer.id == 0)
+			{
+				throw std::runtime_error("OpenGLRHI: Draw called without VertexBuffer bound.");
+			}
+			if (requireIndexBuffer && indexBuffer_.buffer.id == 0)
+			{
+				throw std::runtime_error("OpenGLRHI: DrawIndexed called without IndexBuffer bound.");
+			}
+
+			const GLInputLayout* layout = GetLayout(currentLayout_);
+			if (!layout)
+			{
+				throw std::runtime_error("OpenGLRHI: invalid InputLayout handle.");
+			}
+
+			const GLuint vbId = static_cast<GLuint>(vertexBuffer_[0].buffer.id);
+			const GLuint ibId = static_cast<GLuint>(indexBuffer_.buffer.id);
+
+			VaoKey key{};
+			key.layoutId = currentLayout_.id;
+			key.vbId = vbId;
+			key.vbOffset = vertexBuffer_[0].offsetBytes;
+			key.vbStride = (vertexBuffer_[0].strideBytes != 0) ? vertexBuffer_[0].strideBytes : layout->strideBytes;
+			key.ibId = requireIndexBuffer ? ibId : 0u;
+			key.ibOffset = requireIndexBuffer ? indexBuffer_.offsetBytes : 0u;
+			key.indexType = indexBuffer_.indexType;
+
+			if (auto it = vaoCache_.find(key); it != vaoCache_.end())
+			{
+				return it->second;
+			}
+
+			GLuint vao = 0;
+			glGenVertexArrays(1, &vao);
+			glBindVertexArray(vao);
+
+			glBindBuffer(GL_ARRAY_BUFFER, vbId);
+			if (requireIndexBuffer)
+			{
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibId);
+			}
+
+			const GLsizei stride = static_cast<GLsizei>(key.vbStride);
+
+			for (const auto& attribute : layout->attribs)
+			{
+				const GLuint loc = attribute.location;
+				glEnableVertexAttribArray(loc);
+
+				const std::uintptr_t ptrOffset = static_cast<std::uintptr_t>(key.vbOffset) + static_cast<std::uintptr_t>(attribute.offsetBytes);
+				glVertexAttribPointer(
+					loc,
+					attribute.componentCount,
+					attribute.type,
+					attribute.normalized,
+					stride,
+					reinterpret_cast<const void*>(ptrOffset));
+			}
+
+			glBindVertexArray(0);
+
+			vaoCache_.emplace(key, vao);
+			return vao;
+		}
+
+		// -------- State / uniforms --------
 		void ApplyState(const GraphicsState& state)
 		{
 			// Depth state
 			if (state.depth.testEnable)
 			{
 				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(ToGLCompareOp(state.depth.depthCompareOp));
 			}
 			else
 			{
 				glDisable(GL_DEPTH_TEST);
 			}
-			glDepthMask(state.depth.writeEnable ? GL_TRUE : GL_FALSE);
 
-			// Rasterizer state
-			if (state.rasterizer.cullMode != CullMode::None)
+			glDepthMask(state.depth.writeEnable ? GL_TRUE : GL_FALSE);
+			glDepthFunc(ToGLCompareOp(state.depth.depthCompareOp));
+
+			// Raster
+			if (state.rasterizer.cullMode != rhi::CullMode::None)
 			{
 				glEnable(GL_CULL_FACE);
 				glCullFace(ToGLCullMode(state.rasterizer.cullMode));
@@ -706,7 +1055,7 @@ namespace rhi
 			}
 			glFrontFace(ToGLFrontFace(state.rasterizer.frontFace));
 
-			// Blend state
+			// Blend (simple)
 			if (state.blend.enable)
 			{
 				glEnable(GL_BLEND);
@@ -717,6 +1066,24 @@ namespace rhi
 			{
 				glDisable(GL_BLEND);
 			}
+		}
+
+		GLint GetUniformLocationCached(const std::string& name)
+		{
+			if (currentProgram_ == 0)
+			{
+				return -1;
+			}
+
+			auto& uCache = uniformLocationCache_[currentProgram_];
+			if (auto it = uCache.find(name); it != uCache.end())
+			{
+				return it->second;
+			}
+
+			GLint loc = glGetUniformLocation(currentProgram_, name.c_str());
+			uCache.emplace(name, loc);
+			return loc;
 		}
 
 		void SetUniformIntImpl(const std::string& name, int value)
@@ -742,6 +1109,19 @@ namespace rhi
 			if (location != -1)
 			{
 				glUniform4f(location, value[0], value[1], value[2], value[3]);
+			}
+		}
+
+		void SetUniformMat4Impl(const std::string& name, const std::array<float, 16>& value)
+		{
+			if (currentProgram_ == 0)
+			{
+				return;
+			}
+			GLint location = glGetUniformLocation(currentProgram_, name.c_str());
+			if (location != -1)
+			{
+				glUniformMatrix4fv(location, 1, GL_FALSE, value.data());
 			}
 		}
 
@@ -772,9 +1152,9 @@ namespace rhi
 			}
 		}
 
-		void ExecuteOnce(const CommandEndPass& /*cmd*/){}
+		void ExecuteOnce(const CommandEndPass& /*cmd*/) {}
 
-		void ExecuteOnce(const CommandSetVieport& cmd)
+		void ExecuteOnce(const CommandSetViewport& cmd)
 		{
 			glViewport(cmd.x, cmd.y, cmd.width, cmd.height);
 		}
@@ -794,9 +1174,27 @@ namespace rhi
 			}
 		}
 
-		void ExecuteOnce(const CommandVertexArray& cmd)
+		void ExecuteOnce(const rhi::CommandBindInputLayout& cmd)
 		{
-			glBindVertexArray(static_cast<GLuint>(cmd.vao.id));
+			currentLayout_ = cmd.layout;
+		}
+
+		void ExecuteOnce(const rhi::CommandBindVertexBuffer& cmd)
+		{
+			if (cmd.slot != 0)
+			{
+				throw std::runtime_error("OpenGLRHI: only vertex buffer slot 0 is supported right now.");
+			}
+			vertexBuffer_[0].buffer = cmd.buffer;
+			vertexBuffer_[0].strideBytes = cmd.strideBytes;
+			vertexBuffer_[0].offsetBytes = cmd.offsetBytes;
+		}
+
+		void ExecuteOnce(const rhi::CommandBindIndexBuffer& cmd)
+		{
+			indexBuffer_.buffer = cmd.buffer;
+			indexBuffer_.indexType = cmd.indexType;
+			indexBuffer_.offsetBytes = cmd.offsetBytes;
 		}
 
 		void ExecuteOnce(const CommnadBindTextue2D& cmd)
@@ -822,45 +1220,88 @@ namespace rhi
 			SetUniformFloat4Impl(cmd.name, cmd.value);
 		}
 
+		void ExecuteOnce(const CommandUniformMat4& cmd)
+		{
+			SetUniformMat4Impl(cmd.name, cmd.value);
+		}
+
 		void ExecuteOnce(const CommandDrawIndexed& cmd)
 		{
-			const GLenum indexType = ToGLIndexType(cmd.indexType);
-			const std::size_t elementSize = (indexType == GL_UNSIGNED_INT) ? sizeof(std::uint32_t) : sizeof(std::uint16_t);
-			const void* offsetPtr = reinterpret_cast<const void*>(static_cast<std::uintptr_t>(cmd.firstIndex * elementSize));
+			const GLuint vao = GetOrCreateVAO(true);
+			if (boundVao_ != vao)
+			{
+				glBindVertexArray(vao);
+				boundVao_ = vao;
+			}
 
-			glDrawElementsBaseVertex(
-				GL_TRIANGLES,
-				static_cast<GLsizei>(cmd.indexCount),
-				indexType,
-				offsetPtr,
-				static_cast<GLint>(cmd.baseVertex));
+			const GLenum indexType = ToGLIndexType(cmd.indexType);
+			const std::uintptr_t start = static_cast<std::uintptr_t>(indexBuffer_.offsetBytes)
+				+ static_cast<std::uintptr_t>(cmd.firstIndex) * static_cast<std::uintptr_t>(IndexSizeBytes(cmd.indexType));
+
+			if (cmd.baseVertex != 0)
+			{
+				glDrawElementsBaseVertex(
+					GL_TRIANGLES,
+					static_cast<GLsizei>(cmd.indexCount),
+					indexType,
+					reinterpret_cast<const void*>(start),
+					cmd.baseVertex);
+			}
+			else
+			{
+				glDrawElements(
+					GL_TRIANGLES,
+					static_cast<GLsizei>(cmd.indexCount),
+					indexType,
+					reinterpret_cast<const void*>(start));
+			}
 		}
 
 		void ExecuteOnce(const CommandDraw& cmd)
 		{
+			const GLuint vao = GetOrCreateVAO(false);
+			if (boundVao_ != vao)
+			{
+				glBindVertexArray(vao);
+				boundVao_ = vao;
+			}
+
 			glDrawArrays(GL_TRIANGLES, static_cast<GLint>(cmd.firstVertex), static_cast<GLsizei>(cmd.vertexCount));
 		}
-
-		//---------------------- End of an executeOnce section -------------------------------//
 
 		//---------------------------------------------------------------------//
 		GLDeviceDesc desc_{};
 		std::string name_;
 
-		struct GLFence
-		{
-			GLsync sync{ nullptr };
-			bool signaled{ true };
-		};
-
+		// Buffer targets: buffer id -> GL target
 		std::unordered_map<GLuint, GLenum> bufferTargets_{};
-		std::unordered_map<GLuint, IndexType> vaoIndexType_{};
-		GLuint currentProgram_{ 0 };
+		// Input layouts (1-based handle id -> vector[id-1])
+		std::vector<GLInputLayout> inputLayouts_{};
 
+		// Descriptor indices (0 invalid)
 		std::vector<TextureHandle> textureDescriptions_{ TextureHandle{} };
 		std::vector<TextureDescIndex> freeTextureDescIndices_;
+
+		// Fence storage
 		std::uint32_t nextFenceId_{ 0 };
 		std::unordered_map<std::uint32_t, GLFence> fences_{};
+
+		// Current program + uniform location cache per program
+		std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache_{};
+		GLuint currentProgram_{ 0 };
+
+		// Current bindings for VAO build
+		rhi::InputLayoutHandle currentLayout_{};
+		std::array<VertexBufferState, 1> vertexBuffer_{};
+		struct { 
+			rhi::BufferHandle buffer{}; 
+			rhi::IndexType indexType{ rhi::IndexType::UINT16 }; 
+			std::uint32_t offsetBytes{ 0 }; 
+		} indexBuffer_{};
+
+		// VAO cache
+		std::unordered_map<VaoKey, GLuint, VaoKeyHash> vaoCache_{};
+		GLuint boundVao_{ 0 };
 	};
 
 	std::unique_ptr<IRHIDevice> CreateGLDevice(GLDeviceDesc desc)

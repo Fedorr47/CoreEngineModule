@@ -169,6 +169,9 @@ target_sources(CoreEngineModuleLib
         src/Render/ShaderFiles.cppm
         src/Render/FileSystem.cppm
 
+        src/Render/Model/ObjLoader.cppm
+        src/Render/Model/Mesh/Mesh.cppm
+
         src/Render/OpenGL/OpenGLRHI.cppm
         src/Render/OpenGL/OpenGLCore.cppm
         src/Render/OpenGL/OpenGLRenderer.cppm

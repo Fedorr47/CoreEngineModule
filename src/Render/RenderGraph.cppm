@@ -125,12 +125,12 @@ export namespace renderGraph
 			RenderGraphResources resources(allocatedTextures);
 			rhi::CommandList commandList;
 
-			std::vector<rhi::FramebufferHandle> transientFramebuffers;
+			std::vector<rhi::FrameBufferHandle> transientFramebuffers;
 			transientFramebuffers.reserve(passes_.size());
 
 			for (auto& pass : passes_)
 			{
-				rhi::FramebufferHandle frameBuffer{};
+				rhi::FrameBufferHandle frameBuffer{};
 				rhi::Extent2D passExtent{ 0, 0 };
 
 				if (pass.attachments.useSwapChainBackbuffer)

@@ -7,98 +7,103 @@ import std;
 
 static rhi::Extent2D GetDrawableExtent(GLFWwindow* wnd)
 {
-	int w = 0;
-	int h = 0;
-	glfwGetFramebufferSize(wnd, &w, &h);
-	return rhi::Extent2D{ static_cast<std::uint32_t>(w), static_cast<std::uint32_t>(h) };
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(wnd, &width, &height);
+    return rhi::Extent2D{ static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height) };
 }
 
 int main()
 {
-	if (!glfwInit())
-	{
-		std::cerr << "GLFW init failed\n";
-		return 1;
-	}
+    if (!glfwInit())
+    {
+        std::cerr << "GLFW init failed\n";
+        return 1;
+    }
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    // OpenGL context
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* wnd = glfwCreateWindow(1280, 720, "RenderGraph + RHI_GL Demo", nullptr, nullptr);
-	if (!wnd)
-	{
-		std::cerr << "Failed to create GLFW window\n";
-		glfwTerminate();
-		return 1;
-	}
+    // IMPORTANT: request depth buffer for default framebuffer
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-	glfwMakeContextCurrent(wnd);
-	glfwSwapInterval(1);
+    GLFWwindow* wnd = glfwCreateWindow(1280, 720, "CoreEngineModule v0.4", nullptr, nullptr);
+    if (!wnd)
+    {
+        std::cerr << "Failed to create window\n";
+        glfwTerminate();
+        return 1;
+    }
 
-	glewExperimental = GL_TRUE;
-	if (glewInit() != GLEW_OK)
-	{
-		std::cerr << "GLEW init failed\n";
-		glfwDestroyWindow(wnd);
-		glfwTerminate();
-		return 1;
-	}
+    glfwMakeContextCurrent(wnd);
+    glfwSwapInterval(1);
 
-	auto device = rhi::CreateGLDevice(rhi::GLDeviceDesc{ .enableDebug = false });
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK)
+    {
+        std::cerr << "GLEW init failed\n";
+        glfwDestroyWindow(wnd);
+        glfwTerminate();
+        return 1;
+    }
 
-	rhi::GLSwapChainDesc sc{};
-	sc.base.extent = GetDrawableExtent(wnd);
-	sc.base.vsync = true;
-	sc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
-	sc.hooks.present = [wnd] { glfwSwapBuffers(wnd); };
-	sc.hooks.getDrawableExtent = [wnd] { return GetDrawableExtent(wnd); };
-	sc.hooks.setVsync = [](bool vsync) { glfwSwapInterval(vsync ? 1 : 0); };
+    // ---- Create RHI device + swapchain ----
+    auto device = rhi::CreateGLDevice(rhi::GLDeviceDesc{ .enableDebug = false });
 
-	auto swapchain = rhi::CreateGLSwapChain(*device, std::move(sc));
+    rhi::GLSwapChainDesc swapChain{};
+    swapChain.base.extent = GetDrawableExtent(wnd);
+    swapChain.base.vsync = true;
+    swapChain.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
+    
+    swapChain.hooks.present = [wnd] { glfwSwapBuffers(wnd); };
+    swapChain.hooks.getDrawableExtent = [wnd] { return GetDrawableExtent(wnd); };
+    swapChain.hooks.setVsync = [](bool vsync) { glfwSwapInterval(vsync ? 1 : 0); };
 
-	std::cout << "Device: " << device->GetName() << "\n";
+    auto swapchain = rhi::CreateGLSwapChain(*device, std::move(swapChain));
 
-	StbTextureDecoder decoder;
-	rendern::JobSystemImmediate jobs;
-	rendern::RenderQueueImmediate renderQueue;
-	rendern::GLTextureUploader uploader;
+    std::cout << "Device: " << device->GetName() << "\n";
 
-	TextureIO io{ decoder, uploader, jobs, renderQueue };
+    StbTextureDecoder decoder;
+    rendern::JobSystemImmediate jobs;
+    rendern::RenderQueueImmediate renderQueue;
+    rendern::GLTextureUploader uploader;
 
-	ResourceManager rm;
+    TextureIO io{ decoder, uploader, jobs, renderQueue };
 
-	TextureProperties props{};
-	props.srgb = true;
-	props.generateMips = true;
+    ResourceManager resourceManager;
 
-	// ВАЖНО: это относительный путь от assets/
-	props.filePath = "textures/brick.png";
+    TextureProperties props{};
+    props.filePath = "textures/brick.png";
+    props.srgb = true;
+    props.generateMips = true;
 
-	auto tex = rm.LoadAsync<TextureResource>("brick", io, props);
+    auto texRes = resourceManager.LoadAsync<TextureResource>("brick", io, props);
 
-	rendern::Renderer renderer(*device);
+    // ---- Renderer ----
+    rendern::Renderer renderer(*device);
 
-	while (!glfwWindowShouldClose(wnd))
-	{
-		glfwPollEvents();
+    while (!glfwWindowShouldClose(wnd))
+    {
+        glfwPollEvents();
 
-		rm.ProcessUploads<TextureResource>(io, 8, 8);
+        resourceManager.ProcessUploads<TextureResource>(io, 8, 16);
 
-		rhi::TextureHandle sampled{};
-		if (rm.GetState<TextureResource>("brick") == ResourceState::Loaded)
-			sampled = rhi::TextureHandle{ tex->GetResource().id };
+        rhi::TextureHandle sampled{};
+        if (resourceManager.GetState<TextureResource>("brick") == ResourceState::Loaded)
+        {
+            sampled = rhi::TextureHandle{ texRes->GetResource().id };
+        }
 
-		renderer.RenderFrame(*swapchain, sampled);
-	}
+        renderer.RenderFrame(*swapchain, sampled, 0);
+    }
 
-	renderer.Shutdown();
+    renderer.Shutdown();
 
-	// Clean up GL resources created by ResourceManager.
-	rm.Clear<TextureResource>();
-	rm.ProcessUploads<TextureResource>(io, 0, 64);
+    resourceManager.Clear<TextureResource>();
+    resourceManager.ProcessUploads<TextureResource>(io, 0, 128);
 
-	glfwDestroyWindow(wnd);
-	glfwTerminate();
-	return 0;
+    glfwDestroyWindow(wnd);
+    glfwTerminate();
+    return 0;
 }

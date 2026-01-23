@@ -13,12 +13,36 @@ export module core:rhi;
 
 export namespace rhi
 {
+	template <typename Tag>
+	struct Handle
+	{
+		std::uint32_t id{ 0 };
+		explicit operator bool() const noexcept { return id != 0; }
+	};
+
+	struct BufferTag {};
+	struct TextureTag {};
+	struct ShaderTag {};
+	struct PipelineTag {};
+	struct FrameBufferTag {};
+	struct FenceTag {};
+	struct InputLayoutTag {};
+
+	using BufferHandle		= Handle<BufferTag>;
+	using TextureHandle		= Handle<TextureTag>;
+	using ShaderHandle		= Handle<ShaderTag>;
+	using PipelineHandle	= Handle<PipelineTag>;
+	using FrameBufferHandle = Handle<FrameBufferTag>;
+	using FenceHandle		= Handle<FenceTag>;
+	using InputLayoutHandle = Handle<InputLayoutTag>;
+
 	enum class Format : std::uint8_t
 	{
 		Unknown,
 		RGBA8_UNORM,
 		BGRA8_UNORM,
-		D32_FLOAT
+		D32_FLOAT,
+		D24_UNORM_S8_UINT
 	};
 
 	enum class IndexType : std::uint8_t
@@ -56,6 +80,23 @@ export namespace rhi
 		Always
 	};
 
+	enum class VertexFormat : std::uint8_t
+	{
+		R32G32B32_FLOAT,
+		R32G32_FLOAT,
+		R32G32B32A32_FLOAT,
+		R8G8B8A8_UNORM
+	};
+
+	enum class VertexSemantic : std::uint8_t
+	{
+		Position,
+		Normal,
+		TexCoord,
+		Color,
+		Tangent
+	};
+
 	enum class CullMode : std::uint8_t
 	{
 		None,
@@ -75,35 +116,6 @@ export namespace rhi
 		Pixel, // Fragment
 		Geometry,
 		Compute
-	};
-
-	struct BufferHandle
-	{
-		std::uint32_t id{};
-	};
-	struct TextureHandle
-	{
-		std::uint32_t id{};
-	};
-	struct ShaderHandle
-	{
-		std::uint32_t id{};
-	};
-	struct PipelineHandle
-	{
-		std::uint32_t id{};
-	};
-	struct VertexArrayHandle
-	{
-		std::uint32_t id{};
-	};
-	struct FramebufferHandle
-	{
-		std::uint32_t id{};
-	};
-	struct FenceHandle
-	{
-		std::uint32_t id{};
 	};
 
 	// Vulkan/DX12 backends can map these indices into global descriptor tables.
@@ -133,12 +145,12 @@ export namespace rhi
 
 	struct VertexAttributeDesc
 	{
-		uint32_t location{};
-		int componentCount{ 0 };
-		uint32_t glType{ 0 };
+		VertexSemantic semantic{};
+		std::uint8_t semanticIndex{ 0 };
+		VertexFormat format{};
+		std::uint32_t offsetBytes{ 0 };
+		std::uint32_t inputSlot{ 0 };
 		bool normalized{ false };
-		uint32_t strideBytes{ 0 };
-		uint32_t offsetBytes{ 0 };
 	};
 
 	struct DepthState
@@ -175,9 +187,16 @@ export namespace rhi
 	};
 
 	struct BeginPassDesc {
-		FramebufferHandle frameBuffer{};
+		FrameBufferHandle frameBuffer{};
 		Extent2D extent{};
 		ClearDesc clearDesc{};
+	};
+
+	struct InputLayoutDesc
+	{
+		std::vector<VertexAttributeDesc> attributes;
+		std::uint32_t strideBytes{ 0 };
+		std::string debugName{};
 	};
 
 	//------------------------ Command Stream ------------------------/
@@ -189,7 +208,7 @@ export namespace rhi
 	struct CommandEndPass
 	{
 	};
-	struct CommandSetVieport
+	struct CommandSetViewport
 	{
 		int x{ 0 };
 		int y{ 0 };
@@ -204,9 +223,22 @@ export namespace rhi
 	{
 		PipelineHandle pso{};
 	};
-	struct CommandVertexArray
+	struct CommandBindInputLayout 
+	{ 
+		InputLayoutHandle layout{}; 
+	};
+	struct CommandBindVertexBuffer
 	{
-		VertexArrayHandle vao{};
+		std::uint32_t slot{ 0 };
+		BufferHandle buffer{};
+		std::uint32_t strideBytes{ 0 };
+		std::uint32_t offsetBytes{ 0 };
+	};
+	struct CommandBindIndexBuffer
+	{
+		BufferHandle buffer{};
+		IndexType indexType{ IndexType::UINT16 };
+		std::uint32_t offsetBytes{ 0 };
 	};
 	struct CommnadBindTextue2D
 	{
@@ -228,6 +260,11 @@ export namespace rhi
 		std::string name{};
 		std::array<float, 4> value{};
 	};
+	struct CommandUniformMat4 
+	{ 
+		std::string name{}; 
+		std::array<float, 16> value{}; 
+	};
 	struct CommandDrawIndexed
 	{
 		std::uint32_t indexCount{ 0 };
@@ -244,14 +281,17 @@ export namespace rhi
 	using Command = std::variant<
 		CommandBeginPass,
 		CommandEndPass,
-		CommandSetVieport,
+		CommandSetViewport,
 		CommandSetState,
 		CommandBindPipeline,
-		CommandVertexArray,
+		CommandBindInputLayout,
+		CommandBindVertexBuffer,
+		CommandBindIndexBuffer,
 		CommnadBindTextue2D,
 		CommandTextureDesc,
 		CommandSetUniformInt,
 		CommandUniformFloat4,
+		CommandUniformMat4,
 		CommandDrawIndexed,
 		CommandDraw>;
 
@@ -269,7 +309,7 @@ export namespace rhi
 		}
 		void SetViewport(int x, int y, int width, int height)
 		{
-			commands.emplace_back(CommandSetVieport{ x, y, width, height });
+			commands.emplace_back(CommandSetViewport{ x, y, width, height });
 		}
 		void SetState(const GraphicsState& state)
 		{
@@ -279,9 +319,17 @@ export namespace rhi
 		{
 			commands.emplace_back(CommandBindPipeline{ pso });
 		}
-		void BindVertexArray(VertexArrayHandle vao)
+		void BindInputLayout(InputLayoutHandle layout)
 		{
-			commands.emplace_back(CommandVertexArray{ vao });
+			commands.emplace_back(CommandBindInputLayout{ layout });
+		}
+		void BindVertexBuffer(std::uint32_t slot, BufferHandle buffer, std::uint32_t strideBytes = 0, std::uint32_t offsetBytes = 0)
+		{
+			commands.emplace_back(CommandBindVertexBuffer{ slot, buffer, strideBytes, offsetBytes });
+		}
+		void BindIndexBuffer(BufferHandle buffer, IndexType indexType, std::uint32_t offsetBytes = 0)
+		{
+			commands.emplace_back(CommandBindIndexBuffer{ buffer, indexType, offsetBytes });
 		}
 		void BindTexture2D(std::uint32_t slot, TextureHandle texture)
 		{
@@ -299,6 +347,10 @@ export namespace rhi
 		{
 			commands.emplace_back(CommandUniformFloat4{ std::string(name), value });
 		}
+		void SetUniformMat4(std::string_view name, const std::array<float, 16>& v) 
+		{ 
+			commands.emplace_back(CommandUniformMat4{ std::string(name), v }); 
+		}
 		void DrawIndexed(std::uint32_t indexCount, IndexType indexType, std::uint32_t firstIndex = 0, int baseVertex = 0)
 		{
 			commands.emplace_back(CommandDrawIndexed{ indexCount, indexType, firstIndex, baseVertex });
@@ -309,12 +361,14 @@ export namespace rhi
 		}
 	};
 
+	// ------------------------ RHI interfaces ------------------------ //
+
 	class IRHISwapChain
 	{
 	public:
 		virtual ~IRHISwapChain() = default;
 		virtual SwapChainDesc GetDesc() const = 0;
-		virtual FramebufferHandle GetCurrentBackBuffer() const = 0;
+		virtual FrameBufferHandle GetCurrentBackBuffer() const = 0;
 		virtual void Present() = 0;
 	};
 
@@ -330,19 +384,17 @@ export namespace rhi
 		virtual void DestroyTexture(TextureHandle texture) noexcept = 0;
 
 		// Framebuffers
-		virtual FramebufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) = 0;
-		virtual void DestroyFramebuffer(FramebufferHandle frameBuffer) noexcept = 0;
+		virtual FrameBufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) = 0;
+		virtual void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept = 0;
 
 		// Buffers
 		virtual BufferHandle CreateBuffer(const BufferDesc& desc) = 0;
 		virtual void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes = 0) = 0;
 		virtual void DestroyBuffer(BufferHandle buffer) noexcept = 0;
 
-		// Vertex Arrays
-		virtual VertexArrayHandle CreateVertexArray(std::string_view debugName = {}) = 0;
-		virtual void SetVertexArrayLayout(VertexArrayHandle vao, BufferHandle vbo, std::span<const VertexAttributeDesc> attributes) = 0;
-		virtual void SetVertexArrayIndexBuffer(VertexArrayHandle vao, BufferHandle ibo, IndexType indexType) = 0;
-		virtual void DestroyVertexArray(VertexArrayHandle vao) noexcept = 0;
+		// Input layouts (API-neutral)
+		virtual InputLayoutHandle CreateInputLayout(const InputLayoutDesc& desc) = 0;
+		virtual void DestroyInputLayout(InputLayoutHandle layout) noexcept = 0;
 
 		// Shaders and Pipelines
 		virtual ShaderHandle CreateShader(ShaderStage stage, std::string_view debugName, std::string_view sourceOrBytecode) = 0;
@@ -383,9 +435,9 @@ namespace rhi
 		{
 			return desc_;
 		}
-		FramebufferHandle GetCurrentBackBuffer() const override
+		FrameBufferHandle GetCurrentBackBuffer() const override
 		{
-			return FramebufferHandle{ 0 };
+			return FrameBufferHandle{ 0 };
 		}
 		void Present() override {}
 
@@ -409,13 +461,13 @@ namespace rhi
 		}
 		void DestroyTexture(TextureHandle) noexcept override {}
 
-		FramebufferHandle CreateFramebuffer(TextureHandle,TextureHandle) override
+		FrameBufferHandle CreateFramebuffer(TextureHandle,TextureHandle) override
 		{
-			FramebufferHandle handle{};
+			FrameBufferHandle handle{};
 			handle.id = ++nextId_;
 			return handle;
 		}
-		void DestroyFramebuffer(FramebufferHandle) noexcept override {}
+		void DestroyFramebuffer(FrameBufferHandle) noexcept override {}
 
 		BufferHandle CreateBuffer(const BufferDesc&) override
 		{
@@ -426,15 +478,17 @@ namespace rhi
 		void UpdateBuffer(BufferHandle, std::span<const std::byte>, std::size_t) override {}
 		void DestroyBuffer(BufferHandle) noexcept override {}
 
-		VertexArrayHandle CreateVertexArray(std::string_view) override
+		InputLayoutHandle CreateInputLayout(const InputLayoutDesc&) override
 		{
-			VertexArrayHandle handle{};
+			InputLayoutHandle handle{};
 			handle.id = ++nextId_;
 			return handle;
 		}
-		void SetVertexArrayLayout(VertexArrayHandle, BufferHandle, std::span<const VertexAttributeDesc>) override {}
-		void SetVertexArrayIndexBuffer(VertexArrayHandle, BufferHandle, IndexType) override {}
-		void DestroyVertexArray(VertexArrayHandle) noexcept override {}
+		void DestroyInputLayout(InputLayoutHandle) noexcept override {}
+
+		virtual void BindInputLayout(InputLayoutHandle layout) {}
+		virtual void BindVertexBuffer(std::uint32_t slot, BufferHandle vertexBuffer, std::uint32_t strideBytes, std::uint32_t offsetBytes) {}
+		virtual void BindIndexBuffer(BufferHandle indexBuffer, IndexType indexTtype, std::uint32_t offsetBytes) {}
 
 		ShaderHandle CreateShader(ShaderStage stage, std::string_view, std::string_view) override
 		{
