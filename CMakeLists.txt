@@ -11,6 +11,7 @@ if (ENABLE_IMPORT_STD AND NOT DEFINED CMAKE_EXPERIMENTAL_CXX_IMPORT_STD)
     CACHE STRING "" FORCE)
 endif()
 
+# Modules dyn-deps (needed for correct build order with Ninja/MSVC)
 set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP 1)
 
 project(CoreEngineModule LANGUAGES C CXX)
@@ -30,7 +31,16 @@ endif()
 
 option(USE_SUBMODULES "Prefer extern/* submodules if present" ON)
 option(WITH_TESTS "Build tests" ON)
-option(CORE_USE_DX12 "Enable DirectX12 render backend (Windows only)" OFF)
+
+# ------------------------------------------------------------
+# --- Backend switch (cache) ---
+# ------------------------------------------------------------
+set(CORE_RENDER_BACKEND "GL" CACHE STRING "Render backend: GL or DX12")
+set_property(CACHE CORE_RENDER_BACKEND PROPERTY STRINGS "GL" "DX12")
+
+if (CORE_RENDER_BACKEND STREQUAL "DX12" AND NOT WIN32)
+  message(FATAL_ERROR "DX12 backend is Windows-only")
+endif()
 
 # ------------------------------------------------------------
 # GLFW
@@ -49,7 +59,6 @@ else()
   FetchContent_MakeAvailable(glfw)
 endif()
 
-# Обычно таргет называется glfw
 if (TARGET glfw AND NOT TARGET GLFW::glfw)
   add_library(GLFW::glfw ALIAS glfw)
 endif()
@@ -79,21 +88,22 @@ if (NOT TARGET glm::glm)
 endif()
 
 # ------------------------------------------------------------
-# OpenGL
+# OpenGL (only needed for GL backend)
 # ------------------------------------------------------------
-find_package(OpenGL REQUIRED)
-
 set(OPENGL_TARGET "")
-if (TARGET OpenGL::GL)
-  set(OPENGL_TARGET OpenGL::GL)
-elseif (TARGET OpenGL::OpenGL)
-  set(OPENGL_TARGET OpenGL::OpenGL)
-else()
-  message(FATAL_ERROR "No suitable OpenGL target found (expected OpenGL::GL or OpenGL::OpenGL)")
+if (CORE_RENDER_BACKEND STREQUAL "GL")
+  find_package(OpenGL REQUIRED)
+  if (TARGET OpenGL::GL)
+    set(OPENGL_TARGET OpenGL::GL)
+  elseif (TARGET OpenGL::OpenGL)
+    set(OPENGL_TARGET OpenGL::OpenGL)
+  else()
+    message(FATAL_ERROR "No suitable OpenGL target found (expected OpenGL::GL or OpenGL::OpenGL)")
+  endif()
 endif()
 
 # ------------------------------------------------------------
-# GLEW
+# GLEW (build/find ALWAYS, link only for GL)
 # ------------------------------------------------------------
 set(GLEW_USE_STATIC_LIBS TRUE)
 find_package(GLEW QUIET)
@@ -101,6 +111,7 @@ find_package(GLEW QUIET)
 set(GLEW_HEADERS_DIR "")
 
 if (GLEW_FOUND AND TARGET GLEW::GLEW)
+  # ok
 else()
   FetchContent_Declare(glew_src
     URL https://github.com/nigels-com/glew/releases/download/glew-2.3.0/glew-2.3.0.tgz
@@ -110,7 +121,6 @@ else()
   set(BUILD_UTILS OFF CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(glew_src)
 
-  # Пробуем разные имена таргетов (на разных сборках GLEW они отличаются)
   if (TARGET glew_s AND NOT TARGET GLEW::GLEW)
     add_library(GLEW::GLEW ALIAS glew_s)
   elseif (TARGET glew AND NOT TARGET GLEW::GLEW)
@@ -126,8 +136,9 @@ else()
   endif()
 endif()
 
-if (NOT TARGET GLEW::GLEW)
-  message(FATAL_ERROR "GLEW target not available. Expected GLEW::GLEW from find_package or from source build.")
+# Если ты в GL бекенде — GLEW обязан быть.
+if (CORE_RENDER_BACKEND STREQUAL "GL" AND NOT TARGET GLEW::GLEW)
+  message(FATAL_ERROR "GLEW target not available for GL backend.")
 endif()
 
 # ------------------------------------------------------------
@@ -148,116 +159,137 @@ target_include_directories(stb_headers INTERFACE "${stb_SOURCE_DIR}")
 add_library(CoreEngineModuleLib STATIC)
 target_compile_features(CoreEngineModuleLib PUBLIC cxx_std_23)
 
+target_compile_definitions(CoreEngineModuleLib
+  PUBLIC
+    $<$<STREQUAL:${CORE_RENDER_BACKEND},DX12>:CORE_USE_DX12=1>
+    $<$<STREQUAL:${CORE_RENDER_BACKEND},GL>:CORE_USE_GL=1>
+)
+
+# If you vendor d3dx12.h in extern/, allow includes like "d3dx12.h" or "extern/d3dx12.h"
+target_include_directories(CoreEngineModuleLib
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+set(COMMON_MODULES
+  Core.ixx
+
+  Timer/GameTimer.ixx
+  Timer/GameTimer.cppm
+
+  Render/Render.ixx
+  Render/RenderCore.cppm
+  Render/RHI.cppm
+  Render/RenderGraph.cppm
+  Render/Bindless.cppm
+  Render/GpuMemory.cppm
+  Render/RendererSettings.cppm
+  Render/Renderer.cppm
+  Render/SceneBridge.cppm
+  Render/ShaderSystem.cppm
+  Render/Sync.cppm
+  Render/ShaderFiles.cppm
+  Render/FileSystem.cppm
+
+  Render/Model/ObjLoader.cppm
+  Render/Model/Mesh/Mesh.cppm
+
+  Render/Decoders/TextureDecoderSTB.cppm
+
+  Assets/ResourceManager.ixx
+  Assets/ResourceManager_core.cppm
+  Assets/ResourceManager_texture.cppm
+)
+
+set(GL_MODULES
+  Render/OpenGL/RenderGL.ixx
+  Render/OpenGL/OpenGLCore.cppm
+  Render/OpenGL/OpenGLRHI.cppm
+  Render/OpenGL/OpenGLMeshRenderer.cppm
+  Render/OpenGL/OpenGLRenderer.cppm
+)
+
+set(DX12_MODULES
+  Render/DirectX12/RenderDX12.ixx
+  Render/DirectX12/DirectX12Core.cppm
+  Render/DirectX12/DirectX12RHI.cppm
+  Render/DirectX12/DirectX12Renderer.cppm
+  Render/DirectX12/DirectX12TextureUploader.cppm
+)
+
+set(CORE_MODULES ${COMMON_MODULES})
+if (CORE_RENDER_BACKEND STREQUAL "DX12")
+  list(APPEND CORE_MODULES ${DX12_MODULES})
+else()
+  list(APPEND CORE_MODULES ${GL_MODULES})
+endif()
+list(REMOVE_DUPLICATES CORE_MODULES)
+
+set(CORE_MODULES_ABS "")
+foreach(f IN LISTS CORE_MODULES)
+  list(APPEND CORE_MODULES_ABS "${SRC_DIR}/${f}")
+endforeach()
+
 target_sources(CoreEngineModuleLib
   PUBLIC
     FILE_SET cxx_modules TYPE CXX_MODULES
-      BASE_DIRS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-      FILES
-        src/Core.ixx
-
-        src/Timer/GameTimer.ixx
-        src/Timer/GameTimer.cppm
-
-        src/Render/Render.ixx
-        src/Render/RenderCore.cppm
-        src/Render/RHI.cppm
-        src/Render/RenderGraph.cppm
-        src/Render/Bindless.cppm
-        src/Render/GpuMemory.cppm
-        src/Render/Renderer.cppm
-        src/Render/SceneBridge.cppm
-        src/Render/ShaderSystem.cppm
-        src/Render/Sync.cppm
-        src/Render/ShaderFiles.cppm
-        src/Render/FileSystem.cppm
-
-        src/Render/Model/ObjLoader.cppm
-        src/Render/Model/Mesh/Mesh.cppm
-
-        src/Render/OpenGL/OpenGLRHI.cppm
-        src/Render/OpenGL/OpenGLCore.cppm
-        src/Render/OpenGL/OpenGLRenderer.cppm
-
-        src/Render/OpenGL/RenderGL.ixx
-
-        src/Render/Decoders/TextureDecoderSTB.cppm
-
-        src/Assets/ResourceManager.ixx
-        src/Assets/ResourceManager_core.cppm
-        src/Assets/ResourceManager_texture.cppm
-  PRIVATE
-    src/Timer/GameTimer_impl.cpp
+      FILES ${CORE_MODULES_ABS}
 )
 
-if (GLEW_HEADERS_DIR)
-  target_include_directories(CoreEngineModuleLib PUBLIC "${GLEW_HEADERS_DIR}")
-endif()
+# non-module cpp files
+target_sources(CoreEngineModuleLib
+  PRIVATE
+    "${SRC_DIR}/Timer/GameTimer_impl.cpp"
+)
 
+# Common deps
 target_link_libraries(CoreEngineModuleLib
   PUBLIC
     GLFW::glfw
     glm::glm
-    GLEW::GLEW
-    ${OPENGL_TARGET}
     stb_headers
 )
 
-target_compile_definitions(CoreEngineModuleLib
-  PUBLIC
-    $<$<TARGET_EXISTS:glew_s>:GLEW_STATIC>
-    $<$<TARGET_EXISTS:libglew_static>:GLEW_STATIC>
-)
+# GL-only deps (link AFTER CoreEngineModuleLib exists)
+if (CORE_RENDER_BACKEND STREQUAL "GL")
+  if (GLEW_HEADERS_DIR)
+    target_include_directories(CoreEngineModuleLib PUBLIC "${GLEW_HEADERS_DIR}")
+  endif()
+
+  target_link_libraries(CoreEngineModuleLib PUBLIC GLEW::GLEW ${OPENGL_TARGET})
+
+  target_compile_definitions(CoreEngineModuleLib
+    PUBLIC
+      $<$<TARGET_EXISTS:glew_s>:GLEW_STATIC>
+      $<$<TARGET_EXISTS:libglew_static>:GLEW_STATIC>
+  )
+endif()
+
+# DX12-only deps
+if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
+  target_include_directories(CoreEngineModuleLib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/extern")
+  target_link_libraries(CoreEngineModuleLib PUBLIC d3d12 dxgi dxguid)
+endif()
 
 # ------------------------------------------------------------
 # App
 # ------------------------------------------------------------
 add_executable(app src/main.cpp)
+
 add_custom_command(TARGET app POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
           "${CMAKE_SOURCE_DIR}/assets"
           "$<TARGET_FILE_DIR:app>/assets"
 )
+
 target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)
 
-# ------------------------------------------------------------
-# --- Backend switch (cache) ---
-# ------------------------------------------------------------
-set(CORE_RENDER_BACKEND "GL" CACHE STRING "Render backend: GL or DX12")
-set_property(CACHE CORE_RENDER_BACKEND PROPERTY STRINGS "GL" "DX12")
-
-if (CORE_RENDER_BACKEND STREQUAL "DX12")
-  if (NOT WIN32)
-    message(FATAL_ERROR "DX12 backend selected but platform is not Windows")
-  endif()
-  target_compile_definitions(CoreEngineModuleLib PUBLIC CORE_USE_DX12=1)
-elseif (CORE_RENDER_BACKEND STREQUAL "GL")
-  target_compile_definitions(CoreEngineModuleLib PUBLIC CORE_USE_GL=1)
-else()
-  message(FATAL_ERROR "Unknown CORE_RENDER_BACKEND='${CORE_RENDER_BACKEND}' (use GL or DX12)")
-endif()
-
-# ------------------------------------------------------------
-# DirectX12 backend (Windows only)
-# ------------------------------------------------------------
-if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
-  # Needed so "extern/d3dx12.h" can be included from module sources
-  target_include_directories(CoreEngineModuleLib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-
-  target_sources(CoreEngineModuleLib
-    PUBLIC
-      FILE_SET cxx_modules TYPE CXX_MODULES
-        BASE_DIRS
-          ${CMAKE_CURRENT_SOURCE_DIR}/src
-        FILES
-          src/Render/DirectX12/RenderDX12.ixx
-          src/Render/DirectX12/DirectX12Core.cppm
-          src/Render/DirectX12/DirectX12RHI.cppm
-          src/Render/DirectX12/DirectX12Renderer.cppm
-  )
-
-  target_link_libraries(CoreEngineModuleLib PUBLIC d3d12 dxgi dxguid)
+if (WIN32)
+  find_library(D3DCOMPILER_LIB NAMES d3dcompiler_47 d3dcompiler REQUIRED)
+  target_link_libraries(CoreEngineModuleLib PRIVATE ${D3DCOMPILER_LIB})
 endif()
 
 # ------------------------------------------------------------
@@ -266,7 +298,6 @@ endif()
 if (WITH_TESTS)
   enable_testing()
 
-  # googletest: submodule или FetchContent
   if (USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/googletest/CMakeLists.txt")
     add_subdirectory(extern/googletest EXCLUDE_FROM_ALL)
   else()
@@ -274,7 +305,6 @@ if (WITH_TESTS)
       GIT_REPOSITORY https://github.com/google/googletest.git
       GIT_TAG        v1.14.0
     )
-    # MSVC runtime mismatch fix (часто нужно на Windows)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
   endif()

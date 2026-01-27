@@ -1,6 +1,7 @@
 module;
 
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 #include <string>
 #include <memory>
@@ -8,6 +9,8 @@ module;
 #include <variant>
 #include <span>
 #include <unordered_map>
+#include <cstring>
+#include <stdexcept>
 
 export module core:rhi;
 
@@ -272,6 +275,16 @@ export namespace rhi
 		std::string name{};
 		std::array<float, 16> value{};
 	};
+
+	// Backend-agnostic small constant block ("push constants" style).
+	// DX12 uses it to feed a per-draw constant buffer without interpreting names.
+	// OpenGL can ignore it or emulate it later via UBOs.
+	struct CommandSetConstants
+	{
+		std::uint32_t slot{ 0 };   // backend-defined slot (DX12 root parameter index)
+		std::uint32_t size{ 0 };   // bytes used in `data`
+		std::array<std::byte, 256> data{};
+	};
 	struct CommandDrawIndexed
 	{
 		std::uint32_t indexCount{ 0 };
@@ -299,6 +312,7 @@ export namespace rhi
 		CommandSetUniformInt,
 		CommandUniformFloat4,
 		CommandUniformMat4,
+		CommandSetConstants,
 		CommandDrawIndexed,
 		CommandDraw>;
 
@@ -357,6 +371,20 @@ export namespace rhi
 		void SetUniformMat4(std::string_view name, const std::array<float, 16>& v)
 		{
 			commands.emplace_back(CommandUniformMat4{ std::string(name), v });
+		}
+		void SetConstants(std::uint32_t slot, std::span<const std::byte> bytes)
+		{
+			if (bytes.size() > 256)
+			{
+				throw std::runtime_error("CommandList::SetConstants: payload too large (max 256 bytes)");
+			}
+
+			CommandSetConstants cmd{};
+			cmd.slot = slot;
+			cmd.size = static_cast<std::uint32_t>(bytes.size());
+			if (!bytes.empty())
+				std::memcpy(cmd.data.data(), bytes.data(), bytes.size());
+			commands.emplace_back(std::move(cmd));
 		}
 		void DrawIndexed(std::uint32_t indexCount, IndexType indexType, std::uint32_t firstIndex = 0, int baseVertex = 0)
 		{

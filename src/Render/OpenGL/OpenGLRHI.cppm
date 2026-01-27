@@ -1230,6 +1230,12 @@ namespace rhi
 			SetUniformMat4Impl(cmd.name, cmd.value);
 		}
 
+		void ExecuteOnce(const CommandSetConstants& /*cmd*/)
+		{
+			// OpenGL backend currently uses the name-based uniform path.
+			// The constant-block command is primarily for DX12 (root CBV update).
+		}
+
 		void ExecuteOnce(const CommandDrawIndexed& cmd)
 		{
 			const GLuint vao = GetOrCreateVAO(true);

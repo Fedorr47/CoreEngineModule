@@ -5,14 +5,13 @@ module;
 #include <glm/gtc/type_ptr.hpp>
 
 #include <array>
-#include <span>
 #include <chrono>
-#include <string>
-#include <filesystem>
 #include <cstring>
+#include <filesystem>
+#include <string>
 #include <utility>
 
-export module core:renderer_dx12;
+export module core:renderer_mesh_gl;
 
 import :rhi;
 import :renderer_settings;
@@ -24,10 +23,10 @@ import :obj_loader;
 
 export namespace rendern
 {
-	class DX12Renderer
+	class GLMeshRenderer
 	{
 	public:
-		DX12Renderer(rhi::IRHIDevice& device, RendererSettings settings = {})
+		GLMeshRenderer(rhi::IRHIDevice& device, RendererSettings settings = {})
 			: device_(device)
 			, settings_(std::move(settings))
 			, shaderLibrary_(device)
@@ -36,9 +35,6 @@ export namespace rendern
 			CreateResources();
 		}
 
-		// Render a frame
-		// If 'sampledTextureDescIndex' != 0 -> it is used (bindless-style path).
-		// Else if 'sampledTexture' is not null -> it is bound at slot 0 and sampled.
 		void RenderFrame(
 			rhi::IRHISwapChain& swapChain,
 			rhi::TextureHandle sampledTexture = {},
@@ -51,7 +47,9 @@ export namespace rendern
 			clearDesc.clearDepth = true;
 			clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
 
-			graph.AddSwapChainPass("MainPass", clearDesc,
+			graph.AddSwapChainPass(
+				"MainPass",
+				clearDesc,
 				[this, sampledTexture, sampledTextureDescIndex](renderGraph::PassContext& ctx)
 				{
 					const auto extent = ctx.passExtent;
@@ -67,20 +65,14 @@ export namespace rendern
 					ctx.commandList.BindVertexBuffer(0, mesh_.vertexBuffer, mesh_.vertexStrideBytes, 0);
 
 					const bool hasIndices = (mesh_.indexBuffer.id != 0) && (mesh_.indexCount != 0);
-
 					if (hasIndices)
 					{
 						ctx.commandList.BindIndexBuffer(mesh_.indexBuffer, mesh_.indexType, 0);
 					}
 
-					struct alignas(16) PerDrawConstants
-					{
-						std::array<float, 16> uMVP{};
-						std::array<float, 4>  uColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-						int uUseTex{ 0 };
-						int _pad[3]{};
-					};
-					PerDrawConstants constants{};
+					// Uniforms (name-based path; typical for GL)
+					ctx.commandList.SetUniformInt("uTex", 0);
+					ctx.commandList.SetUniformFloat4("uColor", { 0.2f, 0.3f, 0.7f, 1.0f });
 
 					const float timeS = TimeSeconds();
 					const float aspect = extent.height
@@ -92,26 +84,24 @@ export namespace rendern
 					glm::mat4 model = glm::rotate(glm::mat4(1.0f), timeS * 0.8f, glm::vec3(0, 1, 0));
 					glm::mat4 mvp = proj * view * model;
 
-					std::memcpy(constants.uMVP.data(), glm::value_ptr(mvp), sizeof(float) * 16);
+					std::array<float, 16> mvpArr{};
+					std::memcpy(mvpArr.data(), glm::value_ptr(mvp), sizeof(float) * 16);
+					ctx.commandList.SetUniformMat4("uMVP", mvpArr);
 
 					if (sampledTextureDescIndex != 0)
 					{
 						ctx.commandList.BindTextureDesc(0, sampledTextureDescIndex);
-						constants.uUseTex = 1;
+						ctx.commandList.SetUniformInt("uUseTex", 1);
 					}
 					else if (sampledTexture)
 					{
 						ctx.commandList.BindTexture2D(0, sampledTexture);
-						constants.uUseTex = 1;
+						ctx.commandList.SetUniformInt("uUseTex", 1);
 					}
 					else
 					{
-						constants.uUseTex = 0;
+						ctx.commandList.SetUniformInt("uUseTex", 0);
 					}
-
-					// DX12 doesn't use the name-based uniform path. The renderer packs
-					// a small per-draw constant block and sends raw bytes to the backend.
-					ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 
 					if (hasIndices)
 						ctx.commandList.DrawIndexed(mesh_.indexCount, mesh_.indexType, 0, 0);
@@ -131,7 +121,6 @@ export namespace rendern
 		}
 
 	private:
-
 		static float TimeSeconds()
 		{
 			using clock = std::chrono::steady_clock;
@@ -159,41 +148,23 @@ export namespace rendern
 			}
 
 			cpuFallbackVertexCount_ = cpu.vertices.size();
-
 			mesh_ = UploadMesh(device_, cpu, "MainMesh");
 
-			// Pick shaders per backend
-			std::filesystem::path vertexShaderPath;
-			std::filesystem::path pixelShaderPath;
-
-			switch (device_.GetBackend())
-			{
-			case rhi::Backend::DirectX12:
-				// One HLSL file for both stages (VSMain/PSMain inside)
-				vertexShaderPath = corefs::ResolveAsset("shaders\\Mesh_dx12.hlsl");
-				pixelShaderPath = vertexShaderPath;
-				break;
-
-			case rhi::Backend::OpenGL:
-			default:
-				vertexShaderPath = corefs::ResolveAsset("shaders\\Mesh.vert");
-				pixelShaderPath = corefs::ResolveAsset("shaders\\Mesh.frag");
-				break;
-			}
+			std::filesystem::path vertexShaderPath = corefs::ResolveAsset("shaders\\Mesh.vert");
+			std::filesystem::path pixelShaderPath = corefs::ResolveAsset("shaders\\Mesh.frag");
 
 			const auto vertexShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
 				.stage = rhi::ShaderStage::Vertex,
 				.name = "VS_Mesh",
 				.filePath = vertexShaderPath.string(),
 				.defines = {}
-				});
-
+			});
 			const auto pixelShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
 				.stage = rhi::ShaderStage::Pixel,
 				.name = "PS_Mesh",
 				.filePath = pixelShaderPath.string(),
-				.defines = {} });
-
+				.defines = {}
+			});
 			pso_ = psoCache_.GetOrCreate("PSO_Mesh", vertexShader, pixelShader);
 
 			state_.depth.testEnable = true;
@@ -206,7 +177,6 @@ export namespace rendern
 			state_.blend.enable = false;
 		}
 
-		//------------------------------------------------------------------------------------------------------------------//
 		rhi::IRHIDevice& device_;
 		RendererSettings settings_{};
 

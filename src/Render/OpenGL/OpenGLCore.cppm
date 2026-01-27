@@ -65,6 +65,11 @@ export namespace rendern
 {
 	class GLTextureUploader final : public ITextureUploader
 	{
+	public:
+		explicit GLTextureUploader(rhi::IRHIDevice& device) noexcept
+		{
+			//assert(device.GetBackend() == rhi::Backend::OpenGL);
+		}
 		std::optional<GPUTexture> CreateAndUpload(const TextureCPUData& cpuData, const TextureProperties& properties)
 		{
 			if (cpuData.pixels.empty())

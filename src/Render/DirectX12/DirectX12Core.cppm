@@ -9,7 +9,7 @@ module;
   #include <stdexcept>
   #include <string>
 
-  #include "extern/d3dx12.h"
+  #include "d3dx12.h"
 #endif
 
 export module core:dx12_core;

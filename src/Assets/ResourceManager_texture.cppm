@@ -377,10 +377,12 @@ private:
 
 	void EnqueueDestroy(GPUTexture texture)
 	{
-		if (texture.id != 0)
+		if (texture.id == 0)
 		{
-			destroyQueue_.push_back(texture);
+			return;
 		}
+		std::scoped_lock lock(mutex_);
+		destroyQueue_.push_back(texture);
 	}
 
 	mutable std::mutex mutex_{};
