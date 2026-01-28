@@ -178,13 +178,13 @@ export namespace rhi
         FrameBufferHandle GetCurrentBackBuffer() const override;
         void Present() override;
 
-        std::uint32_t FrameIndex() const noexcept { return static_cast<std::uint32_t>(frameIndex_); }
+        std::uint32_t FrameIndex() const noexcept { return static_cast<std::uint32_t>(currBackBuffer_); }
 
-        ID3D12Resource* CurrentBackBuffer() const { return backBuffers_[frameIndex_].Get(); }
+        ID3D12Resource* CurrentBackBuffer() const { return backBuffers_[currBackBuffer_].Get(); }
         D3D12_CPU_DESCRIPTOR_HANDLE CurrentRTV() const
         {
             D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
-            handle.ptr += static_cast<SIZE_T>(frameIndex_) * rtvInc_;
+            handle.ptr += static_cast<SIZE_T>(currBackBuffer_) * rtvInc_;
             return handle;
         }
 
@@ -193,6 +193,25 @@ export namespace rhi
 
         DXGI_FORMAT BackBufferFormat() const { return bbFormat_; }
         DXGI_FORMAT DepthFormat() const { return depthFormat_; }
+
+        D3D12_RESOURCE_STATES& CurrentBackBufferState()
+        {
+            return backBufferStates_[currBackBuffer_];
+        }
+
+        const D3D12_RESOURCE_STATES& CurrentBackBufferState() const
+        {
+            return backBufferStates_[currBackBuffer_];
+        }
+
+        void ResetBackBufferStates(D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_PRESENT)
+        {
+            for (auto& st : backBufferStates_)
+            {
+                st = state;
+            }
+        }
+
 
         void EnsureSizeUpToDate();
 
@@ -205,19 +224,22 @@ export namespace rhi
         UINT rtvInc_{ 0 };
 
         std::vector<ComPtr<ID3D12Resource>> backBuffers_;
-        UINT frameIndex_{ 0 };
+        UINT currBackBuffer_{ 0 };
         DXGI_FORMAT bbFormat_{ DXGI_FORMAT_B8G8R8A8_UNORM };
 
         ComPtr<ID3D12Resource> depth_;
         ComPtr<ID3D12DescriptorHeap> dsvHeap_;
         D3D12_CPU_DESCRIPTOR_HANDLE dsv_{};
         DXGI_FORMAT depthFormat_{ DXGI_FORMAT_D32_FLOAT };
+
+        std::vector<D3D12_RESOURCE_STATES> backBufferStates_;
     };
 
 #if defined(_WIN32)
     class DX12Device final : public IRHIDevice
     {
     public:
+        
         DX12Device()
         {
             core_.Init();
@@ -434,23 +456,58 @@ export namespace rhi
 
             if (IsDepthFormat(format))
             {
+                DXGI_FORMAT dsvFmt = ToDXGIFormat(format);
+                DXGI_FORMAT resFmt = DXGI_FORMAT_UNKNOWN;
+                DXGI_FORMAT srvFmt = DXGI_FORMAT_UNKNOWN;
+
+                if (format == Format::D32_FLOAT)
+                {
+                    resFmt = DXGI_FORMAT_R32_TYPELESS;
+                    srvFmt = DXGI_FORMAT_R32_FLOAT;
+                }
+                else if (format == Format::D24_UNORM_S8_UINT)
+                {
+                    resFmt = DXGI_FORMAT_R24G8_TYPELESS;
+                    srvFmt = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+                }
+                else
+                {
+                    resFmt = dsvFmt; // fallback (no sampling)
+                    srvFmt = DXGI_FORMAT_UNKNOWN;
+                }
+
+                resourceDesc.Format = resFmt;
                 resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+                D3D12_CLEAR_VALUE clearValue{};
+                clearValue.Format = dsvFmt;
                 clearValue.DepthStencil.Depth = 1.0f;
                 clearValue.DepthStencil.Stencil = 0;
-                initState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+
                 ThrowIfFailed(NativeDevice()->CreateCommittedResource(
-                    &heapProps, 
-                    D3D12_HEAP_FLAG_NONE, 
-                    &resourceDesc, 
-                    initState, 
-                    &clearValue, 
+                    &heapProps,
+                    D3D12_HEAP_FLAG_NONE,
+                    &resourceDesc,
+                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                    &clearValue,
                     IID_PPV_ARGS(&textureEntry.resource)),
                     "DX12: Create depth texture failed");
 
+                textureEntry.resourceFormat = resFmt;
+                textureEntry.dsvFormat = dsvFmt;
+                textureEntry.srvFormat = srvFmt;
+                textureEntry.state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+
                 EnsureDSVHeap();
-                textureEntry.dsv = AllocateDSV(textureEntry.resource.Get(), dxFmt, textureEntry.dsvIndex);
+                textureEntry.dsv = AllocateDSV(textureEntry.resource.Get(), dsvFmt, textureEntry.dsvIndex);
                 textureEntry.hasDSV = true;
-}
+
+                // SRV for sampling (shadow maps)
+                if (srvFmt != DXGI_FORMAT_UNKNOWN)
+                {
+                    AllocateSRV(textureEntry, srvFmt, 1);
+                }
+            }
             else
             {
                 resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
@@ -468,10 +525,17 @@ export namespace rhi
                     IID_PPV_ARGS(&textureEntry.resource)),
                     "DX12: Create color texture failed");
 
+                textureEntry.resourceFormat = dxFmt;
+                textureEntry.srvFormat = dxFmt;
+                textureEntry.rtvFormat = dxFmt;
+                textureEntry.state = initState; 
+
                 EnsureRTVHeap();
                 textureEntry.rtv = AllocateRTV(textureEntry.resource.Get(), dxFmt, textureEntry.rtvIndex);
                 textureEntry.hasRTV = true;
-}
+
+                AllocateSRV(textureEntry, dxFmt, 1);
+            }
 
             textures_[textureHandle.id] = std::move(textureEntry);
             return textureHandle;
@@ -798,6 +862,54 @@ export namespace rhi
                     return it->second.srvGpu;
                 };
 
+
+            UINT curNumRT = 1;
+            std::array<DXGI_FORMAT, 8> curRTVFormats{};
+            curRTVFormats[0] = swapChain_->BackBufferFormat();
+            DXGI_FORMAT curDSVFormat = swapChain_->DepthFormat();
+            bool curPassIsSwapChain = false;
+
+            auto Barrier = [&](ID3D12Resource* res, D3D12_RESOURCE_STATES& curState, D3D12_RESOURCE_STATES desired)
+                {
+                    if (!res) 
+                    {
+                        return;
+                    }
+                    if (curState == desired) 
+                    {
+                        return;
+                    }
+
+                    D3D12_RESOURCE_BARRIER resBarrier{};
+                    resBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                    resBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+                    resBarrier.Transition.pResource = res;
+                    resBarrier.Transition.StateBefore = curState;
+                    resBarrier.Transition.StateAfter = desired;
+                    resBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    cmdList_->ResourceBarrier(1, &resBarrier);
+                    curState = desired;
+                };
+
+            auto TransitionTexture = [&](TextureHandle tex, D3D12_RESOURCE_STATES desired)
+                {
+                    if (!tex) 
+                    {
+                        return;
+                    }
+                    auto it = textures_.find(tex.id);
+                    if (it == textures_.end()) 
+                    {
+                        return;
+                    }
+                    Barrier(it->second.resource.Get(), it->second.state, desired);
+                };
+
+            auto TransitionBackBuffer = [&](D3D12_RESOURCE_STATES desired)
+                {
+                    Barrier(swapChain_->CurrentBackBuffer(), swapChain_->CurrentBackBufferState(), desired);
+                };
+
             auto EnsurePSO = [&](PipelineHandle pipelineHandle, InputLayoutHandle layout) -> ID3D12PipelineState*
                 {
                     const std::uint64_t key =
@@ -851,9 +963,12 @@ export namespace rhi
                     pipelineDesc.InputLayout = { layIt->second.elems.data(), static_cast<UINT>(layIt->second.elems.size()) };
                     pipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
-                    pipelineDesc.NumRenderTargets = 1;
-                    pipelineDesc.RTVFormats[0] = swapChain_->BackBufferFormat();
-                    pipelineDesc.DSVFormat = swapChain_->DepthFormat();
+                    pipelineDesc.NumRenderTargets = curNumRT;
+                    for (UINT i = 0; i < curNumRT; ++i)
+                    {
+                        pipelineDesc.RTVFormats[i] = curRTVFormats[i];
+                    }
+                    pipelineDesc.DSVFormat = curDSVFormat;
 
                     pipelineDesc.SampleDesc.Count = 1;
 
@@ -874,41 +989,125 @@ export namespace rhi
 
                         if constexpr (std::is_same_v<T, CommandBeginPass>)
                         {
-                            // frameBuffer.id == 0 => swapchain backbuffer
-                            D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapChain_->CurrentRTV();
-                            D3D12_CPU_DESCRIPTOR_HANDLE dsv = swapChain_->DSV();
-                            cmdList_->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+                            const BeginPassDesc& pass = cmd.desc;
+                            const ClearDesc& c = pass.clearDesc;
 
-                            // viewport & scissor
-                            D3D12_VIEWPORT viewport{};
-                            viewport.TopLeftX = 0;
-                            viewport.TopLeftY = 0;
-                            viewport.Width = static_cast<float>(cmd.desc.extent.width);
-                            viewport.Height = static_cast<float>(cmd.desc.extent.height);
-                            viewport.MinDepth = 0.0f;
-                            viewport.MaxDepth = 1.0f;
-                            cmdList_->RSSetViewports(1, &viewport);
+                            std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 8> rtvs{};
+                            UINT numRT = 0;
 
-                            D3D12_RECT scissor{};
-                            scissor.left = 0;
-                            scissor.top = 0;
-                            scissor.right = static_cast<LONG>(cmd.desc.extent.width);
-                            scissor.bottom = static_cast<LONG>(cmd.desc.extent.height);
-                            cmdList_->RSSetScissorRects(1, &scissor);
+                            D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
+                            bool hasDSV = false;
+
+                            curNumRT = 0;
+                            std::fill(curRTVFormats.begin(), curRTVFormats.end(), DXGI_FORMAT_UNKNOWN);
+                            curDSVFormat = DXGI_FORMAT_UNKNOWN;
+
+                            if (pass.frameBuffer.id == 0)
+                            {
+                                // ----- Swapchain pass -----
+                                if (!swapChain_)
+                                {
+                                    throw std::runtime_error("DX12: CommandBeginPass: swapChain is null");
+                                }
+
+                                TransitionBackBuffer(D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+                                rtvs[0] = swapChain_->CurrentRTV();
+                                numRT = 1;
+                                curRTVFormats[0] = swapChain_->BackBufferFormat();
+
+                                dsv = swapChain_->DSV();
+                                hasDSV = (dsv.ptr != 0);
+                                curDSVFormat = swapChain_->DepthFormat();
+
+                                curPassIsSwapChain = true;
+                            }
+                            else
+                            {
+                                // ----- Offscreen framebuffer pass -----
+                                auto fbIt = framebuffers_.find(pass.frameBuffer.id);
+                                if (fbIt == framebuffers_.end())
+                                {
+                                    throw std::runtime_error("DX12: CommandBeginPass: framebuffer not found");
+                                }
+
+                                const FramebufferEntry& fb = fbIt->second;
+
+                                // Color (0 or 1 RT)
+                                if (fb.color)
+                                {
+                                    auto it = textures_.find(fb.color.id);
+                                    if (it == textures_.end())
+                                    {
+                                        throw std::runtime_error("DX12: CommandBeginPass: framebuffer color texture not found");
+                                    }
+
+                                    auto& te = it->second;
+                                    if (!te.hasRTV)
+                                    {
+                                        throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
+                                    }
+
+                                    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+                                    rtvs[0] = te.rtv;
+                                    numRT = 1;
+                                    curRTVFormats[0] = te.rtvFormat;
+                                }
+
+                                // Depth
+                                if (fb.depth)
+                                {
+                                    auto it = textures_.find(fb.depth.id);
+                                    if (it == textures_.end())
+                                    {
+                                        throw std::runtime_error("DX12: CommandBeginPass: framebuffer depth texture not found");
+                                    }
+
+                                    auto& te = it->second;
+                                    if (!te.hasDSV)
+                                    {
+                                        throw std::runtime_error("DX12: CommandBeginPass: depth texture has no DSV");
+                                    }
+
+                                    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+                                    dsv = te.dsv;
+                                    hasDSV = true;
+                                    curDSVFormat = te.dsvFormat;
+                                }
+
+                                curPassIsSwapChain = false;
+                            }
+
+                            curNumRT = numRT;
+
+                            // Bind RT/DSV
+                            const D3D12_CPU_DESCRIPTOR_HANDLE* rtvPtr = (numRT > 0) ? rtvs.data() : nullptr;
+                            const D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = (hasDSV) ? &dsv : nullptr;
+                            cmdList_->OMSetRenderTargets(numRT, rtvPtr, FALSE, dsvPtr);
 
                             // Clear
-                            if (cmd.desc.clearDesc.clearColor)
+                            if (c.clearColor && numRT > 0)
                             {
-                                cmdList_->ClearRenderTargetView(rtv, cmd.desc.clearDesc.color.data(), 0, nullptr);
+                                const float* col = c.color.data();
+                                for (UINT i = 0; i < numRT; ++i)
+                                {
+                                    cmdList_->ClearRenderTargetView(rtvs[i], col, 0, nullptr);
+                                }
                             }
-                            if (cmd.desc.clearDesc.clearDepth)
+
+                            if (c.clearDepth && hasDSV)
                             {
-                                cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, cmd.desc.clearDesc.depth, 0, 0, nullptr);
+                                cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
                             }
                         }
                         else if constexpr (std::is_same_v<T, CommandEndPass>)
                         {
-                            // no-op
+                            if (curPassIsSwapChain)
+                            {
+                                TransitionBackBuffer(D3D12_RESOURCE_STATE_PRESENT);
+                            }
                         }
                         else if constexpr (std::is_same_v<T, CommandSetViewport>)
                         {
@@ -956,6 +1155,7 @@ export namespace rhi
                         {
                             if (cmd.slot < boundTex.size())
                             {
+                                TransitionTexture(cmd.texture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
                                 boundTex[cmd.slot] = GetTextureSRV(cmd.texture);
                             }
                         }
@@ -963,8 +1163,15 @@ export namespace rhi
                         {
                             if (cmd.slot < boundTex.size())
                             {
-                                TextureHandle textureHandle = ResolveTextureHandleFromDesc(cmd.texture);
-                                boundTex[cmd.slot] = GetTextureSRV(textureHandle);
+                                TextureHandle handle = ResolveTextureHandleFromDesc(cmd.texture);
+                                if (!handle)
+                                {
+                                    boundTex[cmd.slot] = {};
+                                    return;
+                                }
+
+                                TransitionTexture(handle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+                                boundTex[cmd.slot] = GetTextureSRV(handle);
                             }
                         }
 						else if constexpr (std::is_same_v<T, CommandSetUniformInt> ||
@@ -1028,6 +1235,7 @@ export namespace rhi
                             // Root bindings: CBV (0) + SRV table (1)
                             WriteCBAndBind();
                             cmdList_->SetGraphicsRootDescriptorTable(1, boundTex[0]);
+                            cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
 
                             cmdList_->DrawIndexedInstanced(cmd.indexCount, 1, 0, cmd.baseVertex, 0);
                         }
@@ -1066,7 +1274,7 @@ export namespace rhi
 
             // Close + execute + signal fence for the current frame resource
             EndFrame();
-}
+        }
 
         // ---------------- Bindless descriptor indices ----------------
         TextureDescIndex AllocateTextureDesctiptor(TextureHandle tex) override
@@ -1161,22 +1369,31 @@ export namespace rhi
 
         struct TextureEntry
         {
+            TextureHandle handle{};
             Extent2D extent{};
-            rhi::Format format{ rhi::Format::Unknown };
+            Format format{ Format::Unknown };
+
             ComPtr<ID3D12Resource> resource;
 
-            // Render targets / depth
-            bool hasRTV{ false };
-            bool hasDSV{ false };
-            UINT rtvIndex{ 0 };
-            UINT dsvIndex{ 0 };
-            D3D12_CPU_DESCRIPTOR_HANDLE rtv{};
-            D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
+            DXGI_FORMAT resourceFormat{ DXGI_FORMAT_UNKNOWN };
+            DXGI_FORMAT srvFormat{ DXGI_FORMAT_UNKNOWN };
+            DXGI_FORMAT rtvFormat{ DXGI_FORMAT_UNKNOWN };
+            DXGI_FORMAT dsvFormat{ DXGI_FORMAT_UNKNOWN };
 
-            // Sampled
+            D3D12_RESOURCE_STATES state{ D3D12_RESOURCE_STATE_COMMON };
+
             bool hasSRV{ false };
             UINT srvIndex{ 0 };
+            D3D12_CPU_DESCRIPTOR_HANDLE srvCpu{};
             D3D12_GPU_DESCRIPTOR_HANDLE srvGpu{};
+
+            bool hasRTV{ false };
+            UINT rtvIndex{ 0 };
+            D3D12_CPU_DESCRIPTOR_HANDLE rtv{};
+
+            bool hasDSV{ false };
+            UINT dsvIndex{ 0 };
+            D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
         };
 
         struct FramebufferEntry
@@ -1285,59 +1502,105 @@ export namespace rhi
 
         void CreateRootSignature()
         {
-            // Root params: 0 = CBV(b0), 1 = SRV table (t0)
-            D3D12_DESCRIPTOR_RANGE1 range{};
-            range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-            range.NumDescriptors = 1;
-            range.BaseShaderRegister = 0;
-            range.RegisterSpace = 0;
-            range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
-            range.OffsetInDescriptorsFromTableStart = 0;
+            // Root signature layout:
+            //  [0] CBV(b0)         - per-draw constants
+            //  [1] SRV table (t0)  - albedo/regular textures
+            //  [2] SRV table (t1)  - shadow map (depth SRV)
+            //
+            // Samplers:
+            //  s0 - linear wrap
+            //  s1 - comparison sampler for shadow map (clamp)
+            D3D12_DESCRIPTOR_RANGE rangeAlbedo{};
+            rangeAlbedo.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            rangeAlbedo.NumDescriptors = 1;
+            rangeAlbedo.BaseShaderRegister = 0; // t0
+            rangeAlbedo.RegisterSpace = 0;
+            rangeAlbedo.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-            D3D12_ROOT_PARAMETER1 params[2]{};
+            D3D12_DESCRIPTOR_RANGE rangeShadow{};
+            rangeShadow.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            rangeShadow.NumDescriptors = 1;
+            rangeShadow.BaseShaderRegister = 1; // t1
+            rangeShadow.RegisterSpace = 0;
+            rangeShadow.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-            params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-            params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-            params[0].Descriptor.ShaderRegister = 0;
-            params[0].Descriptor.RegisterSpace = 0;
-            params[0].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
+            D3D12_ROOT_PARAMETER rootParams[3]{};
 
-            params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-            params[1].DescriptorTable.NumDescriptorRanges = 1;
-            params[1].DescriptorTable.pDescriptorRanges = &range;
+            rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            rootParams[0].Descriptor.ShaderRegister = 0;
+            rootParams[0].Descriptor.RegisterSpace = 0;
+            rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-            // Static sampler s0
-            D3D12_STATIC_SAMPLER_DESC samp{};
-            samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-            samp.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            samp.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            samp.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            samp.MipLODBias = 0;
-            samp.MaxAnisotropy = 1;
-            samp.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-            samp.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
-            samp.MinLOD = 0.0f;
-            samp.MaxLOD = D3D12_FLOAT32_MAX;
-            samp.ShaderRegister = 0; // s0
-            samp.RegisterSpace = 0;
-            samp.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+            rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            rootParams[1].DescriptorTable.NumDescriptorRanges = 1;
+            rootParams[1].DescriptorTable.pDescriptorRanges = &rangeAlbedo;
+            rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-            D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSignature{};
-            rootSignature.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-            rootSignature.Desc_1_1.NumParameters = 2;
-            rootSignature.Desc_1_1.pParameters = params;
-            rootSignature.Desc_1_1.NumStaticSamplers = 1;
-            rootSignature.Desc_1_1.pStaticSamplers = &samp;
-            rootSignature.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+            rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            rootParams[2].DescriptorTable.NumDescriptorRanges = 1;
+            rootParams[2].DescriptorTable.pDescriptorRanges = &rangeShadow;
+            rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-            ComPtr<ID3DBlob> blob;
-            ComPtr<ID3DBlob> err;
-            ThrowIfFailed(D3D12SerializeVersionedRootSignature(&rootSignature, &blob, &err),
-                "DX12: Serialize root signature failed");
+            D3D12_STATIC_SAMPLER_DESC samplers[2]{};
 
-            ThrowIfFailed(NativeDevice()->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&rootSig_)),
-                "DX12: CreateRootSignature failed");
+            auto MakeStaticSampler =
+                [](UINT reg,
+                    D3D12_FILTER filter,
+                    D3D12_TEXTURE_ADDRESS_MODE addrU,
+                    D3D12_TEXTURE_ADDRESS_MODE addrV,
+                    D3D12_TEXTURE_ADDRESS_MODE addrW,
+                    D3D12_COMPARISON_FUNC cmp,
+                    D3D12_SHADER_VISIBILITY vis)
+                {
+                    D3D12_STATIC_SAMPLER_DESC s{};
+                    s.ShaderRegister = reg;
+                    s.RegisterSpace = 0;
+                    s.Filter = filter;
+                    s.AddressU = addrU;
+                    s.AddressV = addrV;
+                    s.AddressW = addrW;
+                    s.MipLODBias = 0.0f;
+                    s.MaxAnisotropy = 1;
+                    s.ComparisonFunc = cmp;
+                    s.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+                    s.MinLOD = 0.0f;
+                    s.MaxLOD = D3D12_FLOAT32_MAX;
+                    s.ShaderVisibility = vis;
+                    return s;
+                };
+
+            samplers[0] = MakeStaticSampler(
+                0,
+                D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+                D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+                D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+                D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+                D3D12_COMPARISON_FUNC_ALWAYS,
+                D3D12_SHADER_VISIBILITY_PIXEL);
+
+            samplers[1] = MakeStaticSampler(
+                1,
+                D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+                D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                D3D12_COMPARISON_FUNC_LESS_EQUAL,
+                D3D12_SHADER_VISIBILITY_PIXEL);
+
+            D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
+            rootSigDesc.NumParameters = _countof(rootParams);
+            rootSigDesc.pParameters = rootParams;
+            rootSigDesc.NumStaticSamplers = _countof(samplers);
+            rootSigDesc.pStaticSamplers = samplers;
+            rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+            ComPtr<ID3DBlob> serialized;
+            ComPtr<ID3DBlob> error;
+            ThrowIfFailed(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &error),
+                "DX12: D3D12SerializeRootSignature failed");
+
+            ThrowIfFailed(NativeDevice()->CreateRootSignature(0, serialized->GetBufferPointer(), serialized->GetBufferSize(),
+                IID_PPV_ARGS(&rootSig_)), "DX12: CreateRootSignature failed");
         }
 
         void EnsureRTVHeap()
@@ -1436,9 +1699,10 @@ export namespace rhi
             return handle;
         }
 
-        void AllocateSRV(TextureEntry& texureEntry, DXGI_FORMAT fmt, UINT mipLevels)
+        UINT AllocateSrvIndex()
         {
             UINT idx = 0;
+
             if (!freeSrv_.empty())
             {
                 idx = freeSrv_.back();
@@ -1449,17 +1713,28 @@ export namespace rhi
                 idx = nextSrvIndex_++;
             }
 
-            // The heap is created with a fixed size (see constructor). Grow it if you need more.
             if (idx >= 4096u)
             {
-                throw std::runtime_error("DX12: SRV heap exhausted (increase heapDesc.NumDescriptors).");
+                throw std::runtime_error("DX12: SRV heap exhausted (increase SRV heap NumDescriptors).");
             }
+
+            return idx;
+        }
+
+        void AllocateSRV(TextureEntry& entry, DXGI_FORMAT fmt, UINT mipLevels)
+        {
+            if (entry.hasSRV)
+            {
+                return;
+            }
+
+            const UINT idx = AllocateSrvIndex();
 
             D3D12_CPU_DESCRIPTOR_HANDLE cpu = srvHeap_->GetCPUDescriptorHandleForHeapStart();
             cpu.ptr += static_cast<SIZE_T>(idx) * srvInc_;
 
             D3D12_GPU_DESCRIPTOR_HANDLE gpu = srvHeap_->GetGPUDescriptorHandleForHeapStart();
-            gpu.ptr += static_cast<SIZE_T>(idx) * srvInc_;
+            gpu.ptr += static_cast<UINT64>(idx) * static_cast<UINT64>(srvInc_);
 
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -1467,13 +1742,13 @@ export namespace rhi
             srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             srvDesc.Texture2D.MostDetailedMip = 0;
             srvDesc.Texture2D.MipLevels = mipLevels;
-            srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-            NativeDevice()->CreateShaderResourceView(texureEntry.resource.Get(), &srvDesc, cpu);
+            NativeDevice()->CreateShaderResourceView(entry.resource.Get(), &srvDesc, cpu);
 
-            texureEntry.hasSRV = true;
-            texureEntry.srvIndex = idx;
-            texureEntry.srvGpu = gpu;
+            entry.hasSRV = true;
+            entry.srvIndex = idx;
+            entry.srvCpu = cpu;
+            entry.srvGpu = gpu;
         }
 
     private:
@@ -1592,7 +1867,7 @@ export namespace rhi
             device_.NativeDevice()->CreateRenderTargetView(backBuffers_[i].Get(), nullptr, descHandle);
         }
 
-        frameIndex_ = swapChain_->GetCurrentBackBufferIndex();
+        currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
 
         // Depth (D32)
         depthFormat_ = DXGI_FORMAT_D32_FLOAT;
@@ -1643,6 +1918,9 @@ export namespace rhi
             device_.NativeDevice()->CreateDepthStencilView(depth_.Get(), &viewDesc, dsv);
             dsv_ = dsv;
         }
+
+        backBufferStates_.resize(backBuffers_.size());
+        ResetBackBufferStates(D3D12_RESOURCE_STATE_PRESENT);
     }
 
     SwapChainDesc DX12SwapChain::GetDesc() const
@@ -1665,7 +1943,7 @@ export namespace rhi
     {
         const UINT syncInterval = chainSwapDesc_.base.vsync ? 1u : 0u;
         ThrowIfFailed(swapChain_->Present(syncInterval, 0), "DX12: Present failed");
-        frameIndex_ = swapChain_->GetCurrentBackBufferIndex();
+        currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
     }
 
     // Public factory functions
