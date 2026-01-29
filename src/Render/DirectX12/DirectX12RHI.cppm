@@ -1,18 +1,18 @@
 module;
 
 #if defined(_WIN32)
-    // Prevent Windows headers from defining the `min`/`max` macros which break `std::min`/`std::max`.
-    #ifndef NOMINMAX
-    #define NOMINMAX
-    #endif
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
-    #include <d3d12.h>
-    #include <dxgi1_6.h>
-    #include <d3dcompiler.h>
-    #include <wrl/client.h>
+// Prevent Windows headers from defining the `min`/`max` macros which break `std::min`/`std::max`.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <d3dcompiler.h>
+#include <wrl/client.h>
 
-    #include "d3dx12.h"
+#include "d3dx12.h"
 #endif
 
 #include <cstddef>
@@ -239,7 +239,7 @@ export namespace rhi
     class DX12Device final : public IRHIDevice
     {
     public:
-        
+
         DX12Device()
         {
             core_.Init();
@@ -316,18 +316,33 @@ export namespace rhi
 
                 srvInc_ = NativeDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-                // null SRV in slot 0 (so BindTexture2D can always bind something)
+                // null SRVs:
+//  slot 0: null Texture2D SRV (for t0/t1 texture slots)
+//  slot 1: null StructuredBuffer SRV (for t2 lights SB)
                 {
                     D3D12_CPU_DESCRIPTOR_HANDLE cpu = srvHeap_->GetCPUDescriptorHandleForHeapStart();
-                    D3D12_SHADER_RESOURCE_VIEW_DESC nullSrv{};
-                    nullSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                    nullSrv.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                    nullSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                    nullSrv.Texture2D.MipLevels = 1;
-                    NativeDevice()->CreateShaderResourceView(nullptr, &nullSrv, cpu);
+
+                    D3D12_SHADER_RESOURCE_VIEW_DESC nullTex{};
+                    nullTex.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                    nullTex.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                    nullTex.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                    nullTex.Texture2D.MipLevels = 1;
+                    NativeDevice()->CreateShaderResourceView(nullptr, &nullTex, cpu);
+
+                    cpu.ptr += static_cast<SIZE_T>(srvInc_);
+
+                    D3D12_SHADER_RESOURCE_VIEW_DESC nullBuf{};
+                    nullBuf.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                    nullBuf.Format = DXGI_FORMAT_UNKNOWN;
+                    nullBuf.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                    nullBuf.Buffer.FirstElement = 0;
+                    nullBuf.Buffer.NumElements = 1;
+                    nullBuf.Buffer.StructureByteStride = 16;
+                    nullBuf.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+                    NativeDevice()->CreateShaderResourceView(nullptr, &nullBuf, cpu);
                 }
 
-                nextSrvIndex_ = 1;
+                nextSrvIndex_ = 2;
                 freeSrv_.clear();
             }
 
@@ -374,7 +389,7 @@ export namespace rhi
         {
             auto it = textures_.find(textureHandle.id);
             if (it == textures_.end())
-            { 
+            {
                 throw std::runtime_error("DX12: ReplaceSampledTextureResource: texture handle not found");
             }
 
@@ -387,7 +402,7 @@ export namespace rhi
 
         TextureHandle RegisterSampledTexture(ID3D12Resource* res, DXGI_FORMAT fmt, UINT mipLevels)
         {
-            if (!res) 
+            if (!res)
             {
                 return {};
             }
@@ -397,7 +412,7 @@ export namespace rhi
 
             // Fill extent from resource desc
             const D3D12_RESOURCE_DESC resourceDesc = res->GetDesc();
-            textureEntry.extent = Extent2D{ 
+            textureEntry.extent = Extent2D{
                 static_cast<std::uint32_t>(resourceDesc.Width),
                 static_cast<std::uint32_t>(resourceDesc.Height) };
             textureEntry.format = rhi::Format::RGBA8_UNORM; // internal book-keeping only (engine side)
@@ -412,18 +427,18 @@ export namespace rhi
             return textureHandle;
         }
 
-        void SetSwapChain(DX12SwapChain* swapChain) 
-        { 
-            swapChain_ = swapChain; 
+        void SetSwapChain(DX12SwapChain* swapChain)
+        {
+            swapChain_ = swapChain;
         }
 
-        std::string_view GetName() const override 
-        { 
-            return "DirectX12 RHI"; 
+        std::string_view GetName() const override
+        {
+            return "DirectX12 RHI";
         }
-        Backend GetBackend() const noexcept override 
-        { 
-            return Backend::DirectX12; 
+        Backend GetBackend() const noexcept override
+        {
+            return Backend::DirectX12;
         }
 
         // ---------------- Textures (RenderGraph transient) ---------------- //
@@ -511,24 +526,24 @@ export namespace rhi
             else
             {
                 resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-                clearValue.Color[0] = 0.0f; 
-                clearValue.Color[1] = 0.0f; 
-                clearValue.Color[2] = 0.0f; 
+                clearValue.Color[0] = 0.0f;
+                clearValue.Color[1] = 0.0f;
+                clearValue.Color[2] = 0.0f;
                 clearValue.Color[3] = 1.0f;
                 initState = D3D12_RESOURCE_STATE_RENDER_TARGET;
                 ThrowIfFailed(NativeDevice()->CreateCommittedResource(
-                    &heapProps, 
+                    &heapProps,
                     D3D12_HEAP_FLAG_NONE,
-                    &resourceDesc, 
-                    initState, 
-                    &clearValue, 
+                    &resourceDesc,
+                    initState,
+                    &clearValue,
                     IID_PPV_ARGS(&textureEntry.resource)),
                     "DX12: Create color texture failed");
 
                 textureEntry.resourceFormat = dxFmt;
                 textureEntry.srvFormat = dxFmt;
                 textureEntry.rtvFormat = dxFmt;
-                textureEntry.state = initState; 
+                textureEntry.state = initState;
 
                 EnsureRTVHeap();
                 textureEntry.rtv = AllocateRTV(textureEntry.resource.Get(), dxFmt, textureEntry.rtvIndex);
@@ -563,6 +578,12 @@ export namespace rhi
                 CurrentFrame().deferredResources.push_back(std::move(entry.resource));
             }
 
+            // Recycle SRV index after the frame fence is completed (see BeginFrame()).
+            if (entry.hasSRV && entry.srvIndex != 0)
+            {
+                CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
+            }
+
             // Recycle descriptor indices only after the same fence is completed (see BeginFrame()).
             if (entry.hasSRV && entry.srvIndex != 0)
             {
@@ -591,7 +612,7 @@ export namespace rhi
 
         void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
         {
-            if (frameBuffer.id == 0) 
+            if (frameBuffer.id == 0)
             {
                 return;
             }
@@ -621,13 +642,20 @@ export namespace rhi
             resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
             ThrowIfFailed(NativeDevice()->CreateCommittedResource(
-                &heapProps, 
-                D3D12_HEAP_FLAG_NONE, 
+                &heapProps,
+                D3D12_HEAP_FLAG_NONE,
                 &resourceDesc,
-                D3D12_RESOURCE_STATE_GENERIC_READ, 
+                D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
                 IID_PPV_ARGS(&bufferEntry.resource)),
                 "DX12: CreateBuffer failed");
+
+
+            // Create SRV for StructuredBuffer reads (if requested).
+            if (desc.bindFlag == BufferBindFlag::StructuredBuffer)
+            {
+                AllocateStructuredBufferSRV(bufferEntry);
+            }
 
             buffers_[handle.id] = std::move(bufferEntry);
             return handle;
@@ -636,7 +664,7 @@ export namespace rhi
         void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes = 0) override
         {
             auto it = buffers_.find(buffer.id);
-            if (it == buffers_.end()) 
+            if (it == buffers_.end())
             {
                 return;
             }
@@ -669,6 +697,12 @@ export namespace rhi
             if (entry.resource)
             {
                 CurrentFrame().deferredResources.push_back(std::move(entry.resource));
+            }
+
+            // Recycle SRV index after the frame fence is completed (see BeginFrame()).
+            if (entry.hasSRV && entry.srvIndex != 0)
+            {
+                CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
             }
         }
 
@@ -740,7 +774,7 @@ export namespace rhi
             if (FAILED(hr))
             {
                 std::string err = "DX12: shader compile failed: ";
-                if (errors) 
+                if (errors)
                 {
                     err += std::string(reinterpret_cast<const char*>(errors->GetBufferPointer()), errors->GetBufferSize());
                 }
@@ -808,13 +842,19 @@ export namespace rhi
                 t = srvHeap_->GetGPUDescriptorHandleForHeapStart(); // null SRV slot0
             }
 
-			// Per-draw constants (raw bytes).
-			// The renderer is responsible for packing the layout expected by HLSL.
-			std::array<std::byte, 256> perDrawBytes{};
-			std::uint32_t perDrawSize = 0;
-			std::uint32_t perDrawSlot = 0;
+            // slot 2 (t2) expects StructuredBuffer SRV; point it to null-buffer descriptor (SRV heap index 1).
+            if (boundTex.size() > 2)
+            {
+                boundTex[2].ptr += static_cast<UINT64>(srvInc_);
+            }
 
-			auto WriteCBAndBind = [&]()
+            // Per-draw constants (raw bytes).
+            // The renderer is responsible for packing the layout expected by HLSL.
+            std::array<std::byte, 256> perDrawBytes{};
+            std::uint32_t perDrawSize = 0;
+            std::uint32_t perDrawSlot = 0;
+
+            auto WriteCBAndBind = [&]()
                 {
                     FrameResource& fr = CurrentFrame();
 
@@ -840,7 +880,7 @@ export namespace rhi
             auto ResolveTextureHandleFromDesc = [&](TextureDescIndex idx) -> TextureHandle
                 {
                     auto it = descToTex_.find(idx);
-                    if (it == descToTex_.end()) 
+                    if (it == descToTex_.end())
                     {
                         throw std::runtime_error("DX12: TextureDescIndex not mapped");
                         //return {};
@@ -855,16 +895,45 @@ export namespace rhi
                         return srvHeap_->GetGPUDescriptorHandleForHeapStart();
                     }
                     auto it = textures_.find(textureHandle.id);
-                    if (it == textures_.end()) 
+                    if (it == textures_.end())
                     {
                         return srvHeap_->GetGPUDescriptorHandleForHeapStart();
                     }
-                    if (!it->second.hasSRV) 
+                    if (!it->second.hasSRV)
                     {
                         return srvHeap_->GetGPUDescriptorHandleForHeapStart();
                     }
                     return it->second.srvGpu;
                 };
+
+            auto NullBufferSRV = [&]() -> D3D12_GPU_DESCRIPTOR_HANDLE
+                {
+                    D3D12_GPU_DESCRIPTOR_HANDLE h = srvHeap_->GetGPUDescriptorHandleForHeapStart();
+                    h.ptr += static_cast<UINT64>(srvInc_); // SRV heap index 1
+                    return h;
+                };
+
+            auto GetBufferSRV = [&](BufferHandle bufferHandle) -> D3D12_GPU_DESCRIPTOR_HANDLE
+                {
+                    if (!bufferHandle)
+                    {
+                        return NullBufferSRV();
+                    }
+
+                    auto it = buffers_.find(bufferHandle.id);
+                    if (it == buffers_.end())
+                    {
+                        return NullBufferSRV();
+                    }
+
+                    if (!it->second.hasSRV)
+                    {
+                        return NullBufferSRV();
+                    }
+
+                    return it->second.srvGpu;
+                };
+
 
 
             UINT curNumRT = 1;
@@ -875,11 +944,11 @@ export namespace rhi
 
             auto Barrier = [&](ID3D12Resource* res, D3D12_RESOURCE_STATES& curState, D3D12_RESOURCE_STATES desired)
                 {
-                    if (!res) 
+                    if (!res)
                     {
                         return;
                     }
-                    if (curState == desired) 
+                    if (curState == desired)
                     {
                         return;
                     }
@@ -897,12 +966,12 @@ export namespace rhi
 
             auto TransitionTexture = [&](TextureHandle tex, D3D12_RESOURCE_STATES desired)
                 {
-                    if (!tex) 
+                    if (!tex)
                     {
                         return;
                     }
                     auto it = textures_.find(tex.id);
-                    if (it == textures_.end()) 
+                    if (it == textures_.end())
                     {
                         return;
                     }
@@ -1164,7 +1233,7 @@ export namespace rhi
                                 {
                                     throw std::runtime_error("DX12: BindTexture2D: texture not found in textures_ map");
                                 }
-                                    
+
                                 if (!it->second.hasSRV)
                                 {
                                     throw std::runtime_error("DX12: BindTexture2D: texture has no SRV");
@@ -1190,18 +1259,25 @@ export namespace rhi
                                 boundTex[cmd.slot] = GetTextureSRV(handle);
                             }
                         }
-						else if constexpr (std::is_same_v<T, CommandSetUniformInt> ||
-							std::is_same_v<T, CommandUniformFloat4> ||
-							std::is_same_v<T, CommandUniformMat4>)
-						{
-							// DX12 backend does not interpret the name-based uniform commands.
-							// Use CommandSetConstants instead.
-						}
-						else if constexpr (std::is_same_v<T, CommandSetConstants>)
-						{
-							perDrawSlot = cmd.slot;
-							perDrawSize = cmd.size;
-							if (perDrawSize > 256)
+                        else if constexpr (std::is_same_v<T, CommandBindStructuredBufferSRV>)
+                        {
+                            if (cmd.slot < boundTex.size())
+                            {
+                                boundTex[cmd.slot] = GetBufferSRV(cmd.buffer);
+                            }
+                        }
+                        else if constexpr (std::is_same_v<T, CommandSetUniformInt> ||
+                            std::is_same_v<T, CommandUniformFloat4> ||
+                            std::is_same_v<T, CommandUniformMat4>)
+                        {
+                            // DX12 backend does not interpret the name-based uniform commands.
+                            // Use CommandSetConstants instead.
+                        }
+                        else if constexpr (std::is_same_v<T, CommandSetConstants>)
+                        {
+                            perDrawSlot = cmd.slot;
+                            perDrawSize = cmd.size;
+                            if (perDrawSize > 256)
                             {
                                 perDrawSize = 256;
                             }
@@ -1209,7 +1285,7 @@ export namespace rhi
                             {
                                 std::memcpy(perDrawBytes.data(), cmd.data.data(), perDrawSize);
                             }
-						}
+                        }
                         else if constexpr (std::is_same_v<T, CommandDrawIndexed>)
                         {
                             // PSO + RootSig
@@ -1222,7 +1298,7 @@ export namespace rhi
                             if (vbIt == buffers_.end())
                             {
                                 throw std::runtime_error("DX12: vertex buffer not found");
-                            }   
+                            }
 
                             D3D12_VERTEX_BUFFER_VIEW vbv{};
                             vbv.BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + vbOffset;
@@ -1252,6 +1328,7 @@ export namespace rhi
                             WriteCBAndBind();
                             cmdList_->SetGraphicsRootDescriptorTable(1, boundTex[0]);
                             cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
+                            cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
 
                             cmdList_->DrawIndexedInstanced(cmd.indexCount, 1, 0, cmd.baseVertex, 0);
                         }
@@ -1266,7 +1343,7 @@ export namespace rhi
                             {
                                 throw std::runtime_error("DX12: vertex buffer not found");
                             }
-                            
+
                             D3D12_VERTEX_BUFFER_VIEW vbv{};
                             vbv.BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + vbOffset;
                             vbv.SizeInBytes = static_cast<UINT>(vbIt->second.desc.sizeInBytes - vbOffset);
@@ -1278,6 +1355,7 @@ export namespace rhi
                             WriteCBAndBind();
                             cmdList_->SetGraphicsRootDescriptorTable(1, boundTex[0]);
                             cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
+                            cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
 
                             cmdList_->DrawInstanced(cmd.vertexCount, 1, cmd.firstVertex, 0);
                         }
@@ -1321,7 +1399,7 @@ export namespace rhi
             {
                 throw std::runtime_error("DX12: UpdateTextureDescriptor: texture not found");
             }
-               
+
             auto& te = it->second;
             if (!te.hasSRV)
             {
@@ -1329,7 +1407,7 @@ export namespace rhi
                 {
                     throw std::runtime_error("DX12: UpdateTextureDescriptor: texture has no SRV format");
                 }
-                    
+
 
                 AllocateSRV(te, te.srvFormat, /*mips*/ 1);
             }
@@ -1367,21 +1445,21 @@ export namespace rhi
             return it != fences_.end() && it->second;
         }
 
-        ID3D12Device* NativeDevice() const 
-        { 
-            return core_.device.Get(); 
+        ID3D12Device* NativeDevice() const
+        {
+            return core_.device.Get();
         }
-        ID3D12CommandQueue* NativeQueue() const 
-        { 
-            return core_.cmdQueue.Get(); 
+        ID3D12CommandQueue* NativeQueue() const
+        {
+            return core_.cmdQueue.Get();
         }
-        ID3D12DescriptorHeap* NativeSRVHeap() const 
-        { 
-            return srvHeap_.Get(); 
+        ID3D12DescriptorHeap* NativeSRVHeap() const
+        {
+            return srvHeap_.Get();
         }
-        UINT NativeSRVInc() const 
-        { 
-            return srvInc_; 
+        UINT NativeSRVInc() const
+        {
+            return srvInc_;
         }
 
     private:
@@ -1391,6 +1469,12 @@ export namespace rhi
         {
             BufferDesc desc{};
             ComPtr<ID3D12Resource> resource;
+
+            // Optional SRV for StructuredBuffer reads (t2 in the demo).
+            bool hasSRV{ false };
+            UINT srvIndex{ 0 };
+            D3D12_CPU_DESCRIPTOR_HANDLE srvCpu{};
+            D3D12_GPU_DESCRIPTOR_HANDLE srvGpu{};
         };
 
         struct InputLayoutEntry
@@ -1551,8 +1635,9 @@ export namespace rhi
         {
             // Root signature layout:
             //  [0] CBV(b0)         - per-draw constants
-            //  [1] SRV table (t0)  - albedo/regular textures
+            //  [1] SRV table (t0)  - albedo/regular texture
             //  [2] SRV table (t1)  - shadow map (depth SRV)
+            //  [3] SRV table (t2)  - StructuredBuffer lights (SRV)
             //
             // Samplers:
             //  s0 - linear wrap
@@ -1571,22 +1656,38 @@ export namespace rhi
             rangeShadow.RegisterSpace = 0;
             rangeShadow.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-            D3D12_ROOT_PARAMETER rootParams[3]{};
+            D3D12_DESCRIPTOR_RANGE rangeLights{};
+            rangeLights.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            rangeLights.NumDescriptors = 1;
+            rangeLights.BaseShaderRegister = 2; // t2
+            rangeLights.RegisterSpace = 0;
+            rangeLights.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+            D3D12_ROOT_PARAMETER rootParams[4]{};
+
+            // b0
             rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
             rootParams[0].Descriptor.ShaderRegister = 0;
             rootParams[0].Descriptor.RegisterSpace = 0;
             rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+            // t0
             rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
             rootParams[1].DescriptorTable.NumDescriptorRanges = 1;
             rootParams[1].DescriptorTable.pDescriptorRanges = &rangeAlbedo;
             rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+            // t1
             rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
             rootParams[2].DescriptorTable.NumDescriptorRanges = 1;
             rootParams[2].DescriptorTable.pDescriptorRanges = &rangeShadow;
             rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // t2
+            rootParams[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            rootParams[3].DescriptorTable.NumDescriptorRanges = 1;
+            rootParams[3].DescriptorTable.pDescriptorRanges = &rangeLights;
+            rootParams[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
             D3D12_STATIC_SAMPLER_DESC samplers[2]{};
 
@@ -1652,7 +1753,7 @@ export namespace rhi
 
         void EnsureRTVHeap()
         {
-            if (rtvHeap_) 
+            if (rtvHeap_)
             {
                 return;
             }
@@ -1669,7 +1770,7 @@ export namespace rhi
 
         void EnsureDSVHeap()
         {
-            if (dsvHeap_) 
+            if (dsvHeap_)
             {
                 return;
             }
@@ -1766,6 +1867,51 @@ export namespace rhi
             }
 
             return idx;
+        }
+
+        void AllocateStructuredBufferSRV(BufferEntry& entry)
+        {
+            if (entry.hasSRV)
+            {
+                return;
+            }
+
+            const auto stride = entry.desc.structuredStrideBytes;
+            if (stride == 0)
+            {
+                throw std::runtime_error("DX12: StructuredBuffer SRV requested but structuredStrideBytes == 0");
+            }
+
+            const UINT64 totalBytes = static_cast<UINT64>(entry.desc.sizeInBytes);
+            const UINT numElems = static_cast<UINT>(totalBytes / static_cast<UINT64>(stride));
+            if (numElems == 0)
+            {
+                throw std::runtime_error("DX12: StructuredBuffer SRV requested but NumElements == 0");
+            }
+
+            const UINT idx = AllocateSrvIndex();
+
+            D3D12_CPU_DESCRIPTOR_HANDLE cpu = srvHeap_->GetCPUDescriptorHandleForHeapStart();
+            cpu.ptr += static_cast<SIZE_T>(idx) * srvInc_;
+
+            D3D12_GPU_DESCRIPTOR_HANDLE gpu = srvHeap_->GetGPUDescriptorHandleForHeapStart();
+            gpu.ptr += static_cast<UINT64>(idx) * static_cast<UINT64>(srvInc_);
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srvDesc.Format = DXGI_FORMAT_UNKNOWN; // structured
+            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srvDesc.Buffer.FirstElement = 0;
+            srvDesc.Buffer.NumElements = numElems;
+            srvDesc.Buffer.StructureByteStride = stride;
+            srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+            NativeDevice()->CreateShaderResourceView(entry.resource.Get(), &srvDesc, cpu);
+
+            entry.hasSRV = true;
+            entry.srvIndex = idx;
+            entry.srvCpu = cpu;
+            entry.srvGpu = gpu;
         }
 
         void AllocateSRV(TextureEntry& entry, DXGI_FORMAT fmt, UINT mipLevels)
@@ -1865,7 +2011,7 @@ export namespace rhi
         if (!chainSwapDesc_.hwnd)
         {
             throw std::runtime_error("DX12SwapChain: hwnd is null");
-        }    
+        }
 
         ComPtr<IDXGIFactory6> factory;
         ThrowIfFailed(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory)), "DX12: CreateDXGIFactory2 failed");
@@ -1950,8 +2096,8 @@ export namespace rhi
             clearValue.DepthStencil.Stencil = 0;
 
             ThrowIfFailed(device_.NativeDevice()->CreateCommittedResource(
-                &heapProps, 
-                D3D12_HEAP_FLAG_NONE, 
+                &heapProps,
+                D3D12_HEAP_FLAG_NONE,
                 &resourceDesc,
                 D3D12_RESOURCE_STATE_DEPTH_WRITE,
                 &clearValue,
@@ -2009,13 +2155,13 @@ export namespace rhi
         {
             throw std::runtime_error("CreateDX12SwapChain: device is not DX12Device");
         }
-        
+
         auto swapChainDesc = std::make_unique<DX12SwapChain>(*dxDev, std::move(desc));
         dxDev->SetSwapChain(swapChainDesc.get());
         return swapChainDesc;
     }
 
 #else
-inline std::unique_ptr<IRHIDevice> CreateDX12Device() { return CreateNullDevice(); }
+    inline std::unique_ptr<IRHIDevice> CreateDX12Device() { return CreateNullDevice(); }
 #endif
 } // namespace rhi

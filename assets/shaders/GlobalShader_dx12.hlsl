@@ -1,50 +1,13 @@
-// GlobalShader_dx12.hlsl
-// Mesh + simple directional Blinn-Phong + optional shadow map.
-// IMPORTANT: cbuffer layout must match PerDrawShadowedDirConstants (256 bytes) in DirectX12Renderer.cppm.
-
-cbuffer PerDraw : register(b0)
-{
-    // 64 bytes
-    float4x4 uMVP;
-
-    // 64 bytes: lightProj * lightView * model
-    float4x4 uLightMVP;
-
-    // 48 bytes (3 rows of Model matrix: row0,row1,row2 as float4 each)
-    float4 uModelRow0;
-    float4 uModelRow1;
-    float4 uModelRow2;
-
-    // 16 bytes: cam.xyz + ambientStrength
-    float4 uCameraAmbient;
-
-    // 16 bytes: baseColor rgba
-    float4 uBaseColor;
-
-    // 16 bytes: shininess, specStrength, shadowBias, flagsPacked (stored as float)
-    float4 uMaterialFlags;
-
-    // 16 bytes: directional dir.xyz (FROM light towards scene), intensity
-    float4 uDir_DirIntensity;
-
-    // 16 bytes: directional color (rgb) + unused
-    float4 uDir_Color;
-};
-
-Texture2D gAlbedo : register(t0);
-Texture2D<float> gShadow : register(t1);
-
-SamplerState gSamp : register(s0);
-SamplerComparisonState gShadowSamp : register(s1);
-
-static const uint kFlagUseTex = 1u << 0;
-static const uint kFlagUseShadow = 1u << 1;
-static const uint kFlagDirLight = 1u << 2;
+// Mesh_dx12.hlsl
+// b0: PerDrawMainConstants (240 bytes)
+// t0: albedo
+// t1: shadow map (R32_FLOAT SRV)
+// t2: StructuredBuffer lights
 
 struct VSIn
 {
-    float3 pos : POSITION0;
-    float3 nrm : NORMAL0;
+    float3 posL : POSITION;
+    float3 normal : NORMAL;
     float2 uv : TEXCOORD0;
 };
 
@@ -52,116 +15,224 @@ struct VSOut
 {
     float4 posH : SV_Position;
     float3 worldPos : TEXCOORD0;
-    float3 normalW : TEXCOORD1;
+    float3 worldN : TEXCOORD1;
     float2 uv : TEXCOORD2;
-    float4 shadowPos : TEXCOORD3;
+    float4 lightPosH : TEXCOORD3; // light clip position
 };
 
-// Reconstruct world position using the 3 model rows.
-// Assumes affine transform.
-float3 WorldPosFromRows(float3 localPos)
+cbuffer PerDraw : register(b0)
 {
-    float x = dot(uModelRow0.xyz, localPos) + uModelRow0.w;
-    float y = dot(uModelRow1.xyz, localPos) + uModelRow1.w;
-    float z = dot(uModelRow2.xyz, localPos) + uModelRow2.w;
-    return float3(x, y, z);
+    float4x4 uMVP; // 64
+    float4x4 uLightMVP; // 64
+
+    float4 uModelRow0; // 48
+    float4 uModelRow1;
+    float4 uModelRow2;
+
+    float4 uCameraAmbient; // cam.xyz, ambientStrength
+    float4 uBaseColor; // rgba
+    float4 uMaterialFlags; // shininess, specStrength, shadowBias, flagsPacked(float)
+    float4 uCounts; // x = lightCount
+};
+
+Texture2D gAlbedo : register(t0);
+Texture2D<float> gShadowMap : register(t1);
+
+SamplerState gSampler : register(s0);
+SamplerComparisonState gShadowSampler : register(s1);
+
+struct GPULight
+{
+    float4 p0; // pos.xyz, type (0=dir,1=point,2=spot)
+    float4 p1; // dir.xyz (FROM light), intensity
+    float4 p2; // color.rgb, range
+    float4 p3; // cosInner, cosOuter, attLin, attQuad
+};
+
+StructuredBuffer<GPULight> gLights : register(t2);
+
+static const uint LIGHT_TYPE_DIR = 0u;
+static const uint LIGHT_TYPE_POINT = 1u;
+static const uint LIGHT_TYPE_SPOT = 2u;
+
+static const uint FLAG_USE_TEX = 1u << 0;
+static const uint FLAG_USE_SHADOW = 1u << 1;
+
+float3 MulModelPos(float3 pL)
+{
+    float4 p = float4(pL, 1.0);
+    return float3(dot(uModelRow0, p), dot(uModelRow1, p), dot(uModelRow2, p));
 }
 
-// Transform normal using the 3x3 part (rows) of model matrix.
-// NOTE: correct only if no non-uniform scale.
-float3 NormalWFromRows(float3 localN)
+float3 MulModelNormal(float3 nL)
 {
-    float3 w;
-    w.x = dot(uModelRow0.xyz, localN);
-    w.y = dot(uModelRow1.xyz, localN);
-    w.z = dot(uModelRow2.xyz, localN);
-    return normalize(w);
+    // Approx: ignore inverse-transpose (ok for uniform scale)
+    float3x3 M = float3x3(uModelRow0.xyz, uModelRow1.xyz, uModelRow2.xyz);
+    return normalize(mul(M, nL));
 }
 
 VSOut VSMain(VSIn vin)
 {
     VSOut o;
-
-    // IMPORTANT: column-major matrices from glm => M * v
-    o.posH = mul(uMVP, float4(vin.pos, 1.0f));
-
-    o.worldPos = WorldPosFromRows(vin.pos);
-    o.normalW = NormalWFromRows(vin.nrm);
+    o.posH = mul(uMVP, float4(vin.posL, 1.0)); // IMPORTANT: M * v
+    o.lightPosH = mul(uLightMVP, float4(vin.posL, 1.0)); // IMPORTANT: M * v
+    o.worldPos = MulModelPos(vin.posL);
+    o.worldN = MulModelNormal(vin.normal);
     o.uv = vin.uv;
-
-    // light clip pos
-    o.shadowPos = mul(uLightMVP, float4(vin.pos, 1.0f));
-
     return o;
 }
 
-float3 BlinnPhong(float3 albedo, float3 N, float3 V, float3 L, float3 lightColor, float intensity, float shininess, float specStrength)
+float ShadowPCF3x3(float4 lightPosH, float bias)
 {
-    float ndotl = saturate(dot(N, L));
-    float3 diffuse = albedo * (ndotl * intensity) * lightColor;
+    // Project
+    float3 proj = lightPosH.xyz / max(lightPosH.w, 1e-6);
 
-    float3 H = normalize(L + V);
-    float spec = pow(saturate(dot(N, H)), shininess) * specStrength;
-    float3 specular = spec.xxx * (intensity) * lightColor;
+    // Outside clip? -> lit
+    if (proj.z <= 0.0 || proj.z >= 1.0)
+        return 1.0;
 
-    return diffuse + specular;
-}
-
-float ShadowFactor(float4 shadowPos, float shadowBias)
-{
-    // NDC
-    float3 p = shadowPos.xyz / max(shadowPos.w, 1e-6f);
-
-    // Outside the light frustum => consider lit.
-    // Z in [0..1] for orthoRH_ZO.
-    if (p.z < 0.0f || p.z > 1.0f)
-        return 1.0f;
-
+    // NDC -> UV (D3D viewport flips Y)
     float2 uv;
-    uv.x = p.x * 0.5f + 0.5f;
-    uv.y = -p.y * 0.5f + 0.5f;
+    uv.x = proj.x * 0.5 + 0.5;
+    uv.y = -proj.y * 0.5 + 0.5;
 
-    // Outside shadow texture => lit.
-    if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f)
-        return 1.0f;
+    // Outside shadow map -> lit
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)
+        return 1.0;
 
-    // Comparison sample: returns [0..1]
-    return gShadow.SampleCmpLevelZero(gShadowSamp, uv, p.z - shadowBias);
+    uint w, h;
+    gShadowMap.GetDimensions(w, h);
+    float2 texel = 1.0 / float2(max(w, 1u), max(h, 1u));
+
+    float depthRef = saturate(proj.z - bias);
+
+    float sum = 0.0;
+    [unroll]
+    for (int y = -1; y <= 1; ++y)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; ++x)
+        {
+            float2 uvTap = uv + float2(x, y) * texel;
+            sum += gShadowMap.SampleCmpLevelZero(gShadowSampler, uvTap, depthRef);
+        }
+    }
+    return sum / 9.0;
 }
 
-float4 PSMain(VSOut pin) : SV_Target0
+float AttenuationPoint(float dist, float range, float attLin, float attQuad)
 {
-    uint flags = (uint) uMaterialFlags.w;
+    // Range falloff
+    float rangeAtt = 1.0;
+    if (range > 0.0)
+    {
+        rangeAtt = saturate(1.0 - dist / range);
+        rangeAtt *= rangeAtt;
+    }
 
-    float4 base = uBaseColor;
-    if ((flags & kFlagUseTex) != 0u)
-        base *= gAlbedo.Sample(gSamp, pin.uv);
+    float denom = 1.0 + attLin * dist + attQuad * dist * dist;
+    return rangeAtt / max(denom, 1e-4);
+}
 
-    float3 albedo = base.rgb;
-    float3 N = normalize(pin.normalW);
-    float3 V = normalize(uCameraAmbient.xyz - pin.worldPos);
+float SpotCone(float3 L_fromPointToLight, float3 spotDirFromLight, float cosInner, float cosOuter)
+{
+    // Need direction from light -> point:
+    float3 lightToPoint = normalize(-L_fromPointToLight);
+    float cd = dot(lightToPoint, normalize(spotDirFromLight)); // compare with FROM-light dir
 
-    float ambientStrength = uCameraAmbient.w;
+    // Smoothstep between outer/inner
+    float t = saturate((cd - cosOuter) / max(cosInner - cosOuter, 1e-4));
+    return t;
+}
+
+float4 PSMain(VSOut pin) : SV_Target
+{
+    // Flags/material
+    uint flags = (uint) (uMaterialFlags.w + 0.5);
     float shininess = uMaterialFlags.x;
     float specStrength = uMaterialFlags.y;
     float shadowBias = uMaterialFlags.z;
 
-    float3 color = albedo * ambientStrength;
+    float3 camPos = uCameraAmbient.xyz;
+    float ambientK = uCameraAmbient.w;
 
-    if ((flags & kFlagDirLight) != 0u)
+    float4 base = uBaseColor;
+    float4 tex = gAlbedo.Sample(gSampler, pin.uv);
+
+    float4 albedo = base;
+    if ((flags & FLAG_USE_TEX) != 0u)
+        albedo *= tex;
+
+    float3 N = normalize(pin.worldN);
+    float3 V = normalize(camPos - pin.worldPos);
+
+    // Shadow factor (only for direct lights)
+    float shadow = 1.0;
+    if ((flags & FLAG_USE_SHADOW) != 0u)
+        shadow = ShadowPCF3x3(pin.lightPosH, shadowBias);
+
+    float3 ambient = albedo.rgb * ambientK;
+
+    float3 direct = 0.0;
+
+    uint lightCount = (uint) (uCounts.x + 0.5);
+    lightCount = min(lightCount, 64u);
+
+    [loop]
+    for (uint i = 0; i < lightCount; ++i)
     {
-        // uDir_DirIntensity.xyz = direction FROM light towards scene
-        float3 L = normalize(-uDir_DirIntensity.xyz); // from point to light
+        GPULight Ld = gLights[i];
 
-        float shadow = 1.0f;
-        if ((flags & kFlagUseShadow) != 0u)
+        uint type = (uint) (Ld.p0.w + 0.5);
+
+        float3 lightColor = Ld.p2.rgb;
+        float intensity = Ld.p1.w;
+
+        float3 L; // direction from point -> light
+        float att = 1.0;
+
+        if (type == LIGHT_TYPE_DIR)
         {
-            shadow = ShadowFactor(pin.shadowPos, shadowBias);
+            // Stored dir is FROM light (light -> scene), so point->light is opposite
+            L = normalize(-Ld.p1.xyz);
+            att = 1.0;
+        }
+        else
+        {
+            float3 lightPos = Ld.p0.xyz;
+            float3 toLight = lightPos - pin.worldPos;
+            float dist = length(toLight);
+            L = (dist > 1e-6) ? (toLight / dist) : float3(0, 1, 0);
+
+            float range = Ld.p2.w;
+            float attLin = Ld.p3.z;
+            float attQuad = Ld.p3.w;
+
+            att = AttenuationPoint(dist, range, attLin, attQuad);
+
+            if (type == LIGHT_TYPE_SPOT)
+            {
+                float cosInner = Ld.p3.x;
+                float cosOuter = Ld.p3.y;
+                float cone = SpotCone(L, Ld.p1.xyz, cosInner, cosOuter);
+                att *= cone;
+            }
         }
 
-        float3 lightColor = uDir_Color.rgb;
-        color += shadow * BlinnPhong(albedo, N, V, L, lightColor, uDir_DirIntensity.w, shininess, specStrength);
+        float NdotL = saturate(dot(N, L));
+        float3 diffuse = albedo.rgb * NdotL;
+
+        // Blinn-Phong
+        float3 H = normalize(L + V);
+        float spec = pow(saturate(dot(N, H)), max(shininess, 1.0));
+        float3 specular = specStrength * spec * lightColor;
+
+        // Directional light uses shadows; you can decide differently per light if you want.
+        float shadowK = (type == LIGHT_TYPE_DIR) ? shadow : 1.0;
+
+        direct += (diffuse * lightColor + specular) * (intensity * att * shadowK);
     }
 
-    return float4(color, base.a);
+    float3 outRgb = ambient + direct;
+    return float4(outRgb, albedo.a);
 }

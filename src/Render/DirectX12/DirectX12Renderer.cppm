@@ -15,6 +15,7 @@ module;
 #include <filesystem>
 #include <cstring>
 #include <utility>
+#include <cmath>
 
 export module core:renderer_dx12;
 
@@ -40,9 +41,6 @@ export namespace rendern
 			CreateResources();
 		}
 
-		// Render a frame
-		// If 'sampledTextureDescIndex' != 0 -> it is used (bindless-style path).
-		// Else if 'sampledTexture' is not null -> it is bound at slot 0 and sampled.
 		void RenderFrame(
 			rhi::IRHISwapChain& swapChain,
 			rhi::TextureHandle sampledTexture = {},
@@ -60,15 +58,14 @@ export namespace rendern
 				.debugName = "ShadowMap"
 				});
 
-			// Shared light-space setup (directional light shadow)
-			const glm::vec3 lightDir = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.3f)); // FROM light towards the scene
+			// Shared light-space setup (directional shadow)
+			const glm::vec3 lightDir = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.3f)); // FROM light towards scene
 			const glm::vec3 center = glm::vec3(0.0f, 0.0f, 0.0f);
 			const float lightDist = 10.0f;
 			const glm::vec3 lightPos = center - lightDir * lightDist;
 			const glm::mat4 lightView = glm::lookAt(lightPos, center, glm::vec3(0, 1, 0));
 
 			const float orthoHalf = 8.0f;
-			// D3D clip space expects Z in [0..1].
 			const glm::mat4 lightProj = glm::orthoRH_ZO(-orthoHalf, orthoHalf, -orthoHalf, orthoHalf, 0.1f, 40.0f);
 
 			// Scene transforms (cube + ground plane)
@@ -105,7 +102,7 @@ export namespace rendern
 
 						struct alignas(16) ShadowConstants
 						{
-							std::array<float, 16> uMVP{}; // for Shadow_dx12.hlsl: uMVP == lightMVP
+							std::array<float, 16> uMVP{}; // Shadow_dx12.hlsl: uMVP == lightMVP
 						};
 
 						auto DrawShadowMesh = [&](const MeshRHI& mesh, const glm::mat4& model)
@@ -115,9 +112,7 @@ export namespace rendern
 
 								const bool hasIndices = (mesh.indexBuffer.id != 0) && (mesh.indexCount != 0);
 								if (hasIndices)
-								{
 									ctx.commandList.BindIndexBuffer(mesh.indexBuffer, mesh.indexType, 0);
-								}
 
 								const glm::mat4 lightMVP = lightProj * lightView * model;
 
@@ -126,16 +121,11 @@ export namespace rendern
 								ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 
 								if (hasIndices)
-								{
 									ctx.commandList.DrawIndexed(mesh.indexCount, mesh.indexType, 0, 0);
-								}
 								else
-								{
 									ctx.commandList.Draw(static_cast<std::uint32_t>(cpuFallbackVertexCount_), 0);
-								}
 							};
 
-						// Draw ground first (so it's in the map) then the cube
 						DrawShadowMesh(groundMesh_, groundModel);
 						DrawShadowMesh(cubeMesh_, cubeModel);
 					});
@@ -159,40 +149,86 @@ export namespace rendern
 					ctx.commandList.SetState(state_);
 					ctx.commandList.BindPipeline(pso_);
 
-					// Shadow map (slot1 / t1)
+					// Shadow map t1
 					{
 						const auto shadowTex = ctx.resources.GetTexture(shadowRG);
 						ctx.commandList.BindTexture2D(1, shadowTex);
 					}
 
-					// Optional albedo texture (slot0 / t0)
+					// Optional albedo t0
 					const bool hasAlbedo =
 						(sampledTextureDescIndex != 0) || (sampledTexture.id != 0);
 
 					if (sampledTextureDescIndex != 0)
-					{
 						ctx.commandList.BindTextureDesc(0, sampledTextureDescIndex);
-					}
 					else if (sampledTexture.id != 0)
-					{
 						ctx.commandList.BindTexture2D(0, sampledTexture);
+
+					// Camera
+					const float aspect = extent.height
+						? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+						: 1.0f;
+
+					const glm::vec3 camPos = glm::vec3(2.2f, 1.6f, 2.2f);
+					const glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(60.0f), aspect, 0.01f, 200.0f);
+					const glm::mat4 view = glm::lookAt(camPos, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+
+					// ---- Lights: StructuredBuffer SRV (t2) ----
+					// layout must match your HLSL StructuredBuffer<GPULight>.
+					std::array<GPULight, 3> lights{};
+
+					// Directional (type=0)
+					{
+						const glm::vec3 dir = lightDir; // FROM light
+						lights[0].p0 = { 0.0f, 0.0f, 0.0f, 0.0f };                 // pos unused, type=0
+						lights[0].p1 = { dir.x, dir.y, dir.z, 1.2f };              // dir + intensity
+						lights[0].p2 = { 1.0f, 1.0f, 1.0f, 0.0f };                 // color + range(unused)
+						lights[0].p3 = { 0.0f, 0.0f, 0.0f, 0.0f };                 // params unused
 					}
 
-					// ---------------- Per-draw constants (256 bytes) ----------------
-					// Must match assets/shaders/GlobalShader_dx12.hlsl (cbuffer PerDraw : b0)
-					struct alignas(16) PerDrawShadowedDirConstants
+					// Point (type=1)
 					{
-						std::array<float, 16> uMVP{};         // 64
-						std::array<float, 16> uLightMVP{};    // 64
-						std::array<float, 12> uModelRows{};   // 48
+						const glm::vec3 pos = glm::vec3(2.5f, 2.0f, 1.5f);
+						lights[1].p0 = { pos.x, pos.y, pos.z, 1.0f };              // pos + type=1
+						lights[1].p1 = { 0.0f, 0.0f, 0.0f, 2.0f };                 // dir unused, intensity in w
+						lights[1].p2 = { 1.0f, 0.95f, 0.8f, 12.0f };               // color + range
+						lights[1].p3 = { 0.0f, 0.0f, 0.12f, 0.04f };               // (cos inner/outer unused), attLin, attQuad
+					}
 
-						std::array<float, 4>  uCameraAmbient{};    // cam.xyz, ambientStrength
-						std::array<float, 4>  uBaseColor{};        // rgba
-						std::array<float, 4>  uMaterialFlags{};    // shininess, specStrength, shadowBias, flagsPacked
-						std::array<float, 4>  uDir_DirIntensity{}; // dir.xyz (FROM light), intensity
-						std::array<float, 4>  uDir_Color{};        // rgb, unused
+					// Spot (type=2)
+					{
+						const glm::vec3 spotPos = camPos;
+						const glm::vec3 spotDir = glm::normalize(glm::vec3(0, 0, 0) - camPos); // FROM light
+						const float cosOuter = std::cos(glm::radians(20.0f));
+						const float cosInner = std::cos(glm::radians(12.0f));
+
+						lights[2].p0 = { spotPos.x, spotPos.y, spotPos.z, 2.0f };   // pos + type=2
+						lights[2].p1 = { spotDir.x, spotDir.y, spotDir.z, 3.0f };   // dir + intensity
+						lights[2].p2 = { 0.8f, 0.9f, 1.0f, 30.0f };                 // color + range
+						lights[2].p3 = { cosInner, cosOuter, 0.09f, 0.032f };       // cone + attenuation
+					}
+
+					// Update GPU buffer and bind as SRV (t2)
+					if (lightsBuffer_.id != 0)
+					{
+						device_.UpdateBuffer(lightsBuffer_, std::as_bytes(std::span{ lights }));
+						ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
+					}
+
+					// ---- Per-draw constants (compact b0) ----
+					// Must match cbuffer PerDraw : register(b0) in your main HLSL.
+					struct alignas(16) PerDrawMainConstants
+					{
+						std::array<float, 16> uMVP{};        // 64
+						std::array<float, 16> uLightMVP{};   // 64
+						std::array<float, 12> uModelRows{};  // 48
+
+						std::array<float, 4>  uCameraAmbient{}; // 16: cam.xyz, ambientStrength
+						std::array<float, 4>  uBaseColor{};     // 16
+						std::array<float, 4>  uMaterialFlags{}; // 16: shininess, specStrength, shadowBias, flagsPacked(float)
+						std::array<float, 4>  uCounts{};        // 16: x = lightCount
 					};
-					static_assert(sizeof(PerDrawShadowedDirConstants) == 256);
+					static_assert(sizeof(PerDrawMainConstants) == 240);
 
 					auto WriteRow = [](const glm::mat4& m, int row, std::array<float, 12>& outRows, int rowIndex)
 						{
@@ -205,29 +241,17 @@ export namespace rendern
 
 					constexpr std::uint32_t kFlagUseTex = 1u << 0;
 					constexpr std::uint32_t kFlagUseShadow = 1u << 1;
-					constexpr std::uint32_t kFlagDirLight = 1u << 2;
 
-					const float aspect = extent.height
-						? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
-						: 1.0f;
-
-					// Camera
-					const glm::vec3 camPos = glm::vec3(2.2f, 1.6f, 2.2f);
-					const glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(60.0f), aspect, 0.01f, 200.0f);
-					const glm::mat4 view = glm::lookAt(camPos, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-
-					auto DrawLitMesh = [&](const MeshRHI& mesh, const glm::mat4& model, const glm::vec4& baseColor, bool useTex)
+					auto DrawLitMesh = [&](const MeshRHI& mesh, const glm::mat4& model, const glm::vec4& baseColor, bool wantTex)
 						{
 							ctx.commandList.BindInputLayout(mesh.layout);
 							ctx.commandList.BindVertexBuffer(0, mesh.vertexBuffer, mesh.vertexStrideBytes, 0);
 
 							const bool hasIndices = (mesh.indexBuffer.id != 0) && (mesh.indexCount != 0);
 							if (hasIndices)
-							{
 								ctx.commandList.BindIndexBuffer(mesh.indexBuffer, mesh.indexType, 0);
-							}
 
-							PerDrawShadowedDirConstants constants{};
+							PerDrawMainConstants constants{};
 
 							const glm::mat4 mvp = proj * view * model;
 							const glm::mat4 lightMVP = lightProj * lightView * model;
@@ -239,24 +263,20 @@ export namespace rendern
 							WriteRow(model, 1, constants.uModelRows, 1);
 							WriteRow(model, 2, constants.uModelRows, 2);
 
-							// Camera + ambient
+							// camera + ambient
 							constants.uCameraAmbient = { camPos.x, camPos.y, camPos.z, 0.22f };
 
-							// Base color
+							// base color
 							constants.uBaseColor = { baseColor.x, baseColor.y, baseColor.z, baseColor.w };
 
-							// Flags
+							// flags
 							std::uint32_t flags = 0;
-							flags |= kFlagDirLight;
-							flags |= kFlagUseShadow;
-							if (useTex && hasAlbedo)
-							{
-								flags |= kFlagUseTex;
-							}
+							if (wantTex && hasAlbedo) flags |= kFlagUseTex;
+							flags |= kFlagUseShadow; // if your HLSL uses shadow map (t1)
 
-							// Material
-							const float shininess = useTex ? 64.0f : 32.0f;
-							const float specStrength = useTex ? 0.5f : 0.15f;
+							// material
+							const float shininess = wantTex ? 64.0f : 32.0f;
+							const float specStrength = wantTex ? 0.5f : 0.15f;
 							const float shadowBias = 0.0015f;
 
 							constants.uMaterialFlags = {
@@ -266,23 +286,17 @@ export namespace rendern
 								static_cast<float>(flags)
 							};
 
-							// Directional light
-							constants.uDir_DirIntensity = { lightDir.x, lightDir.y, lightDir.z, 1.2f };
-							constants.uDir_Color = { 1.0f, 1.0f, 1.0f, 0.0f };
+							// light count (StructuredBuffer t2)
+							constants.uCounts = { 3.0f, 0.0f, 0.0f, 0.0f };
 
 							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 
 							if (hasIndices)
-							{
 								ctx.commandList.DrawIndexed(mesh.indexCount, mesh.indexType, 0, 0);
-							}
 							else
-							{
 								ctx.commandList.Draw(static_cast<std::uint32_t>(cpuFallbackVertexCount_), 0);
-							}
 						};
 
-					// Ground first, then cube
 					DrawLitMesh(groundMesh_, groundModel, glm::vec4(0.8f, 0.8f, 0.8f, 1.0f), false);
 					DrawLitMesh(cubeMesh_, cubeModel, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), true);
 				});
@@ -291,11 +305,17 @@ export namespace rendern
 			swapChain.Present();
 		}
 
-
 		void Shutdown()
 		{
 			DestroyMesh(device_, cubeMesh_);
 			DestroyMesh(device_, groundMesh_);
+
+			if (lightsBuffer_.id != 0)
+			{
+				device_.DestroyBuffer(lightsBuffer_);
+				lightsBuffer_ = {};
+			}
+
 			psoCache_.ClearCache();
 			shaderLibrary_.ClearCache();
 		}
@@ -312,6 +332,7 @@ export namespace rendern
 			}
 			catch (...)
 			{
+				// Fallback triangle
 				cubeCpu.vertices = {
 					VertexDesc{-0.8f,-0.6f,0, 0,0,1, 0,0},
 					VertexDesc{ 0.8f,-0.6f,0, 0,0,1, 1,0},
@@ -319,6 +340,7 @@ export namespace rendern
 				};
 				cubeCpu.indices = { 0,1,2 };
 			}
+
 			cpuFallbackVertexCount_ = cubeCpu.vertices.size();
 			cubeMesh_ = UploadMesh(device_, cubeCpu, "CubeMesh");
 
@@ -331,7 +353,7 @@ export namespace rendern
 			}
 			catch (...)
 			{
-				// Fallback quad in XY plane (will be rotated to XZ)
+				// Fallback quad in XY plane (will be rotated to XZ by groundModel)
 				groundCpu.vertices = {
 					VertexDesc{-1,-1,0, 0,0,1, 0,0},
 					VertexDesc{ 1,-1,0, 0,0,1, 1,0},
@@ -342,6 +364,7 @@ export namespace rendern
 			}
 			groundMesh_ = UploadMesh(device_, groundCpu, "GroundMesh");
 
+			// -------- Shaders / PSOs --------
 			std::filesystem::path vertexShaderPath;
 			std::filesystem::path pixelShaderPath;
 			std::filesystem::path shadowShaderPath;
@@ -349,6 +372,7 @@ export namespace rendern
 			switch (device_.GetBackend())
 			{
 			case rhi::Backend::DirectX12:
+				// main shader must understand: b0 (PerDrawMainConstants), t0 albedo, t1 shadow, t2 lights SB
 				vertexShaderPath = corefs::ResolveAsset("shaders\\GlobalShader_dx12.hlsl");
 				pixelShaderPath = vertexShaderPath;
 				shadowShaderPath = corefs::ResolveAsset("shaders\\Shadow_dx12.hlsl");
@@ -363,20 +387,21 @@ export namespace rendern
 
 			// Main pipeline
 			{
-				const auto vertexShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				const auto vs = shaderLibrary_.GetOrCreateShader(ShaderKey{
 					.stage = rhi::ShaderStage::Vertex,
 					.name = "VS_Mesh",
 					.filePath = vertexShaderPath.string(),
 					.defines = {}
 					});
 
-				const auto pixelShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				const auto ps = shaderLibrary_.GetOrCreateShader(ShaderKey{
 					.stage = rhi::ShaderStage::Pixel,
 					.name = "PS_Mesh",
 					.filePath = pixelShaderPath.string(),
-					.defines = {} });
+					.defines = {}
+					});
 
-				pso_ = psoCache_.GetOrCreate("PSO_Mesh", vertexShader, pixelShader);
+				pso_ = psoCache_.GetOrCreate("PSO_Mesh", vs, ps);
 
 				state_.depth.testEnable = true;
 				state_.depth.writeEnable = true;
@@ -395,13 +420,15 @@ export namespace rendern
 					.stage = rhi::ShaderStage::Vertex,
 					.name = "VS_Shadow",
 					.filePath = shadowShaderPath.string(),
-					.defines = {} });
+					.defines = {}
+					});
 
 				const auto psShadow = shaderLibrary_.GetOrCreateShader(ShaderKey{
 					.stage = rhi::ShaderStage::Pixel,
 					.name = "PS_Shadow",
 					.filePath = shadowShaderPath.string(),
-					.defines = {} });
+					.defines = {}
+					});
 
 				psoShadow_ = psoCache_.GetOrCreate("PSO_Shadow", vsShadow, psShadow);
 
@@ -409,16 +436,41 @@ export namespace rendern
 				shadowState_.depth.writeEnable = true;
 				shadowState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 
-				// Disable culling for the demo so the ground plane always writes into the shadow map
-				// (avoids winding/normal issues after rotating the quad).
+				// Disable culling to avoid issues with rotated quad winding in shadow pass
 				shadowState_.rasterizer.cullMode = rhi::CullMode::None;
 				shadowState_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
 
 				shadowState_.blend.enable = false;
 			}
+
+			// -------- Lights structured buffer (DX12 only) --------
+			if (device_.GetBackend() == rhi::Backend::DirectX12)
+			{
+				rhi::BufferDesc ld{};
+				ld.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
+				ld.usageFlag = rhi::BufferUsageFlag::Dynamic;
+				ld.sizeInBytes = sizeof(GPULight) * kMaxLights;
+				ld.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(GPULight));
+				ld.debugName = "LightsSB";
+
+				lightsBuffer_ = device_.CreateBuffer(ld);
+			}
 		}
 
-		//------------------------------------------------------------------------------------------------------------------//
+	private:
+		static constexpr std::uint32_t kMaxLights = 64;
+
+		// Must match HLSL GPULight layout in StructuredBuffer (float4-aligned)
+		struct alignas(16) GPULight
+		{
+			std::array<float, 4> p0{}; // pos.xyz, type
+			std::array<float, 4> p1{}; // dir.xyz (FROM light), intensity
+			std::array<float, 4> p2{}; // color.rgb, range
+			std::array<float, 4> p3{}; // cosInner, cosOuter, attLin, attQuad
+		};
+
+		rhi::BufferHandle lightsBuffer_{};
+
 		rhi::IRHIDevice& device_;
 		RendererSettings settings_{};
 
