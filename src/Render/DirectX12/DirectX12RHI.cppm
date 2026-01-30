@@ -584,11 +584,6 @@ export namespace rhi
                 CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
             }
 
-            // Recycle descriptor indices only after the same fence is completed (see BeginFrame()).
-            if (entry.hasSRV && entry.srvIndex != 0)
-            {
-                CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
-            }
             if (entry.hasRTV)
             {
                 CurrentFrame().deferredFreeRtv.push_back(entry.rtvIndex);
@@ -720,14 +715,18 @@ export namespace rhi
             {
                 inputLayoutEntry.semanticStorage.emplace_back(SemanticName(attribute.semantic));
 
+                const bool instanced = (attribute.inputSlot != 0);
+
                 D3D12_INPUT_ELEMENT_DESC elemDesc{};
                 elemDesc.SemanticName = inputLayoutEntry.semanticStorage.back().c_str();
                 elemDesc.SemanticIndex = attribute.semanticIndex;
                 elemDesc.Format = ToDXGIVertexFormat(attribute.format);
                 elemDesc.InputSlot = attribute.inputSlot;
                 elemDesc.AlignedByteOffset = attribute.offsetBytes;
-                elemDesc.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-                elemDesc.InstanceDataStepRate = 0;
+                elemDesc.InputSlotClass = instanced
+                    ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
+                    : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+                elemDesc.InstanceDataStepRate = instanced ? 1 : 0;
 
                 inputLayoutEntry.elems.push_back(elemDesc);
             }
@@ -826,10 +825,12 @@ export namespace rhi
             // State while parsing high-level commands
             GraphicsState curState{};
             PipelineHandle curPipe{};
+
             InputLayoutHandle curLayout{};
-            BufferHandle vertexBuffer{};
-            std::uint32_t vbStride = 0;
-            std::uint32_t vbOffset = 0;
+            static constexpr std::uint32_t kMaxVBSlots = 2;
+            std::array<BufferHandle, kMaxVBSlots> vertexBuffers{};
+            std::array<std::uint32_t, kMaxVBSlots> vbStrides{};
+            std::array<std::uint32_t, kMaxVBSlots> vbOffsets{};
 
             BufferHandle indexBuffer{};
             IndexType ibType = IndexType::UINT16;
@@ -1218,9 +1219,13 @@ export namespace rhi
                         }
                         else if constexpr (std::is_same_v<T, CommandBindVertexBuffer>)
                         {
-                            vertexBuffer = cmd.buffer;
-                            vbStride = cmd.strideBytes;
-                            vbOffset = cmd.offsetBytes;
+                            if (cmd.slot >= kMaxVBSlots)
+                            {
+                                throw std::runtime_error("DX12: BindVertexBuffer: slot out of range");
+                            }
+                            vertexBuffers[cmd.slot] = cmd.buffer;
+                            vbStrides[cmd.slot] = cmd.strideBytes;
+                            vbOffsets[cmd.slot] = cmd.offsetBytes;
                         }
                         else if constexpr (std::is_same_v<T, CommandBindIndexBuffer>)
                         {
@@ -1297,19 +1302,43 @@ export namespace rhi
                             cmdList_->SetPipelineState(pso);
                             cmdList_->SetGraphicsRootSignature(rootSig_.Get());
 
-                            // IA bindings
-                            auto vbIt = buffers_.find(vertexBuffer.id);
-                            if (vbIt == buffers_.end())
+                            // IA bindings (slot0..slotN based on input layout)
+                            auto layIt = layouts_.find(curLayout.id);
+                            if (layIt == layouts_.end())
                             {
-                                throw std::runtime_error("DX12: vertex buffer not found");
+                                throw std::runtime_error("DX12: input layout handle not found");
                             }
+                            
+                            std::uint32_t maxSlot = 0;
+                            for (const auto& e : layIt->second.elems)
+                            {
+                                maxSlot = std::max(maxSlot, (std::uint32_t)e.InputSlot);
+                            }
+                            const std::uint32_t numVB = maxSlot + 1;
+                            if (numVB > kMaxVBSlots)
+                            {
+                                throw std::runtime_error("DX12: input layout uses more VB slots than supported");
+                            }
+                            
+                            std::array<D3D12_VERTEX_BUFFER_VIEW, kMaxVBSlots> vbv{};
+                            for (std::uint32_t s = 0; s < numVB; ++s)
+                            {
+                                if (!vertexBuffers[s])
+                                {
+                                    throw std::runtime_error("DX12: missing vertex buffer binding for required slot");
+                                }
+                                auto vbIt = buffers_.find(vertexBuffers[s].id);
+                                if (vbIt == buffers_.end())
+                                {
+                                    throw std::runtime_error("DX12: vertex buffer not found");
+                                }
 
-                            D3D12_VERTEX_BUFFER_VIEW vbv{};
-                            vbv.BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + vbOffset;
-                            vbv.SizeInBytes = static_cast<UINT>(vbIt->second.desc.sizeInBytes - vbOffset);
-                            vbv.StrideInBytes = vbStride;
-
-                            cmdList_->IASetVertexBuffers(0, 1, &vbv);
+                                const std::uint32_t off = vbOffsets[s];
+                                vbv[s].BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + off;
+                                vbv[s].SizeInBytes = (UINT)(vbIt->second.desc.sizeInBytes - off);
+                                vbv[s].StrideInBytes = vbStrides[s];
+                            }
+                            cmdList_->IASetVertexBuffers(0, numVB, vbv.data());
                             cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                             if (indexBuffer)
@@ -1334,7 +1363,7 @@ export namespace rhi
                             cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
                             cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
 
-                            cmdList_->DrawIndexedInstanced(cmd.indexCount, 1, 0, cmd.baseVertex, 0);
+                            cmdList_->DrawIndexedInstanced(cmd.indexCount, cmd.instanceCount, 0, cmd.baseVertex, cmd.firstInstance);
                         }
                         else if constexpr (std::is_same_v<T, CommandDraw>)
                         {
@@ -1342,18 +1371,43 @@ export namespace rhi
                             cmdList_->SetPipelineState(pso);
                             cmdList_->SetGraphicsRootSignature(rootSig_.Get());
 
-                            auto vbIt = buffers_.find(vertexBuffer.id);
-                            if (vbIt == buffers_.end())
+                            // IA bindings (slot0..slotN based on input layout)
+                            auto layIt = layouts_.find(curLayout.id);
+                            if (layIt == layouts_.end())
                             {
-                                throw std::runtime_error("DX12: vertex buffer not found");
+                                throw std::runtime_error("DX12: input layout handle not found");
                             }
 
-                            D3D12_VERTEX_BUFFER_VIEW vbv{};
-                            vbv.BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + vbOffset;
-                            vbv.SizeInBytes = static_cast<UINT>(vbIt->second.desc.sizeInBytes - vbOffset);
-                            vbv.StrideInBytes = vbStride;
+                            std::uint32_t maxSlot = 0;
+                            for (const auto& e : layIt->second.elems)
+                            {
+                                maxSlot = std::max(maxSlot, (std::uint32_t)e.InputSlot);
+                            }
+                            const std::uint32_t numVB = maxSlot + 1;
+                            if (numVB > kMaxVBSlots)
+                            {
+                                throw std::runtime_error("DX12: input layout uses more VB slots than supported");
+                            }
 
-                            cmdList_->IASetVertexBuffers(0, 1, &vbv);
+                            std::array<D3D12_VERTEX_BUFFER_VIEW, kMaxVBSlots> vbv{};
+                            for (std::uint32_t s = 0; s < numVB; ++s)
+                            {
+                                if (!vertexBuffers[s])
+                                {
+                                    throw std::runtime_error("DX12: missing vertex buffer binding for required slot");
+                                }
+                                auto vbIt = buffers_.find(vertexBuffers[s].id);
+                                if (vbIt == buffers_.end())
+                                {
+                                    throw std::runtime_error("DX12: vertex buffer not found");
+                                }
+
+                                const std::uint32_t off = vbOffsets[s];
+                                vbv[s].BufferLocation = vbIt->second.resource->GetGPUVirtualAddress() + off;
+                                vbv[s].SizeInBytes = (UINT)(vbIt->second.desc.sizeInBytes - off);
+                                vbv[s].StrideInBytes = vbStrides[s];
+                            }
+                            cmdList_->IASetVertexBuffers(0, numVB, vbv.data());
                             cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                             WriteCBAndBind();
@@ -1361,7 +1415,7 @@ export namespace rhi
                             cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
                             cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
 
-                            cmdList_->DrawInstanced(cmd.vertexCount, 1, cmd.firstVertex, 0);
+                            cmdList_->DrawInstanced(cmd.vertexCount, cmd.instanceCount, cmd.firstVertex, cmd.firstInstance);
                         }
                         else
                         {
@@ -1396,6 +1450,12 @@ export namespace rhi
 
         void UpdateTextureDescriptor(TextureDescIndex idx, TextureHandle tex) override
         {
+            if (!tex)
+            {
+                descToTex_[idx] = {};
+                return;
+            }
+
             descToTex_[idx] = tex;
 
             auto it = textures_.find(tex.id);

@@ -31,7 +31,10 @@ export namespace rendern
 	{
 		rhi::BufferHandle vertexBuffer;
 		rhi::BufferHandle indexBuffer;
+		// Base (per-vertex) layout: POSITION/NORMAL/TEXCOORD0
 		rhi::InputLayoutHandle layout;
+		// Instanced layout: base slot0 + model matrix (4x float4) in slot1 (DX12 only)
+		rhi::InputLayoutHandle layoutInstanced;
 
 		std::uint32_t vertexStrideBytes{ sizeof(VertexDesc) };
 		std::uint32_t indexCount{ 0 };
@@ -51,6 +54,25 @@ export namespace rendern
 		return device.CreateInputLayout(desc);
 	}
 
+	inline rhi::InputLayoutHandle CreateVertexDescLayoutInstanced(rhi::IRHIDevice& device, std::string_view name = "VertexDescInstanced")
+	{
+		rhi::InputLayoutDesc desc{};
+		desc.debugName = std::string(name);
+		desc.strideBytes = strideVDBytes; // slot0 stride
+		desc.attributes = {
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Position,.semanticIndex = 0,.format = rhi::VertexFormat::R32G32B32_FLOAT,.inputSlot = 0,.offsetBytes = 0},
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Normal,  .semanticIndex = 0,.format = rhi::VertexFormat::R32G32B32_FLOAT,.inputSlot = 0,.offsetBytes = 12},
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,.semanticIndex = 0,.format = rhi::VertexFormat::R32G32_FLOAT,    .inputSlot = 0,.offsetBytes = 24},
+
+		// Instance matrix columns in slot1: TEXCOORD1..4
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,.semanticIndex = 1,.format = rhi::VertexFormat::R32G32B32A32_FLOAT,.inputSlot = 1,.offsetBytes = 0},
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,.semanticIndex = 2,.format = rhi::VertexFormat::R32G32B32A32_FLOAT,.inputSlot = 1,.offsetBytes = 16},
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,.semanticIndex = 3,.format = rhi::VertexFormat::R32G32B32A32_FLOAT,.inputSlot = 1,.offsetBytes = 32},
+		rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,.semanticIndex = 4,.format = rhi::VertexFormat::R32G32B32A32_FLOAT,.inputSlot = 1,.offsetBytes = 48},
+		};
+		return device.CreateInputLayout(desc);
+	}
+
 	inline MeshRHI UploadMesh(rhi::IRHIDevice& device, const MeshCPU& cpu, std::string_view debugName = "Mesh")
 	{
 		MeshRHI outMeshRHI;
@@ -58,6 +80,14 @@ export namespace rendern
 		outMeshRHI.indexCount = static_cast<std::uint32_t>(cpu.indices.size());
 		
 		outMeshRHI.layout = CreateVertexDescLayout(device, debugName);
+		if (device.GetBackend() == rhi::Backend::DirectX12)
+		{
+			outMeshRHI.layoutInstanced = CreateVertexDescLayoutInstanced(device, std::string(debugName) + "_Instanced");
+		}
+		else
+		{
+			outMeshRHI.layoutInstanced = outMeshRHI.layout;
+		}
 
 		// Vertex buffer
 		{
@@ -101,6 +131,10 @@ export namespace rendern
 		if (mesh.vertexBuffer)
 		{
 			device.DestroyBuffer(mesh.vertexBuffer);
+		}
+		if (mesh.layoutInstanced && mesh.layoutInstanced.id != mesh.layout.id)
+		{
+			device.DestroyInputLayout(mesh.layoutInstanced);
 		}
 		if (mesh.layout)
 		{

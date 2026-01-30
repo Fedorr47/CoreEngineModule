@@ -5,8 +5,10 @@ module;
 #include <glm/gtc/type_ptr.hpp>
 // D3D-style clip-space helpers (Z in [0..1]).
 #include <glm/ext/matrix_clip_space.hpp>
+#include <glm/gtc/matrix_access.hpp>
 
 #include <array>
+#include <iostream>
 #include <algorithm>
 #include <filesystem>
 #include <cmath>
@@ -16,6 +18,7 @@ module;
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 export module core:renderer_dx12;
 
@@ -29,6 +32,109 @@ import :mesh;
 
 export namespace rendern
 {
+	struct alignas(16) GPULight
+	{
+		std::array<float, 4> p0{}; // pos.xyz, type
+		std::array<float, 4> p1{}; // dir.xyz (FROM light), intensity
+		std::array<float, 4> p2{}; // color.rgb, range
+		std::array<float, 4> p3{}; // cosInner, cosOuter, attLin, attQuad
+	};
+
+	struct alignas(16) InstanceData
+	{
+		// Column-major 4x4 model matrix (glm::mat4 columns).
+		glm::vec4 c0{};
+		glm::vec4 c1{};
+		glm::vec4 c2{};
+		glm::vec4 c3{};
+	};
+
+	struct BatchKey
+	{
+		const rendern::MeshRHI* mesh{};
+		// Material key (must be immutable during RenderFrame)
+		rhi::TextureDescIndex albedoDescIndex{};
+		glm::vec4 baseColor{};
+		float shininess{};
+		float specStrength{};
+		float shadowBias{};
+	};
+
+	struct BatchKeyHash
+	{
+		static std::size_t HashU32(std::uint32_t v) noexcept { return std::hash<std::uint32_t>{}(v); }
+		static std::size_t HashPtr(const void* p) noexcept { return std::hash<const void*>{}(p); }
+
+		static std::uint32_t FBits(float v) noexcept
+		{
+			std::uint32_t b{};
+			std::memcpy(&b, &v, sizeof(b));
+			return b;
+		}
+
+		static void HashCombine(std::size_t& h, std::size_t v) noexcept
+		{
+			h ^= v + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
+		}
+
+		std::size_t operator()(const BatchKey& k) const noexcept
+		{
+			std::size_t h = HashPtr(k.mesh);
+			HashCombine(h, HashU32((std::uint32_t)k.albedoDescIndex));
+			HashCombine(h, HashU32(FBits(k.baseColor.x)));
+			HashCombine(h, HashU32(FBits(k.baseColor.y)));
+			HashCombine(h, HashU32(FBits(k.baseColor.z)));
+			HashCombine(h, HashU32(FBits(k.baseColor.w)));
+			HashCombine(h, HashU32(FBits(k.shininess)));
+			HashCombine(h, HashU32(FBits(k.specStrength)));
+			HashCombine(h, HashU32(FBits(k.shadowBias)));
+			return h;
+		}
+	};
+
+	struct BatchKeyEq
+	{
+		bool operator()(const BatchKey& a, const BatchKey& b) const noexcept
+		{
+			return a.mesh == b.mesh &&
+				a.albedoDescIndex == b.albedoDescIndex &&
+				a.baseColor == b.baseColor &&
+				a.shininess == b.shininess &&
+				a.specStrength == b.specStrength &&
+				a.shadowBias == b.shadowBias;
+		}
+	};
+
+	struct BatchTemp
+	{
+		MaterialParams material{};
+		std::vector<InstanceData> inst;
+	};
+
+	struct Batch
+	{
+		const rendern::MeshRHI* mesh{};
+		MaterialParams material{};
+		std::uint32_t instanceOffset = 0; // in instances[]
+		std::uint32_t instanceCount = 0;
+	};
+
+	struct alignas(16) PerBatchConstants
+	{
+		std::array<float, 16> uViewProj{};
+		std::array<float, 16> uLightViewProj{};
+		std::array<float, 4>  uCameraAmbient{}; // xyz + ambient
+		std::array<float, 4>  uBaseColor{};
+		std::array<float, 4>  uMaterialFlags{}; // shininess, specStrength, shadowBias, flags
+		std::array<float, 4>  uCounts{};         // lightCount, ...
+	};
+	static_assert(sizeof(PerBatchConstants) == 192);
+
+	struct alignas(16) ShadowConstants
+	{
+		std::array<float, 16> uMVP{}; // lightProj * lightView * model
+	};
+
 	class DX12Renderer
 	{
 	public:
@@ -97,11 +203,6 @@ export namespace rendern
 						ctx.commandList.SetState(shadowState_);
 						ctx.commandList.BindPipeline(psoShadow_);
 
-						struct alignas(16) ShadowConstants
-						{
-							std::array<float, 16> uMVP{}; // lightProj * lightView * model
-						};
-
 						for (const auto& item : scene.drawItems)
 						{
 							if (!item.mesh || item.mesh->indexCount == 0)
@@ -159,71 +260,136 @@ export namespace rendern
 					const std::uint32_t lightCount = UploadLights(scene, camPos);
 					ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
 
-					struct alignas(16) PerDrawConstants
-					{
-						std::array<float, 16> uMVP{};       // 64
-						std::array<float, 16> uLightMVP{};  // 64
-						std::array<float, 12> uModelRows{}; // 48 (row0..row2)
-						std::array<float, 4>  uCameraAmbient{};  // cam.xyz, ambientStrength
-						std::array<float, 4>  uBaseColor{};      // rgba
-						std::array<float, 4>  uMaterialFlags{};  // shininess, specStrength, shadowBias, flags(float)
-						std::array<float, 4>  uCounts{};         // x = lightCount
-					};
-					static_assert(sizeof(PerDrawConstants) == 240);
+					// --- Batch build (proper packing) -------------------------------------------
+					// 1) Gather per-batch instance lists
+					std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> tmp;
+					tmp.reserve(scene.drawItems.size());
 
-					auto WriteRow = [](const glm::mat4& m, int row, std::array<float, 12>& outRows, int rowIndex)
+					for (const auto& item : scene.drawItems)
 					{
-						// GLM is column-major: m[col][row]
-						outRows[rowIndex * 4 + 0] = m[0][row];
-						outRows[rowIndex * 4 + 1] = m[1][row];
-						outRows[rowIndex * 4 + 2] = m[2][row];
-						outRows[rowIndex * 4 + 3] = m[3][row];
-					};
+						if (!item.mesh || item.mesh->indexCount == 0) continue;
+
+						BatchKey key{};
+						key.mesh = item.mesh;
+
+						// IMPORTANT: use the material state as of this frame.
+						key.albedoDescIndex = item.material.albedoDescIndex;
+						key.baseColor = item.material.baseColor;
+						key.shininess = item.material.shininess;
+						key.specStrength = item.material.specStrength;
+						key.shadowBias = item.material.shadowBias;
+
+						// Build instance data
+						const glm::mat4 model = item.transform.ToMatrix();
+
+						InstanceData inst{};
+						inst.c0 = glm::row(model, 0);
+						inst.c1 = glm::row(model, 1);
+						inst.c2 = glm::row(model, 2);
+						inst.c3 = glm::row(model, 3);
+
+						auto& bucket = tmp[key];
+						if (bucket.inst.empty())
+							bucket.material = item.material; // store representative material for this batch
+						bucket.inst.push_back(inst);
+					}
+
+					// 2) Pack into one big contiguous instances[] + build batches with offsets
+					std::vector<InstanceData> instances;
+					instances.reserve(scene.drawItems.size());
+
+					std::vector<Batch> batches;
+					batches.reserve(tmp.size());
+
+					for (auto& [key, bt] : tmp)
+					{
+						if (bt.inst.empty())
+						{
+							continue;
+						}
+
+						Batch b{};
+						b.mesh = key.mesh;
+						b.material = bt.material;
+						b.instanceOffset = static_cast<std::uint32_t>(instances.size());
+						b.instanceCount = static_cast<std::uint32_t>(bt.inst.size());
+
+						instances.insert(instances.end(), bt.inst.begin(), bt.inst.end());
+						batches.push_back(b);
+					}
+
+					// 3) Upload instance buffer once
+					if (!instances.empty())
+					{
+						const std::size_t bytes = instances.size() * sizeof(InstanceData);
+						if (bytes > instanceBufferSizeBytes_)
+						{
+							throw std::runtime_error("DX12Renderer: instance buffer overflow (increase instanceBufferSizeBytes_)");
+						}
+
+						device_.UpdateBuffer(instanceBuffer_, std::as_bytes(std::span{ instances }));
+					}
+
+					// 4) (Optional debug)
+					if (settings_.debugPrintDrawCalls)
+					{
+						static std::uint32_t frame = 0;
+						if ((++frame % 60u) == 0u)
+						{
+							std::cout << "[DX12] MainPass draw calls: " << batches.size()
+								<< " (instances total: " << instances.size() << ")\n";
+						}
+					}
+					// --- End batch build --------------------------------------------------------
+
+					const glm::mat4 viewProj = proj * view;
+					const glm::mat4 lightViewProj = lightProj * lightView;
 
 					constexpr std::uint32_t kFlagUseTex = 1u << 0;
 					constexpr std::uint32_t kFlagUseShadow = 1u << 1;
 
-					for (const auto& item : scene.drawItems)
+					for (const Batch& b : batches)
 					{
-						if (!item.mesh || item.mesh->indexCount == 0)
+						if (!b.mesh || b.instanceCount == 0)
+						{
 							continue;
+						}
+						
+						ctx.commandList.BindTextureDesc(0, b.material.albedoDescIndex);
 
-						// Bind albedo at slot 0 (t0) by descriptor index (0 = null SRV)
-						ctx.commandList.BindTextureDesc(0, item.material.albedoDescIndex);
-
-						const bool useTex = (item.material.albedoDescIndex != 0);
+						const bool useTex = (b.material.albedoDescIndex != 0);
 						std::uint32_t flags = 0;
-						if (useTex) flags |= kFlagUseTex;
-						flags |= kFlagUseShadow;
+						if (useTex)
+						{
+							flags |= kFlagUseTex;
+						}
+						flags |= kFlagUseShadow; // shadow map already bound at slot 1
 
-						const glm::mat4 model = item.transform.ToMatrix();
-						const glm::mat4 mvp = proj * view * model;
-						const glm::mat4 lightMVP = lightProj * lightView * model;
+						// --- constants ---
+						PerBatchConstants constatntsBatch{};
+						std::memcpy(constatntsBatch.uViewProj.data(), glm::value_ptr(viewProj), sizeof(float) * 16);
+						std::memcpy(constatntsBatch.uLightViewProj.data(), glm::value_ptr(lightViewProj), sizeof(float) * 16);
 
-						PerDrawConstants c{};
-						std::memcpy(c.uMVP.data(), glm::value_ptr(mvp), sizeof(float) * 16);
-						std::memcpy(c.uLightMVP.data(), glm::value_ptr(lightMVP), sizeof(float) * 16);
+						constatntsBatch.uCameraAmbient = { camPos.x, camPos.y, camPos.z, 0.22f };
+						constatntsBatch.uBaseColor = { b.material.baseColor.x, b.material.baseColor.y, b.material.baseColor.z, b.material.baseColor.w };
 
-						WriteRow(model, 0, c.uModelRows, 0);
-						WriteRow(model, 1, c.uModelRows, 1);
-						WriteRow(model, 2, c.uModelRows, 2);
+						const float shadowBias = (b.material.shadowBias != 0.0f) ? b.material.shadowBias : 0.0015f;
+						constatntsBatch.uMaterialFlags = { b.material.shininess, b.material.specStrength, shadowBias, AsFloatBits(flags) };
+						constatntsBatch.uCounts = { (float)lightCount, 0, 0, 0 };
 
-						c.uCameraAmbient = { camPos.x, camPos.y, camPos.z, 0.22f };
-						c.uBaseColor = { item.material.baseColor.x, item.material.baseColor.y, item.material.baseColor.z, item.material.baseColor.w };
+						// --- IA (instanced) ---
+						ctx.commandList.BindInputLayout(b.mesh->layoutInstanced);
+						ctx.commandList.BindVertexBuffer(0, b.mesh->vertexBuffer, b.mesh->vertexStrideBytes, 0);
 
-						const float shininess = item.material.shininess;
-						const float specStrength = item.material.specStrength;
-						const float shadowBias = (item.material.shadowBias != 0.0f) ? item.material.shadowBias : 0.0015f;
+						const std::uint32_t instStride = (std::uint32_t)sizeof(InstanceData);
+						const std::uint32_t instOffsetBytes = b.instanceOffset * instStride;
+						ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, instOffsetBytes);
 
-						c.uMaterialFlags = { shininess, specStrength, shadowBias, static_cast<float>(flags) };
-						c.uCounts = { static_cast<float>(lightCount), 0.0f, 0.0f, 0.0f };
+						ctx.commandList.BindIndexBuffer(b.mesh->indexBuffer, b.mesh->indexType, 0);
 
-						ctx.commandList.BindInputLayout(item.mesh->layout);
-						ctx.commandList.BindVertexBuffer(0, item.mesh->vertexBuffer, item.mesh->vertexStrideBytes, 0);
-						ctx.commandList.BindIndexBuffer(item.mesh->indexBuffer, item.mesh->indexType, 0);
-
-						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
-						ctx.commandList.DrawIndexed(item.mesh->indexCount, item.mesh->indexType, 0, 0);
+						// bind constants to root param 0 (as before)
+						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constatntsBatch, 1 }));
+						ctx.commandList.DrawIndexed(b.mesh->indexCount, b.mesh->indexType, 0, 0, b.instanceCount, 0);
 					}
 				});
 
@@ -233,6 +399,10 @@ export namespace rendern
 
 		void Shutdown()
 		{
+			if (instanceBuffer_)
+			{
+				device_.DestroyBuffer(instanceBuffer_);
+			}
 			if (lightsBuffer_)
 			{
 				device_.DestroyBuffer(lightsBuffer_);
@@ -242,15 +412,12 @@ export namespace rendern
 		}
 
 	private:
-		static constexpr std::uint32_t kMaxLights = 64;
-
-		struct alignas(16) GPULight
+		static float AsFloatBits(std::uint32_t u) noexcept
 		{
-			std::array<float, 4> p0{}; // pos.xyz, type
-			std::array<float, 4> p1{}; // dir.xyz (FROM light), intensity
-			std::array<float, 4> p2{}; // color.rgb, range
-			std::array<float, 4> p3{}; // cosInner, cosOuter, attLin, attQuad
-		};
+			float f{};
+			std::memcpy(&f, &u, sizeof(u));
+			return f;
+		}
 
 		std::uint32_t UploadLights(const Scene& scene, const glm::vec3& camPos)
 		{
@@ -315,7 +482,7 @@ export namespace rendern
 			switch (device_.GetBackend())
 			{
 			case rhi::Backend::DirectX12:
-				shaderPath = corefs::ResolveAsset("shaders\\GlobalShader_dx12.hlsl");
+				shaderPath = corefs::ResolveAsset("shaders\\GlobalShaderInstanced_dx12.hlsl");
 				shadowPath = corefs::ResolveAsset("shaders\\Shadow_dx12.hlsl");
 				break;
 			default:
@@ -380,21 +547,35 @@ export namespace rendern
 				shadowState_.blend.enable = false;
 			}
 
-			// Lights structured buffer (SRV)
+			// DX12-only dynamic buffers
 			if (device_.GetBackend() == rhi::Backend::DirectX12)
 			{
-				rhi::BufferDesc ld{};
-				ld.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
-				ld.usageFlag = rhi::BufferUsageFlag::Dynamic;
-				ld.sizeInBytes = sizeof(GPULight) * kMaxLights;
-				ld.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(GPULight));
-				ld.debugName = "LightsSB";
+				// Lights structured buffer (t2)
+				{
+					rhi::BufferDesc ld{};
+					ld.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
+					ld.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					ld.sizeInBytes = sizeof(GPULight) * kMaxLights;
+					ld.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(GPULight));
+					ld.debugName = "LightsSB";
+					lightsBuffer_ = device_.CreateBuffer(ld);
+				}
 
-				lightsBuffer_ = device_.CreateBuffer(ld);
+				// Per-instance model matrices VB (slot1)
+				{
+					rhi::BufferDesc id{};
+					id.bindFlag = rhi::BufferBindFlag::VertexBuffer;
+					id.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					id.sizeInBytes = instanceBufferSizeBytes_;
+					id.debugName = "InstanceVB";
+					instanceBuffer_ = device_.CreateBuffer(id);
+				}
 			}
 		}
 
 	private:
+		static constexpr std::uint32_t kMaxLights = 64;
+		static constexpr std::uint32_t kDefaultInstanceBufferSizeBytes = 1024u * 1024u; // 1 MB (~16k instances)
 
 		rhi::IRHIDevice& device_;
 		RendererSettings settings_{};
@@ -405,6 +586,9 @@ export namespace rendern
 		// Main pass
 		rhi::PipelineHandle pso_{};
 		rhi::GraphicsState state_{};
+
+		rhi::BufferHandle instanceBuffer_{};
+		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
 
 		// Shadow pass
 		rhi::PipelineHandle psoShadow_{};

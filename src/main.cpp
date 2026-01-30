@@ -299,7 +299,7 @@ int main(int argc, char** argv)
         scene.Clear();
 
         // Camera
-        scene.camera.position = { 2.2f, 1.6f, 2.2f };
+        scene.camera.position = { 2.2f, 1.6f, 10.2f };
         scene.camera.target = { 0.0f, 0.0f, 0.0f };
         scene.camera.up = { 0.0f, 1.0f, 0.0f };
         scene.camera.fovYDeg = 60.0f;
@@ -312,7 +312,7 @@ int main(int argc, char** argv)
             l.type = rendern::LightType::Directional;
             l.direction = mathUtils::Normalize(mathUtils::Vec3(-0.4f, -1.0f, -0.3f)); // FROM light
             l.color = { 1.0f, 1.0f, 1.0f };
-            l.intensity = 0.0f;
+            l.intensity = 1.2f;
             scene.AddLight(l);
         }
         {
@@ -361,21 +361,34 @@ int main(int argc, char** argv)
 
         rhi::TextureDescIndex brickDesc = 0;
 
-        // Add cube (we'll update albedoDescIndex later once texture is uploaded + descriptor allocated)
+        // Add kDim*kDim cubes (same mesh + same material) -> should become 1 draw call in MainPass (DX12)
         {
-            rendern::DrawItem cube{};
-            cube.mesh = &cubeMesh;
-            cube.transform.position = { 0.0f, 0.6f, 0.0f };
-            cube.transform.rotationDegrees = { 0.0f, 0.0f, 0.0f };
-            cube.transform.scale = { 1.0f, 1.0f, 1.0f };
+            constexpr int kDim = 10;
+            constexpr float kStep = 1.35f;
 
-            cube.material.baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-            cube.material.albedoDescIndex = 0; // set when ready
-            cube.material.shininess = 64.0f;
-            cube.material.specStrength = 0.5f;
-            cube.material.shadowBias = 0.0015f;
+            for (int z = 0; z < kDim; ++z)
+            {
+                for (int x = 0; x < kDim; ++x)
+                {
+                    rendern::DrawItem cube{};
+                    cube.mesh = &cubeMesh;
 
-            scene.AddDraw(cube);
+                    const float fx = (x - (kDim / 2)) * kStep;
+                    const float fz = (z - (kDim / 2)) * kStep;
+
+                    cube.transform.position = { fx, 0.6f, fz };
+                    cube.transform.rotationDegrees = { 0.0f, 0.0f, 0.0f };
+                    cube.transform.scale = { 1.0f, 1.0f, 1.0f };
+
+                    cube.material.baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+                    cube.material.albedoDescIndex = 0;
+                    cube.material.shininess = 64.0f;
+                    cube.material.specStrength = 0.5f;
+                    cube.material.shadowBias = 0.0015f;
+
+                    scene.AddDraw(cube);
+                }
+            }
         }
 
         // Animation timer
@@ -403,9 +416,14 @@ int main(int argc, char** argv)
             if (brick && brickDesc == 0)
                 brickDesc = device->AllocateTextureDesctiptor(brick);
 
-            // Update cube material once descriptor is ready
+            // Update cube materials once descriptor is ready(ground is[0], cubes are[1..])
             if (brickDesc != 0 && scene.drawItems.size() >= 2)
-                scene.drawItems[1].material.albedoDescIndex = brickDesc;
+            {
+                for (std::size_t i = 1; i < scene.drawItems.size(); ++i)
+                {
+                    scene.drawItems[i].material.albedoDescIndex = brickDesc;
+                }
+            }
 
             // Animate cube rotation
             const auto now = clock::now();
@@ -416,7 +434,12 @@ int main(int argc, char** argv)
             t += delta;
 
             if (scene.drawItems.size() >= 2)
-                scene.drawItems[1].transform.rotationDegrees.y = t * 45.0f;
+            {
+                for (std::size_t i = 1; i < scene.drawItems.size(); ++i)
+                {
+                    scene.drawItems[i].transform.rotationDegrees.y = t * 45.0f + static_cast<float>(i) * 3.6f;
+                }
+            }
 
             // Keep spot light attached to camera (lights[2])
             if (scene.lights.size() >= 3 && scene.lights[2].type == rendern::LightType::Spot)

@@ -159,8 +159,8 @@ export namespace rhi
 		VertexSemantic semantic{};
 		std::uint8_t semanticIndex{ 0 };
 		VertexFormat format{};
-		std::uint32_t offsetBytes{ 0 };
 		std::uint32_t inputSlot{ 0 };
+		std::uint32_t offsetBytes{ 0 };
 		bool normalized{ false };
 	};
 
@@ -298,11 +298,15 @@ export namespace rhi
 		IndexType indexType{ IndexType::UINT16 };
 		std::uint32_t firstIndex{ 0 };
 		int baseVertex{ 0 };
+		uint32_t instanceCount{ 1 };
+		uint32_t firstInstance{ 0 };
 	};
 	struct CommandDraw
 	{
 		std::uint32_t vertexCount{ 0 };
 		std::uint32_t firstVertex{ 0 };
+		uint32_t instanceCount{ 1 };
+		uint32_t firstInstance{ 0 };
 	};
 
 	using Command = std::variant<
@@ -394,13 +398,23 @@ export namespace rhi
 				std::memcpy(cmd.data.data(), bytes.data(), bytes.size());
 			commands.emplace_back(std::move(cmd));
 		}
-		void DrawIndexed(std::uint32_t indexCount, IndexType indexType, std::uint32_t firstIndex = 0, int baseVertex = 0)
+		void DrawIndexed(
+			std::uint32_t indexCount, 
+			IndexType indexType, 
+			std::uint32_t firstIndex = 0, 
+			int baseVertex = 0, 
+			uint32_t instanceCount = 1, 
+			uint32_t firstInstance = 0)
 		{
-			commands.emplace_back(CommandDrawIndexed{ indexCount, indexType, firstIndex, baseVertex });
+			commands.emplace_back(CommandDrawIndexed{ indexCount, indexType, firstIndex, baseVertex, instanceCount, firstInstance });
 		}
-		void Draw(std::uint32_t vertexCount, std::uint32_t firstVertex = 0)
+		void Draw(
+			std::uint32_t vertexCount, 
+			std::uint32_t firstVertex = 0, 
+			uint32_t instanceCount = 1,
+			uint32_t firstInstance = 0)
 		{
-			commands.emplace_back(CommandDraw{ vertexCount, firstVertex });
+			commands.emplace_back(CommandDraw{ vertexCount, firstVertex, instanceCount, firstInstance });
 		}
 		void BindStructuredBufferSRV(std::uint32_t slot, BufferHandle buffer)
 		{
