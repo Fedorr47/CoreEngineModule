@@ -32,6 +32,11 @@ import :mesh;
 
 export namespace rendern
 {
+
+	// multiple Spot/Point shadow casters (DX12). Keep small caps for now.
+	constexpr std::uint32_t kMaxSpotShadows = 4;
+	constexpr std::uint32_t kMaxPointShadows = 4;
+
 	struct alignas(16) GPULight
 	{
 		std::array<float, 4> p0{}; // pos.xyz, type
@@ -81,7 +86,7 @@ export namespace rendern
 		std::size_t operator()(const BatchKey& k) const noexcept
 		{
 			std::size_t h = HashPtr(k.mesh);
-			HashCombine(h, HashU32((std::uint32_t)k.albedoDescIndex));
+			HashCombine(h, HashU32(static_cast<std::uint32_t>(k.albedoDescIndex)));
 			HashCombine(h, HashU32(FBits(k.baseColor.x)));
 			HashCombine(h, HashU32(FBits(k.baseColor.y)));
 			HashCombine(h, HashU32(FBits(k.baseColor.z)));
@@ -132,6 +137,22 @@ export namespace rendern
 		std::array<float, 4>  uCounts{};         // lightCount, ...
 	};
 	static_assert(sizeof(PerBatchConstants) == 192);
+
+	// shadow metadata for Spot/Point arrays (bound as StructuredBuffer at t11).
+	// We pack indices/bias as floats to keep the struct simple across compilers.
+	struct alignas(16) ShadowDataSB
+	{
+		// Spot view-projection matrices as ROWS (4 matrices * 4 rows = 16 float4).
+		std::array<glm::vec4, kMaxSpotShadows * 4> spotVPRows{};
+		// spotInfo[i] = { lightIndexBits, bias, 0, 0 }
+		std::array<glm::vec4, kMaxSpotShadows>     spotInfo{};
+
+		// pointPosRange[i] = { pos.x, pos.y, pos.z, range }
+		std::array<glm::vec4, kMaxPointShadows>    pointPosRange{};
+		// pointInfo[i] = { lightIndexBits, bias, 0, 0 }
+		std::array<glm::vec4, kMaxPointShadows>    pointInfo{};
+	};
+	static_assert((sizeof(ShadowDataSB) % 16) == 0);
 
 	struct alignas(16) ShadowConstants
 	{
@@ -232,14 +253,11 @@ export namespace rendern
 
 							const glm::mat4 model = item.transform.ToMatrix();
 
-							// HLSL ожидает ROWS в IN.i0..i3, поэтому берём transpose и берём его columns:
-							const glm::mat4 mt = glm::transpose(model);
-
 							InstanceData inst{};
-							inst.r0 = mt[0];
-							inst.r1 = mt[1];
-							inst.r2 = mt[2];
-							inst.r3 = mt[3];
+							inst.r0 = model[0];
+							inst.r1 = model[1];
+							inst.r2 = model[2];
+							inst.r3 = model[3];
 
 							tmp[mesh].push_back(inst);
 						}
@@ -282,7 +300,8 @@ export namespace rendern
 						const glm::mat4 lightViewProj = lightProj * lightView;
 
 						ShadowConstants c{};
-						std::memcpy(c.uLightViewProj.data(), glm::value_ptr(lightViewProj), sizeof(float) * 16);
+						const glm::mat4 lightViewProjT = glm::transpose(lightViewProj);
+						std::memcpy(c.uLightViewProj.data(), glm::value_ptr(lightViewProjT), sizeof(float) * 16);
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
 
 						// --- Draw instanced -------------------------------------------------------
@@ -309,6 +328,378 @@ export namespace rendern
 					});
 			}
 
+			// ---------------- Spot/Point shadow maps (arrays) ----------------
+			struct SpotShadowRec
+			{
+				renderGraph::RGTextureHandle tex{};
+				glm::mat4 viewProj{};
+				std::uint32_t lightIndex = 0;
+				float bias = 0.0020f;
+			};
+
+			struct PointShadowRec
+			{
+				renderGraph::RGTextureHandle cube{};
+				renderGraph::RGTextureHandle depthTmp{};
+				glm::vec3 pos{};
+				float range = 10.0f;
+				std::uint32_t lightIndex = 0;
+				float bias = 0.0060f;
+			};
+
+			std::vector<SpotShadowRec> spotShadows;
+			spotShadows.reserve(kMaxSpotShadows);
+
+			std::vector<PointShadowRec> pointShadows;
+			pointShadows.reserve(kMaxPointShadows);
+
+			// Collect up to kMaxSpotShadows / kMaxPointShadows from scene.lights (index aligns with UploadLights()).
+			for (std::uint32_t li = 0; li < static_cast<std::uint32_t>(scene.lights.size()); ++li)
+			{
+				if (li >= kMaxLights)
+					break;
+
+				const auto& l = scene.lights[li];
+
+				if (l.type == LightType::Spot && spotShadows.size() < kMaxSpotShadows)
+				{
+					const rhi::Extent2D ext{ 1024, 1024 };
+					const auto rg = graph.CreateTexture(renderGraph::RGTextureDesc{
+						.extent = ext,
+						.format = rhi::Format::D32_FLOAT,
+						.usage = renderGraph::ResourceUsage::DepthStencil,
+						.debugName = "SpotShadowMap"
+					});
+
+					const glm::vec3 up = glm::vec3(0, 1, 0);
+					const glm::vec3 dir = glm::normalize(l.direction);
+					const glm::mat4 v = glm::lookAt(l.position, l.position + dir, up);
+					const float outer = std::max(1.0f, l.outerAngleDeg);
+					const glm::mat4 p = glm::perspectiveRH_ZO(glm::radians(outer * 2.0f), 1.0f, 0.1f, std::max(1.0f, l.range));
+					const glm::mat4 vp = p * v;
+
+					SpotShadowRec rec{};
+					rec.tex = rg;
+					rec.viewProj = vp;
+					rec.lightIndex = li;
+					rec.bias = 0.0020f;
+					spotShadows.push_back(rec);
+
+					// Depth-only spot shadow pass (same shader/pso as directional shadow)
+					rhi::ClearDesc clear{};
+					clear.clearColor = false;
+					clear.clearDepth = true;
+					clear.depth = 1.0f;
+
+					renderGraph::PassAttachments att{};
+					att.useSwapChainBackbuffer = false;
+					att.color = std::nullopt;
+					att.depth = rg;
+					att.clearDesc = clear;
+
+					const std::string passName = "SpotShadowPass_" + std::to_string(static_cast<int>(spotShadows.size() - 1));
+
+					graph.AddPass(passName, std::move(att),
+						[this, &scene, vp](renderGraph::PassContext& ctx)
+						{
+							ctx.commandList.SetViewport(0, 0,
+								static_cast<int>(ctx.passExtent.width),
+								static_cast<int>(ctx.passExtent.height));
+
+							ctx.commandList.SetState(shadowState_);
+							ctx.commandList.BindPipeline(psoShadow_);
+
+							// Same instance batching as ShadowPass
+							struct alignas(16) InstanceDataRows
+							{
+								glm::vec4 r0{}, r1{}, r2{}, r3{};
+							};
+
+							struct ShadowBatch
+							{
+								const rendern::MeshRHI* mesh{};
+								std::uint32_t instanceOffset = 0;
+								std::uint32_t instanceCount = 0;
+							};
+
+							std::unordered_map<const rendern::MeshRHI*, std::vector<InstanceDataRows>> tmp;
+							tmp.reserve(scene.drawItems.size());
+
+							for (const auto& item : scene.drawItems)
+							{
+								const rendern::MeshRHI* mesh = item.mesh ? &item.mesh->GetResource() : nullptr;
+								if (!mesh || mesh->indexCount == 0) continue;
+
+								const glm::mat4 model = item.transform.ToMatrix();
+								//const glm::mat4 mt = glm::transpose(model);
+
+								InstanceDataRows inst{};
+								inst.r0 = model[0];
+								inst.r1 = model[1];
+								inst.r2 = model[2];
+								inst.r3 = model[3];
+
+								tmp[mesh].push_back(inst);
+							}
+
+							std::vector<InstanceDataRows> instances;
+							instances.reserve(scene.drawItems.size());
+
+							std::vector<ShadowBatch> batches;
+							batches.reserve(tmp.size());
+
+							for (auto& [mesh, vec] : tmp)
+							{
+								if (!mesh || vec.empty()) continue;
+
+								ShadowBatch b{};
+								b.mesh = mesh;
+								b.instanceOffset = static_cast<std::uint32_t>(instances.size());
+								b.instanceCount = static_cast<std::uint32_t>(vec.size());
+
+								instances.insert(instances.end(), vec.begin(), vec.end());
+								batches.push_back(b);
+							}
+
+							if (!instances.empty())
+							{
+								const std::size_t bytes = instances.size() * sizeof(InstanceDataRows);
+								if (bytes > shadowInstanceBufferSizeBytes_)
+								{
+									throw std::runtime_error("SpotShadowPass: shadowInstanceBuffer_ overflow (increase shadowInstanceBufferSizeBytes_)");
+								}
+								device_.UpdateBuffer(shadowInstanceBuffer_, std::as_bytes(std::span{ instances }));
+							}
+
+							struct alignas(16) ShadowConstantsLocal
+							{
+								std::array<float, 16> uLightViewProj{};
+							};
+
+							ShadowConstantsLocal c{};
+							const glm::mat4 vpT = glm::transpose(vp);
+							std::memcpy(c.uLightViewProj.data(), glm::value_ptr(vpT), sizeof(float) * 16);
+							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+
+							const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceDataRows));
+
+							for (const ShadowBatch& b : batches)
+							{
+								if (!b.mesh || b.instanceCount == 0) continue;
+
+								ctx.commandList.BindInputLayout(b.mesh->layoutInstanced);
+
+								ctx.commandList.BindVertexBuffer(0, b.mesh->vertexBuffer, b.mesh->vertexStrideBytes, 0);
+								ctx.commandList.BindVertexBuffer(1, shadowInstanceBuffer_, instStride, b.instanceOffset * instStride);
+
+								ctx.commandList.BindIndexBuffer(b.mesh->indexBuffer, b.mesh->indexType, 0);
+
+								ctx.commandList.DrawIndexed(
+									b.mesh->indexCount,
+									b.mesh->indexType,
+									0, 0,
+									b.instanceCount,
+									0);
+							}
+						});
+				}
+				else if (l.type == LightType::Point && pointShadows.size() < kMaxPointShadows)
+				{
+					// Point shadows use a cubemap R32_FLOAT distance map (color) + a temporary D32 depth buffer.
+					const rhi::Extent2D cubeExtent{ 512, 512 };
+					const auto cube = graph.CreateTexture(renderGraph::RGTextureDesc{
+						.extent = cubeExtent,
+						.format = rhi::Format::R32_FLOAT,
+						.usage = renderGraph::ResourceUsage::RenderTarget,
+						.type = renderGraph::TextureType::Cube,
+						.debugName = "PointShadowCube"
+					});
+
+					const auto depthTmp = graph.CreateTexture(renderGraph::RGTextureDesc{
+						.extent = cubeExtent,
+						.format = rhi::Format::D32_FLOAT,
+						.usage = renderGraph::ResourceUsage::DepthStencil,
+						.debugName = "PointShadowDepthTmp"
+					});
+
+					PointShadowRec rec{};
+					rec.cube = cube;
+					rec.depthTmp = depthTmp;
+					rec.pos = l.position;
+					rec.range = std::max(1.0f, l.range);
+					rec.lightIndex = li;
+					rec.bias = 0.0060f;
+					pointShadows.push_back(rec);
+
+					auto FaceView = [](const glm::vec3& p, int face) -> glm::mat4
+					{
+						// +X, -X, +Y, -Y, +Z, -Z
+						static const glm::vec3 dirs[6] = {
+							{ 1, 0, 0 },{-1, 0, 0 },{ 0, 1, 0 },{ 0,-1, 0 },{ 0, 0, 1 },{ 0, 0,-1 }
+						};
+						static const glm::vec3 ups[6] = {
+							{ 0, 1, 0 },{ 0, 1, 0 },{ 0, 0,-1 },{ 0, 0, 1 },{ 0, 1, 0 },{ 0, 1, 0 }
+						};
+						return glm::lookAt(p, p + dirs[face], ups[face]);
+					};
+
+					const glm::mat4 proj90 = glm::perspectiveRH_ZO(glm::radians(90.0f), 1.0f, 0.1f, rec.range);
+
+					for (int face = 0; face < 6; ++face)
+					{
+						const glm::mat4 vp = proj90 * FaceView(rec.pos, face);
+
+						rhi::ClearDesc clear{};
+						clear.clearColor = true;
+						clear.clearDepth = true;
+						clear.color = { 1.0f, 1.0f, 1.0f, 1.0f }; // far
+						clear.depth = 1.0f;
+
+						renderGraph::PassAttachments att{};
+						att.useSwapChainBackbuffer = false;
+						att.color = cube;
+						att.colorCubeFace = static_cast<std::uint32_t>(face);
+						att.depth = depthTmp;
+						att.clearDesc = clear;
+
+						const std::string passName =
+							"PointShadowPass_" + std::to_string(static_cast<int>(pointShadows.size() - 1)) +
+							"_F" + std::to_string(face);
+
+						graph.AddPass(passName, std::move(att),
+							[this, &scene, vp, rec](renderGraph::PassContext& ctx)
+							{
+								ctx.commandList.SetViewport(0, 0,
+									static_cast<int>(ctx.passExtent.width),
+									static_cast<int>(ctx.passExtent.height));
+
+								ctx.commandList.SetState(pointShadowState_);
+								ctx.commandList.BindPipeline(psoPointShadow_);
+
+								// Same instance batching as ShadowPass
+								struct alignas(16) InstanceDataRows
+								{
+									glm::vec4 r0{}, r1{}, r2{}, r3{};
+								};
+
+								struct ShadowBatch
+								{
+									const rendern::MeshRHI* mesh{};
+									std::uint32_t instanceOffset = 0;
+									std::uint32_t instanceCount = 0;
+								};
+
+								std::unordered_map<const rendern::MeshRHI*, std::vector<InstanceDataRows>> tmp;
+								tmp.reserve(scene.drawItems.size());
+
+								for (const auto& item : scene.drawItems)
+								{
+									const rendern::MeshRHI* mesh = item.mesh ? &item.mesh->GetResource() : nullptr;
+									if (!mesh || mesh->indexCount == 0) continue;
+
+									const glm::mat4 model = item.transform.ToMatrix();
+
+									InstanceDataRows inst{};
+									inst.r0 = model[0];
+									inst.r1 = model[1];
+									inst.r2 = model[2];
+									inst.r3 = model[3];
+
+									tmp[mesh].push_back(inst);
+								}
+
+								std::vector<InstanceDataRows> instances;
+								instances.reserve(scene.drawItems.size());
+
+								std::vector<ShadowBatch> batches;
+								batches.reserve(tmp.size());
+
+								for (auto& [mesh, vec] : tmp)
+								{
+									if (!mesh || vec.empty()) continue;
+
+									ShadowBatch b{};
+									b.mesh = mesh;
+									b.instanceOffset = static_cast<std::uint32_t>(instances.size());
+									b.instanceCount = static_cast<std::uint32_t>(vec.size());
+
+									instances.insert(instances.end(), vec.begin(), vec.end());
+									batches.push_back(b);
+								}
+
+								if (!instances.empty())
+								{
+									const std::size_t bytes = instances.size() * sizeof(InstanceDataRows);
+									if (bytes > shadowInstanceBufferSizeBytes_)
+									{
+										throw std::runtime_error("PointShadowPass: shadowInstanceBuffer_ overflow (increase shadowInstanceBufferSizeBytes_)");
+									}
+									device_.UpdateBuffer(shadowInstanceBuffer_, std::as_bytes(std::span{ instances }));
+								}
+
+								struct alignas(16) PointShadowConstants
+								{
+									std::array<float, 16> uFaceViewProj{};
+									std::array<float, 4>  uLightPosRange{}; // xyz + range
+									std::array<float, 4>  uMisc{};          // bias, ...
+								};
+
+								PointShadowConstants c{};
+								const glm::mat4 vpT = glm::transpose(vp);
+								std::memcpy(c.uFaceViewProj.data(), glm::value_ptr(vpT), sizeof(float) * 16);
+								c.uLightPosRange = { rec.pos.x, rec.pos.y, rec.pos.z, rec.range };
+								c.uMisc = { rec.bias, 0, 0, 0 };
+								ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+
+								const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceDataRows));
+
+								for (const ShadowBatch& b : batches)
+								{
+									if (!b.mesh || b.instanceCount == 0) continue;
+
+									ctx.commandList.BindInputLayout(b.mesh->layoutInstanced);
+
+									ctx.commandList.BindVertexBuffer(0, b.mesh->vertexBuffer, b.mesh->vertexStrideBytes, 0);
+									ctx.commandList.BindVertexBuffer(1, shadowInstanceBuffer_, instStride, b.instanceOffset * instStride);
+
+									ctx.commandList.BindIndexBuffer(b.mesh->indexBuffer, b.mesh->indexType, 0);
+
+									ctx.commandList.DrawIndexed(
+										b.mesh->indexCount,
+										b.mesh->indexType,
+										0, 0,
+										b.instanceCount,
+										0);
+								}
+							});
+					}
+				}
+			}
+
+			// Upload shadow metadata (t11). This is used by the stage-4 DX12 shader to pick the right shadow map per light.
+			{
+				ShadowDataSB sd{};
+
+				for (std::size_t i = 0; i < spotShadows.size(); ++i)
+				{
+					const auto& s = spotShadows[i];
+					sd.spotVPRows[i * 4 + 0] = s.viewProj[0];
+					sd.spotVPRows[i * 4 + 1] = s.viewProj[1];
+					sd.spotVPRows[i * 4 + 2] = s.viewProj[2];
+					sd.spotVPRows[i * 4 + 3] = s.viewProj[3];
+					sd.spotInfo[i] = glm::vec4(AsFloatBits(s.lightIndex), s.bias, 0, 0);
+				}
+
+				for (std::size_t i = 0; i < pointShadows.size(); ++i)
+				{
+					const auto& p = pointShadows[i];
+					sd.pointPosRange[i] = glm::vec4(p.pos, p.range);
+					sd.pointInfo[i] = glm::vec4(AsFloatBits(p.lightIndex), p.bias, 0, 0);
+				}
+
+				device_.UpdateBuffer(shadowDataBuffer_, std::as_bytes(std::span{ &sd, 1 }));
+			}
+
 			// ---------------- Main pass (swapchain) ----------------
 			rhi::ClearDesc clearDesc{};
 			clearDesc.clearColor = true;
@@ -316,7 +707,7 @@ export namespace rendern
 			clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
 
 			graph.AddSwapChainPass("MainPass", clearDesc,
-				[this, &scene, shadowRG, lightView, lightProj](renderGraph::PassContext& ctx)
+				[this, &scene, shadowRG, lightView, lightProj, spotShadows, pointShadows](renderGraph::PassContext& ctx)
 				{
 					const auto extent = ctx.passExtent;
 
@@ -331,6 +722,21 @@ export namespace rendern
 						const auto shadowTex = ctx.resources.GetTexture(shadowRG);
 						ctx.commandList.BindTexture2D(1, shadowTex);
 					}
+
+					// Bind Spot shadow maps at t3..t6 and Point shadow cubemaps at t7..t10.
+					for (std::size_t i = 0; i < spotShadows.size(); ++i)
+					{
+						const auto tex = ctx.resources.GetTexture(spotShadows[i].tex);
+						ctx.commandList.BindTexture2D(3 + static_cast<std::uint32_t>(i), tex);
+					}
+					for (std::size_t i = 0; i < pointShadows.size(); ++i)
+					{
+						const auto tex = ctx.resources.GetTexture(pointShadows[i].cube);
+						ctx.commandList.BindTextureCube(7 + static_cast<std::uint32_t>(i), tex);
+					}
+
+					// Bind shadow metadata SB at t11
+					ctx.commandList.BindStructuredBufferSRV(11, shadowDataBuffer_);
 
 					const float aspect = extent.height
 						? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
@@ -376,10 +782,10 @@ export namespace rendern
 						const glm::mat4 model = item.transform.ToMatrix();
 
 						InstanceData inst{};
-						inst.c0 = glm::row(model, 0);
-						inst.c1 = glm::row(model, 1);
-						inst.c2 = glm::row(model, 2);
-						inst.c3 = glm::row(model, 3);
+						inst.c0 = model[0];
+						inst.c1 = model[1];
+						inst.c2 = model[2];
+						inst.c3 = model[3];
 
 						auto& bucket = tmp[key];
 						if (bucket.inst.empty())
@@ -476,21 +882,27 @@ export namespace rendern
 
 						// --- constants ---
 						PerBatchConstants constatntsBatch{};
-						std::memcpy(constatntsBatch.uViewProj.data(), glm::value_ptr(viewProj), sizeof(float) * 16);
-						std::memcpy(constatntsBatch.uLightViewProj.data(), glm::value_ptr(lightViewProj), sizeof(float) * 16);
+						const glm::mat4 viewProjT = glm::transpose(viewProj);
+						const glm::mat4 lightViewProjT = glm::transpose(lightViewProj);
+						std::memcpy(constatntsBatch.uViewProj.data(), glm::value_ptr(viewProjT), sizeof(float) * 16);
+						std::memcpy(constatntsBatch.uLightViewProj.data(), glm::value_ptr(lightViewProjT), sizeof(float) * 16);
 
 						constatntsBatch.uCameraAmbient = { camPos.x, camPos.y, camPos.z, 0.22f };
 						constatntsBatch.uBaseColor = { b.material.baseColor.x, b.material.baseColor.y, b.material.baseColor.z, b.material.baseColor.w };
 
 						const float shadowBias = (b.material.shadowBias != 0.0f) ? b.material.shadowBias : 0.0015f;
 						constatntsBatch.uMaterialFlags = { b.material.shininess, b.material.specStrength, shadowBias, AsFloatBits(flags) };
-						constatntsBatch.uCounts = { (float)lightCount, 0, 0, 0 };
+						constatntsBatch.uCounts = { 
+							static_cast<float>(lightCount), 
+							static_cast<float>(spotShadows.size()), 
+							static_cast<float>(pointShadows.size()), 
+							0 };
 
 						// --- IA (instanced) ---
 						ctx.commandList.BindInputLayout(b.mesh->layoutInstanced);
 						ctx.commandList.BindVertexBuffer(0, b.mesh->vertexBuffer, b.mesh->vertexStrideBytes, 0);
 
-						const std::uint32_t instStride = (std::uint32_t)sizeof(InstanceData);
+						const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceData));
 						const std::uint32_t instOffsetBytes = b.instanceOffset * instStride;
 						ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, instOffsetBytes);
 
@@ -519,6 +931,10 @@ export namespace rendern
 			if (lightsBuffer_)
 			{
 				device_.DestroyBuffer(lightsBuffer_);
+			}
+			if (shadowDataBuffer_)
+			{
+				device_.DestroyBuffer(shadowDataBuffer_);
 			}
 			psoCache_.ClearCache();
 			shaderLibrary_.ClearCache();
@@ -599,12 +1015,14 @@ export namespace rendern
 		{
 			std::filesystem::path shaderPath;
 			std::filesystem::path shadowPath;
+			std::filesystem::path pointShadowPath;
 
 			switch (device_.GetBackend())
 			{
 			case rhi::Backend::DirectX12:
 				shaderPath = corefs::ResolveAsset("shaders\\GlobalShaderInstanced_dx12.hlsl");
-				shadowPath = corefs::ResolveAsset("shaders\\Shadow_dx12.hlsl");
+				shadowPath = corefs::ResolveAsset("shaders\\ShadowDepth_dx12.hlsl");
+				pointShadowPath = corefs::ResolveAsset("shaders\\ShadowPoint_dx12.hlsl");
 				break;
 			default:
 				shaderPath = corefs::ResolveAsset("shaders\\VS.vert");
@@ -630,13 +1048,13 @@ export namespace rendern
 
 					const auto vs = shaderLibrary_.GetOrCreateShader(ShaderKey{
 						.stage = rhi::ShaderStage::Vertex,
-						.name = "VS_Mesh",
+						.name = "VSMain",
 						.filePath = shaderPath.string(),
 						.defines = defs
 					});
 					const auto ps = shaderLibrary_.GetOrCreateShader(ShaderKey{
 						.stage = rhi::ShaderStage::Pixel,
-						.name = "PS_Mesh",
+						.name = "PSMain",
 						.filePath = shaderPath.string(),
 						.defines = defs
 					});
@@ -687,6 +1105,34 @@ export namespace rendern
 				shadowState_.blend.enable = false;
 			}
 
+
+			// Point shadow pipeline (R32_FLOAT distance cubemap)
+			if (device_.GetBackend() == rhi::Backend::DirectX12)
+			{
+				const auto vsPoint = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Vertex,
+					.name = "VS_ShadowPoint",
+					.filePath = pointShadowPath.string(),
+					.defines = {}
+				});
+				const auto psPoint = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Pixel,
+					.name = "PS_ShadowPoint",
+					.filePath = pointShadowPath.string(),
+					.defines = {}
+				});
+				psoPointShadow_ = psoCache_.GetOrCreate("PSO_PointShadow", vsPoint, psPoint);
+
+				pointShadowState_.depth.testEnable = true;
+				pointShadowState_.depth.writeEnable = true;
+				pointShadowState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
+
+				pointShadowState_.rasterizer.cullMode = rhi::CullMode::None;
+				pointShadowState_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
+
+				pointShadowState_.blend.enable = false;
+			}
+
 			// DX12-only dynamic buffers
 			if (device_.GetBackend() == rhi::Backend::DirectX12)
 			{
@@ -699,6 +1145,18 @@ export namespace rendern
 					ld.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(GPULight));
 					ld.debugName = "LightsSB";
 					lightsBuffer_ = device_.CreateBuffer(ld);
+				}
+
+
+				// Shadow metadata structured buffer (t11) — holds spot VP rows + indices/bias, and point pos/range + indices/bias.
+				{
+					rhi::BufferDesc sd{};
+					sd.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
+					sd.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					sd.sizeInBytes = sizeof(ShadowDataSB);
+					sd.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(ShadowDataSB));
+					sd.debugName = "ShadowDataSB";
+					shadowDataBuffer_ = device_.CreateBuffer(sd);
 				}
 
 				// Per-instance model matrices VB (slot1)
@@ -747,5 +1205,10 @@ export namespace rendern
 		rhi::GraphicsState shadowState_{};
 
 		rhi::BufferHandle lightsBuffer_{};
+		rhi::BufferHandle shadowDataBuffer_{};
+
+		// Point shadow pass (R32_FLOAT distance cubemap)
+		rhi::PipelineHandle psoPointShadow_{};
+		rhi::GraphicsState pointShadowState_{};
 	};
 } // namespace rendern

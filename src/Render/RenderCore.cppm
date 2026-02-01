@@ -109,7 +109,7 @@ export namespace rendern
 					}
 					out += "#define ";
 					out += def;
-					out += "";
+					out += "\n";
 				}
 
 				out.append(source);

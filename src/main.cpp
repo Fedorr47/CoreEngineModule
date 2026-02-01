@@ -145,7 +145,7 @@ static void CreateDeviceAndSwapChain(
         rhi::DX12SwapChainDesc sc{};
         sc.hwnd = (HWND)hwnd;
         sc.bufferCount = 2;
-        sc.base.extent = rhi::Extent2D{ (std::uint32_t)initialW, (std::uint32_t)initialH };
+        sc.base.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         sc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
         sc.base.vsync = true;
 
@@ -153,7 +153,7 @@ static void CreateDeviceAndSwapChain(
 #else
         outDevice = rhi::CreateNullDevice();
         rhi::SwapChainDesc sc{};
-        sc.extent = rhi::Extent2D{ (std::uint32_t)initialW, (std::uint32_t)initialH };
+        sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
 #endif
         break;
@@ -165,7 +165,7 @@ static void CreateDeviceAndSwapChain(
         outDevice = rhi::CreateGLDevice();
 
         rhi::GLSwapChainDesc sc{};
-        sc.base.extent = rhi::Extent2D{ (std::uint32_t)initialW, (std::uint32_t)initialH };
+        sc.base.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         sc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
         sc.base.vsync = true;
 
@@ -176,8 +176,8 @@ static void CreateDeviceAndSwapChain(
                 int h = 0;
                 glfwGetFramebufferSize(wnd, &w, &h);
                 return rhi::Extent2D{
-                    (std::uint32_t)std::max(0, w),
-                    (std::uint32_t)std::max(0, h)
+                    static_cast<std::uint32_t>(std::max(0, w)),
+                    static_cast<std::uint32_t>(std::max(0, h))
                 };
             };
         sc.hooks.setVsync = [](bool on) { glfwSwapInterval(on ? 1 : 0); };
@@ -186,7 +186,7 @@ static void CreateDeviceAndSwapChain(
 #else
         outDevice = rhi::CreateNullDevice();
         rhi::SwapChainDesc sc{};
-        sc.extent = rhi::Extent2D{ (std::uint32_t)initialW, (std::uint32_t)initialH };
+        sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
 #endif
         break;
@@ -196,7 +196,7 @@ static void CreateDeviceAndSwapChain(
     {
         outDevice = rhi::CreateNullDevice();
         rhi::SwapChainDesc sc{};
-        sc.extent = rhi::Extent2D{ (std::uint32_t)initialW, (std::uint32_t)initialH };
+        sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
         break;
     }
@@ -296,7 +296,7 @@ int main(int argc, char** argv)
         scene.Clear();
 
         // Camera
-        scene.camera.position = { 2.2f, 10.6f, 10.2f };
+        scene.camera.position = { 2.2f, 2.6f, 2.2f };
         scene.camera.target = { 0.0f, 0.0f, 0.0f };
         scene.camera.up = { 0.0f, 1.0f, 0.0f };
         scene.camera.fovYDeg = 60.0f;
@@ -309,7 +309,7 @@ int main(int argc, char** argv)
             l.type = rendern::LightType::Directional;
             l.direction = mathUtils::Normalize(mathUtils::Vec3(-0.4f, -1.0f, -0.3f)); // FROM light
             l.color = { 1.0f, 1.0f, 1.0f };
-            l.intensity = 0.5f;
+            l.intensity = 1.0f;
             scene.AddLight(l);
         }
         {
@@ -331,7 +331,7 @@ int main(int argc, char** argv)
             l.direction = mathUtils::Normalize(mathUtils::Sub(scene.camera.target, scene.camera.position)); // FROM light
             l.color = { 0.2f, 0.1f, 1.0f };
             l.range = 30.0f;
-            l.intensity = 3.0f;
+            l.intensity = 1.0f;
             l.innerAngleDeg = 12.0f;
             l.outerAngleDeg = 20.0f;
             l.attLinear = 0.09f;
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
 
         // Add kDim*kDim cubes (same mesh + same material) -> should become 1 draw call in MainPass (DX12)
         {
-            constexpr int kDim = 10;
+            constexpr int kDim = 1;
             constexpr float kStep = 1.35f;
 
             for (int z = 0; z < kDim; ++z)
@@ -390,7 +390,7 @@ int main(int argc, char** argv)
 					const float fx = (x - (kDim / 2)) * kStep;
 					const float fz = (z - (kDim / 2)) * kStep;
 
-					cube.transform.position = { fx, 0.6f, fz };
+					cube.transform.position = { fx, 1.3f, fz };
 					cube.transform.rotationDegrees = { 0.0f, 0.0f, 0.0f };
 					cube.transform.scale = { 1.0f, 1.0f, 1.0f };
 
@@ -419,7 +419,7 @@ int main(int argc, char** argv)
             {
                 const auto& gpu = tex->GetResource();
                 if (gpu.id != 0)
-                    brick = rhi::TextureHandle{ (std::uint32_t)gpu.id };
+                    brick = rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
             }
 
             // Allocate descriptor once

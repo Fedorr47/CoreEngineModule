@@ -21,11 +21,18 @@ export namespace renderGraph
 		Storage
 	};
 
-	struct RGTextureDesc
+
+	enum class TextureType : std::uint8_t
+	{
+		Tex2D,
+		Cube
+	};
+struct RGTextureDesc
 	{
 		rhi::Extent2D extent{ 0, 0 };
 		rhi::Format format{ rhi::Format::Unknown };
 		ResourceUsage usage{ ResourceUsage::Unknown };
+		TextureType type{ TextureType::Tex2D };
 		std::string debugName;
 	};
 
@@ -34,6 +41,8 @@ export namespace renderGraph
 		std::uint32_t id{};
 	};
 
+	using RGTextureHandle = RGTexture;
+
 	struct PassAttachments
 	{
 		bool useSwapChainBackbuffer{ false };
@@ -41,6 +50,9 @@ export namespace renderGraph
 		std::optional<RGTexture> color;
 		std::optional<RGTexture> depth;
 
+
+		// If set, color attachment is treated as a cubemap and this selects the face [0..5].
+		std::optional<std::uint32_t> colorCubeFace;
 		rhi::ClearDesc clearDesc{};
 	};
 
@@ -118,7 +130,9 @@ export namespace renderGraph
 			allocatedTextures.reserve(textures_.size());
 			for (const auto& texDesc : textures_)
 			{
-				rhi::TextureHandle texture = device.CreateTexture2D(texDesc.extent, texDesc.format);
+				rhi::TextureHandle texture = (texDesc.type == TextureType::Cube)
+					? device.CreateTextureCube(texDesc.extent, texDesc.format)
+					: device.CreateTexture2D(texDesc.extent, texDesc.format);
 				allocatedTextures.push_back(texture);
 			}
 
@@ -152,7 +166,14 @@ export namespace renderGraph
 						passExtent = textures_[pass.attachments.depth->id].extent;
 					}
 
-					frameBuffer = device.CreateFramebuffer(color, depth);
+					if (pass.attachments.colorCubeFace && color.id != 0)
+					{
+						frameBuffer = device.CreateFramebufferCubeFace(color, *pass.attachments.colorCubeFace, depth);
+					}
+					else
+					{
+						frameBuffer = device.CreateFramebuffer(color, depth);
+					}
 					transientFramebuffers.push_back(frameBuffer);
 				}
 

@@ -521,7 +521,38 @@ namespace rhi
 			return TextureHandle{ static_cast<std::uint32_t>(textureId) };
 		}
 
-		void DestroyTexture(TextureHandle texture) noexcept override
+
+		TextureHandle CreateTextureCube(Extent2D extent, Format format) override
+		{
+			// Used for point light shadows: R32_FLOAT distance cubemap.
+			if (IsDepthFormat(format))
+			{
+				throw std::runtime_error("OpenGL: CreateTextureCube: depth formats are not supported for cubemaps");
+			}
+
+			GLuint tex = 0;
+			glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &tex);
+
+			GLint internal = 0;
+			GLint base = 0;
+			GLint type = 0;
+			ToGLInternalFormat(format, internal, base, type);
+
+			glTextureStorage2D(tex, 1, internal, static_cast<GLsizei>(extent.width), static_cast<GLsizei>(extent.height));
+
+			// No filtering for shadow distance maps
+			glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+			// Clamp to edge to avoid seams.
+			glTextureParameteri(tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTextureParameteri(tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTextureParameteri(tex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+			return TextureHandle{ tex };
+		}
+
+void DestroyTexture(TextureHandle texture) noexcept override
 		{
 			GLuint textureId = static_cast<GLuint>(texture.id);
 			if (textureId != 0)
@@ -566,7 +597,33 @@ namespace rhi
 			return FrameBufferHandle{ static_cast<std::uint32_t>(framebufferId) };
 		}
 
-		void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
+
+		FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) override
+		{
+			GLuint fbo = 0;
+			glCreateFramebuffers(1, &fbo);
+
+			if (colorCube.id != 0)
+			{
+				// Cubemap is a 2D array texture with 6 layers (faces).
+				glNamedFramebufferTextureLayer(fbo, GL_COLOR_ATTACHMENT0, colorCube.id, 0, static_cast<GLint>(faceIndex));
+			}
+
+			if (depth.id != 0)
+			{
+				glNamedFramebufferTexture(fbo, GL_DEPTH_ATTACHMENT, depth.id, 0);
+			}
+
+			const GLenum status = glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+			if (status != GL_FRAMEBUFFER_COMPLETE)
+			{
+				throw std::runtime_error("OpenGL: CreateFramebufferCubeFace: framebuffer is incomplete");
+			}
+
+			return FrameBufferHandle{ fbo };
+		}
+
+void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 		{
 			GLuint framebufferId = static_cast<GLuint>(framebuffer.id);
 			if (framebufferId != 0)
@@ -1202,10 +1259,16 @@ namespace rhi
 			indexBuffer_.offsetBytes = cmd.offsetBytes;
 		}
 
-		void ExecuteOnce(const CommnadBindTextue2D& cmd)
+		void ExecuteOnce(const CommnadBindTexture2D& cmd)
 		{
 			glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(cmd.slot));
 			glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(cmd.texture.id));
+		}
+
+		void ExecuteOnce(const CommandBindTextureCube& cmd)
+		{
+			glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(cmd.slot));
+			glBindTexture(GL_TEXTURE_CUBE_MAP, static_cast<GLuint>(cmd.texture.id));
 		}
 
 		void ExecuteOnce(const CommandTextureDesc& cmd)

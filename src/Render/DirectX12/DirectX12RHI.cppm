@@ -62,6 +62,8 @@ DXGI_FORMAT ToDXGIFormat(rhi::Format format)
         return DXGI_FORMAT_R8G8B8A8_UNORM;
     case rhi::Format::BGRA8_UNORM:
         return DXGI_FORMAT_B8G8R8A8_UNORM;
+    case rhi::Format::R32_FLOAT:
+        return DXGI_FORMAT_R32_FLOAT;
     case rhi::Format::D32_FLOAT:
         return DXGI_FORMAT_D32_FLOAT;
     case rhi::Format::D24_UNORM_S8_UINT:
@@ -556,7 +558,74 @@ export namespace rhi
             return textureHandle;
         }
 
-        void DestroyTexture(TextureHandle texture) noexcept override
+
+        TextureHandle CreateTextureCube(Extent2D extent, Format format) override
+        {
+            // Currently used for point light shadows: R32_FLOAT distance cubemap.
+            if (IsDepthFormat(format))
+            {
+                throw std::runtime_error("DX12: CreateTextureCube: depth formats are not supported for cubemaps");
+            }
+
+            TextureHandle textureHandle{ ++nextTexId_ };
+            TextureEntry textureEntry{};
+            textureEntry.extent = extent;
+            textureEntry.format = format;
+            textureEntry.type = TextureEntry::Type::Cube;
+
+            const DXGI_FORMAT dxFmt = ToDXGIFormat(format);
+
+            D3D12_HEAP_PROPERTIES heapProps{};
+            heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+            D3D12_RESOURCE_DESC resourceDesc{};
+            resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            resourceDesc.Width = extent.width;
+            resourceDesc.Height = extent.height;
+            resourceDesc.DepthOrArraySize = 6; // cubemap faces
+            resourceDesc.MipLevels = 1;
+            resourceDesc.Format = dxFmt;
+            resourceDesc.SampleDesc.Count = 1;
+            resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+            D3D12_CLEAR_VALUE clearValue{};
+            clearValue.Format = dxFmt;
+            clearValue.Color[0] = 1.0f;
+            clearValue.Color[1] = 1.0f;
+            clearValue.Color[2] = 1.0f;
+            clearValue.Color[3] = 1.0f;
+
+            const D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+            ThrowIfFailed(NativeDevice()->CreateCommittedResource(
+                &heapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &resourceDesc,
+                initState,
+                &clearValue,
+                IID_PPV_ARGS(&textureEntry.resource)),
+                "DX12: Create cubemap texture failed");
+
+            textureEntry.resourceFormat = dxFmt;
+            textureEntry.srvFormat = dxFmt;
+            textureEntry.rtvFormat = dxFmt;
+            textureEntry.state = initState;
+
+            EnsureRTVHeap();
+            textureEntry.hasRTVFaces = true;
+            for (UINT face = 0; face < 6; ++face)
+            {
+                textureEntry.rtvFaces[face] = AllocateRTVTexture2DArraySlice(textureEntry.resource.Get(), dxFmt, face, textureEntry.rtvIndexFaces[face]);
+            }
+
+            AllocateSRV(textureEntry, dxFmt, 1);
+
+            textures_[textureHandle.id] = std::move(textureEntry);
+            return textureHandle;
+        }
+
+void DestroyTexture(TextureHandle texture) noexcept override
         {
             if (texture.id == 0)
             {
@@ -588,6 +657,13 @@ export namespace rhi
             {
                 CurrentFrame().deferredFreeRtv.push_back(entry.rtvIndex);
             }
+            if (entry.hasRTVFaces)
+            {
+                for (UINT idx : entry.rtvIndexFaces)
+                {
+                    CurrentFrame().deferredFreeRtv.push_back(idx);
+                }
+            }
             if (entry.hasDSV)
             {
                 CurrentFrame().deferredFreeDsv.push_back(entry.dsvIndex);
@@ -605,7 +681,19 @@ export namespace rhi
             return frameBuffer;
         }
 
-        void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
+
+        FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) override
+        {
+            FrameBufferHandle frameBuffer{ ++nextFBId_ };
+            FramebufferEntry frameBufEntry{};
+            frameBufEntry.color = colorCube;
+            frameBufEntry.depth = depth;
+            frameBufEntry.colorCubeFace = faceIndex;
+            framebuffers_[frameBuffer.id] = frameBufEntry;
+            return frameBuffer;
+        }
+
+void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
         {
             if (frameBuffer.id == 0)
             {
@@ -748,8 +836,10 @@ export namespace rhi
             shaderEntry.stage = stage;
             shaderEntry.name = std::string(debugName);
 
-            const char* entry = (stage == ShaderStage::Vertex) ? "VSMain" : "PSMain";
             const char* target = (stage == ShaderStage::Vertex) ? "vs_5_1" : "ps_5_1";
+
+            ComPtr<ID3DBlob> code;
+            ComPtr<ID3DBlob> errors;
 
             UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if defined(_DEBUG)
@@ -758,26 +848,35 @@ export namespace rhi
             flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-            ComPtr<ID3DBlob> code;
-            ComPtr<ID3DBlob> errors;
-
-            HRESULT hr = D3DCompile(
-                sourceOrBytecode.data(),
-                sourceOrBytecode.size(),
-                shaderEntry.name.c_str(),
-                nullptr, nullptr,
-                entry, target,
-                flags, 0,
-                &code, &errors);
-
-            if (FAILED(hr))
-            {
-                std::string err = "DX12: shader compile failed: ";
-                if (errors)
+            auto TryCompile = [&](const char* entry) -> bool
                 {
-                    err += std::string(reinterpret_cast<const char*>(errors->GetBufferPointer()), errors->GetBufferSize());
+                    code.Reset();
+                    errors.Reset();
+
+                    HRESULT hr = D3DCompile(
+                        sourceOrBytecode.data(),
+                        sourceOrBytecode.size(),
+                        shaderEntry.name.c_str(),
+                        nullptr, nullptr,
+                        entry, target,
+                        flags, 0,
+                        &code, &errors);
+
+                    return SUCCEEDED(hr);
+                };
+
+            if (!TryCompile(shaderEntry.name.c_str()))
+            {
+                const char* fallback = (stage == ShaderStage::Vertex) ? "VSMain" : "PSMain";
+                if (!TryCompile(fallback))
+                {
+                    std::string err = "DX12: shader compile failed: ";
+                    if (errors)
+                    {
+                        err += std::string((const char*)errors->GetBufferPointer(), errors->GetBufferSize());
+                    }
+                    throw std::runtime_error(err);
                 }
-                throw std::runtime_error(err);
             }
 
             shaderEntry.blob = code;
@@ -837,7 +936,7 @@ export namespace rhi
             std::uint32_t ibOffset = 0;
 
             // Bound textures by slot (we actuallu use only slot 0)
-            std::array<D3D12_GPU_DESCRIPTOR_HANDLE, 8> boundTex{};
+            std::array<D3D12_GPU_DESCRIPTOR_HANDLE, kMaxSRVSlots> boundTex{};
             for (auto& t : boundTex)
             {
                 t = srvHeap_->GetGPUDescriptorHandleForHeapStart(); // null SRV slot0
@@ -1114,21 +1213,34 @@ export namespace rhi
 
                             if (pass.frameBuffer.id == 0)
                             {
-                                // ----- Swapchain pass -----
                                 if (!swapChain_)
-                                {
                                     throw std::runtime_error("DX12: CommandBeginPass: swapChain is null");
-                                }
 
                                 TransitionBackBuffer(D3D12_RESOURCE_STATE_RENDER_TARGET);
 
                                 rtvs[0] = swapChain_->CurrentRTV();
                                 numRT = 1;
+
+                                curNumRT = numRT; 
                                 curRTVFormats[0] = swapChain_->BackBufferFormat();
 
                                 dsv = swapChain_->DSV();
                                 hasDSV = (dsv.ptr != 0);
                                 curDSVFormat = swapChain_->DepthFormat();
+
+                                const D3D12_CPU_DESCRIPTOR_HANDLE* rtvPtr = rtvs.data();
+                                const D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = hasDSV ? &dsv : nullptr;
+                                cmdList_->OMSetRenderTargets(numRT, rtvPtr, FALSE, dsvPtr);
+
+                                if (c.clearColor)
+                                {
+                                    const float* col = c.color.data();
+                                    cmdList_->ClearRenderTargetView(rtvs[0], col, 0, nullptr);
+                                }
+                                if (c.clearDepth && hasDSV)
+                                {
+                                    cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
+                                }
 
                                 curPassIsSwapChain = true;
                             }
@@ -1153,18 +1265,38 @@ export namespace rhi
                                     }
 
                                     auto& te = it->second;
-                                    if (!te.hasRTV)
+
+                                    if (fb.colorCubeFace != 0xFFFFFFFFu)
                                     {
-                                        throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
+                                        if (!te.hasRTVFaces)
+                                        {
+                                            throw std::runtime_error("DX12: CommandBeginPass: cubemap color texture has no RTV faces");
+                                        }
+                                        if (fb.colorCubeFace >= 6)
+                                        {
+                                            throw std::runtime_error("DX12: CommandBeginPass: cubemap face index out of range");
+                                        }
+
+                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+                                        rtvs[0] = te.rtvFaces[fb.colorCubeFace];
+                                        numRT = 1;
+                                        curRTVFormats[0] = te.rtvFormat;
                                     }
+                                    else
+                                    {
+                                        if (!te.hasRTV)
+                                        {
+                                            throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
+                                        }
 
-                                    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-                                    rtvs[0] = te.rtv;
-                                    numRT = 1;
-                                    curRTVFormats[0] = te.rtvFormat;
+                                        rtvs[0] = te.rtv;
+                                        numRT = 1;
+                                        curRTVFormats[0] = te.rtvFormat;
+                                    }
                                 }
-
                                 // Depth
                                 if (fb.depth)
                                 {
@@ -1188,28 +1320,28 @@ export namespace rhi
                                 }
 
                                 curPassIsSwapChain = false;
-                            }
 
-                            curNumRT = numRT;
+                                curNumRT = numRT;
 
-                            // Bind RT/DSV
-                            const D3D12_CPU_DESCRIPTOR_HANDLE* rtvPtr = (numRT > 0) ? rtvs.data() : nullptr;
-                            const D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = (hasDSV) ? &dsv : nullptr;
-                            cmdList_->OMSetRenderTargets(numRT, rtvPtr, FALSE, dsvPtr);
+                                // Bind RT/DSV
+                                const D3D12_CPU_DESCRIPTOR_HANDLE* rtvPtr = (numRT > 0) ? rtvs.data() : nullptr;
+                                const D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = (hasDSV) ? &dsv : nullptr;
+                                cmdList_->OMSetRenderTargets(numRT, rtvPtr, FALSE, dsvPtr);
 
-                            // Clear
-                            if (c.clearColor && numRT > 0)
-                            {
-                                const float* col = c.color.data();
-                                for (UINT i = 0; i < numRT; ++i)
+                                // Clear
+                                if (c.clearColor && numRT > 0)
                                 {
-                                    cmdList_->ClearRenderTargetView(rtvs[i], col, 0, nullptr);
+                                    const float* col = c.color.data();
+                                    for (UINT i = 0; i < numRT; ++i)
+                                    {
+                                        cmdList_->ClearRenderTargetView(rtvs[i], col, 0, nullptr);
+                                    }
                                 }
-                            }
 
-                            if (c.clearDepth && hasDSV)
-                            {
-                                cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
+                                if (c.clearDepth && hasDSV)
+                                {
+                                    cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
+                                }
                             }
                         }
                         else if constexpr (std::is_same_v<T, CommandEndPass>)
@@ -1265,7 +1397,7 @@ export namespace rhi
                             ibType = cmd.indexType;
                             ibOffset = cmd.offsetBytes;
                         }
-                        else if constexpr (std::is_same_v<T, CommnadBindTextue2D>)
+                        else if constexpr (std::is_same_v<T, CommnadBindTexture2D>)
                         {
                             if (cmd.slot < boundTex.size())
                             {
@@ -1284,7 +1416,26 @@ export namespace rhi
                                 boundTex[cmd.slot] = GetTextureSRV(cmd.texture);
                             }
                         }
-                        else if constexpr (std::is_same_v<T, CommandTextureDesc>)
+                                                else if constexpr (std::is_same_v<T, CommandBindTextureCube>)
+                        {
+                            if (cmd.slot < boundTex.size())
+                            {
+                                auto it = textures_.find(cmd.texture.id);
+                                if (it == textures_.end())
+                                {
+                                    throw std::runtime_error("DX12: BindTextureCube: texture not found in textures_ map");
+                                }
+
+                                if (!it->second.hasSRV)
+                                {
+                                    throw std::runtime_error("DX12: BindTextureCube: texture has no SRV");
+                                }
+
+                                TransitionTexture(cmd.texture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+                                boundTex[cmd.slot] = GetTextureSRV(cmd.texture);
+                            }
+                        }
+else if constexpr (std::is_same_v<T, CommandTextureDesc>)
                         {
                             if (cmd.slot < boundTex.size())
                             {
@@ -1340,18 +1491,18 @@ export namespace rhi
                             {
                                 throw std::runtime_error("DX12: input layout handle not found");
                             }
-                            
+
                             std::uint32_t maxSlot = 0;
                             for (const auto& e : layIt->second.elems)
                             {
-                                maxSlot = std::max(maxSlot, (std::uint32_t)e.InputSlot);
+                                maxSlot = std::max(maxSlot, static_cast<std::uint32_t>(e.InputSlot));
                             }
                             const std::uint32_t numVB = maxSlot + 1;
                             if (numVB > kMaxVBSlots)
                             {
                                 throw std::runtime_error("DX12: input layout uses more VB slots than supported");
                             }
-                            
+
                             std::array<D3D12_VERTEX_BUFFER_VIEW, kMaxVBSlots> vbv{};
                             for (std::uint32_t s = 0; s < numVB; ++s)
                             {
@@ -1391,9 +1542,11 @@ export namespace rhi
 
                             // Root bindings: CBV (0) + SRV table (1)
                             WriteCBAndBind();
-                            cmdList_->SetGraphicsRootDescriptorTable(1, boundTex[0]);
-                            cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
-                            cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
+
+                            for (UINT i = 0; i < kMaxSRVSlots; ++i)
+                            {
+                                cmdList_->SetGraphicsRootDescriptorTable(1 + i, boundTex[i]);
+                            }
 
                             cmdList_->DrawIndexedInstanced(cmd.indexCount, cmd.instanceCount, 0, cmd.baseVertex, cmd.firstInstance);
                         }
@@ -1413,7 +1566,7 @@ export namespace rhi
                             std::uint32_t maxSlot = 0;
                             for (const auto& e : layIt->second.elems)
                             {
-                                maxSlot = std::max(maxSlot, (std::uint32_t)e.InputSlot);
+                                maxSlot = std::max(maxSlot, static_cast<std::uint32_t>(e.InputSlot));
                             }
                             const std::uint32_t numVB = maxSlot + 1;
                             if (numVB > kMaxVBSlots)
@@ -1443,9 +1596,11 @@ export namespace rhi
                             cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                             WriteCBAndBind();
-                            cmdList_->SetGraphicsRootDescriptorTable(1, boundTex[0]);
-                            cmdList_->SetGraphicsRootDescriptorTable(2, boundTex[1]);
-                            cmdList_->SetGraphicsRootDescriptorTable(3, boundTex[2]);
+
+                            for (UINT i = 0; i < kMaxSRVSlots; ++i)
+                            {
+                                cmdList_->SetGraphicsRootDescriptorTable(1 + i, boundTex[i]);
+                            }
 
                             cmdList_->DrawInstanced(cmd.vertexCount, cmd.instanceCount, cmd.firstVertex, cmd.firstInstance);
                         }
@@ -1596,9 +1751,16 @@ export namespace rhi
 
         struct TextureEntry
         {
+            enum class Type : std::uint8_t
+            {
+                Tex2D,
+                Cube
+            };
+
             TextureHandle handle{};
             Extent2D extent{};
             Format format{ Format::Unknown };
+            Type type{ Type::Tex2D };
 
             ComPtr<ID3D12Resource> resource;
 
@@ -1614,23 +1776,34 @@ export namespace rhi
             D3D12_CPU_DESCRIPTOR_HANDLE srvCpu{};
             D3D12_GPU_DESCRIPTOR_HANDLE srvGpu{};
 
+            // For Tex2D render targets
             bool hasRTV{ false };
             UINT rtvIndex{ 0 };
             D3D12_CPU_DESCRIPTOR_HANDLE rtv{};
+
+            // For cubemap render targets (one RTV per face)
+            bool hasRTVFaces{ false };
+            std::array<UINT, 6> rtvIndexFaces{};
+            std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 6> rtvFaces{};
 
             bool hasDSV{ false };
             UINT dsvIndex{ 0 };
             D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
         };
 
-        struct FramebufferEntry
+
+struct FramebufferEntry
         {
             TextureHandle color{};
             TextureHandle depth{};
+
+            // UINT32_MAX means "regular 2D color attachment".
+            std::uint32_t colorCubeFace{ 0xFFFFFFFFu };
         };
 
         static constexpr std::uint32_t kFramesInFlight = 3;
         static constexpr UINT kPerFrameCBUploadBytes = 256u * 1024u;
+        static constexpr UINT kMaxSRVSlots = 12; // t0..t11 (spot/point shadows + shadow data)
 
         struct FrameResource
         {
@@ -1730,36 +1903,33 @@ export namespace rhi
         void CreateRootSignature()
         {
             // Root signature layout:
-            //  [0] CBV(b0)         - per-draw constants
-            //  [1] SRV table (t0)  - albedo/regular texture
-            //  [2] SRV table (t1)  - shadow map (depth SRV)
-            //  [3] SRV table (t2)  - StructuredBuffer lights (SRV)
+            //  [0]  CBV(b0)   - per-draw constants
+            //  [1+] SRV(t0+)  - individual SRV descriptor tables (1 descriptor each)
+            //
+            // We deliberately use one-descriptor tables per register to allow binding arbitrary
+            // SRV heap entries without requiring contiguous descriptor ranges.
+            //
+            // SRV registers used by shaders:
+            //  t0  - albedo/regular texture
+            //  t1  - directional shadow map (depth SRV)
+            //  t2  - StructuredBuffer lights (SRV)
+            //  t3..t6  - spot shadow maps [0..3]
+            //  t7..t10 - point distance cubemaps [0..3]
             //
             // Samplers:
             //  s0 - linear wrap
-            //  s1 - comparison sampler for shadow map (clamp)
-            D3D12_DESCRIPTOR_RANGE rangeAlbedo{};
-            rangeAlbedo.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-            rangeAlbedo.NumDescriptors = 1;
-            rangeAlbedo.BaseShaderRegister = 0; // t0
-            rangeAlbedo.RegisterSpace = 0;
-            rangeAlbedo.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+            //  s1 - comparison sampler for shadow maps (clamp)
+            std::array<D3D12_DESCRIPTOR_RANGE, kMaxSRVSlots> ranges{};
+            for (UINT i = 0; i < kMaxSRVSlots; ++i)
+            {
+                ranges[i].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+                ranges[i].NumDescriptors = 1;
+                ranges[i].BaseShaderRegister = i; // ti
+                ranges[i].RegisterSpace = 0;
+                ranges[i].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+            }
 
-            D3D12_DESCRIPTOR_RANGE rangeShadow{};
-            rangeShadow.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-            rangeShadow.NumDescriptors = 1;
-            rangeShadow.BaseShaderRegister = 1; // t1
-            rangeShadow.RegisterSpace = 0;
-            rangeShadow.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-            D3D12_DESCRIPTOR_RANGE rangeLights{};
-            rangeLights.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-            rangeLights.NumDescriptors = 1;
-            rangeLights.BaseShaderRegister = 2; // t2
-            rangeLights.RegisterSpace = 0;
-            rangeLights.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-            D3D12_ROOT_PARAMETER rootParams[4]{};
+            std::array<D3D12_ROOT_PARAMETER, 1 + kMaxSRVSlots> rootParams{};
 
             // b0
             rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -1767,23 +1937,14 @@ export namespace rhi
             rootParams[0].Descriptor.RegisterSpace = 0;
             rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-            // t0
-            rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            rootParams[1].DescriptorTable.NumDescriptorRanges = 1;
-            rootParams[1].DescriptorTable.pDescriptorRanges = &rangeAlbedo;
-            rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-            // t1
-            rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            rootParams[2].DescriptorTable.NumDescriptorRanges = 1;
-            rootParams[2].DescriptorTable.pDescriptorRanges = &rangeShadow;
-            rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-            // t2
-            rootParams[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            rootParams[3].DescriptorTable.NumDescriptorRanges = 1;
-            rootParams[3].DescriptorTable.pDescriptorRanges = &rangeLights;
-            rootParams[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+            // t0..t10
+            for (UINT i = 0; i < kMaxSRVSlots; ++i)
+            {
+                rootParams[1 + i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                rootParams[1 + i].DescriptorTable.NumDescriptorRanges = 1;
+                rootParams[1 + i].DescriptorTable.pDescriptorRanges = &ranges[i];
+                rootParams[1 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+            }
 
             D3D12_STATIC_SAMPLER_DESC samplers[2]{};
 
@@ -1794,11 +1955,10 @@ export namespace rhi
                     D3D12_TEXTURE_ADDRESS_MODE addrV,
                     D3D12_TEXTURE_ADDRESS_MODE addrW,
                     D3D12_COMPARISON_FUNC cmp,
-                    D3D12_SHADER_VISIBILITY vis)
+                    D3D12_STATIC_BORDER_COLOR borderColor)
                 {
                     D3D12_STATIC_SAMPLER_DESC s{};
                     s.ShaderRegister = reg;
-                    s.RegisterSpace = 0;
                     s.Filter = filter;
                     s.AddressU = addrU;
                     s.AddressV = addrV;
@@ -1806,13 +1966,14 @@ export namespace rhi
                     s.MipLODBias = 0.0f;
                     s.MaxAnisotropy = 1;
                     s.ComparisonFunc = cmp;
-                    s.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+                    s.BorderColor = borderColor;
                     s.MinLOD = 0.0f;
                     s.MaxLOD = D3D12_FLOAT32_MAX;
-                    s.ShaderVisibility = vis;
+                    s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
                     return s;
                 };
 
+            // s0: linear wrap
             samplers[0] = MakeStaticSampler(
                 0,
                 D3D12_FILTER_MIN_MAG_MIP_LINEAR,
@@ -1820,8 +1981,9 @@ export namespace rhi
                 D3D12_TEXTURE_ADDRESS_MODE_WRAP,
                 D3D12_TEXTURE_ADDRESS_MODE_WRAP,
                 D3D12_COMPARISON_FUNC_ALWAYS,
-                D3D12_SHADER_VISIBILITY_PIXEL);
+                D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK);
 
+            // s1: shadow comparison sampler (clamp)
             samplers[1] = MakeStaticSampler(
                 1,
                 D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
@@ -1829,23 +1991,43 @@ export namespace rhi
                 D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
                 D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
                 D3D12_COMPARISON_FUNC_LESS_EQUAL,
-                D3D12_SHADER_VISIBILITY_PIXEL);
+                D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE);
 
             D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
-            rootSigDesc.NumParameters = _countof(rootParams);
-            rootSigDesc.pParameters = rootParams;
-            rootSigDesc.NumStaticSamplers = _countof(samplers);
+            rootSigDesc.NumParameters = static_cast<UINT>(rootParams.size());
+            rootSigDesc.pParameters = rootParams.data();
+            rootSigDesc.NumStaticSamplers = 2;
             rootSigDesc.pStaticSamplers = samplers;
             rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
             ComPtr<ID3DBlob> serialized;
             ComPtr<ID3DBlob> error;
-            ThrowIfFailed(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &error),
-                "DX12: D3D12SerializeRootSignature failed");
 
-            ThrowIfFailed(NativeDevice()->CreateRootSignature(0, serialized->GetBufferPointer(), serialized->GetBufferSize(),
-                IID_PPV_ARGS(&rootSig_)), "DX12: CreateRootSignature failed");
+            HRESULT hr = D3D12SerializeRootSignature(
+                &rootSigDesc,
+                D3D_ROOT_SIGNATURE_VERSION_1,
+                serialized.GetAddressOf(),
+                error.GetAddressOf());
+
+            if (FAILED(hr))
+            {
+                std::string msg = "DX12: D3D12SerializeRootSignature failed";
+                if (error)
+                {
+                    msg += ": ";
+                    msg += static_cast<const char*>(error->GetBufferPointer());
+                }
+                throw std::runtime_error(msg);
+            }
+
+            ThrowIfFailed(NativeDevice()->CreateRootSignature(
+                0,
+                serialized->GetBufferPointer(),
+                serialized->GetBufferSize(),
+                IID_PPV_ARGS(rootSig_.ReleaseAndGetAddressOf())),
+                "DX12: CreateRootSignature failed");
         }
+
 
         void EnsureRTVHeap()
         {
@@ -1911,6 +2093,40 @@ export namespace rhi
             NativeDevice()->CreateRenderTargetView(res, &viewDesc, handle);
             return handle;
         }
+
+        D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTVTexture2DArraySlice(ID3D12Resource* res, DXGI_FORMAT fmt, UINT arraySlice, UINT& outIndex)
+        {
+            EnsureRTVHeap();
+
+            UINT idx = 0;
+            if (!freeRTV_.empty())
+            {
+                idx = freeRTV_.back();
+                freeRTV_.pop_back();
+            }
+            else
+            {
+                idx = nextRTV_++;
+            }
+
+            D3D12_RENDER_TARGET_VIEW_DESC viewDesc{};
+            viewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+            viewDesc.Format = fmt;
+            viewDesc.Texture2DArray.MipSlice = 0;
+            viewDesc.Texture2DArray.FirstArraySlice = arraySlice;
+            viewDesc.Texture2DArray.ArraySize = 1;
+            viewDesc.Texture2DArray.PlaneSlice = 0;
+
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpu =
+            {
+                rtvHeap_->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(idx) * static_cast<SIZE_T>(rtvInc_)
+            };
+
+            NativeDevice()->CreateRenderTargetView(res, &viewDesc, cpu);
+            outIndex = idx;
+            return cpu;
+        }
+
 
         D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV(ID3D12Resource* res, DXGI_FORMAT fmt, UINT& outIndex)
         {
@@ -2026,11 +2242,24 @@ export namespace rhi
             gpu.ptr += static_cast<UINT64>(idx) * static_cast<UINT64>(srvInc_);
 
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
             srvDesc.Format = fmt;
             srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srvDesc.Texture2D.MostDetailedMip = 0;
-            srvDesc.Texture2D.MipLevels = mipLevels;
+
+            if (entry.type == TextureEntry::Type::Cube)
+            {
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+                srvDesc.TextureCube.MostDetailedMip = 0;
+                srvDesc.TextureCube.MipLevels = mipLevels;
+                srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+            }
+            else
+            {
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srvDesc.Texture2D.MostDetailedMip = 0;
+                srvDesc.Texture2D.MipLevels = mipLevels;
+                srvDesc.Texture2D.PlaneSlice = 0;
+                srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+            }
 
             NativeDevice()->CreateShaderResourceView(entry.resource.Get(), &srvDesc, cpu);
 

@@ -51,6 +51,7 @@ export namespace rhi
 		Unknown,
 		RGBA8_UNORM,
 		BGRA8_UNORM,
+		R32_FLOAT,
 		D32_FLOAT,
 		D24_UNORM_S8_UINT
 	};
@@ -251,7 +252,12 @@ export namespace rhi
 		IndexType indexType{ IndexType::UINT16 };
 		std::uint32_t offsetBytes{ 0 };
 	};
-	struct CommnadBindTextue2D
+	struct CommnadBindTexture2D
+	{
+		std::uint32_t slot{ 0 };
+		TextureHandle texture{};
+	};
+	struct CommandBindTextureCube
 	{
 		std::uint32_t slot{ 0 };
 		TextureHandle texture{};
@@ -318,7 +324,8 @@ export namespace rhi
 		CommandBindInputLayout,
 		CommandBindVertexBuffer,
 		CommandBindIndexBuffer,
-		CommnadBindTextue2D,
+		CommnadBindTexture2D,
+		CommandBindTextureCube,
 		CommandTextureDesc,
 		CommandBindStructuredBufferSRV,
 		CommandSetUniformInt,
@@ -366,7 +373,11 @@ export namespace rhi
 		}
 		void BindTexture2D(std::uint32_t slot, TextureHandle texture)
 		{
-			commands.emplace_back(CommnadBindTextue2D{ slot, texture });
+			commands.emplace_back(CommnadBindTexture2D{ slot, texture });
+		}
+		void BindTextureCube(std::uint32_t slot, TextureHandle texture)
+		{
+			commands.emplace_back(CommandBindTextureCube{ slot, texture });
 		}
 		void BindTextureDesc(std::uint32_t slot, TextureDescIndex textureIndex)
 		{
@@ -444,10 +455,12 @@ export namespace rhi
 
 		// Textures
 		virtual TextureHandle CreateTexture2D(Extent2D extendt, Format format) = 0;
+		virtual TextureHandle CreateTextureCube(Extent2D extent, Format format) = 0;
 		virtual void DestroyTexture(TextureHandle texture) noexcept = 0;
 
 		// Framebuffers
 		virtual FrameBufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) = 0;
+		virtual FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) = 0;
 		virtual void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept = 0;
 
 		// Buffers
@@ -527,6 +540,10 @@ namespace rhi
 			handle.id = ++nextId_;
 			return handle;
 		}
+		TextureHandle CreateTextureCube(Extent2D extent, Format format) override
+		{
+			return {};
+		}
 		void DestroyTexture(TextureHandle) noexcept override {}
 
 		FrameBufferHandle CreateFramebuffer(TextureHandle, TextureHandle) override
@@ -534,6 +551,10 @@ namespace rhi
 			FrameBufferHandle handle{};
 			handle.id = ++nextId_;
 			return handle;
+		}
+		FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth)
+		{
+			return {};
 		}
 		void DestroyFramebuffer(FrameBufferHandle) noexcept override {}
 
