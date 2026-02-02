@@ -310,15 +310,15 @@ int main(int argc, char** argv)
             l.direction = mathUtils::Normalize(mathUtils::Vec3(-0.4f, -1.0f, -0.3f)); // FROM light
             l.color = { 1.0f, 1.0f, 1.0f };
             l.intensity = 1.0f;
-            scene.AddLight(l);
+            //scene.AddLight(l);
         }
         {
             rendern::Light l{};
             l.type = rendern::LightType::Point;
-            l.position = { 2.5f, 2.0f, 1.5f };
+            l.position = { 0.0f, 3.0f, 5.0f };
             l.color = { 1.0f, 0.0f, 0.0f };
             l.range = 12.0f;
-            l.intensity = 0.0f;
+            l.intensity = 1.0f;
             l.attConstant = 1.0f;
             l.attLinear = 0.12f;
             l.attQuadratic = 0.04f;

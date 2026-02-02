@@ -495,10 +495,12 @@ export namespace rendern
 						.debugName = "SpotShadowMap"
 					});
 
-					const glm::vec3 up = glm::vec3(0, 1, 0);
-					const glm::vec3 dir = glm::normalize(l.direction);
+					glm::vec3 dir = glm::normalize(l.direction);
+					glm::vec3 up = (std::abs(glm::dot(dir, glm::vec3(0, 1, 0))) > 0.99f)
+						? glm::vec3(0, 0, 1)
+						: glm::vec3(0, 1, 0);
 
-					const glm::mat4 v = glm::lookAt(l.position, l.position + dir, up);
+					glm::mat4 v = glm::lookAt(l.position, l.position + dir, up);
 
 					const float outerHalf = std::max(1.0f, l.outerHalfAngleDeg);
 					const glm::mat4 p = glm::perspectiveRH_ZO(glm::radians(outerHalf * 2.0f), 1.0f, 0.1f, std::max(1.0f, l.range));
@@ -682,12 +684,10 @@ export namespace rendern
 				{
 					const auto& s = spotShadows[i];
 
-					// Store as ROWS for HLSL MakeMatRows()
-					const glm::mat4 vpT = glm::transpose(s.viewProj);
-					sd.spotVPRows[i * 4 + 0] = vpT[0];
-					sd.spotVPRows[i * 4 + 1] = vpT[1];
-					sd.spotVPRows[i * 4 + 2] = vpT[2];
-					sd.spotVPRows[i * 4 + 3] = vpT[3];
+					sd.spotVPRows[i * 4 + 0] = s.viewProj[0];
+					sd.spotVPRows[i * 4 + 1] = s.viewProj[1];
+					sd.spotVPRows[i * 4 + 2] = s.viewProj[2];
+					sd.spotVPRows[i * 4 + 3] = s.viewProj[3];
 
 					sd.spotInfo[i] = glm::vec4(AsFloatBits(s.lightIndex), 0, 0, 0);
 				}
