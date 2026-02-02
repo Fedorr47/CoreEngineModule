@@ -371,9 +371,21 @@ export namespace rendern
 						.debugName = "SpotShadowMap"
 					});
 
-					const glm::vec3 up = glm::vec3(0, 1, 0);
-					const glm::vec3 dir = glm::normalize(l.direction);
+					glm::vec3 dir = l.direction;
+					if (glm::dot(dir, dir) < 1e-8f)
+					{
+						dir = glm::vec3(0, -1, 0);
+					}
+					dir = glm::normalize(dir);
+					
+					glm::vec3 up(0, 1, 0);
+					if (std::abs(glm::dot(dir, up)) > 0.99f)
+					{
+						up = glm::vec3(0, 0, 1);
+					}
+					
 					const glm::mat4 v = glm::lookAt(l.position, l.position + dir, up);
+
 					const float outer = std::max(1.0f, l.outerAngleDeg);
 					const glm::mat4 p = glm::perspectiveRH_ZO(glm::radians(outer * 2.0f), 1.0f, 0.1f, std::max(1.0f, l.range));
 					const glm::mat4 vp = p * v;
@@ -683,10 +695,11 @@ export namespace rendern
 				for (std::size_t i = 0; i < spotShadows.size(); ++i)
 				{
 					const auto& s = spotShadows[i];
-					sd.spotVPRows[i * 4 + 0] = s.viewProj[0];
-					sd.spotVPRows[i * 4 + 1] = s.viewProj[1];
-					sd.spotVPRows[i * 4 + 2] = s.viewProj[2];
-					sd.spotVPRows[i * 4 + 3] = s.viewProj[3];
+					const glm::mat4 vpT = glm::transpose(s.viewProj); // cols->rows
+					sd.spotVPRows[i * 4 + 0] = vpT[0];
+					sd.spotVPRows[i * 4 + 1] = vpT[1];
+					sd.spotVPRows[i * 4 + 2] = vpT[2];
+					sd.spotVPRows[i * 4 + 3] = vpT[3];
 					sd.spotInfo[i] = glm::vec4(AsFloatBits(s.lightIndex), s.bias, 0, 0);
 				}
 
@@ -694,7 +707,8 @@ export namespace rendern
 				{
 					const auto& p = pointShadows[i];
 					sd.pointPosRange[i] = glm::vec4(p.pos, p.range);
-					sd.pointInfo[i] = glm::vec4(AsFloatBits(p.lightIndex), p.bias, 0, 0);
+					const float biasN = p.bias / std::max(p.range, 1.0f);
+					sd.pointInfo[i] = glm::vec4(AsFloatBits(p.lightIndex), biasN, 0, 0);
 				}
 
 				device_.UpdateBuffer(shadowDataBuffer_, std::as_bytes(std::span{ &sd, 1 }));
