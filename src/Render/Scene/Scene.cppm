@@ -66,8 +66,8 @@ export namespace rendern
 		float intensity{ 1.0f };
 
 		float range{ 10.0f };
-		float innerAngleDeg{ 12.0f };
-		float outerAngleDeg{ 20.0f };
+		float innerHalfAngleDeg{ 12.0f };
+		float outerHalfAngleDeg{ 20.0f };
 
 		float attConstant{ 1.0f };
 		float attLinear{ 0.12f };

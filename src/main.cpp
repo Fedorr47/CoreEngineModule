@@ -296,7 +296,7 @@ int main(int argc, char** argv)
         scene.Clear();
 
         // Camera
-        scene.camera.position = { 2.2f, 2.6f, 2.2f };
+        scene.camera.position = { 2.2f, 10.0f, 10.0f };
         scene.camera.target = { 0.0f, 0.0f, 0.0f };
         scene.camera.up = { 0.0f, 1.0f, 0.0f };
         scene.camera.fovYDeg = 60.0f;
@@ -316,24 +316,24 @@ int main(int argc, char** argv)
             rendern::Light l{};
             l.type = rendern::LightType::Point;
             l.position = { 2.5f, 2.0f, 1.5f };
-            l.color = { 1.0f, 0.95f, 0.8f };
+            l.color = { 1.0f, 0.0f, 0.0f };
             l.range = 12.0f;
             l.intensity = 0.0f;
             l.attConstant = 1.0f;
             l.attLinear = 0.12f;
             l.attQuadratic = 0.04f;
-            scene.AddLight(l);
+            //scene.AddLight(l);
         }
         {
             rendern::Light l{};
             l.type = rendern::LightType::Spot;
             l.position = scene.camera.position;
             l.direction = mathUtils::Normalize(mathUtils::Sub(scene.camera.target, scene.camera.position)); // FROM light
-            l.color = { 0.2f, 0.1f, 1.0f };
+            l.color = { 1.0f, 1.0f, 1.0f };
             l.range = 30.0f;
-            l.intensity = 1.0f;
-            l.innerAngleDeg = 12.0f;
-            l.outerAngleDeg = 20.0f;
+            l.intensity = 3.0f;
+            l.innerHalfAngleDeg = 12.0f;
+            l.outerHalfAngleDeg = 20.0f;
             l.attLinear = 0.09f;
             l.attQuadratic = 0.032f;
             scene.AddLight(l);
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
 
         // Add kDim*kDim cubes (same mesh + same material) -> should become 1 draw call in MainPass (DX12)
         {
-            constexpr int kDim = 1;
+            constexpr int kDim = 5;
             constexpr float kStep = 1.35f;
 
             for (int z = 0; z < kDim; ++z)
@@ -390,7 +390,7 @@ int main(int argc, char** argv)
 					const float fx = (x - (kDim / 2)) * kStep;
 					const float fz = (z - (kDim / 2)) * kStep;
 
-					cube.transform.position = { fx, 1.3f, fz };
+					cube.transform.position = { fx, 2.3f, fz };
 					cube.transform.rotationDegrees = { 0.0f, 0.0f, 0.0f };
 					cube.transform.scale = { 1.0f, 1.0f, 1.0f };
 

@@ -170,6 +170,13 @@ export namespace rhi
         std::uint32_t bufferCount{ 2 };
     };
 
+    struct PendingBufferUpdate
+    {
+        BufferHandle buffer{};
+        std::size_t dstOffsetBytes{ 0 };
+        std::vector<std::byte> data;
+    };
+
     class DX12SwapChain final : public IRHISwapChain
     {
     public:
@@ -282,6 +289,26 @@ export namespace rhi
                 void* mapped = nullptr;
                 ThrowIfFailed(frames_[i].cbUpload->Map(0, nullptr, &mapped),
                     "DX12: Map per-frame constant upload buffer failed");
+
+                // Per-frame buffer upload ring (persistently mapped).
+                D3D12_RESOURCE_DESC bufDesc = resourceDesc;
+                bufDesc.Width = static_cast<UINT64>(kPerFrameBufUploadBytes);
+
+                ThrowIfFailed(NativeDevice()->CreateCommittedResource(
+                    &heapProps,
+                    D3D12_HEAP_FLAG_NONE,
+                    &bufDesc,
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(&frames_[i].bufUpload)),
+                    "DX12: Create per-frame buffer upload ring failed");
+
+                void* bufMapped = nullptr;
+                ThrowIfFailed(frames_[i].bufUpload->Map(0, nullptr, &bufMapped),
+                    "DX12: Map per-frame buffer upload ring failed");
+
+                frames_[i].bufMapped = reinterpret_cast<std::byte*>(bufMapped);
+                frames_[i].bufCursor = 0;
 
                 frames_[i].cbMapped = reinterpret_cast<std::byte*>(mapped);
                 frames_[i].cbCursor = 0;
@@ -711,8 +738,9 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
 
             const UINT64 sz = static_cast<UINT64>(desc.sizeInBytes);
 
+            // GPU-local buffer (DEFAULT heap). Updates happen via per-frame upload ring.
             D3D12_HEAP_PROPERTIES heapProps{};
-            heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+            heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
             D3D12_RESOURCE_DESC resourceDesc{};
             resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -724,17 +752,19 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
             resourceDesc.SampleDesc.Count = 1;
             resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
+            const D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATE_COMMON;
+
             ThrowIfFailed(NativeDevice()->CreateCommittedResource(
                 &heapProps,
                 D3D12_HEAP_FLAG_NONE,
                 &resourceDesc,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
+                initState,
                 nullptr,
                 IID_PPV_ARGS(&bufferEntry.resource)),
                 "DX12: CreateBuffer failed");
 
+            bufferEntry.state = initState;
 
-            // Create SRV for StructuredBuffer reads (if requested).
             if (desc.bindFlag == BufferBindFlag::StructuredBuffer)
             {
                 AllocateStructuredBufferSRV(bufferEntry);
@@ -746,19 +776,35 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
 
         void UpdateBuffer(BufferHandle buffer, std::span<const std::byte> data, std::size_t offsetBytes = 0) override
         {
+            if (!buffer || data.empty())
+            {  
+                return;
+            }
+
             auto it = buffers_.find(buffer.id);
             if (it == buffers_.end())
             {
                 return;
             }
 
-            void* ptrBuffer = nullptr;
-            D3D12_RANGE readRange{ 0, 0 };
-            ThrowIfFailed(it->second.resource->Map(0, &readRange, &ptrBuffer), "DX12: Map buffer failed");
+            BufferEntry& entry = it->second;
 
-            std::memcpy(static_cast<std::uint8_t*>(ptrBuffer) + offsetBytes, data.data(), data.size());
+            const std::size_t end = offsetBytes + data.size();
+            if (end > entry.desc.sizeInBytes)
+                throw std::runtime_error("DX12: UpdateBuffer out of bounds");
 
-            it->second.resource->Unmap(0, nullptr);
+            // If swapchain not set yet → blocking upload.
+            if (!swapChain_)
+            {
+                ImmediateUploadBuffer(entry, data, offsetBytes);
+                return;
+            }
+
+            PendingBufferUpdate u{};
+            u.buffer = buffer;
+            u.dstOffsetBytes = offsetBytes;
+            u.data.assign(data.begin(), data.end());
+            pendingBufferUpdates_.push_back(std::move(u));
         }
 
         void DestroyBuffer(BufferHandle buffer) noexcept override
@@ -769,7 +815,7 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
             }
 
             auto it = buffers_.find(buffer.id);
-            if (it == buffers_.end())
+            if (it == buffers_.end()) 
             {
                 return;
             }
@@ -777,15 +823,30 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
             BufferEntry entry = std::move(it->second);
             buffers_.erase(it);
 
-            if (entry.resource)
+            // Remove pending updates for this buffer.
+            if (!pendingBufferUpdates_.empty())
+            {
+                pendingBufferUpdates_.erase(
+                    std::remove_if(pendingBufferUpdates_.begin(), pendingBufferUpdates_.end(),
+                        [&](const PendingBufferUpdate& u) { return u.buffer.id == buffer.id; }),
+                    pendingBufferUpdates_.end());
+            }
+
+            if (entry.resource && swapChain_)
             {
                 CurrentFrame().deferredResources.push_back(std::move(entry.resource));
             }
 
-            // Recycle SRV index after the frame fence is completed (see BeginFrame()).
             if (entry.hasSRV && entry.srvIndex != 0)
             {
-                CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
+                if (swapChain_)
+                { 
+                    CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
+                }
+                else
+                {   
+                    freeSrv_.push_back(entry.srvIndex);
+                }
             }
         }
 
@@ -920,6 +981,8 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
             // Set descriptor heaps (SRV)
             ID3D12DescriptorHeap* heaps[] = { NativeSRVHeap() };
             cmdList_->SetDescriptorHeaps(1, heaps);
+
+            FlushPendingBufferUpdates();
 
             // State while parsing high-level commands
             GraphicsState curState{};
@@ -1721,6 +1784,9 @@ else if constexpr (std::is_same_v<T, CommandTextureDesc>)
             BufferDesc desc{};
             ComPtr<ID3D12Resource> resource;
 
+            // Track state for proper COPY_DEST transitions when uploading.
+            D3D12_RESOURCE_STATES state{ D3D12_RESOURCE_STATE_COMMON };
+
             // Optional SRV for StructuredBuffer reads (t2 in the demo).
             bool hasSRV{ false };
             UINT srvIndex{ 0 };
@@ -1803,6 +1869,7 @@ struct FramebufferEntry
 
         static constexpr std::uint32_t kFramesInFlight = 3;
         static constexpr UINT kPerFrameCBUploadBytes = 256u * 1024u;
+        static constexpr UINT kPerFrameBufUploadBytes = 8u * 1024u * 1024u; // 8 MB per frame buffer upload ring
         static constexpr UINT kMaxSRVSlots = 12; // t0..t11 (spot/point shadows + shadow data)
 
         struct FrameResource
@@ -1813,6 +1880,11 @@ struct FramebufferEntry
             ComPtr<ID3D12Resource> cbUpload;
             std::byte* cbMapped{ nullptr };
             std::uint32_t cbCursor{ 0 };
+
+            // Per-frame upload buffer for dynamic DEFAULT buffers (lights/instances/etc).
+            ComPtr<ID3D12Resource> bufUpload;
+            std::byte* bufMapped{ nullptr };
+            std::uint32_t bufCursor{ 0 };
 
             // Fence value that marks when GPU finished using this frame resource.
             UINT64 fenceValue{ 0 };
@@ -1828,6 +1900,7 @@ struct FramebufferEntry
             void ResetForRecording() noexcept
             {
                 cbCursor = 0;
+                bufCursor = 0;
             }
 
             void ReleaseDeferred(
@@ -1857,6 +1930,146 @@ struct FramebufferEntry
                 ThrowIfFailed(fence_->SetEventOnCompletion(v, fenceEvent_), "DX12: SetEventOnCompletion failed");
                 WaitForSingleObject(fenceEvent_, INFINITE);
             }
+        }
+
+        void ImmediateUploadBuffer(BufferEntry& dst, std::span<const std::byte> data, std::size_t dstOffsetBytes)
+        {
+            if (!dst.resource || data.empty())
+                return;
+
+            // Temp upload resource
+            ComPtr<ID3D12Resource> upload;
+
+            D3D12_HEAP_PROPERTIES heapProps{};
+            heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+            D3D12_RESOURCE_DESC resourceDesc{};
+            resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            resourceDesc.Width = std::max<UINT64>(1, static_cast<UINT64>(data.size()));
+            resourceDesc.Height = 1;
+            resourceDesc.DepthOrArraySize = 1;
+            resourceDesc.MipLevels = 1;
+            resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+            resourceDesc.SampleDesc.Count = 1;
+            resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+            ThrowIfFailed(NativeDevice()->CreateCommittedResource(
+                &heapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &resourceDesc,
+                D3D12_RESOURCE_STATE_GENERIC_READ,
+                nullptr,
+                IID_PPV_ARGS(&upload)),
+                "DX12: ImmediateUploadBuffer - Create upload resource failed");
+
+            void* mapped = nullptr;
+            ThrowIfFailed(upload->Map(0, nullptr, &mapped), "DX12: ImmediateUploadBuffer - Map upload failed");
+            std::memcpy(mapped, data.data(), data.size());
+            upload->Unmap(0, nullptr);
+
+            // Record tiny copy list
+            ComPtr<ID3D12CommandAllocator> alloc;
+            ThrowIfFailed(NativeDevice()->CreateCommandAllocator(
+                D3D12_COMMAND_LIST_TYPE_DIRECT,
+                IID_PPV_ARGS(&alloc)),
+                "DX12: ImmediateUploadBuffer - CreateCommandAllocator failed");
+
+            ComPtr<ID3D12GraphicsCommandList> cl;
+            ThrowIfFailed(NativeDevice()->CreateCommandList(
+                0,
+                D3D12_COMMAND_LIST_TYPE_DIRECT,
+                alloc.Get(),
+                nullptr,
+                IID_PPV_ARGS(&cl)),
+                "DX12: ImmediateUploadBuffer - CreateCommandList failed");
+
+            auto Transition = [&](D3D12_RESOURCE_STATES desired)
+                {
+                    if (dst.state == desired) return;
+                    D3D12_RESOURCE_BARRIER b{};
+                    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                    b.Transition.pResource = dst.resource.Get();
+                    b.Transition.StateBefore = dst.state;
+                    b.Transition.StateAfter = desired;
+                    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    cl->ResourceBarrier(1, &b);
+                    dst.state = desired;
+                };
+
+            Transition(D3D12_RESOURCE_STATE_COPY_DEST);
+
+            cl->CopyBufferRegion(
+                dst.resource.Get(),
+                static_cast<UINT64>(dstOffsetBytes),
+                upload.Get(),
+                0,
+                static_cast<UINT64>(data.size()));
+
+            Transition(D3D12_RESOURCE_STATE_GENERIC_READ);
+
+            ThrowIfFailed(cl->Close(), "DX12: ImmediateUploadBuffer - Close failed");
+
+            ID3D12CommandList* lists[] = { cl.Get() };
+            NativeQueue()->ExecuteCommandLists(1, lists);
+
+            const UINT64 v = ++fenceValue_;
+            ThrowIfFailed(NativeQueue()->Signal(fence_.Get(), v), "DX12: ImmediateUploadBuffer - Signal failed");
+            WaitForFence(v);
+        }
+
+        void FlushPendingBufferUpdates()
+        {
+            if (pendingBufferUpdates_.empty())
+                return;
+
+            FrameResource& fr = CurrentFrame();
+
+            for (const PendingBufferUpdate& u : pendingBufferUpdates_)
+            {
+                auto it = buffers_.find(u.buffer.id);
+                if (it == buffers_.end()) continue;
+
+                BufferEntry& dst = it->second;
+                if (!dst.resource || u.data.empty()) continue;
+
+                const std::uint32_t size = static_cast<std::uint32_t>(u.data.size());
+                const std::uint32_t aligned = AlignUp(size, 16u);
+
+                if (fr.bufCursor + aligned > kPerFrameBufUploadBytes)
+                {
+                    throw std::runtime_error("DX12: per-frame buffer upload ring overflow (increase kPerFrameBufUploadBytes)");
+                }
+
+                std::memcpy(fr.bufMapped + fr.bufCursor, u.data.data(), size);
+
+                auto Transition = [&](D3D12_RESOURCE_STATES desired)
+                    {
+                        if (dst.state == desired) return;
+                        D3D12_RESOURCE_BARRIER b{};
+                        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                        b.Transition.pResource = dst.resource.Get();
+                        b.Transition.StateBefore = dst.state;
+                        b.Transition.StateAfter = desired;
+                        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                        cmdList_->ResourceBarrier(1, &b);
+                        dst.state = desired;
+                    };
+
+                Transition(D3D12_RESOURCE_STATE_COPY_DEST);
+
+                cmdList_->CopyBufferRegion(
+                    dst.resource.Get(),
+                    static_cast<UINT64>(u.dstOffsetBytes),
+                    fr.bufUpload.Get(),
+                    static_cast<UINT64>(fr.bufCursor),
+                    static_cast<UINT64>(size));
+
+                Transition(D3D12_RESOURCE_STATE_GENERIC_READ);
+
+                fr.bufCursor += aligned;
+            }
+
+            pendingBufferUpdates_.clear();
         }
 
         FrameResource& CurrentFrame() noexcept
@@ -2325,6 +2538,9 @@ struct FramebufferEntry
         std::vector<TextureDescIndex> freeTexDesc_{};
         uint32_t nextTexDesc_ = 1;
         std::unordered_map<std::uint32_t, bool> fences_;
+
+
+        std::vector<PendingBufferUpdate> pendingBufferUpdates_;
 
         std::unordered_map<std::uint64_t, ComPtr<ID3D12PipelineState>> psoCache_;
     };
