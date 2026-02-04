@@ -287,6 +287,8 @@ set(DX12_MODULES
   Render/DirectX12/DirectX12RHI.cppm
   Render/DirectX12/DirectX12Renderer.cppm
   Render/DirectX12/DirectX12TextureUploader.cppm
+
+  Render/ImGui/ImGuiDebugUI.cppm
 )
 
 set(CORE_MODULES ${COMMON_MODULES})

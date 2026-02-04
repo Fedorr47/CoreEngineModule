@@ -1,0 +1,282 @@
+module;
+
+#if defined(CORE_USE_DX12)
+  #include <imgui.h>
+#endif
+
+// Debug UI panels implemented with Dear ImGui.
+// NOTE: This module is built only for DX12 backend.
+
+export module core:imgui_debug_ui;
+
+import std;
+
+import :scene;
+import :renderer_settings;
+import :math_utils;
+
+export namespace rendern::ui
+{
+    void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene);
+}
+
+namespace rendern::ui
+{
+	namespace
+	{
+		constexpr const char* kLightTypeNames[] = { "Directional", "Point", "Spot" };
+
+		static int ToIndex(rendern::LightType t)
+		{
+			switch (t)
+			{
+			case rendern::LightType::Directional: return 0;
+			case rendern::LightType::Point:       return 1;
+			case rendern::LightType::Spot:        return 2;
+			default:                             return 0;
+			}
+		}
+
+		static rendern::LightType FromIndex(int i)
+		{
+			switch (i)
+			{
+			case 0: return rendern::LightType::Directional;
+			case 1: return rendern::LightType::Point;
+			case 2: return rendern::LightType::Spot;
+			default: return rendern::LightType::Directional;
+			}
+		}
+
+		static void EnsureNormalized(mathUtils::Vec3& v)
+		{
+			const float len2 = v.x * v.x + v.y * v.y + v.z * v.z;
+			if (len2 > 1e-12f)
+			{
+				v = mathUtils::Normalize(v);
+			}
+			else
+			{
+				v = { 0.0f, -1.0f, 0.0f };
+			}
+		}
+
+		static bool DragVec3(const char* label, mathUtils::Vec3& v, float speed = 0.05f, float minv = 0.0f, float maxv = 0.0f)
+		{
+			float a[3] = { v.x, v.y, v.z };
+			const bool changed = ImGui::DragFloat3(label, a, speed, minv, maxv, "%.3f");
+			if (changed)
+			{
+				v.x = a[0];
+				v.y = a[1];
+				v.z = a[2];
+			}
+			return changed;
+		}
+
+		static bool Color3(const char* label, mathUtils::Vec3& v)
+		{
+			float a[3] = { v.x, v.y, v.z };
+			const bool changed = ImGui::ColorEdit3(label, a);
+			if (changed)
+			{
+				v.x = a[0];
+				v.y = a[1];
+				v.z = a[2];
+			}
+			return changed;
+		}
+
+		static void ApplyDefaultsForType(rendern::Light& l)
+		{
+			if (l.type == rendern::LightType::Directional)
+			{
+				l.position = { 0.0f, 0.0f, 0.0f };
+				l.direction = { -0.4f, -1.0f, -0.3f };
+				EnsureNormalized(l.direction);
+				l.color = { 1.0f, 1.0f, 1.0f };
+				l.intensity = 0.5f;
+			}
+			else if (l.type == rendern::LightType::Point)
+			{
+				l.position = { 0.0f, 5.0f, 0.0f };
+				l.direction = { 0.0f, -1.0f, 0.0f };
+				l.color = { 1.0f, 1.0f, 1.0f };
+				l.intensity = 1.0f;
+				l.range = 30.0f;
+				l.attConstant = 1.0f;
+				l.attLinear = 0.09f;
+				l.attQuadratic = 0.032f;
+			}
+			else // Spot
+			{
+				l.position = { 2.0f, 4.0f, 2.0f };
+				l.direction = { -1.0f, -2.0f, -1.0f };
+				EnsureNormalized(l.direction);
+				l.color = { 1.0f, 1.0f, 1.0f };
+				l.intensity = 5.0f;
+				l.range = 50.0f;
+				l.innerHalfAngleDeg = 20.0f;
+				l.outerHalfAngleDeg = 35.0f;
+				l.attConstant = 1.0f;
+				l.attLinear = 0.09f;
+				l.attQuadratic = 0.032f;
+			}
+		}
+
+		static void DrawOneLightEditor(rendern::Light& l, std::size_t idx)
+		{
+			ImGui::PushID(static_cast<int>(idx));
+
+			int typeIdx = ToIndex(l.type);
+			if (ImGui::Combo("Type", &typeIdx, kLightTypeNames, 3))
+			{
+				l.type = FromIndex(typeIdx);
+				ApplyDefaultsForType(l);
+			}
+
+			Color3("Color", l.color);
+			ImGui::DragFloat("Intensity", &l.intensity, 0.01f, 0.0f, 200.0f, "%.3f");
+
+			ImGui::Separator();
+
+			switch (l.type)
+			{
+			case rendern::LightType::Directional:
+				DragVec3("Direction", l.direction, 0.02f, -1.0f, 1.0f);
+				if (ImGui::Button("Normalize direction"))
+					EnsureNormalized(l.direction);
+				break;
+
+			case rendern::LightType::Point:
+				DragVec3("Position", l.position, 0.05f);
+				ImGui::DragFloat("Range", &l.range, 0.1f, 0.1f, 500.0f, "%.2f");
+				ImGui::DragFloat("Att const", &l.attConstant, 0.01f, 0.0f, 10.0f, "%.3f");
+				ImGui::DragFloat("Att linear", &l.attLinear, 0.001f, 0.0f, 10.0f, "%.4f");
+				ImGui::DragFloat("Att quad", &l.attQuadratic, 0.001f, 0.0f, 10.0f, "%.5f");
+				break;
+
+			case rendern::LightType::Spot:
+				DragVec3("Position", l.position, 0.05f);
+				DragVec3("Direction", l.direction, 0.02f, -1.0f, 1.0f);
+				if (ImGui::Button("Normalize direction"))
+					EnsureNormalized(l.direction);
+				ImGui::DragFloat("Range", &l.range, 0.1f, 0.1f, 500.0f, "%.2f");
+				ImGui::DragFloat("Inner half angle", &l.innerHalfAngleDeg, 0.1f, 0.0f, 89.0f, "%.2f deg");
+				ImGui::DragFloat("Outer half angle", &l.outerHalfAngleDeg, 0.1f, 0.0f, 89.0f, "%.2f deg");
+				// Keep sane ordering
+				if (l.innerHalfAngleDeg > l.outerHalfAngleDeg)
+					l.innerHalfAngleDeg = l.outerHalfAngleDeg;
+				ImGui::DragFloat("Att const", &l.attConstant, 0.01f, 0.0f, 10.0f, "%.3f");
+				ImGui::DragFloat("Att linear", &l.attLinear, 0.001f, 0.0f, 10.0f, "%.4f");
+				ImGui::DragFloat("Att quad", &l.attQuadratic, 0.001f, 0.0f, 10.0f, "%.5f");
+				break;
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene)
+	{
+		ImGui::Begin("Renderer / Shadows");
+
+		ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
+		ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
+
+		ImGui::Separator();
+		ImGui::Text("Shadow bias (texels)");
+		ImGui::SliderFloat("Dir base", &rs.dirShadowBaseBiasTexels, 0.0f, 5.0f, "%.3f");
+		ImGui::SliderFloat("Spot base", &rs.spotShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
+		ImGui::SliderFloat("Point base", &rs.pointShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
+		ImGui::SliderFloat("Slope scale", &rs.shadowSlopeScaleTexels, 0.0f, 10.0f, "%.3f");
+
+		ImGui::Separator();
+		if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Text("Count: %d", static_cast<int>(scene.lights.size()));
+
+			if (ImGui::Button("Add Directional"))
+			{
+				rendern::Light l{};
+				l.type = rendern::LightType::Directional;
+				ApplyDefaultsForType(l);
+				scene.AddLight(l);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Add Point"))
+			{
+				rendern::Light l{};
+				l.type = rendern::LightType::Point;
+				ApplyDefaultsForType(l);
+				scene.AddLight(l);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Add Spot"))
+			{
+				rendern::Light l{};
+				l.type = rendern::LightType::Spot;
+				ApplyDefaultsForType(l);
+				scene.AddLight(l);
+			}
+
+			ImGui::Spacing();
+
+			// Track previous intensities for a simple Enabled toggle.
+			static std::vector<float> prevIntensity;
+			if (prevIntensity.size() != scene.lights.size())
+				prevIntensity.resize(scene.lights.size(), 1.0f);
+
+			for (std::size_t i = 0; i < scene.lights.size();)
+			{
+				auto& l = scene.lights[i];
+
+				ImGui::PushID(static_cast<int>(i));
+
+				const char* typeName = kLightTypeNames[ToIndex(l.type)];
+				char header[64]{};
+				std::snprintf(header, sizeof(header), "[%s] #%zu", typeName, i);
+
+				bool open = ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen);
+				ImGui::SameLine();
+
+				bool enabled = (l.intensity > 0.00001f);
+				if (ImGui::Checkbox("Enabled", &enabled))
+				{
+					if (!enabled)
+					{
+						prevIntensity[i] = std::max(prevIntensity[i], l.intensity);
+						l.intensity = 0.0f;
+					}
+					else
+					{
+						l.intensity = (prevIntensity[i] > 0.0f) ? prevIntensity[i] : 1.0f;
+					}
+				}
+
+				ImGui::SameLine();
+				bool doDelete = ImGui::Button("Delete");
+
+				if (open)
+				{
+					DrawOneLightEditor(l, i);
+				}
+
+				ImGui::PopID();
+
+				if (doDelete)
+				{
+					scene.lights.erase(scene.lights.begin() + static_cast<std::ptrdiff_t>(i));
+					prevIntensity.erase(prevIntensity.begin() + static_cast<std::ptrdiff_t>(i));
+					continue; // don't increment
+				}
+
+				++i;
+			}
+		}
+
+		ImGui::Separator();
+		ImGui::Text("F1: toggle UI");
+		ImGui::End();
+	}
+}

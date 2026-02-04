@@ -10,6 +10,7 @@ export import :math_utils;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;
+export import :imgui_debug_ui;
 #else
 export import :render_gl;
 #endif

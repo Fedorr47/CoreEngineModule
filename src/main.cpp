@@ -294,7 +294,7 @@ int main(int argc, char** argv)
             l.direction = mathUtils::Normalize(mathUtils::Vec3(-0.4f, -1.0f, -0.3f)); // FROM light
             l.color = { 1.0f, 0.2f, 1.0f };
             l.intensity = 0.2f;
-            //scene.AddLight(l);
+            scene.AddLight(l);
         }
         {
             rendern::Light l{};
@@ -306,7 +306,7 @@ int main(int argc, char** argv)
             l.attConstant = 1.0f;
             l.attLinear = 0.02f;
             l.attQuadratic = 0.004f;
-            //scene.AddLight(l);
+            scene.AddLight(l);
         }
         {
             rendern::Light l{};
@@ -429,12 +429,7 @@ int main(int argc, char** argv)
                 }
             }
 
-            // Keep spot light attached to camera (lights[2])
-            if (scene.lights.size() >= 3 && scene.lights[2].type == rendern::LightType::Spot)
-            {
-                scene.lights[2].position = scene.camera.position;
-                scene.lights[2].direction = mathUtils::Normalize(mathUtils::Sub(scene.camera.target, scene.camera.position));
-            }            // ------------------------------------------------------------
+            // ------------------------------------------------------------
             // ImGui frame (optional)
             // ------------------------------------------------------------
 #if defined(CORE_USE_DX12)
@@ -446,21 +441,7 @@ int main(int argc, char** argv)
 
                 if (g_ShowUI)
                 {
-                    ImGui::Begin("Renderer / Shadows");
-
-                    ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
-                    ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
-
-                    ImGui::Separator();
-                    ImGui::Text("Shadow bias (texels)");
-                    ImGui::SliderFloat("Dir base", &rs.dirShadowBaseBiasTexels, 0.0f, 5.0f, "%.3f");
-                    ImGui::SliderFloat("Spot base", &rs.spotShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-                    ImGui::SliderFloat("Point base", &rs.pointShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-                    ImGui::SliderFloat("Slope scale", &rs.shadowSlopeScaleTexels, 0.0f, 10.0f, "%.3f");
-
-                    ImGui::Separator();
-                    ImGui::Text("F1: toggle UI");
-                    ImGui::End();
+                    rendern::ui::DrawRendererDebugUI(rs, scene);
                 }
 
                 ImGui::Render();
