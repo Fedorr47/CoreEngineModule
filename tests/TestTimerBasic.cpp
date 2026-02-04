@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-import gametimer;
+import core;
 
 TEST(GameTimer, ResetSetsZeroState)
 {

@@ -242,7 +242,6 @@ set(COMMON_MODULES
 
   Timer/GameTimer.ixx
   Timer/GameTimer.cppm
-
   Render/Render.ixx
   Render/RenderCore.cppm
   Render/RHI.cppm
@@ -271,6 +270,9 @@ set(COMMON_MODULES
   Assets/ResourceManager_texture.cppm
   Assets/ResourceManager_mesh.cppm
   Assets/AssetManager.cppm
+
+  Input/Input.cppm
+  Input/Win32Input.cppm
 )
 
 set(GL_MODULES
@@ -287,6 +289,8 @@ set(DX12_MODULES
   Render/DirectX12/DirectX12RHI.cppm
   Render/DirectX12/DirectX12Renderer.cppm
   Render/DirectX12/DirectX12TextureUploader.cppm
+
+  Render/Scene/CameraController.cppm
 
   Render/ImGui/ImGuiDebugUI.cppm
 )
@@ -310,11 +314,7 @@ target_sources(CoreEngineModuleLib
       FILES ${CORE_MODULES_ABS}
 )
 
-# non-module cpp files
-target_sources(CoreEngineModuleLib
-  PRIVATE
-    "${SRC_DIR}/Timer/GameTimer_impl.cpp"
-)
+
 
 # Common deps
 target_link_libraries(CoreEngineModuleLib

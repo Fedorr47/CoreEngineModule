@@ -2,6 +2,8 @@ export module core;
 
 export import :resource_manager;
 export import :asset_manager;
+export import :input;
+export import :win32_input;
 export import :gametimer;
 export import :render;
 export import :mesh;

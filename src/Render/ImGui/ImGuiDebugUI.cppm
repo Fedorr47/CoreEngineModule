@@ -13,11 +13,12 @@ import std;
 
 import :scene;
 import :renderer_settings;
+import :camera_controller;
 import :math_utils;
 
 export namespace rendern::ui
 {
-    void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene);
+    void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene, rendern::CameraController& camCtl);
 }
 
 namespace rendern::ui
@@ -177,12 +178,74 @@ namespace rendern::ui
 		}
 	}
 
-	void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene)
+	void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene, rendern::CameraController& camCtl)
 	{
 		ImGui::Begin("Renderer / Shadows");
 
 		ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
 		ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
+
+
+        // ------------------------------------------------------------
+        // Camera
+        // ------------------------------------------------------------
+        if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            rendern::Camera& cam = scene.camera;
+
+            // Position / target
+            if (DragVec3("Position", cam.position, 0.05f))
+            {
+                cam.target = cam.position + camCtl.Forward();
+            }
+            if (DragVec3("Target", cam.target, 0.05f))
+            {
+                camCtl.ResetFromCamera(cam);
+            }
+
+            // Orientation (yaw/pitch)
+            constexpr float kRadToDeg = 57.29577951308232f;
+            constexpr float kDegToRad = 0.017453292519943295f;
+
+            float yawDeg = camCtl.YawRad() * kRadToDeg;
+            float pitchDeg = camCtl.PitchRad() * kRadToDeg;
+
+            bool changedAngles = false;
+            changedAngles |= ImGui::SliderFloat("Yaw (deg)", &yawDeg, -180.0f, 180.0f);
+            changedAngles |= ImGui::SliderFloat("Pitch (deg)", &pitchDeg, -89.0f, 89.0f);
+
+            if (changedAngles)
+            {
+                camCtl.SetYawPitchRad(yawDeg * kDegToRad, pitchDeg * kDegToRad, cam);
+            }
+
+            // Projection
+            ImGui::SliderFloat("FOV Y (deg)", &cam.fovYDeg, 20.0f, 120.0f);
+            ImGui::InputFloat("Near Z", &cam.nearZ, 0.01f, 0.1f, "%.4f");
+            ImGui::InputFloat("Far Z", &cam.farZ, 1.0f, 10.0f, "%.1f");
+
+            // Controller settings
+            auto& s = camCtl.Settings();
+            ImGui::Checkbox("Enable controller", &s.enable);
+            ImGui::Checkbox("Invert Y", &s.invertY);
+            ImGui::SliderFloat("Move speed", &s.moveSpeed, 0.1f, 50.0f);
+            ImGui::SliderFloat("Sprint multiplier", &s.sprintMultiplier, 1.0f, 12.0f);
+            ImGui::SliderFloat("Mouse sensitivity", &s.mouseSensitivity, 0.0005f, 0.01f, "%.4f", ImGuiSliderFlags_Logarithmic);
+
+            if (ImGui::Button("Reset view"))
+            {
+                cam.position = mathUtils::Vec3(5.0f, 10.0f, 10.0f);
+                cam.target   = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
+                cam.up       = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
+                cam.fovYDeg  = 60.0f;
+                cam.nearZ    = 0.01f;
+                cam.farZ     = 200.0f;
+                camCtl.ResetFromCamera(cam);
+            }
+
+            ImGui::TextDisabled("Controls: hold RMB to look, WASD move, QE up/down, Shift sprint");
+            ImGui::Separator();
+        }
 
 		ImGui::Separator();
 		ImGui::Text("Shadow bias (texels)");
