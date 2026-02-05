@@ -30,7 +30,7 @@ export namespace rendern
     {
         InputCapture capture{};
         bool hasFocus{ true };
-        bool shiftDown = false;
+        bool shiftDown{ false };
 
         std::array<std::uint8_t, 256> keyDown{};
         std::array<std::uint8_t, 256> keyPressed{};

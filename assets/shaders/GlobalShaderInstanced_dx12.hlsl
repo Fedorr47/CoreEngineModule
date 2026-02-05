@@ -177,26 +177,28 @@ float Shadow2D(Texture2D<float> shadowMap, float4 shadowClip, float biasTexels)
 
     // clip -> ndc bounds check
     if (p.x < -1.0f || p.x > 1.0f || p.y < -1.0f || p.y > 1.0f || p.z < 0.0f || p.z > 1.0f)
+    {
         return 1.0f;
+    }
 
     // ndc -> uv (note: flip Y)
-    float2 uv = float2(p.x, -p.y) * 0.5f + 0.5f;
+        float2 uv = float2(p.x, -p.y) * 0.5f + 0.5f;
 
-    uint w, h;
-    shadowMap.GetDimensions(w, h);
-    float2 texel = 1.0f / float2(max(w, 1u), max(h, 1u));
+        uint w, h;
+        shadowMap.GetDimensions(w, h);
+        float2 texel = 1.0f / float2(max(w, 1u), max(h, 1u));
 
-    float biasDepth = biasTexels * max(texel.x, texel.y);
-    float z = p.z - biasDepth;
+        float biasDepth = biasTexels * max(texel.x, texel.y);
+        float z = p.z - biasDepth;
 
     // 2x2 PCF
-    float s = 0.0f;
-    s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(-0.5f, -0.5f), z);
-    s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(0.5f, -0.5f), z);
-    s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(-0.5f, 0.5f), z);
-    s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(0.5f, 0.5f), z);
-    return s * 0.25f;
-}
+        float s = 0.0f;
+        s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(-0.5f, -0.5f), z);
+        s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(0.5f, -0.5f), z);
+        s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(-0.5f, 0.5f), z);
+        s += shadowMap.SampleCmpLevelZero(gShadowCmp, uv + texel * float2(0.5f, 0.5f), z);
+        return s * 0.25f;
+    }
 
 float ShadowPoint(TextureCube<float> distCube,
                   float3 lightPos, float range,
@@ -298,9 +300,14 @@ float4 PSMain(VSOut IN) : SV_Target0
     const bool useTex = (flags & FLAG_USE_TEX) != 0;
     const bool useShadow = (flags & FLAG_USE_SHADOW) != 0;
 
-    float3 base = uBaseColor.rgb;
+    float3 baseRgb = uBaseColor.rgb;
+    float alpha = uBaseColor.a;
     if (useTex)
-        base *= gAlbedo.Sample(gLinear, IN.uv).rgb;
+    {
+        float4 tex = gAlbedo.Sample(gLinear, IN.uv);
+        baseRgb *= tex.rgb;
+        alpha *= tex.a;
+    }     
 
     float3 N = normalize(IN.nrmW);
     float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
@@ -309,7 +316,7 @@ float4 PSMain(VSOut IN) : SV_Target0
     const float specStrength = uMaterialFlags.y;
     const float materialBiasTexels = uMaterialFlags.z;
 
-    float3 color = base * uCameraAmbient.w;
+    float3 color = baseRgb * uCameraAmbient.w;
 
     const uint lightCount = (uint) uCounts.x;
     const uint spotShadowCount = (uint) uCounts.y;
@@ -411,7 +418,7 @@ float4 PSMain(VSOut IN) : SV_Target0
             }
         }
 
-        float3 diffuse = base * NdotL;
+        float3 diffuse = baseRgb * NdotL;
 
         float3 H = normalize(L + V);
         float spec = pow(max(dot(N, H), 0.0f), max(shininess, 1.0f));
@@ -420,5 +427,5 @@ float4 PSMain(VSOut IN) : SV_Target0
         color += (diffuse + specular) * (Lcolor * intensity * att) * shadow;
     }
 
-    return float4(color, 1.0f);
+    return float4(color, saturate(alpha));
 }

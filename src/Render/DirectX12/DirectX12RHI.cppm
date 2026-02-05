@@ -1271,6 +1271,33 @@ void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept override
                     pipelineDesc.BlendState = CD3D12_BLEND_DESC(D3D12_DEFAULT);
                     pipelineDesc.SampleMask = UINT_MAX;
 
+                    // Blend
+                    if (curState.blend.enable)
+                    {
+                        D3D12_BLEND_DESC blendDesc = CD3D12_BLEND_DESC(D3D12_DEFAULT);
+                        blendDesc.AlphaToCoverageEnable = FALSE;
+                        blendDesc.IndependentBlendEnable = FALSE;
+
+                        D3D12_RENDER_TARGET_BLEND_DESC renderTartget{};
+                        renderTartget.BlendEnable = TRUE;
+                        renderTartget.LogicOpEnable = FALSE;
+                        renderTartget.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+                        renderTartget.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+                        renderTartget.BlendOp = D3D12_BLEND_OP_ADD;
+                        renderTartget.SrcBlendAlpha = D3D12_BLEND_ONE;
+                        renderTartget.DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+                        renderTartget.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+                        renderTartget.LogicOp = D3D12_LOGIC_OP_NOOP;
+                        renderTartget.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+                        for (UINT i = 0; i < 8; ++i)
+                        {
+                            blendDesc.RenderTarget[i] = renderTartget;
+                        }
+
+                        pipelineDesc.BlendState = blendDesc;
+                    }
+
                     // Rasterizer from current state
                     pipelineDesc.RasterizerState = CD3D12_RASTERIZER_DESC(D3D12_DEFAULT);
                     pipelineDesc.RasterizerState.CullMode = ToD3DCull(curState.rasterizer.cullMode);

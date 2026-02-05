@@ -1,15 +1,16 @@
-add_executable(CoreEngineTests
-  "TestTextureStorage.cpp"
-   "TestTimerBasic.cpp")
+add_executable(CoreEngineModuleTests
+  TestInputCore.cpp
+  TestControllerBase.cpp
+  TestCameraController.cpp
+)
 
-target_link_libraries(CoreEngineTests
+target_link_libraries(CoreEngineModuleTests
   PRIVATE
     CoreEngineModuleLib
     GTest::gtest_main
 )
 
-target_compile_features(CoreEngineTests PRIVATE cxx_std_23)
-set_property(TARGET CoreEngineTests PROPERTY CXX_SCAN_FOR_MODULES ON)
+target_compile_features(CoreEngineModuleTests PRIVATE cxx_std_23)
 
 include(GoogleTest)
-gtest_discover_tests(CoreEngineTests)
+gtest_discover_tests(CoreEngineModuleTests)

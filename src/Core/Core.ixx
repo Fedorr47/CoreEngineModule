@@ -3,6 +3,8 @@ export module core;
 export import :resource_manager;
 export import :asset_manager;
 export import :input;
+export import :input_core;
+export import :controller_base;
 export import :win32_input;
 export import :gametimer;
 export import :render;

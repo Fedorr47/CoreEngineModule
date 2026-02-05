@@ -85,10 +85,11 @@ export namespace rendern
 
 	enum class MaterialPerm : std::uint32_t
 	{
-		None      = 0,
-		UseTex    = 1u << 0,
-		UseShadow = 1u << 1,
-		Skinning  = 1u << 2, // later
+		None		= 0,
+		UseTex		= 1u << 0,
+		UseShadow	= 1u << 1,
+		Skinning	= 1u << 2,
+		Transparent = 1u << 3
 	};
 
 	constexpr MaterialPerm operator|(MaterialPerm a, MaterialPerm b) noexcept
@@ -120,14 +121,19 @@ export namespace rendern
 		MaterialPerm permFlags{ MaterialPerm::UseShadow };
 	};
 
-	inline MaterialPerm EffectivePerm(const Material& m) noexcept
+	inline MaterialPerm EffectivePerm(const Material& material) noexcept
 	{
-		MaterialPerm p = m.permFlags;
-		if (m.params.albedoDescIndex != 0)
+		MaterialPerm maetrialPerm = material.permFlags;
+		// a < 1 => transparent even if flag isn't set.
+		if (material.params.baseColor.w < 0.999f)
 		{
-			p |= MaterialPerm::UseTex;
+			maetrialPerm |= MaterialPerm::Transparent;
 		}
-		return p;
+		if (material.params.albedoDescIndex != 0)
+		{
+			maetrialPerm |= MaterialPerm::UseTex;
+		}
+		return maetrialPerm;
 	}
 
 	struct DrawItem

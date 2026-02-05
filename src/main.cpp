@@ -10,11 +10,11 @@ import std;
 #endif
 
 #if defined(CORE_USE_DX12)
-#include <imgui.h>
-#include <backends/imgui_impl_win32.h>
-// NOTE: Recent Dear ImGui versions intentionally do NOT expose the WndProc handler prototype
-// in the header (see comments inside imgui_impl_win32.h). Declare it explicitly.
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  #include <imgui.h>
+  #include <backends/imgui_impl_win32.h>
+  // NOTE: Recent Dear ImGui versions intentionally do NOT expose the WndProc handler prototype
+  // in the header (see comments inside imgui_impl_win32.h). Declare it explicitly.
+  extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
 // ------------------------------------------------------------
@@ -22,220 +22,210 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // ------------------------------------------------------------
 namespace
 {
-    struct Win32Window
-    {
-        HWND hwnd{};
-        int width{};
-        int height{};
-        bool running{ true };
-    };
+struct Win32Window
+{
+    HWND hwnd{};
+    int width{};
+    int height{};
+    bool running{ true };
+};
 
-    Win32Window* g_window = nullptr;
-    rendern::Win32Input* g_input = nullptr;
+Win32Window* g_window = nullptr;
+
+rendern::Win32Input* g_input = nullptr;
 
 #if defined(CORE_USE_DX12)
-    bool g_ShowUI = true;
-    bool g_ImGuiInitialized = false;
+bool g_ShowUI = true;
+bool g_ImGuiInitialized = false;
 #endif
 
-    LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (g_input)
     {
-        // Always feed platform input first (wheel/focus/etc),
-        // even if ImGui later consumes the message.
-        if (g_input)
+        g_input->OnWndProc(hwnd, msg, wParam, lParam);
+    }
+#if defined(CORE_USE_DX12)
+    if (g_ImGuiInitialized)
+    {
+        if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
         {
-            g_input->OnWndProc(hwnd, msg, wParam, lParam);
-        }
-
-        // Hard close / lifetime messages must always be handled.
-        switch (msg)
+            return 1;
+        }       
+    }
+#endif
+    switch (msg)
+    {
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        return 0;
+    case WM_DESTROY:
+        if (g_window) g_window->running = false;
+        PostQuitMessage(0);
+        return 0;
+    case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE)
         {
-        case WM_CLOSE:
             DestroyWindow(hwnd);
             return 0;
-
-        case WM_DESTROY:
-            if (g_window) g_window->running = false;
-            PostQuitMessage(0);
+        }
+#if defined(CORE_USE_DX12)
+        if (wParam == VK_F1)
+        {
+            const bool wasDown = (lParam & (1 << 30)) != 0;
+            if (!wasDown) g_ShowUI = !g_ShowUI;
             return 0;
-
-        case WM_KEYDOWN:
-            if (wParam == VK_ESCAPE)
-            {
-                DestroyWindow(hwnd);
-                return 0;
-            }
-
-#if defined(CORE_USE_DX12)
-            if (wParam == VK_F1)
-            {
-                const bool wasDown = (lParam & (1 << 30)) != 0;
-                if (!wasDown) g_ShowUI = !g_ShowUI;
-                return 0;
-            }
-#endif
-            break;
-
-        default:
-            break;
-        }
-
-#if defined(CORE_USE_DX12)
-        // Let ImGui handle messages (but after our special keys / close messages).
-        if (g_ImGuiInitialized)
-        {
-            if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
-            {
-                return 1;
-            }
         }
 #endif
-
-        return DefWindowProcW(hwnd, msg, wParam, lParam);
+        break;
+    default:
+        break;
     }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
 
-    Win32Window CreateWindowWin32(int width, int height, const std::wstring& title)
+Win32Window CreateWindowWin32(int width, int height, const std::wstring& title)
+{
+    Win32Window w{};
+    w.width = width;
+    w.height = height;
+
+    const HINSTANCE hInst = GetModuleHandleW(nullptr);
+    const wchar_t* kClassName = L"CoreEngineModuleWindowClass";
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInst;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.lpszClassName = kClassName;
+
+    // If already registered, RegisterClassExW fails with ERROR_CLASS_ALREADY_EXISTS – that's fine.
+    if (!RegisterClassExW(&wc))
     {
-        Win32Window w{};
-        w.width = width;
-        w.height = height;
-
-        const HINSTANCE hInst = GetModuleHandleW(nullptr);
-        const wchar_t* kClassName = L"CoreEngineModuleWindowClass";
-
-        WNDCLASSEXW wc{};
-        wc.cbSize = sizeof(wc);
-        wc.style = CS_HREDRAW | CS_VREDRAW;
-        wc.lpfnWndProc = WndProc;
-        wc.hInstance = hInst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.lpszClassName = kClassName;
-
-        // If already registered, RegisterClassExW fails with ERROR_CLASS_ALREADY_EXISTS – that's fine.
-        if (!RegisterClassExW(&wc))
+        const DWORD err = GetLastError();
+        if (err != ERROR_CLASS_ALREADY_EXISTS)
         {
-            const DWORD err = GetLastError();
-            if (err != ERROR_CLASS_ALREADY_EXISTS)
-            {
-                throw std::runtime_error("RegisterClassExW failed");
-            }
-        }
-
-        // Disable resizing for now (swapchain resize handling isn't wired here).
-        const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
-
-        RECT rc{ 0, 0, width, height };
-        AdjustWindowRect(&rc, style, FALSE);
-
-        w.hwnd = CreateWindowExW(
-            0,
-            kClassName,
-            title.c_str(),
-            style,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            rc.right - rc.left,
-            rc.bottom - rc.top,
-            nullptr,
-            nullptr,
-            hInst,
-            nullptr);
-
-        if (!w.hwnd)
-        {
-            throw std::runtime_error("CreateWindowExW failed");
-        }
-
-        ShowWindow(w.hwnd, SW_SHOW);
-        UpdateWindow(w.hwnd);
-        return w;
-    }
-
-    void PumpMessages(Win32Window& w)
-    {
-        MSG msg{};
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
-        {
-            if (msg.message == WM_QUIT)
-            {
-                w.running = false;
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+            throw std::runtime_error("RegisterClassExW failed");
         }
     }
 
-    void TinySleep()
+    // Disable resizing for now (swapchain resize handling isn't wired here).
+    const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+
+    RECT rc{ 0, 0, width, height };
+    AdjustWindowRect(&rc, style, FALSE);
+
+    w.hwnd = CreateWindowExW(
+        0,
+        kClassName,
+        title.c_str(),
+        style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        rc.right - rc.left,
+        rc.bottom - rc.top,
+        nullptr,
+        nullptr,
+        hInst,
+        nullptr);
+
+    if (!w.hwnd)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        throw std::runtime_error("CreateWindowExW failed");
     }
 
-    rhi::Backend ParseBackendFromArgs(int argc, char** argv)
+    ShowWindow(w.hwnd, SW_SHOW);
+    UpdateWindow(w.hwnd);
+    return w;
+}
+
+void PumpMessages(Win32Window& w)
+{
+    MSG msg{};
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
     {
-        for (int i = 1; i < argc; ++i)
+        if (msg.message == WM_QUIT)
         {
-            const std::string_view a = argv[i];
-            if (a == "--null")
-            {
-                return rhi::Backend::Null;
-            }
+            w.running = false;
+            break;
         }
-        return rhi::Backend::DirectX12;
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
     }
+}
 
-    void CreateDeviceAndSwapChain(
-        rhi::Backend backend,
-        HWND hwnd,
-        int initialW,
-        int initialH,
-        std::unique_ptr<rhi::IRHIDevice>& outDevice,
-        std::unique_ptr<rhi::IRHISwapChain>& outSwapChain)
+void TinySleep()
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+
+rhi::Backend ParseBackendFromArgs(int argc, char** argv)
+{
+    for (int i = 1; i < argc; ++i)
     {
-        if (backend == rhi::Backend::DirectX12)
+        const std::string_view a = argv[i];
+        if (a == "--null")
         {
+            return rhi::Backend::Null;
+        }
+    }
+    return rhi::Backend::DirectX12;
+}
+
+void CreateDeviceAndSwapChain(
+    rhi::Backend backend,
+    HWND hwnd,
+    int initialW,
+    int initialH,
+    std::unique_ptr<rhi::IRHIDevice>& outDevice,
+    std::unique_ptr<rhi::IRHISwapChain>& outSwapChain)
+{
+    if (backend == rhi::Backend::DirectX12)
+    {
 #if defined(CORE_USE_DX12)
-            outDevice = rhi::CreateDX12Device();
+        outDevice = rhi::CreateDX12Device();
 
-            rhi::DX12SwapChainDesc sc{};
-            sc.hwnd = hwnd;
-            sc.bufferCount = 2;
-            sc.base.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
-            sc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
-            sc.base.vsync = false;
+        rhi::DX12SwapChainDesc sc{};
+        sc.hwnd = hwnd;
+        sc.bufferCount = 2;
+        sc.base.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
+        sc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
+        sc.base.vsync = false;
 
-            outSwapChain = rhi::CreateDX12SwapChain(*outDevice, sc);
+        outSwapChain = rhi::CreateDX12SwapChain(*outDevice, sc);
 #else
-            outDevice = rhi::CreateNullDevice();
-            rhi::SwapChainDesc sc{};
-            sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
-            outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
-#endif
-            return;
-        }
-
-        // Null backend
         outDevice = rhi::CreateNullDevice();
         rhi::SwapChainDesc sc{};
         sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
         outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
+#endif
+        return;
     }
 
-    static std::unique_ptr<ITextureUploader> CreateTextureUploader(rhi::Backend backend, rhi::IRHIDevice& device)
+    // Null backend
+    outDevice = rhi::CreateNullDevice();
+    rhi::SwapChainDesc sc{};
+    sc.extent = rhi::Extent2D{ static_cast<std::uint32_t>(initialW), static_cast<std::uint32_t>(initialH) };
+    outSwapChain = rhi::CreateNullSwapChain(*outDevice, sc);
+}
+
+static std::unique_ptr<ITextureUploader> CreateTextureUploader(rhi::Backend backend, rhi::IRHIDevice& device)
+{
+    switch (backend)
     {
-        switch (backend)
-        {
-        case rhi::Backend::DirectX12:
+    case rhi::Backend::DirectX12:
 #if defined(CORE_USE_DX12)
-            return std::make_unique<rendern::DX12TextureUploader>(device);
+        return std::make_unique<rendern::DX12TextureUploader>(device);
 #else
-            return std::make_unique<rendern::NullTextureUploader>(device);
+        return std::make_unique<rendern::NullTextureUploader>(device);
 #endif
 
-        default:
-            return std::make_unique<rendern::NullTextureUploader>(device);
-        }
+    default:
+        return std::make_unique<rendern::NullTextureUploader>(device);
     }
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -250,7 +240,6 @@ int main(int argc, char** argv)
 
         g_window = &wnd;
 
-        // Input (Win32 platform layer)
         rendern::Win32Input input;
         g_input = &input;
 
@@ -309,7 +298,7 @@ int main(int argc, char** argv)
         scene.camera.nearZ = 0.01f;
         scene.camera.farZ = 200.0f;
 
-        // Camera controller
+        // Camera controller (Win32 fly / free-look)
         rendern::CameraController camCtl;
         camCtl.ResetFromCamera(scene.camera);
 
@@ -369,6 +358,17 @@ int main(int argc, char** argv)
         rendern::MaterialHandle groundMatH = scene.CreateMaterial(groundMat);
         rendern::MaterialHandle cubeMatH = scene.CreateMaterial(cubeMat);
 
+        // Transparent “glass” material
+        rendern::Material glassMat{};
+        glassMat.params.baseColor = { 0.2f, 0.6f, 1.0f, 0.35f }; // alpha < 1 => transparent
+        glassMat.params.albedoDescIndex = 0;
+        glassMat.params.shininess = 128.0f;
+        glassMat.params.specStrength = 0.9f;
+        glassMat.params.shadowBias = 0.0f;
+        glassMat.permFlags = rendern::MaterialPerm::UseShadow | rendern::MaterialPerm::Transparent;
+        
+        rendern::MaterialHandle glassMatH = scene.CreateMaterial(glassMat);
+
         // Ground
         {
             rendern::DrawItem ground{};
@@ -380,9 +380,20 @@ int main(int argc, char** argv)
             scene.AddDraw(ground);
         }
 
+        // Glass pane(vertical quad in front of cubes)
+        {
+            rendern::DrawItem glass{};
+            glass.mesh = groundMeshH; // quad.obj (XY plane)
+            glass.transform.position = { 0.0f, 2.3f, 2.6f };
+            glass.transform.rotationDegrees = { 0.0f, 0.0f, 0.0f };
+            glass.transform.scale = { 4.0f, 4.0f, 4.0f };
+            glass.material = glassMatH;
+            scene.AddDraw(glass);
+        }
+
         rhi::TextureDescIndex brickDesc = 0;
 
-        // Cubes grid
+        // Add kDim*kDim cubes (same mesh + same material) -> should become 1 draw call in MainPass (DX12)
         {
             constexpr int kDim = 4;
             constexpr float kStep = 1.35f;
@@ -417,8 +428,10 @@ int main(int argc, char** argv)
         while (wnd.running)
         {
             PumpMessages(wnd);
-            if (!wnd.running)
+            if (!wnd.running) 
+            {
                 break;
+            }
 
             // Drive uploads/destruction
             assets.ProcessUploads(8, 32, 2, 32);
@@ -429,7 +442,7 @@ int main(int argc, char** argv)
             {
                 const auto& gpu = tex->GetResource();
                 if (gpu.id != 0)
-                {
+                { 
                     brick = rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
                 }
             }
@@ -448,72 +461,59 @@ int main(int argc, char** argv)
             timer.Tick();
             const float delta = static_cast<float>(timer.GetDeltaTime());
             t += delta;
-
-#if defined(CORE_USE_DX12)
             // ------------------------------------------------------------
-            // ImGui: begin frame (so io.WantCapture* is up-to-date)
-            // ------------------------------------------------------------
-            if (g_ImGuiInitialized)
-            {
-                device->ImGuiNewFrame();
-                ImGui_ImplWin32_NewFrame();
-                ImGui::NewFrame();
-            }
-
-            // ------------------------------------------------------------
-            // Input capture based on ImGui
+            // Input + camera controller
             // ------------------------------------------------------------
             rendern::InputCapture cap{};
+#if defined(CORE_USE_DX12)
             if (g_ImGuiInitialized && g_ShowUI)
             {
                 const ImGuiIO& io = ImGui::GetIO();
-                cap.captureMouse = io.WantCaptureMouse;
                 cap.captureKeyboard = io.WantCaptureKeyboard;
+                cap.captureMouse    = io.WantCaptureMouse;
             }
-            input.SetCaptureMode(cap);
-#else
-            input.SetCaptureMode(rendern::InputCapture{});
 #endif
 
-            // ------------------------------------------------------------
-            // Platform input gather
-            // ------------------------------------------------------------
+            input.SetCaptureMode(cap);
             input.NewFrame(wnd.hwnd);
 
-            // ------------------------------------------------------------
-            // Camera update (platform-agnostic: only InputState)
-            // ------------------------------------------------------------
             camCtl.Update(delta, input.State(), scene.camera);
 
-            // Animate cube rotation
+
+            /*
             if (scene.drawItems.size() >= 2)
             {
                 for (std::size_t i = 1; i < scene.drawItems.size(); ++i)
                 {
                     scene.drawItems[i].transform.rotationDegrees.y = t * 45.0f + static_cast<float>(i) * 3.6f;
                 }
-            }
+            }*/
 
+            // ------------------------------------------------------------
+            // ImGui frame (optional)
+            // ------------------------------------------------------------
 #if defined(CORE_USE_DX12)
-            // ------------------------------------------------------------
-            // ImGui: build UI & render (optional)
-            // ------------------------------------------------------------
             if (g_ImGuiInitialized)
             {
+                device->ImGuiNewFrame();
+                ImGui_ImplWin32_NewFrame();
+                ImGui::NewFrame();
+
                 if (g_ShowUI)
                 {
                     rendern::ui::DrawRendererDebugUI(rs, scene, camCtl);
                 }
+
                 ImGui::Render();
             }
 #endif
+
 
             // Push updated settings (cheap; renderer uses settings each frame).
             renderer.SetSettings(rs);
 
 #if defined(CORE_USE_DX12)
-            const void* imguiDrawData =
-                (g_ImGuiInitialized && g_ShowUI) ? static_cast<const void*>(ImGui::GetDrawData()) : nullptr;
+            const void* imguiDrawData = (g_ImGuiInitialized && g_ShowUI) ? static_cast<const void*>(ImGui::GetDrawData()) : nullptr;
 #else
             const void* imguiDrawData = nullptr;
 #endif
@@ -548,9 +548,8 @@ int main(int argc, char** argv)
             DestroyWindow(wnd.hwnd);
             wnd.hwnd = nullptr;
         }
-
-        g_input = nullptr;
         g_window = nullptr;
+        g_input = nullptr;
 
         return 0;
     }

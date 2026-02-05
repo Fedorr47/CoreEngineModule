@@ -1,10 +1,12 @@
 module;
 
 #include <cmath>
-#include <algorithm>
 
 export module core:camera_controller;
 
+import std;
+
+import :controller_base;
 import :scene;
 import :math_utils;
 import :input;
@@ -13,18 +15,17 @@ export namespace rendern
 {
     struct CameraControllerSettings
     {
-        float moveSpeed{ 8.0f };          // units per second
-        float sprintMultiplier{ 4.0f };   // when Shift is held
-        float mouseSensitivity{ 0.0025f };// radians per pixel
+        float moveSpeed{ 8.0f };            // units per second
+        float sprintMultiplier{ 4.0f };     // when shiftDown
+        float mouseSensitivity{ 0.0025f };  // radians per pixel
         bool invertY{ false };
-        bool enable{ true };
     };
 
     // Fly/free-look camera (platform-agnostic):
-    //  - Uses InputState::mouse.lookDx/lookDy provided by the platform input layer.
+    //  - Uses InputState provided by the platform input layer.
     //  - Movement: WASD + QE, Shift to sprint.
     //  - Keeps Camera::target = position + forward.
-    class CameraController
+    class CameraController final : public ControllerBase
     {
     public:
         CameraController() = default;
@@ -53,7 +54,7 @@ export namespace rendern
             //  f.z = cos(yaw) * cos(pitch)
             yawRad_ = std::atan2(f.x, f.z);
 
-            const float y = std::max(-1.0f, std::min(1.0f, f.y));
+            const float y = std::clamp(f.y, -1.0f, 1.0f);
             pitchRad_ = std::asin(y);
             ClampPitch();
         }
@@ -80,9 +81,9 @@ export namespace rendern
 
         void Update(float dt, const InputState& input, Camera& cam)
         {
-            if (!settings_.enable)
+            // Even if gated off, keep target consistent with current orientation.
+            if (!CanUpdate(input))
             {
-                // Still keep target consistent with current orientation.
                 ApplyToCamera(cam);
                 return;
             }
@@ -102,7 +103,7 @@ export namespace rendern
                 UpdateSpeedFromWheel(input);
             }
 
-            if (allowKeyboard)
+            if (AllowKeyboard(input))
             {
                 UpdateMove(dt, input, cam);
             }
@@ -115,8 +116,7 @@ export namespace rendern
         {
             // Prevent gimbal singularity (looking straight up/down).
             constexpr float kMaxPitch = 1.553343f; // ~89 degrees
-            if (pitchRad_ > kMaxPitch) pitchRad_ = kMaxPitch;
-            if (pitchRad_ < -kMaxPitch) pitchRad_ = -kMaxPitch;
+            pitchRad_ = std::clamp(pitchRad_, -kMaxPitch, kMaxPitch);
         }
 
         void ApplyToCamera(Camera& cam)
@@ -133,7 +133,7 @@ export namespace rendern
             if (dx == 0 && dy == 0)
                 return;
 
-            yawRad_ += static_cast<float>(dx) * settings_.mouseSensitivity;
+            yawRad_ -= static_cast<float>(dx) * settings_.mouseSensitivity;
 
             const float sign = settings_.invertY ? 1.0f : -1.0f;
             pitchRad_ += sign * static_cast<float>(dy) * settings_.mouseSensitivity;
@@ -143,8 +143,6 @@ export namespace rendern
 
         void UpdateSpeedFromWheel(const InputState& input)
         {
-            // Optional: adjust move speed with the wheel while the app has mouse input.
-            // (ImGui/UI can disable this by setting captureMouse=true).
             const int w = input.mouse.wheelSteps;
             if (w == 0)
                 return;
@@ -157,7 +155,7 @@ export namespace rendern
         void UpdateMove(float dt, const InputState& input, Camera& cam)
         {
             const float base = settings_.moveSpeed;
-            const float mul = input.KeyDown(input.shiftDown) ? settings_.sprintMultiplier : 1.0f;
+            const float mul = input.shiftDown ? settings_.sprintMultiplier : 1.0f;
             const float speed = base * mul;
 
             const mathUtils::Vec3 worldUp(0.0f, 1.0f, 0.0f);
@@ -176,8 +174,8 @@ export namespace rendern
 
             if (input.KeyDown('W')) move = move + fFlat;
             if (input.KeyDown('S')) move = move - fFlat;
-            if (input.KeyDown('D')) move = move + right;
-            if (input.KeyDown('A')) move = move - right;
+            if (input.KeyDown('D')) move = move - right;
+            if (input.KeyDown('A')) move = move + right;
             if (input.KeyDown('E')) move = move + worldUp;
             if (input.KeyDown('Q')) move = move - worldUp;
 

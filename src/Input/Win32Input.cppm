@@ -1,7 +1,6 @@
 module;
 
 #if defined(_WIN32)
-  // Prevent Windows headers from defining the `min`/`max` macros which break std::min/std::max.
   #ifndef NOMINMAX
   #define NOMINMAX
   #endif
@@ -16,6 +15,7 @@ module;
 export module core:win32_input;
 
 import :input;
+import :input_core;
 
 export namespace rendern
 {
@@ -26,24 +26,33 @@ export namespace rendern
 
         void SetCaptureMode(InputCapture cap) noexcept
         {
-            state_.capture = cap;
+            capture_ = cap;
         }
 
-        const InputState& State() const noexcept { return state_; }
+        const InputState& State() const noexcept { return core_.State(); }
 
 #if defined(_WIN32)
+        // Feed window messages that carry input info (mouse wheel, focus, etc.).
         void OnWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
-            (void)hwnd; (void)lParam;
+            (void)lParam;
+
             switch (msg)
             {
             case WM_MOUSEWHEEL:
-                wheelAccum_ += GET_WHEEL_DELTA_WPARAM(wParam);
+                wheelDeltaUnits_ += GET_WHEEL_DELTA_WPARAM(wParam);
                 break;
+
             case WM_KILLFOCUS:
-            case WM_ACTIVATEAPP:
                 ReleaseLook(hwnd);
                 break;
+
+            case WM_ACTIVATEAPP:
+                // wParam == FALSE when app is deactivated.
+                if (wParam == FALSE)
+                    ReleaseLook(hwnd);
+                break;
+
             default:
                 break;
             }
@@ -52,63 +61,53 @@ export namespace rendern
         // Poll keyboard/mouse and update internal InputState for this frame.
         void NewFrame(HWND hwnd)
         {
-            // Per-frame values
-            state_.mouse.lookDx = 0;
-            state_.mouse.lookDy = 0;
+            MouseInput mouse{};
 
-            // Focus check (cheap and robust)
-            state_.hasFocus = (GetForegroundWindow() == hwnd);
+            // Focus check
+            const bool hasFocus = (GetForegroundWindow() == hwnd);
 
             // Keyboard: poll all virtual keys.
+            std::array<std::uint8_t, 256> curKeyDown{};
             for (int i = 0; i < 256; ++i)
             {
                 const bool down = (GetAsyncKeyState(i) & 0x8000) != 0;
-                const bool wasDown = (prevKeyDown_[static_cast<std::uint8_t>(i)] != 0);
-
-                state_.keyDown[static_cast<std::uint8_t>(i)] = static_cast<std::uint8_t>(down);
-                state_.keyPressed[static_cast<std::uint8_t>(i)] = static_cast<std::uint8_t>(down && !wasDown);
-                state_.keyReleased[static_cast<std::uint8_t>(i)] = static_cast<std::uint8_t>(!down && wasDown);
-
-                prevKeyDown_[static_cast<std::uint8_t>(i)] = static_cast<std::uint8_t>(down);
+                curKeyDown[static_cast<std::uint8_t>(i)] = static_cast<std::uint8_t>(down);
             }
 
-            state_.shiftDown = state_.KeyDown(VK_SHIFT);
+            const bool shiftDown = (curKeyDown[static_cast<std::uint8_t>(VK_SHIFT)] != 0);
 
             // Mouse buttons
-            state_.mouse.rmbDown = state_.KeyDown(VK_RBUTTON);
+            mouse.rmbDown = (curKeyDown[static_cast<std::uint8_t>(VK_RBUTTON)] != 0);
 
-            // Mouse wheel: convert to whole steps for this frame.
-            // Windows uses WHEEL_DELTA = 120 units per notch.
-            int steps = 0;
-            if (wheelAccum_ != 0)
-            {
-                steps = wheelAccum_ / WHEEL_DELTA;
-                wheelAccum_ = 0; // keep it simple (no fractional remainder)
-            }
-            state_.mouse.wheelSteps = steps;
-
-            // Relative mouse look (hold RMB): managed here (platform layer), not in camera controller.
-            const bool allowMouse = state_.hasFocus && !state_.capture.captureMouse;
+            // Relative mouse look (hold RMB): managed here (platform layer).
+            const bool allowMouse = hasFocus && !capture_.captureMouse;
             if (!allowMouse)
             {
                 ReleaseLook(hwnd);
+                // Still build a frame (pressed/released), but with zero look delta.
+                mouse.lookDx = 0;
+                mouse.lookDy = 0;
+                const int wheel = TakeWheelDeltaUnits_();
+                core_.NewFrame(capture_, hasFocus, curKeyDown, mouse, shiftDown, wheel);
                 return;
             }
 
-            const bool rmbDown = state_.mouse.rmbDown;
-            if (rmbDown && !lookActive_)
+            if (mouse.rmbDown && !lookActive_)
             {
                 BeginLook(hwnd);
             }
-            else if (!rmbDown && lookActive_)
+            else if (!mouse.rmbDown && lookActive_)
             {
                 ReleaseLook(hwnd);
             }
 
             if (lookActive_)
             {
-                UpdateLook(hwnd);
+                UpdateLook(hwnd, mouse.lookDx, mouse.lookDy);
             }
+
+            const int wheel = TakeWheelDeltaUnits_();
+            core_.NewFrame(capture_, hasFocus, curKeyDown, mouse, shiftDown, wheel);
         }
 
 #else
@@ -119,6 +118,13 @@ export namespace rendern
 
     private:
 #if defined(_WIN32)
+        int TakeWheelDeltaUnits_() noexcept
+        {
+            const int v = wheelDeltaUnits_;
+            wheelDeltaUnits_ = 0;
+            return v;
+        }
+
         void BeginLook(HWND hwnd)
         {
             lookActive_ = true;
@@ -137,6 +143,7 @@ export namespace rendern
 
         void ReleaseLook(HWND hwnd)
         {
+            (void)hwnd;
             if (!lookActive_)
                 return;
 
@@ -149,7 +156,6 @@ export namespace rendern
             while (ShowCursor(TRUE) < 0) {}
 
             SetCursorPos(savedCursorPos_.x, savedCursorPos_.y);
-            (void)hwnd;
         }
 
         void CenterCursor(HWND hwnd)
@@ -167,12 +173,14 @@ export namespace rendern
             SetCursorPos(centerScreen_.x, centerScreen_.y);
         }
 
-        void UpdateLook(HWND hwnd)
+        void UpdateLook(HWND hwnd, int& outDx, int& outDy)
         {
             if (!lastCenterValid_)
             {
                 CenterCursor(hwnd);
                 lastCenterValid_ = true;
+                outDx = 0;
+                outDy = 0;
                 return;
             }
 
@@ -182,8 +190,8 @@ export namespace rendern
             const int dx = cur.x - centerScreen_.x;
             const int dy = cur.y - centerScreen_.y;
 
-            state_.mouse.lookDx = dx;
-            state_.mouse.lookDy = dy;
+            outDx = dx;
+            outDy = dy;
 
             if (dx != 0 || dy != 0)
             {
@@ -193,12 +201,12 @@ export namespace rendern
         }
 #endif
 
-        InputState state_{};
+    private:
+        InputCapture capture_{};
+        InputCore core_{};
 
 #if defined(_WIN32)
-        std::array<std::uint8_t, 256> prevKeyDown_{};
-
-        int wheelAccum_{ 0 };
+        int wheelDeltaUnits_{ 0 };
 
         bool lookActive_{ false };
         bool lastCenterValid_{ false };

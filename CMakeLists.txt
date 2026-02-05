@@ -240,8 +240,14 @@ set(COMMON_MODULES
 
   Core/Math/MathUtils.cppm
 
+  Input/Input.cppm
+  Input/InputCore.cppm
+  Input/ControllerBase.cppm
+  Input/Win32Input.cppm
+
   Timer/GameTimer.ixx
   Timer/GameTimer.cppm
+
   Render/Render.ixx
   Render/RenderCore.cppm
   Render/RHI.cppm
@@ -260,6 +266,8 @@ set(COMMON_MODULES
   Render/Scene/SceneBridge.cppm
   Render/Scene/Scene.cppm
 
+  Render/Scene/CameraController.cppm
+
   Render/Model/ObjLoader.cppm
   Render/Model/Mesh/Mesh.cppm
 
@@ -270,9 +278,6 @@ set(COMMON_MODULES
   Assets/ResourceManager_texture.cppm
   Assets/ResourceManager_mesh.cppm
   Assets/AssetManager.cppm
-
-  Input/Input.cppm
-  Input/Win32Input.cppm
 )
 
 set(GL_MODULES
@@ -289,9 +294,6 @@ set(DX12_MODULES
   Render/DirectX12/DirectX12RHI.cppm
   Render/DirectX12/DirectX12Renderer.cppm
   Render/DirectX12/DirectX12TextureUploader.cppm
-
-  Render/Scene/CameraController.cppm
-
   Render/ImGui/ImGuiDebugUI.cppm
 )
 
@@ -313,8 +315,6 @@ target_sources(CoreEngineModuleLib
     FILE_SET cxx_modules TYPE CXX_MODULES
       FILES ${CORE_MODULES_ABS}
 )
-
-
 
 # Common deps
 target_link_libraries(CoreEngineModuleLib

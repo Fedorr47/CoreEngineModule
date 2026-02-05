@@ -173,7 +173,7 @@ export namespace rendern
 	{
 		renderGraph::RGTextureHandle tex{};
 		mathUtils::Mat4 viewProj{};
-		std::uint32_t lightIndex = 0;
+		std::uint32_t lightIndex{ 0 };
 	};
 
 	struct PointShadowRec
@@ -181,8 +181,8 @@ export namespace rendern
 		renderGraph::RGTextureHandle cube{};
 		renderGraph::RGTextureHandle depthTmp{};
 		mathUtils::Vec3 pos{};
-		float range = 10.0f;
-		std::uint32_t lightIndex = 0;
+		float range{ 10.0f };;
+		std::uint32_t lightIndex{ 0 };
 	};
 
 	struct alignas(16) ShadowConstants
@@ -193,8 +193,26 @@ export namespace rendern
 	struct ShadowBatch
 	{
 		const rendern::MeshRHI* mesh{};
-		std::uint32_t instanceOffset = 0; // in combinedInstances[]
-		std::uint32_t instanceCount = 0;
+		std::uint32_t instanceOffset{ 0 }; // in combinedInstances[]
+		std::uint32_t instanceCount{ 0 };
+	};
+
+	struct TransparentDraw
+	{
+		const rendern::MeshRHI* mesh{};
+		MaterialParams material{};
+		MaterialHandle materialHandle{};
+		std::uint32_t instanceOffset{ 0 }; // absolute offset in combined instance buffer
+		float dist2{ 0.0f };               // for sorting (bigger first)
+	};
+
+	struct TransparentTemp
+	{
+		const rendern::MeshRHI* mesh{};
+		MaterialParams material{};
+		MaterialHandle materialHandle{};
+		std::uint32_t localInstanceOffset{};
+		float dist2{};
 	};
 
 	class DX12Renderer
@@ -249,13 +267,119 @@ export namespace rendern
 				}
 			}
 
-			const mathUtils::Vec3 center = scene.camera.target;
-			const float lightDist = 10.0f;
+			// --------------------------------
+			// Fit directional shadow ortho projection to a camera frustum slice in light-space.
+			// This prevents hard "shadow coverage clipping" when the camera rotates.
+			const rhi::SwapChainDesc scDesc = swapChain.GetDesc();
+			const float aspect = (scDesc.extent.height > 0)
+			    ? (static_cast<float>(scDesc.extent.width) / static_cast<float>(scDesc.extent.height))
+			    : 1.0f;
+			
+			// Limit how far we render directional shadows to keep resolution usable.
+			const float shadowFar = std::min(scene.camera.farZ, 60.0f);
+			const float shadowNear = std::max(scene.camera.nearZ, 0.05f);
+			
+			// Camera basis (orthonormal).
+			const mathUtils::Vec3 camF = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+			mathUtils::Vec3 camR = mathUtils::Cross(camF, scene.camera.up);
+			camR = mathUtils::Normalize(camR);
+			const mathUtils::Vec3 camU = mathUtils::Cross(camR, camF);
+			
+			const float fovY = mathUtils::ToRadians(scene.camera.fovYDeg);
+			const float tanHalf = std::tan(fovY * 0.5f);
+			
+			auto MakeFrustumCorner = [&](float dist, float sx, float sy) -> mathUtils::Vec3
+			{
+			    // sx,sy are in {-1,+1} (left/right, bottom/top).
+			    const float halfH = dist * tanHalf;
+			    const float halfW = halfH * aspect;
+			    const mathUtils::Vec3 c = scene.camera.position + camF * dist;
+			    return c + camU * (sy * halfH) + camR * (sx * halfW);
+			};
+			
+			std::array<mathUtils::Vec3, 8> frustumCorners{};
+			// Near plane
+			frustumCorners[0] = MakeFrustumCorner(shadowNear, -1.0f, -1.0f);
+			frustumCorners[1] = MakeFrustumCorner(shadowNear,  1.0f, -1.0f);
+			frustumCorners[2] = MakeFrustumCorner(shadowNear,  1.0f,  1.0f);
+			frustumCorners[3] = MakeFrustumCorner(shadowNear, -1.0f,  1.0f);
+			// Far plane (shadow distance)
+			frustumCorners[4] = MakeFrustumCorner(shadowFar, -1.0f, -1.0f);
+			frustumCorners[5] = MakeFrustumCorner(shadowFar,  1.0f, -1.0f);
+			frustumCorners[6] = MakeFrustumCorner(shadowFar,  1.0f,  1.0f);
+			frustumCorners[7] = MakeFrustumCorner(shadowFar, -1.0f,  1.0f);
+			
+			// Frustum center + radius (for stable light placement).
+			mathUtils::Vec3 center{ 0.0f, 0.0f, 0.0f };
+			for (const auto& p : frustumCorners) center = center + p;
+			center = center * (1.0f / 8.0f);
+			
+			float radius = 0.0f;
+			for (const auto& p : frustumCorners)
+			{
+			    radius = std::max(radius, mathUtils::Length(p - center));
+			}
+			
+			// Stable "up" for light view.
+			const mathUtils::Vec3 worldUp(0.0f, 1.0f, 0.0f);
+			const mathUtils::Vec3 lightUp = (std::abs(mathUtils::Dot(lightDir, worldUp)) > 0.99f)
+			    ? mathUtils::Vec3(0.0f, 0.0f, 1.0f)
+			    : worldUp;
+			
+			// Place the light far enough so all corners are in front of it.
+			const float lightDist = radius + 100.0f;
 			const mathUtils::Vec3 lightPos = center - lightDir * lightDist;
-			const mathUtils::Mat4 lightView = mathUtils::LookAt(lightPos, center, mathUtils::Vec3(0, 1, 0));
-
-			const float orthoHalf = 8.0f;
-			const mathUtils::Mat4 lightProj = mathUtils::OrthoRH_ZO(-orthoHalf, orthoHalf, -orthoHalf, orthoHalf, 0.1f, 40.0f);
+			const mathUtils::Mat4 lightView = mathUtils::LookAt(lightPos, center, lightUp);
+			
+			// Compute light-space AABB of the camera frustum slice.
+			float minX =  1e30f, minY =  1e30f, minZ =  1e30f;
+			float maxX = -1e30f, maxY = -1e30f, maxZ = -1e30f;
+			
+			for (const auto& p : frustumCorners)
+			{
+			    const mathUtils::Vec4 ls4 = lightView * mathUtils::Vec4(p, 1.0f);
+			    minX = std::min(minX, ls4.x); maxX = std::max(maxX, ls4.x);
+			    minY = std::min(minY, ls4.y); maxY = std::max(maxY, ls4.y);
+			    minZ = std::min(minZ, ls4.z); maxZ = std::max(maxZ, ls4.z);
+			}
+			
+			// Padding to avoid hard coverage clipping.
+			const float extX = maxX - minX;
+			const float extY = maxY - minY;
+			const float extZ = maxZ - minZ;
+			
+			const float padXY = 0.10f * std::max(extX, extY) + 2.0f;
+			const float padZ  = 0.20f * extZ + 10.0f;
+			
+			minX -= padXY; maxX += padXY;
+			minY -= padXY; maxY += padXY;
+			minZ -= padZ;  maxZ += padZ;
+			
+			// Extra depth margin for casters outside the camera frustum (important for directional lights).
+			constexpr float casterMargin = 80.0f;
+			minZ -= casterMargin;
+			
+			// Snap the ortho window to shadow texels (reduces shimmering / "special angle" popping).
+			const float widthLS  = maxX - minX;
+			const float heightLS = maxY - minY;
+			
+			const float wuPerTexelX = widthLS  / static_cast<float>(shadowExtent.width);
+			const float wuPerTexelY = heightLS / static_cast<float>(shadowExtent.height);
+			
+			float cx = 0.5f * (minX + maxX);
+			float cy = 0.5f * (minY + maxY);
+			
+			cx = std::floor(cx / wuPerTexelX) * wuPerTexelX;
+			cy = std::floor(cy / wuPerTexelY) * wuPerTexelY;
+			
+			minX = cx - widthLS * 0.5f;  maxX = cx + widthLS * 0.5f;
+			minY = cy - heightLS * 0.5f; maxY = cy + heightLS * 0.5f;
+			
+			// OrthoRH_ZO expects positive zNear/zFar distances where view-space z is negative in front of the camera.
+			const float zNear = std::max(0.1f, -maxZ);
+			const float zFar  = std::max(zNear + 1.0f, -minZ);
+			
+			const mathUtils::Mat4 lightProj = mathUtils::OrthoRH_ZO(minX, maxX, minY, maxY, zNear, zFar);
 			const mathUtils::Mat4 dirLightViewProj = lightProj * lightView;
 
 			std::vector<SpotShadowRec> spotShadows;
@@ -322,9 +446,15 @@ export namespace rendern
 				}
 			}
 
-			// ---- Main packing (per mesh + material params) ----
+			// ---- Main packing: opaque (batched) + transparent (sorted per-item) ----
 			std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> mainTmp;
 			mainTmp.reserve(scene.drawItems.size());
+
+			std::vector<InstanceData> transparentInstances;
+			transparentInstances.reserve(scene.drawItems.size());
+	
+			std::vector<TransparentTemp> transparentTmp;
+			transparentTmp.reserve(scene.drawItems.size());
 
 			for (const auto& item : scene.drawItems)
 			{
@@ -339,9 +469,12 @@ export namespace rendern
 				key.material = item.material;
 
 				MaterialParams params{};
+				MaterialPerm perm = MaterialPerm::UseShadow;
 				if (item.material.id != 0)
 				{
-					params = scene.GetMaterial(item.material).params;
+					const auto& mat = scene.GetMaterial(item.material);
+					params = mat.params;
+					perm = EffectivePerm(mat);
 				}
 
 				// IMPORTANT: BatchKey must include material parameters,
@@ -360,6 +493,17 @@ export namespace rendern
 				inst.i1 = model[1];
 				inst.i2 = model[2];
 				inst.i3 = model[3];
+
+				const bool isTransparent = HasFlag(perm, MaterialPerm::Transparent) || (params.baseColor.w < 0.999f);
+				if (isTransparent)
+				{
+					const mathUtils::Vec3 d = item.transform.position - camPos;
+					const float dist2 = mathUtils::Dot(d, d);
+					const std::uint32_t localOff = static_cast<std::uint32_t>(transparentInstances.size());
+					transparentInstances.push_back(inst);
+					transparentTmp.push_back(TransparentTemp{ mesh, params, item.material, localOff, dist2 });
+					continue;
+				}
 
 				auto& bucket = mainTmp[key];
 				if (bucket.inst.empty())
@@ -394,6 +538,7 @@ export namespace rendern
 			// ---- Combine and upload once ----
 			const std::uint32_t shadowBase = 0;
 			const std::uint32_t mainBase = static_cast<std::uint32_t>(shadowInstances.size());
+			const std::uint32_t transparentBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
 
 			for (auto& sbatch : shadowBatches)
 			{
@@ -403,11 +548,31 @@ export namespace rendern
 			{
 				mbatch.instanceOffset += mainBase;
 			}
+			
+			std::vector<TransparentDraw> transparentDraws;
+			transparentDraws.reserve(transparentTmp.size());
+			for (const auto& transparentInst : transparentTmp)
+			{
+				TransparentDraw transparentDraw{};
+				transparentDraw.mesh = transparentInst.mesh;
+				transparentDraw.material = transparentInst.material;
+				transparentDraw.materialHandle = transparentInst.materialHandle;
+				transparentDraw.instanceOffset = transparentBase + transparentInst.localInstanceOffset;
+				transparentDraw.dist2 = transparentInst.dist2;
+				transparentDraws.push_back(transparentDraw);
+			}
+
+			std::sort(transparentDraws.begin(), transparentDraws.end(),
+				[](const TransparentDraw& a, const TransparentDraw& b)
+				{
+					return a.dist2 > b.dist2; // far -> near
+				});
 
 			std::vector<InstanceData> combinedInstances;
 			combinedInstances.reserve(shadowInstances.size() + mainInstances.size());
 			combinedInstances.insert(combinedInstances.end(), shadowInstances.begin(), shadowInstances.end());
 			combinedInstances.insert(combinedInstances.end(), mainInstances.begin(), mainInstances.end());
+			combinedInstances.insert(combinedInstances.end(), transparentInstances.begin(), transparentInstances.end());
 
 			const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceData));
 
@@ -731,7 +896,7 @@ export namespace rendern
 			clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
 
 			graph.AddSwapChainPass("MainPass", clearDesc,
-				[this, &scene, shadowRG, dirLightViewProj, lightCount, spotShadows, pointShadows, mainBatches, instStride, imguiDrawData](renderGraph::PassContext& ctx)
+				[this, &scene, shadowRG, dirLightViewProj, lightCount, spotShadows, pointShadows, mainBatches, instStride, transparentDraws, imguiDrawData](renderGraph::PassContext& ctx)
 				{
 					const auto extent = ctx.passExtent;
 
@@ -851,6 +1016,83 @@ export namespace rendern
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 						ctx.commandList.DrawIndexed(b.mesh->indexCount, b.mesh->indexType, 0, 0, b.instanceCount, 0);
 					}
+
+					if (!transparentDraws.empty())
+					{
+						ctx.commandList.SetState(transparentState_);
+
+						for (const TransparentDraw& batchTransparent : transparentDraws)
+						{
+							if (!batchTransparent.mesh)
+							{
+								continue;
+							}
+
+							MaterialPerm perm = MaterialPerm::UseShadow;
+							if (batchTransparent.materialHandle.id != 0)
+							{
+								perm = EffectivePerm(scene.GetMaterial(batchTransparent.materialHandle));
+							}
+							else
+							{
+								if (batchTransparent.material.albedoDescIndex != 0)
+								{
+									perm = perm | MaterialPerm::UseTex;
+								}
+							}
+
+							const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+							const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+
+							ctx.commandList.BindPipeline(MainPipelineFor(perm));
+							ctx.commandList.BindTextureDesc(0, batchTransparent.material.albedoDescIndex);
+
+							constexpr std::uint32_t kFlagUseTex = 1u << 0;
+							constexpr std::uint32_t kFlagUseShadow = 1u << 1;
+
+							std::uint32_t flags = 0;
+							if (useTex) flags |= kFlagUseTex;
+							if (useShadow) flags |= kFlagUseShadow;
+
+							PerBatchConstants constants{};
+							const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+							const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+
+							std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+							std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+							constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
+							constants.uBaseColor = { batchTransparent.material.baseColor.x, batchTransparent.material.baseColor.y, batchTransparent.material.baseColor.z, batchTransparent.material.baseColor.w };
+
+							const float materialBiasTexels = batchTransparent.material.shadowBias;
+							constants.uMaterialFlags = { batchTransparent.material.shininess, batchTransparent.material.specStrength, materialBiasTexels, AsFloatBits(flags) };
+
+							constants.uCounts = {
+								static_cast<float>(lightCount),
+								static_cast<float>(spotShadows.size()),
+								static_cast<float>(pointShadows.size()),
+								0.0f
+							};
+
+							constants.uShadowBias = {
+								settings_.dirShadowBaseBiasTexels,
+								settings_.spotShadowBaseBiasTexels,
+								settings_.pointShadowBaseBiasTexels,
+								settings_.shadowSlopeScaleTexels
+							};
+
+							ctx.commandList.BindInputLayout(batchTransparent.mesh->layoutInstanced);
+							ctx.commandList.BindVertexBuffer(0, batchTransparent.mesh->vertexBuffer, batchTransparent.mesh->vertexStrideBytes, 0);
+							ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batchTransparent.instanceOffset * instStride);
+							ctx.commandList.BindIndexBuffer(batchTransparent.mesh->indexBuffer, batchTransparent.mesh->indexType, 0);
+
+							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+
+							// IMPORTANT: transparent = one object per draw (instanceCount = 1)
+							ctx.commandList.DrawIndexed(batchTransparent.mesh->indexCount, batchTransparent.mesh->indexType, 0, 0, 1, 0);
+						}
+					}
+
 
 					// ImGui overlay (optional)
 					if (imguiDrawData)
@@ -1022,6 +1264,11 @@ export namespace rendern
 				state_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
 
 				state_.blend.enable = false;
+
+				transparentState_ = state_;
+				transparentState_.depth.writeEnable = false;
+				transparentState_.blend.enable = true;
+				transparentState_.rasterizer.cullMode = rhi::CullMode::None;
 			}
 
 			// Shadow pipeline (depth-only)
@@ -1131,6 +1378,7 @@ export namespace rendern
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
 		rhi::GraphicsState state_{};
+		rhi::GraphicsState transparentState_{};
 
 		rhi::BufferHandle instanceBuffer_{};
 		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
