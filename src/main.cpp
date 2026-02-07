@@ -263,27 +263,8 @@ namespace
         int maxMeshDeletesPerFrame = 32;
     };
 
-    struct GpuTextureHandles
-    {
-        rhi::TextureHandle brickTexture{};
-        rhi::TextureHandle skyboxTexture{};
-    };
-
-    struct TextureDescriptors
-    {
-        rhi::TextureDescIndex brickDescIndex = 0;
-        rhi::TextureDescIndex skyboxDescIndex = 0;
-    };
-
-    struct SceneHandles
-    {
-        rendern::MeshHandle cubeMesh{};
-        rendern::MeshHandle groundMesh{};
-
-        rendern::MaterialHandle groundMaterial{};
-        rendern::MaterialHandle cubeMaterial{};
-        rendern::MaterialHandle glassMaterial{};
-    };
+    // NOTE: The demo now loads its content from assets/levels/demo.level.json
+    // via core:level (LevelAsset + LevelInstance).
 
 #if defined(CORE_USE_DX12)
     void InitializeImGui(HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount)
@@ -357,40 +338,19 @@ namespace
     }
 #endif
 
-    void RequestStartupAssets(AssetManager& assets)
+    struct SceneHandles
     {
-        // Brick texture
-        TextureProperties brickProps{};
-        brickProps.filePath = (std::filesystem::path("textures") / "brick.png").string();
-        brickProps.generateMips = true;
-        brickProps.srgb = true;
-        assets.LoadTextureAsync("brick", brickProps);
+        rendern::MeshHandle cubeMesh{};
+        rendern::MeshHandle groundMesh{};
+        rendern::MeshHandle quadMesh{};
 
-        // Skybox cubemap (auto-resolve faces by base-name)
-        TextureProperties skyboxProps{};
-        skyboxProps.srgb = true;
-        skyboxProps.dimension = TextureDimension::Cube;
-        skyboxProps.generateMips = true;
+        rendern::MaterialHandle groundMaterial{};
+        rendern::MaterialHandle cubeMaterial{};
+        rendern::MaterialHandle glassMaterial{};
+    };
 
-        skyboxProps.cubeFromCross = true;
-        skyboxProps.filePath = "textures/skybox/Cubemap_Sky_03-512x512.png";
-
-        [[maybe_unused]] auto skyboxHandle = assets.LoadTextureAsync(
-            "Skybox",
-            skyboxProps);
-
-        // Meshes
-        [[maybe_unused]] auto cubeMeshHandle = assets.LoadMeshAsync((std::filesystem::path("models") / "cube.obj").string());
-        [[maybe_unused]] auto quadMeshHandle = assets.LoadMeshAsync((std::filesystem::path("models") / "quad.obj").string());
-    }
-
-    SceneHandles RequestSceneMeshes(AssetManager& assets)
-    {
-        SceneHandles handles{};
-        handles.cubeMesh = assets.LoadMeshAsync((std::filesystem::path("models") / "cube.obj").string());
-        handles.groundMesh = assets.LoadMeshAsync((std::filesystem::path("models") / "quad.obj").string());
-        return handles;
-    }
+    // Old hardcoded demo scene builders are kept in this file for reference, but the
+    // main loop below uses LevelAsset/LevelInstance instead.
 
     void ConfigureDefaultCamera(rendern::Scene& scene)
     {
@@ -540,73 +500,7 @@ namespace
         }
     }
 
-    rhi::TextureHandle TryGetTextureHandle(ResourceManager& resourceManager, const std::string_view resourceId)
-    {
-        rhi::TextureHandle handle{};
-        if (auto textureResource = resourceManager.Get<TextureResource>(std::string(resourceId)))
-        {
-            const auto& gpuTexture = textureResource->GetResource();
-            if (gpuTexture.id != 0)
-            {
-                handle = rhi::TextureHandle{ static_cast<std::uint32_t>(gpuTexture.id) };
-            }
-        }
-        return handle;
-    }
-
-    GpuTextureHandles PollGpuTextures(ResourceManager& resourceManager)
-    {
-        GpuTextureHandles handles{};
-        handles.brickTexture = TryGetTextureHandle(resourceManager, "brick");
-        handles.skyboxTexture = TryGetTextureHandle(resourceManager, "Skybox");
-        return handles;
-    }
-
-    void AllocateDescriptorsOnce(
-        rhi::IRHIDevice& device,
-        const GpuTextureHandles& gpuTextures,
-        TextureDescriptors& descriptors)
-    {
-        if (gpuTextures.brickTexture && descriptors.brickDescIndex == 0)
-        {
-            descriptors.brickDescIndex = device.AllocateTextureDesctiptor(gpuTextures.brickTexture);
-        }
-
-        if (gpuTextures.skyboxTexture && descriptors.skyboxDescIndex == 0)
-        {
-            descriptors.skyboxDescIndex = device.AllocateTextureDesctiptor(gpuTextures.skyboxTexture);
-        }
-    }
-
-    void ApplyDescriptorsToScene(rendern::Scene& scene, const TextureDescriptors& descriptors, const SceneHandles& sceneHandles)
-    {
-        // Brick -> cube material
-        if (descriptors.brickDescIndex != 0)
-        {
-            scene.GetMaterial(sceneHandles.cubeMaterial).params.albedoDescIndex = descriptors.brickDescIndex;
-        }
-
-        // Skybox -> scene field (renderer will use it in skybox pass)
-        if (descriptors.skyboxDescIndex != 0)
-        {
-            scene.skyboxDescIndex = descriptors.skyboxDescIndex;
-        }
-    }
-
-    void FreeDescriptors(rhi::IRHIDevice& device, TextureDescriptors& descriptors)
-    {
-        if (descriptors.brickDescIndex != 0)
-        {
-            device.FreeTextureDescriptor(descriptors.brickDescIndex);
-            descriptors.brickDescIndex = 0;
-        }
-
-        if (descriptors.skyboxDescIndex != 0)
-        {
-            device.FreeTextureDescriptor(descriptors.skyboxDescIndex);
-            descriptors.skyboxDescIndex = 0;
-        }
-    }
+    // Descriptor management moved to rendern::LevelInstance.
 
 } // namespace
 
@@ -639,8 +533,8 @@ int main(int argc, char** argv)
         AssetManager assets{ textureIO, meshIO };
         ResourceManager& resourceManager = assets.GetResourceManager();
 
-        // Request assets
-        RequestStartupAssets(assets);
+        // Level asset (JSON)
+        const rendern::LevelAsset levelAsset = rendern::LoadLevelAssetFromJson("levels/demo.level.json");
 
         // Renderer (facade) - Stage1 expects Scene
         rendern::RendererSettings rendererSettings{};
@@ -655,29 +549,17 @@ int main(int argc, char** argv)
         rendern::Scene scene{};
         scene.Clear();
 
-        ConfigureDefaultCamera(scene);
+        // Level instantiation requests meshes/textures and fills Scene (draws/materials/lights/camera).
+        rendern::BindlessTable bindless{ *device };
+        rendern::LevelInstance levelInstance = rendern::InstantiateLevel(
+            scene,
+            assets,
+            bindless,
+            levelAsset,
+            mathUtils::Mat4(1.0f));
 
         rendern::CameraController cameraController{};
         cameraController.ResetFromCamera(scene.camera);
-
-        AddDefaultLights(scene);
-
-        // Request meshes and create materials
-        SceneHandles sceneHandles = RequestSceneMeshes(assets);
-        {
-            const SceneHandles materialHandles = CreateDefaultMaterials(scene);
-            sceneHandles.groundMaterial = materialHandles.groundMaterial;
-            sceneHandles.cubeMaterial = materialHandles.cubeMaterial;
-            sceneHandles.glassMaterial = materialHandles.glassMaterial;
-        }
-
-        // Geometry
-        AddGround(scene, sceneHandles.groundMesh, sceneHandles.groundMaterial);
-        AddGlassPane(scene, sceneHandles.groundMesh, sceneHandles.glassMaterial);
-        AddCubeGrid(scene, sceneHandles.cubeMesh, sceneHandles.cubeMaterial);
-
-        // Descriptors (bindless/descriptor indices)
-        TextureDescriptors textureDescriptors{};
 
         // Timer
         GameTimer frameTimer{};
@@ -695,14 +577,12 @@ int main(int argc, char** argv)
             // Drive uploads/destruction
             assets.ProcessUploads(
                 config.maxTextureUploadsPerFrame,
-                config.maxMeshUploadsPerFrame,
                 config.maxTextureDeletesPerFrame,
+                config.maxMeshUploadsPerFrame,
                 config.maxMeshDeletesPerFrame);
 
-            // Poll GPU textures and allocate descriptors once
-            const GpuTextureHandles gpuTextures = PollGpuTextures(resourceManager);
-            AllocateDescriptorsOnce(*device, gpuTextures, textureDescriptors);
-            ApplyDescriptorsToScene(scene, textureDescriptors, sceneHandles);
+            // As GPU textures become available, allocate/update descriptor indices.
+            levelInstance.ResolveTextureBindings(assets, bindless, scene);
 
             // Delta time
             frameTimer.Tick();
@@ -730,7 +610,7 @@ int main(int argc, char** argv)
         renderer.Shutdown();
 
         // Descriptors cleanup
-        FreeDescriptors(*device, textureDescriptors);
+        levelInstance.FreeDescriptors(bindless);
 
         // Cleanup resources (destroy queues are driven by ProcessUploads).
         jobSystem.WaitIdle();

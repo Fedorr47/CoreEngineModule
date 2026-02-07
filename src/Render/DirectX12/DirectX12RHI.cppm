@@ -1986,7 +1986,7 @@ export namespace rhi
         static constexpr std::uint32_t kFramesInFlight = 3;
         static constexpr UINT kPerFrameCBUploadBytes = 256u * 1024u;
         static constexpr UINT kPerFrameBufUploadBytes = 8u * 1024u * 1024u; // 8 MB per frame buffer upload ring
-        static constexpr UINT kMaxSRVSlots = 20; // t0..t19 (room for PBR maps + env)
+        static constexpr UINT kMaxSRVSlots = 24; // t0..t19 (room for PBR maps + env)
 
         struct FrameResource
         {
@@ -2326,7 +2326,7 @@ export namespace rhi
             // s1: shadow comparison sampler (clamp)
             samplers[1] = MakeStaticSampler(
                 1,
-                D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT,
+                D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,

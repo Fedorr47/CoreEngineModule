@@ -1,0 +1,604 @@
+{
+  "version": 1,
+  "name": "DemoLevel",
+  "meshes": {
+    "cube": {
+      "path": "models/cube.obj",
+      "debugName": "cube.obj"
+    },
+    "quad": {
+      "path": "models/quad.obj",
+      "debugName": "quad.obj"
+    }
+  },
+  "textures": {
+    "brick": {
+      "kind": "tex2d",
+      "path": "textures/brick.png",
+      "srgb": true,
+      "mips": true
+    },
+    "Skybox": {
+      "kind": "cube",
+      "source": "cross",
+      "cross": "textures/skybox/Cubemap_Sky_03-512x512.png",
+      "srgb": true,
+      "mips": true
+    }
+  },
+  "materials": {
+    "ground": {
+      "baseColor": [
+        0.8,
+        0.8,
+        0.8,
+        1.0
+      ],
+      "shininess": 16.0,
+      "specStrength": 0.5,
+      "shadowBias": 0.0,
+      "metallic": 0.0,
+      "roughness": 0.9,
+      "ao": 1.0,
+      "emissiveStrength": 1.0,
+      "flags": [
+        "UseShadow"
+      ]
+    },
+    "cube": {
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shininess": 64.0,
+      "specStrength": 0.5,
+      "shadowBias": 0.0015,
+      "metallic": 0.0,
+      "roughness": 0.75,
+      "ao": 1.0,
+      "emissiveStrength": 1.0,
+      "flags": [
+        "UseShadow"
+      ],
+      "textures": {
+        "albedo": "brick"
+      }
+    },
+    "glass": {
+      "baseColor": [
+        0.2,
+        0.6,
+        1.0,
+        0.35
+      ],
+      "shininess": 128.0,
+      "specStrength": 0.9,
+      "shadowBias": 0.0,
+      "metallic": 0.0,
+      "roughness": 0.08,
+      "ao": 1.0,
+      "emissiveStrength": 1.0,
+      "flags": [
+        "UseShadow",
+        "Transparent"
+      ]
+    }
+  },
+  "camera": {
+    "position": [
+      5.0,
+      10.0,
+      10.0
+    ],
+    "target": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "fovYDeg": 60.0,
+    "nearZ": 0.01,
+    "farZ": 200.0
+  },
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.4,
+        -1.0,
+        -0.3
+      ],
+      "color": [
+        1.0,
+        0.2,
+        1.0
+      ],
+      "intensity": 0.2
+    },
+    {
+      "type": "point",
+      "position": [
+        -1.35,
+        7.0,
+        -1.35
+      ],
+      "color": [
+        0.2,
+        1.0,
+        0.2
+      ],
+      "range": 120.0,
+      "intensity": 0.1,
+      "attConstant": 1.0,
+      "attLinear": 0.02,
+      "attQuadratic": 0.004
+    },
+    {
+      "type": "spot",
+      "position": [
+        2.0,
+        4.0,
+        2.0
+      ],
+      "direction": [
+        -2.0,
+        -5.0,
+        0.0
+      ],
+      "color": [
+        0.2,
+        0.2,
+        1.0
+      ],
+      "range": 100.0,
+      "intensity": 8.0,
+      "innerHalfAngleDeg": 22.0,
+      "outerHalfAngleDeg": 35.0,
+      "attLinear": 0.09,
+      "attQuadratic": 0.032
+    }
+  ],
+  "skybox": {
+    "textureId": "Skybox"
+  },
+  "nodes": [
+    {
+      "name": "Ground",
+      "parent": -1,
+      "visible": true,
+      "mesh": "quad",
+      "material": "ground",
+      "transform": {
+        "position": [
+          0.0,
+          -0.6,
+          0.0
+        ],
+        "rotationDegrees": [
+          -90.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          8.0,
+          8.0,
+          8.0
+        ]
+      }
+    },
+    {
+      "name": "Glass",
+      "parent": -1,
+      "visible": true,
+      "mesh": "quad",
+      "material": "glass",
+      "transform": {
+        "position": [
+          0.0,
+          2.3,
+          2.6
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          4.0,
+          4.0,
+          4.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_0_0",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -2.7,
+          2.3,
+          -2.7
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_1_0",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -1.35,
+          2.3,
+          -2.7
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_2_0",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          0.0,
+          2.3,
+          -2.7
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_3_0",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          1.35,
+          2.3,
+          -2.7
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_0_1",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -2.7,
+          2.3,
+          -1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_1_1",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -1.35,
+          2.3,
+          -1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_2_1",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          0.0,
+          2.3,
+          -1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_3_1",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          1.35,
+          2.3,
+          -1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_0_2",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -2.7,
+          2.3,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_1_2",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -1.35,
+          2.3,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_2_2",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          0.0,
+          2.3,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_3_2",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          1.35,
+          2.3,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_0_3",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -2.7,
+          2.3,
+          1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_1_3",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          -1.35,
+          2.3,
+          1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_2_3",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          0.0,
+          2.3,
+          1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "Cube_3_3",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "cube",
+      "transform": {
+        "position": [
+          1.35,
+          2.3,
+          1.35
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ]
+}

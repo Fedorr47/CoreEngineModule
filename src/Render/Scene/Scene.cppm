@@ -22,8 +22,17 @@ export namespace rendern
 		mathUtils::Vec3 rotationDegrees{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 scale{ 1.0f, 1.0f, 1.0f };
 
+		// Optional: allow importing transforms directly as a matrix (e.g. from DCC tools).
+		// Matrix is COLUMN-major and follows the same convention as mathUtils::Mat4 (m[col][row]).
+		bool useMatrix{ false };
+		mathUtils::Mat4 matrix{ 1.0f };
+
 		mathUtils::Mat4 ToMatrix() const
 		{
+			if (useMatrix)
+			{
+				return matrix;
+			}
 			mathUtils::Mat4 m{ 1.0f };
 			m = mathUtils::Translate(m, position);
 			m = mathUtils::Rotate(m, mathUtils::DegToRad(rotationDegrees.z), mathUtils::Vec3(0, 0, 1));
@@ -178,6 +187,7 @@ export namespace rendern
 		{
 			drawItems.clear();
 			lights.clear();
+			skyboxDescIndex = 0;
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

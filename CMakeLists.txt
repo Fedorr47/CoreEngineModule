@@ -265,6 +265,7 @@ set(COMMON_MODULES
 
   Render/Scene/SceneBridge.cppm
   Render/Scene/Scene.cppm
+  Render/Scene/Level.cppm
 
   Render/Scene/CameraController.cppm
 
