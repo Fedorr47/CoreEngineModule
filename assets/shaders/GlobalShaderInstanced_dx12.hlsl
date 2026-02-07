@@ -45,6 +45,14 @@ struct ShadowDataSB
 };
 StructuredBuffer<ShadowDataSB> gShadowData : register(t11);
 
+// DX12 PBR maps
+Texture2D gNormal : register(t12);
+Texture2D gMetalness : register(t13);
+Texture2D gRoughness : register(t14);
+Texture2D gAO : register(t15);
+Texture2D gEmissive : register(t16);
+TextureCube gEnv : register(t17);
+
 cbuffer PerBatchCB : register(b0)
 {
     float4x4 uViewProj;
@@ -56,6 +64,9 @@ cbuffer PerBatchCB : register(b0)
     // x=shininess, y=specStrength, z=materialShadowBiasTexels, w=flags (bitpacked as float)
     float4 uMaterialFlags;
 
+
+    // x=metallic, y=roughness, z=ao, w=emissiveStrength
+    float4 uPbrParams;
     // x=lightCount, y=spotShadowCount, z=pointShadowCount, w=unused
     float4 uCounts;
 
@@ -66,9 +77,20 @@ cbuffer PerBatchCB : register(b0)
 // Flags (must match C++)
 static const uint FLAG_USE_TEX = 1u << 0;
 static const uint FLAG_USE_SHADOW = 1u << 1;
+static const uint FLAG_USE_NORMAL = 1u << 2;
+static const uint FLAG_USE_METAL_TEX = 1u << 3;
+static const uint FLAG_USE_ROUGH_TEX = 1u << 4;
+static const uint FLAG_USE_AO_TEX = 1u << 5;
+static const uint FLAG_USE_EMISSIVE_TEX = 1u << 6;
+static const uint FLAG_USE_ENV = 1u << 7;
 
 static const uint kMaxSpotShadows = 4;
 static const uint kMaxPointShadows = 4;
+
+// Light types (must match rendern::LightType in C++)
+static const int LIGHT_DIR   = 0;
+static const int LIGHT_POINT = 1;
+static const int LIGHT_SPOT  = 2;
 
 // Helpers
 float4x4 MakeMatRows(float4 r0, float4 r1, float4 r2, float4 r3)
@@ -80,6 +102,59 @@ float SmoothStep01(float t)
 {
     t = saturate(t);
     return t * t * (3.0f - 2.0f * t);
+}
+
+static const float PI = 3.14159265359f;
+
+float Pow5(float x)
+{
+    float x2 = x * x;
+    return x2 * x2 * x;
+}
+
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0f - F0) * Pow5(1.0f - saturate(cosTheta));
+}
+
+float DistributionGGX(float NdotH, float alpha)
+{
+    float a2 = alpha * alpha;
+    float denom = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
+    return a2 / max(PI * denom * denom, 1e-6f);
+}
+
+float GeometrySchlickGGX(float NdotX, float k)
+{
+    return NdotX / max(NdotX * (1.0f - k) + k, 1e-6f);
+}
+
+float GeometrySmith(float NdotV, float NdotL, float roughness)
+{
+    float r = roughness + 1.0f;
+    float k = (r * r) / 8.0f;
+    float ggxV = GeometrySchlickGGX(NdotV, k);
+    float ggxL = GeometrySchlickGGX(NdotL, k);
+    return ggxV * ggxL;
+}
+
+float3 GetNormalMapped(float3 N, float3 worldPos, float2 uv)
+{
+    // Derivative-based TBN (no explicit tangents in the mesh).
+    float3 dp1 = ddx(worldPos);
+    float3 dp2 = ddy(worldPos);
+    float2 duv1 = ddx(uv);
+    float2 duv2 = ddy(uv);
+
+    float3 T = dp1 * duv2.y - dp2 * duv1.y;
+    float3 B = -dp1 * duv2.x + dp2 * duv1.x;
+
+    T = normalize(T - N * dot(N, T));
+    B = normalize(B - N * dot(N, B));
+
+    float3 nTS = gNormal.Sample(gLinear, uv).xyz * 2.0f - 1.0f;
+    float3x3 TBN = float3x3(T, B, N);
+    return normalize(mul(nTS, TBN));
 }
 
 float SlopeScaleTerm(float NdotL)
@@ -214,6 +289,14 @@ float Shadow2D(Texture2D<float> shadowMap, float4 shadowClip, float biasTexels)
     
  }
 
+// Wrapper that matches the CPU call-site signature (shadowClip, materialBiasTexels, baseBiasTexels, slopeScaleTexels).
+// NOTE: slopeScaleTexels is currently ignored here; kept for ABI stability with C++.
+float Shadow2D(float4 shadowClip, float materialBiasTexels, float baseBiasTexels, float slopeScaleTexels)
+{
+    const float biasTexels = materialBiasTexels + baseBiasTexels;
+    return Shadow2D(gDirShadow, shadowClip, biasTexels);
+}
+
 float ShadowPoint(TextureCube<float> distCube,
                   float3 lightPos, float range,
                   float3 worldPos, float biasTexels)
@@ -290,6 +373,18 @@ float SpotShadowFactor(uint slot, ShadowDataSB sd, float3 worldPos, float biasTe
     return Shadow2D(gSpotShadow3, clip, biasTexels);
 }
 
+// Wrapper matching CPU call-site signature: (slot, worldPos, materialBiasTexels, baseBiasTexels, slopeScaleTexels)
+// NOTE: slopeScaleTexels is currently ignored here; kept for ABI stability with C++.
+float SpotShadowFactor(uint slot, float3 worldPos, float materialBiasTexels, float baseBiasTexels, float slopeScaleTexels)
+{
+    if (slot >= 4)
+        return 1.0f;
+    ShadowDataSB sd = gShadowData[0];
+    const float extraBiasTexels = sd.spotInfo[slot].z;
+    const float biasTexels = materialBiasTexels + baseBiasTexels + extraBiasTexels;
+    return SpotShadowFactor(slot, sd, worldPos, biasTexels);
+}
+
 float PointShadowFactor(uint slot, ShadowDataSB sd, float3 worldPos, float biasTexels)
 {
     if (slot >= 4)
@@ -307,143 +402,210 @@ float PointShadowFactor(uint slot, ShadowDataSB sd, float3 worldPos, float biasT
     return ShadowPoint(gPointShadow3, lp, range, worldPos, biasTexels);
 }
 
+// Wrapper matching CPU call-site signature: (slot, worldPos, materialBiasTexels, baseBiasTexels, slopeScaleTexels)
+// NOTE: slopeScaleTexels is currently ignored here; kept for ABI stability with C++.
+float PointShadowFactor(uint slot, float3 worldPos, float materialBiasTexels, float baseBiasTexels, float slopeScaleTexels)
+{
+    if (slot >= 4)
+        return 1.0f;
+    ShadowDataSB sd = gShadowData[0];
+    const float extraBiasTexels = sd.pointInfo[slot].z;
+    const float biasTexels = materialBiasTexels + baseBiasTexels + extraBiasTexels;
+    return PointShadowFactor(slot, sd, worldPos, biasTexels);
+}
+
 // Pixel Shader
 float4 PSMain(VSOut IN) : SV_Target0
 {
     const uint flags = asuint(uMaterialFlags.w);
+
     const bool useTex = (flags & FLAG_USE_TEX) != 0;
     const bool useShadow = (flags & FLAG_USE_SHADOW) != 0;
+    const bool useNormal = (flags & FLAG_USE_NORMAL) != 0;
+    const bool useMetalTex = (flags & FLAG_USE_METAL_TEX) != 0;
+    const bool useRoughTex = (flags & FLAG_USE_ROUGH_TEX) != 0;
+    const bool useAOTex = (flags & FLAG_USE_AO_TEX) != 0;
+    const bool useEmissiveTex = (flags & FLAG_USE_EMISSIVE_TEX) != 0;
+    const bool useEnv = (flags & FLAG_USE_ENV) != 0;
 
-    float3 baseRgb = uBaseColor.rgb;
-    float alpha = uBaseColor.a;
+    float3 baseColor = uBaseColor.rgb;
+    float alphaOut = uBaseColor.a;
+
     if (useTex)
     {
-        float4 tex = gAlbedo.Sample(gLinear, IN.uv);
-        baseRgb *= tex.rgb;
-        alpha *= tex.a;
-    }     
+        const float4 tex = gAlbedo.Sample(gLinear, IN.uv);
+        baseColor *= tex.rgb;
+        alphaOut *= tex.a;
+    }
+
+    float metallic = saturate(uPbrParams.x);
+    float roughness = saturate(uPbrParams.y);
+    float ao = saturate(uPbrParams.z);
+    const float emissiveStrength = max(uPbrParams.w, 0.0f);
+
+    if (useMetalTex)
+    {
+        metallic *= gMetalness.Sample(gLinear, IN.uv).r;
+    }
+    if (useRoughTex)
+    {
+        roughness *= gRoughness.Sample(gLinear, IN.uv).r;
+    }
+    if (useAOTex)
+    {
+        ao *= gAO.Sample(gLinear, IN.uv).r;
+    }
+
+    roughness = clamp(roughness, 0.04f, 1.0f);
 
     float3 N = normalize(IN.nrmW);
-    float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
+    if (useNormal)
+    {
+        N = GetNormalMapped(N, IN.worldPos, IN.uv);
+    }
 
-    const float shininess = uMaterialFlags.x;
-    const float specStrength = uMaterialFlags.y;
-    const float materialBiasTexels = uMaterialFlags.z;
+    const float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
+    const float NdotV = max(dot(N, V), 0.0f);
 
-    float3 color = baseRgb * uCameraAmbient.w;
+    // Fresnel reflectance at normal incidence
+    const float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), baseColor, metallic);
 
-    const uint lightCount = (uint) uCounts.x;
-    const uint spotShadowCount = (uint) uCounts.y;
-    const uint pointShadowCount = (uint) uCounts.z;
+    float3 Lo = 0.0f;
 
-    ShadowDataSB sd = gShadowData[0];
-
-    const float dirBaseBiasTexels = uShadowBias.x;
-    const float spotBaseBiasTexels = uShadowBias.y;
-    const float pointBaseBiasTexels = uShadowBias.z;
-    const float slopeScaleTexels = uShadowBias.w;
+    const int lightCount = (int)uCounts.x;
+    const int spotShadowCount = (int)uCounts.y;
+    const int pointShadowCount = (int)uCounts.z;
 
     [loop]
-    for (uint i = 0; i < lightCount; ++i)
+    for (int i = 0; i < lightCount; ++i)
     {
-        GPULight Ld = gLights[i];
-        const uint type = (uint) Ld.p0.w;
+        const GPULight Ld = gLights[i];
+        const int type = (int)Ld.p0.w;
 
-        float3 Lpos = Ld.p0.xyz;
-        float3 LdirFromLight = normalize(Ld.p1.xyz); // FROM light towards scene
-        float intensity = Ld.p1.w;
-        float3 Lcolor = Ld.p2.rgb;
-        float range = Ld.p2.w;
+        float3 L = 0.0f;
+        float attenuation = 1.0f;
+        float shadowFactor = 1.0f;
 
-        float3 L = float3(0, 0, 1);
-        float att = 1.0f;
-
-        if (type == 0)
+        if (type == LIGHT_DIR)
         {
-            // Directional: -dir is from point to light
-            L = normalize(-LdirFromLight);
+            L = normalize(-Ld.p1.xyz);
+
+            if (useShadow)
+            {
+                shadowFactor = Shadow2D(IN.shadowPos, uMaterialFlags.z, uShadowBias.x, uShadowBias.w);
+            }
         }
-        else
+        else if (type == LIGHT_POINT)
         {
-            float3 toL = Lpos - IN.worldPos;
-            float dist = length(toL);
-            if (dist > range)
+            const float3 toLight = Ld.p0.xyz - IN.worldPos;
+            const float dist = length(toLight);
+            if (dist > Ld.p2.w)
+            {
                 continue;
+            }
 
-            L = toL / max(dist, 1e-6f);
+            L = toLight / max(dist, 1e-6f);
 
             const float attLin = Ld.p3.z;
             const float attQuad = Ld.p3.w;
+            attenuation = 1.0f / max(1.0f + attLin * dist + attQuad * dist * dist, 1e-6f);
 
-            float rangeFade = saturate(1.0f - dist / max(range, 1e-3f));
-            float denom = 1.0f + attLin * dist + attQuad * dist * dist;
-            att = rangeFade / max(denom, 1e-3f);
-
-            if (type == 2)
+            if (useShadow && pointShadowCount > 0)
             {
-                // Spot cone
-                const float cosInner = Ld.p3.x;
-                const float cosOuter = Ld.p3.y;
-
-                float3 fromLightToP = normalize(IN.worldPos - Lpos);
-                float cosAng = dot(fromLightToP, LdirFromLight);
-
-                float t = (cosAng - cosOuter) / max(cosInner - cosOuter, 1e-4f);
-                float cone = SmoothStep01(t);
-
-                att *= cone;
-                if (att <= 0.0f)
-                    continue;
+                // Use first point shadow cubemap (index 0) for now.
+                shadowFactor = PointShadowFactor(0, IN.worldPos, uMaterialFlags.z, uShadowBias.z, uShadowBias.w);
             }
         }
-
-        float NdotL = max(dot(N, L), 0.0f);
-        if (NdotL <= 0.0f)
-            continue;
-
-        float shadow = 1.0f;
-
-        if (useShadow)
+        else if (type == LIGHT_SPOT)
         {
-            if (type == 0) // Directional
+            const float3 toLight = Ld.p0.xyz - IN.worldPos;
+            const float dist = length(toLight);
+            if (dist > Ld.p2.w)
             {
-                float biasTexels = ComputeBiasTexels(NdotL, dirBaseBiasTexels, slopeScaleTexels, materialBiasTexels, 0.0f);
-                shadow = Shadow2D(gDirShadow, IN.shadowPos, biasTexels);
+                continue;
             }
-            else if (type == 2) // Spot
+
+            L = toLight / max(dist, 1e-6f);
+
+            // Angular falloff
+            const float3 spotDir = normalize(Ld.p1.xyz); // FROM light
+            const float cosTheta = dot(-L, spotDir);
+            const float cosInner = Ld.p3.x;
+            const float cosOuter = Ld.p3.y;
+            const float spotT = saturate((cosTheta - cosOuter) / max(cosInner - cosOuter, 1e-5f));
+            const float spotAtt = SmoothStep01(spotT);
+
+            const float attLin = Ld.p3.z;
+            const float attQuad = Ld.p3.w;
+            attenuation = spotAtt / max(1.0f + attLin * dist + attQuad * dist * dist, 1e-6f);
+
+            if (useShadow && spotShadowCount > 0)
             {
-                int slot = FindSpotShadowSlot(i, spotShadowCount);
-                if (slot >= 0)
-                {
-                    float extraBiasTexels = sd.spotInfo[slot].z;
-                    float biasTexels = ComputeBiasTexels(NdotL, spotBaseBiasTexels, slopeScaleTexels, materialBiasTexels, extraBiasTexels);
-                    shadow = SpotShadowFactor((uint) slot, sd, IN.worldPos, biasTexels);
-                }
-            }
-            else if (type == 1) // Point
-            {
-                int slot = FindPointShadowSlot(i, pointShadowCount);
-                if (slot >= 0)
-                {
-                    float extraBiasTexels = sd.pointInfo[slot].z;
-                    float biasTexels = ComputeBiasTexels(NdotL, pointBaseBiasTexels, slopeScaleTexels, materialBiasTexels, extraBiasTexels);
-                    shadow = PointShadowFactor((uint) slot, sd, IN.worldPos, biasTexels);
-                }
+                shadowFactor = SpotShadowFactor(0, IN.worldPos, uMaterialFlags.z, uShadowBias.y, uShadowBias.w);
             }
         }
 
-        float3 diffuse = baseRgb * NdotL;
+        const float NdotL = saturate(dot(N, L));
+        if (NdotL <= 0.0f)
+        {
+            continue;
+        }
 
-        float3 H = normalize(L + V);
-        float spec = pow(max(dot(N, H), 0.0f), max(shininess, 1.0f));
-        float3 specular = specStrength * spec;
-        
-        // shadowStrength in [0..1]
-		float shadowStrength = 0.85;
-		shadow = lerp(1.0f, shadow, shadowStrength);
-        
-        color += (diffuse + specular) * (Lcolor * intensity * att) * shadow;
+        const float3 H = normalize(V + L);
+        const float NdotH = saturate(dot(N, H));
+        const float VdotH = saturate(dot(V, H));
+
+        const float alphaR = roughness * roughness;
+        const float D = DistributionGGX(NdotH, alphaR);
+        const float G = GeometrySmith(NdotV, NdotL, roughness);
+        const float3 F = FresnelSchlick(VdotH, F0);
+
+        const float3 numerator = D * G * F;
+        const float denom = max(4.0f * NdotV * NdotL, 1e-6f);
+        const float3 specular = numerator / denom;
+
+        const float3 kS = F;
+        const float3 kD = (1.0f - kS) * (1.0f - metallic);
+        const float3 diffuse = kD * baseColor / PI;
+
+        const float3 radiance = Ld.p2.xyz * (Ld.p1.w * attenuation);
+
+        Lo += (diffuse + specular) * radiance * NdotL * shadowFactor;
     }
 
-    return float4(color, saturate(alpha));
+    // Ambient / IBL
+    float3 ambient = 0.0f;
+    if (useEnv)
+    {
+        // Assume env has mips (generated on load). Use a conservative mipMax; sampling out of range clamps.
+        const float mipMax = 9.0f;
+
+        const float3 R = reflect(-V, N);
+
+        // "Diffuse irradiance" approximation: very blurry env sample.
+        const float3 envDiffuse = gEnv.SampleLevel(gLinear, N, mipMax).rgb;
+
+        // Specular IBL approximation: env prefiltered by mip level.
+        const float3 envSpec = gEnv.SampleLevel(gLinear, R, roughness * mipMax).rgb;
+
+        const float3 F = FresnelSchlick(NdotV, F0);
+        const float3 kS = F;
+        const float3 kD = (1.0f - kS) * (1.0f - metallic);
+
+        ambient = (kD * baseColor * envDiffuse) + (envSpec * kS);
+        ambient *= (ao * uCameraAmbient.w);
+    }
+    else
+    {
+        ambient = baseColor * (ao * uCameraAmbient.w);
+    }
+
+    float3 emissive = 0.0f;
+    if (useEmissiveTex)
+    {
+        emissive = gEmissive.Sample(gLinear, IN.uv).rgb * emissiveStrength;
+    }
+
+    const float3 color = ambient + Lo + emissive;
+    return float4(color, saturate(alphaOut));
 }

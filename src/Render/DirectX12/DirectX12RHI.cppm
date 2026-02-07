@@ -1986,7 +1986,7 @@ export namespace rhi
         static constexpr std::uint32_t kFramesInFlight = 3;
         static constexpr UINT kPerFrameCBUploadBytes = 256u * 1024u;
         static constexpr UINT kPerFrameBufUploadBytes = 8u * 1024u * 1024u; // 8 MB per frame buffer upload ring
-        static constexpr UINT kMaxSRVSlots = 12; // t0..t11 (spot/point shadows + shadow data)
+        static constexpr UINT kMaxSRVSlots = 20; // t0..t19 (room for PBR maps + env)
 
         struct FrameResource
         {
@@ -2239,15 +2239,26 @@ export namespace rhi
             // SRV heap entries without requiring contiguous descriptor ranges.
             //
             // SRV registers used by shaders:
-            //  t0  - albedo/regular texture
-            //  t1  - directional shadow map (depth SRV)
-            //  t2  - StructuredBuffer lights (SRV)
-            //  t3..t6  - spot shadow maps [0..3]
-            //  t7..t10 - point distance cubemaps [0..3]
+            //  t0      - albedo (Texture2D)
+            //  t1      - directional shadow map (Texture2D<float>)
+            //  t2      - lights (StructuredBuffer<GPULight>)
+            //  t3..t6  - spot shadow maps [0..3] (Texture2D<float>)
+            //  t7..t10 - point distance cubemaps [0..3] (TextureCube<float>)
+            //  t11     - shadow metadata (StructuredBuffer<ShadowDataSB>)
+            //
+            //  DX12 PBR extras (main forward shader):
+            //  t12 normal (Texture2D)
+            //  t13 metalness (Texture2D)
+            //  t14 roughness (Texture2D)
+            //  t15 ao (Texture2D)
+            //  t16 emissive (Texture2D)
+            //  t17 env cube (TextureCube)
             //
             // Samplers:
+
             //  s0 - linear wrap
             //  s1 - comparison sampler for shadow maps (clamp)
+            //  s2 - point clamp (used by point shadows / env sampling)
             std::array<D3D12_DESCRIPTOR_RANGE, kMaxSRVSlots> ranges{};
             for (UINT i = 0; i < kMaxSRVSlots; ++i)
             {
@@ -2315,7 +2326,7 @@ export namespace rhi
             // s1: shadow comparison sampler (clamp)
             samplers[1] = MakeStaticSampler(
                 1,
-                D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+                D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,
                 D3D12_TEXTURE_ADDRESS_MODE_BORDER,

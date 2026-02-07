@@ -63,16 +63,31 @@ export namespace rendern
 	static_assert(sizeof(InstanceData) == 64);
 
 	struct BatchKey
-	{
-		const rendern::MeshRHI* mesh{};
-		// Material key (must be immutable during RenderFrame)
-		rhi::TextureDescIndex albedoDescIndex{};
-		mathUtils::Vec4 baseColor{};
-		float shininess{};
-		float specStrength{};
-		float shadowBias{};
-		rendern::MaterialHandle material{};
-	};
+{
+	const rendern::MeshRHI* mesh{};
+	// Material key (must be immutable during RenderFrame)
+	rhi::TextureDescIndex albedoDescIndex{};
+	rhi::TextureDescIndex normalDescIndex{};
+	rhi::TextureDescIndex metalnessDescIndex{};
+	rhi::TextureDescIndex roughnessDescIndex{};
+	rhi::TextureDescIndex aoDescIndex{};
+	rhi::TextureDescIndex emissiveDescIndex{};
+
+	mathUtils::Vec4 baseColor{};
+	float shadowBias{}; // texels
+
+	// PBR scalars (used if corresponding texture isn't provided)
+	float metallic{};
+	float roughness{};
+	float ao{};
+	float emissiveStrength{};
+
+	// Legacy (kept for batching stability with OpenGL fallback / old materials)
+	float shininess{};
+	float specStrength{};
+
+	rendern::MaterialHandle material{};
+};
 
 	struct BatchKeyHash
 	{
@@ -94,14 +109,29 @@ export namespace rendern
 		std::size_t operator()(const BatchKey& key) const noexcept
 		{
 			std::size_t seed = HashPtr(key.mesh);
-			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.albedoDescIndex)));
-			HashCombine(seed, HashU32(FloatBits(key.baseColor.x)));
-			HashCombine(seed, HashU32(FloatBits(key.baseColor.y)));
-			HashCombine(seed, HashU32(FloatBits(key.baseColor.z)));
-			HashCombine(seed, HashU32(FloatBits(key.baseColor.w)));
-			HashCombine(seed, HashU32(FloatBits(key.shininess)));
-			HashCombine(seed, HashU32(FloatBits(key.specStrength)));
-			HashCombine(seed, HashU32(FloatBits(key.shadowBias)));
+
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.albedoDescIndex)));
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.normalDescIndex)));
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.metalnessDescIndex)));
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.roughnessDescIndex)));
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.aoDescIndex)));
+HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.emissiveDescIndex)));
+
+HashCombine(seed, HashU32(FloatBits(key.baseColor.x)));
+HashCombine(seed, HashU32(FloatBits(key.baseColor.y)));
+HashCombine(seed, HashU32(FloatBits(key.baseColor.z)));
+HashCombine(seed, HashU32(FloatBits(key.baseColor.w)));
+
+HashCombine(seed, HashU32(FloatBits(key.shadowBias)));
+
+HashCombine(seed, HashU32(FloatBits(key.metallic)));
+HashCombine(seed, HashU32(FloatBits(key.roughness)));
+HashCombine(seed, HashU32(FloatBits(key.ao)));
+HashCombine(seed, HashU32(FloatBits(key.emissiveStrength)));
+
+// Legacy
+HashCombine(seed, HashU32(FloatBits(key.shininess)));
+HashCombine(seed, HashU32(FloatBits(key.specStrength)));
 			return seed;
 		}
 	};
@@ -111,11 +141,20 @@ export namespace rendern
 		bool operator()(const BatchKey& lhs, const BatchKey& rhs) const noexcept
 		{
 			return lhs.mesh == rhs.mesh &&
-				lhs.albedoDescIndex == rhs.albedoDescIndex &&
-				lhs.baseColor == rhs.baseColor &&
-				lhs.shininess == rhs.shininess &&
-				lhs.specStrength == rhs.specStrength &&
-				lhs.shadowBias == rhs.shadowBias;
+	lhs.albedoDescIndex == rhs.albedoDescIndex &&
+	lhs.normalDescIndex == rhs.normalDescIndex &&
+	lhs.metalnessDescIndex == rhs.metalnessDescIndex &&
+	lhs.roughnessDescIndex == rhs.roughnessDescIndex &&
+	lhs.aoDescIndex == rhs.aoDescIndex &&
+	lhs.emissiveDescIndex == rhs.emissiveDescIndex &&
+	lhs.baseColor == rhs.baseColor &&
+	lhs.shadowBias == rhs.shadowBias &&
+	lhs.metallic == rhs.metallic &&
+	lhs.roughness == rhs.roughness &&
+	lhs.ao == rhs.ao &&
+	lhs.emissiveStrength == rhs.emissiveStrength &&
+	lhs.shininess == rhs.shininess &&
+	lhs.specStrength == rhs.specStrength;
 		}
 	};
 
@@ -145,13 +184,16 @@ export namespace rendern
 		// shininess, specStrength, materialShadowBiasTexels, flagsBits
 		std::array<float, 4>  uMaterialFlags{};
 
+
+		// metallic, roughness, ao, emissiveStrength
+		std::array<float, 4>  uPbrParams{};
 		// lightCount, spotShadowCount, pointShadowCount, unused
 		std::array<float, 4>  uCounts{};
 
 		// dirBaseTexels, spotBaseTexels, pointBaseTexels, slopeScaleTexels
 		std::array<float, 4>  uShadowBias{};
 	};
-	static_assert(sizeof(PerBatchConstants) == 208);
+	static_assert(sizeof(PerBatchConstants) == 224);
 
 
 	// shadow metadata for Spot/Point arrays (bound as StructuredBuffer at t11).
@@ -283,7 +325,7 @@ export namespace rendern
 				: 1.0f;
 
 			// Limit how far we render directional shadows to keep resolution usable.
-			const float shadowFar = std::min(scene.camera.farZ, 60.0f);
+			const float shadowFar = std::min(scene.camera.farZ, 30.0f);
 			const float shadowNear = std::max(scene.camera.nearZ, 0.05f);
 
 			// Camera basis (orthonormal).
@@ -527,10 +569,23 @@ export namespace rendern
 				// IMPORTANT: BatchKey must include material parameters,
 				// otherwise different materials get incorrectly merged.
 				key.albedoDescIndex = params.albedoDescIndex;
+				key.normalDescIndex = params.normalDescIndex;
+				key.metalnessDescIndex = params.metalnessDescIndex;
+				key.roughnessDescIndex = params.roughnessDescIndex;
+				key.aoDescIndex = params.aoDescIndex;
+				key.emissiveDescIndex = params.emissiveDescIndex;
+				
 				key.baseColor = params.baseColor;
+				key.shadowBias = params.shadowBias; // texels
+				
+				key.metallic = params.metallic;
+				key.roughness = params.roughness;
+				key.ao = params.ao;
+				key.emissiveStrength = params.emissiveStrength;
+				
+				// Legacy
 				key.shininess = params.shininess;
 				key.specStrength = params.specStrength;
-				key.shadowBias = params.shadowBias; // texels
 
 				// Instance (ROWS)
 				const mathUtils::Mat4 model = item.transform.ToMatrix();
@@ -972,6 +1027,12 @@ export namespace rendern
 
 					constexpr std::uint32_t kFlagUseTex = 1u << 0;
 					constexpr std::uint32_t kFlagUseShadow = 1u << 1;
+					constexpr std::uint32_t kFlagUseNormal = 1u << 2;
+					constexpr std::uint32_t kFlagUseMetalTex = 1u << 3;
+					constexpr std::uint32_t kFlagUseRoughTex = 1u << 4;
+					constexpr std::uint32_t kFlagUseAOTex = 1u << 5;
+					constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
+					constexpr std::uint32_t kFlagUseEnv = 1u << 7;
 
 					for (const Batch& batch : mainBatches)
 					{
@@ -998,7 +1059,13 @@ export namespace rendern
 						const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
 
 						ctx.commandList.BindPipeline(MainPipelineFor(perm));
-						ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
+						ctx.commandList.BindTextureDesc(0,	batch.material.albedoDescIndex);
+						ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
+						ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
+						ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
+						ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
+						ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
+						ctx.commandList.BindTextureDesc(17, scene.skyboxDescIndex);
 
 						std::uint32_t flags = 0;
 						if (useTex)
@@ -1008,6 +1075,54 @@ export namespace rendern
 						if (useShadow)
 						{
 							flags |= kFlagUseShadow;
+						}
+						if (batch.material.normalDescIndex != 0)
+						{
+							flags |= kFlagUseNormal;
+						}
+						if (batch.material.metalnessDescIndex != 0)
+						{
+							flags |= kFlagUseMetalTex;
+						}
+						if (batch.material.roughnessDescIndex != 0)
+						{
+							flags |= kFlagUseRoughTex;
+						}
+						if (batch.material.aoDescIndex != 0)
+						{
+							flags |= kFlagUseAOTex;
+						}
+						if (batch.material.emissiveDescIndex != 0)
+						{
+							flags |= kFlagUseEmissiveTex;
+						}
+						if (scene.skyboxDescIndex != 0)
+						{
+							flags |= kFlagUseEnv;
+						}
+						if (batch.material.normalDescIndex != 0)
+						{
+							flags |= kFlagUseNormal;
+						}
+						if (batch.material.metalnessDescIndex != 0)
+						{
+							flags |= kFlagUseMetalTex;
+						}
+						if (batch.material.roughnessDescIndex != 0)
+						{
+							flags |= kFlagUseRoughTex;
+						}
+						if (batch.material.aoDescIndex != 0)
+						{
+							flags |= kFlagUseAOTex;
+						}
+						if (batch.material.emissiveDescIndex != 0)
+						{
+							flags |= kFlagUseEmissiveTex;
+						}
+						if (scene.skyboxDescIndex != 0)
+						{
+							flags |= kFlagUseEnv;
 						}
 
 						PerBatchConstants constants{};
@@ -1021,7 +1136,9 @@ export namespace rendern
 						constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
 
 						const float materialBiasTexels = batch.material.shadowBias;
-						constants.uMaterialFlags = { batch.material.shininess, batch.material.specStrength, materialBiasTexels, AsFloatBits(flags) };
+						constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+
+						constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
 
 						constants.uCounts = {
 							static_cast<float>(lightCount),
@@ -1076,6 +1193,12 @@ export namespace rendern
 
 							ctx.commandList.BindPipeline(MainPipelineFor(perm));
 							ctx.commandList.BindTextureDesc(0, batchTransparent.material.albedoDescIndex);
+ctx.commandList.BindTextureDesc(12, batchTransparent.material.normalDescIndex);
+ctx.commandList.BindTextureDesc(13, batchTransparent.material.metalnessDescIndex);
+ctx.commandList.BindTextureDesc(14, batchTransparent.material.roughnessDescIndex);
+ctx.commandList.BindTextureDesc(15, batchTransparent.material.aoDescIndex);
+ctx.commandList.BindTextureDesc(16, batchTransparent.material.emissiveDescIndex);
+ctx.commandList.BindTextureDesc(17, scene.skyboxDescIndex);
 
 							std::uint32_t flags = 0;
 							if (useTex)
@@ -1098,7 +1221,9 @@ export namespace rendern
 							constants.uBaseColor = { batchTransparent.material.baseColor.x, batchTransparent.material.baseColor.y, batchTransparent.material.baseColor.z, batchTransparent.material.baseColor.w };
 
 							const float materialBiasTexels = batchTransparent.material.shadowBias;
-							constants.uMaterialFlags = { batchTransparent.material.shininess, batchTransparent.material.specStrength, materialBiasTexels, AsFloatBits(flags) };
+							constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+
+							constants.uPbrParams = { batchTransparent.material.metallic, batchTransparent.material.roughness, batchTransparent.material.ao, batchTransparent.material.emissiveStrength };
 
 							constants.uCounts = {
 								static_cast<float>(lightCount),

@@ -456,6 +456,10 @@ namespace
         groundMaterial.params.shininess = 16.0f;
         groundMaterial.params.specStrength = 0.5f;
         groundMaterial.params.shadowBias = 0.0f;
+        groundMaterial.params.metallic = 0.0f;
+        groundMaterial.params.roughness = 0.9f;
+        groundMaterial.params.ao = 1.0f;
+        groundMaterial.params.emissiveStrength = 1.0f;
         groundMaterial.permFlags = rendern::MaterialPerm::UseShadow;
 
         // Cube material (texture desc will be assigned once available)
@@ -465,6 +469,10 @@ namespace
         cubeMaterial.params.shininess = 64.0f;
         cubeMaterial.params.specStrength = 0.5f;
         cubeMaterial.params.shadowBias = 0.0015f;
+        cubeMaterial.params.metallic = 0.0f;
+        cubeMaterial.params.roughness = 0.75f;
+        cubeMaterial.params.ao = 1.0f;
+        cubeMaterial.params.emissiveStrength = 1.0f;
         cubeMaterial.permFlags = rendern::MaterialPerm::UseShadow;
 
         // Glass material (transparent)
@@ -474,6 +482,10 @@ namespace
         glassMaterial.params.shininess = 128.0f;
         glassMaterial.params.specStrength = 0.9f;
         glassMaterial.params.shadowBias = 0.0f;
+        glassMaterial.params.metallic = 0.0f;
+        glassMaterial.params.roughness = 0.08f;
+        glassMaterial.params.ao = 1.0f;
+        glassMaterial.params.emissiveStrength = 1.0f;
         glassMaterial.permFlags = rendern::MaterialPerm::UseShadow | rendern::MaterialPerm::Transparent;
 
         handles.groundMaterial = scene.CreateMaterial(groundMaterial);
