@@ -479,7 +479,7 @@ namespace
 
     void AddCubeGrid(rendern::Scene& scene, const rendern::MeshHandle cubeMesh, const rendern::MaterialHandle cubeMaterial)
     {
-        constexpr int gridDim = 4;
+        constexpr int gridDim = 10;
         constexpr float spacing = 1.35f;
 
         for (int gridZ = 0; gridZ < gridDim; ++gridZ)

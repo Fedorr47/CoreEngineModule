@@ -5,6 +5,7 @@ module;
 #include <glm/gtc/type_ptr.hpp>
 
 #include <array>
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
@@ -15,6 +16,7 @@ export module core:renderer_mesh_gl;
 
 import :rhi;
 import :scene;
+import :math_utils;
 import :renderer_settings;
 import :render_core;
 import :render_graph;
@@ -66,9 +68,61 @@ export namespace rendern
 						? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
 						: 1.0f;
 
+					auto ToGlmVec3 = [](const mathUtils::Vec3& v) -> glm::vec3
+						{
+							return glm::vec3(v.x, v.y, v.z);
+						};
+
+					auto ToGlmMat4 = [](const mathUtils::Mat4& m) -> glm::mat4
+						{
+							glm::mat4 r(1.0f);
+							for (int c = 0; c < 4; ++c)
+							{
+								for (int row = 0; row < 4; ++row)
+								{
+									r[c][row] = m[c][row];
+								}
+							}
+							return r;
+						};
+
 					// OpenGL clip space: Z in [-1..1]
 					const glm::mat4 proj = glm::perspective(glm::radians(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const glm::mat4 view = glm::lookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const glm::mat4 view = glm::lookAt(ToGlmVec3(scene.camera.position), ToGlmVec3(scene.camera.target), ToGlmVec3(scene.camera.up));
+
+					// Culling frustum (world-space). We intentionally build it via our mathUtils
+					// D3D-style projection; it represents the same geometric frustum.
+					const mathUtils::Mat4 cullProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+					const mathUtils::Mat4 cullView = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Frustum cameraFrustum = mathUtils::ExtractFrustumRH_ZO(cullProj * cullView);
+					const bool doFrustumCulling = settings_.enableFrustumCulling;
+
+					auto IsVisible = [&](const rendern::MeshResource* meshRes, const mathUtils::Mat4& model) -> bool
+						{
+							if (!doFrustumCulling || !meshRes)
+							{
+								return true;
+							}
+							const auto& b = meshRes->GetBounds();
+							if (b.sphereRadius <= 0.0f)
+							{
+								return true;
+							}
+
+							const mathUtils::Vec4 wc4 = model * mathUtils::Vec4(b.sphereCenter, 1.0f);
+							const mathUtils::Vec3 worldCenter{ wc4.x, wc4.y, wc4.z };
+
+							const mathUtils::Vec3 c0{ model[0].x, model[0].y, model[0].z };
+							const mathUtils::Vec3 c1{ model[1].x, model[1].y, model[1].z };
+							const mathUtils::Vec3 c2{ model[2].x, model[2].y, model[2].z };
+							const float s0 = mathUtils::Length(c0);
+							const float s1 = mathUtils::Length(c1);
+							const float s2 = mathUtils::Length(c2);
+							const float maxScale = std::max(s0, std::max(s1, s2));
+							const float worldRadius = b.sphereRadius * maxScale;
+
+							return mathUtils::IntersectsSphere(cameraFrustum, worldCenter, worldRadius);
+						};
 
 					// --- Skybox draw ---
 					{
@@ -161,7 +215,12 @@ export namespace rendern
 							mat.baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 						}
 
-						const glm::mat4 model = item.transform.ToMatrix();
+						const mathUtils::Mat4 modelMu = item.transform.ToMatrix();
+						if (!IsVisible(item.mesh.get(), modelMu))
+						{
+							continue;
+						}
+						const glm::mat4 model = ToGlmMat4(modelMu);
 						DrawOne(mesh, model, mat);
 						drewAny = true;
 					}

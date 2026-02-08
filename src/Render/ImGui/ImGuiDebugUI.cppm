@@ -192,9 +192,10 @@ namespace rendern::ui
             const float invW = 1.0f / clip.w;
             const float ndcX = clip.x * invW;
             const float ndcY = clip.y * invW;
+            const float ndcZ = clip.z * invW;
 
             // optionally cull points outside screen
-            if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f)
+            if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f || ndcZ < -0.2f || ndcZ > 1.2f)
             {
                 return false;
             }
@@ -377,7 +378,7 @@ namespace rendern::ui
     {
         ImGui::Begin("Renderer / Shadows");
 
-        ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
+        ImGui::Checkbox("Frustum culling", &rs.enableFrustumCulling);
         ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
 
         // ------------------------------------------------------------

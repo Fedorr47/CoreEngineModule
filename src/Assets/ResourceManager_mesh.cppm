@@ -14,11 +14,13 @@ module;
 #include <filesystem>
 #include <stdexcept>
 #include <functional>
+#include <algorithm>
 
 export module core:resource_manager_mesh;
 
 import :resource_manager_core;
 import :mesh;
+import :math_utils;
 import :obj_loader;
 import :file_system;
 
@@ -39,6 +41,16 @@ export namespace rendern
 		std::string debugName{};
 	};
 
+
+	export struct MeshBounds
+	{
+		// Local-space bounds computed from MeshCPU vertices (conservative).
+		mathUtils::Vec3 aabbMin{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 aabbMax{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 sphereCenter{ 0.0f, 0.0f, 0.0f };
+		float sphereRadius{ 0.0f };
+	};
+
 	export class MeshResource
 	{
 	public:
@@ -54,6 +66,9 @@ export namespace rendern
 
 		const Properties& GetProperties() const noexcept { return properties_; }
 		const MeshRHI& GetResource() const noexcept { return resource_; }
+		const MeshBounds& GetBounds() const noexcept { return bounds_; }
+
+		void SetBounds(const MeshBounds& b) noexcept { bounds_ = b; }
 
 		template <typename PropertiesType>
 			requires std::same_as<std::remove_cvref_t<PropertiesType>, Properties>
@@ -73,6 +88,7 @@ export namespace rendern
 	private:
 		MeshRHI resource_{};
 		Properties properties_{};
+		MeshBounds bounds_{};
 	};
 
 	export struct MeshIO
@@ -113,6 +129,32 @@ namespace rendern
 		{
 			return std::string(path);
 		}
+	}
+
+
+	MeshBounds ComputeMeshBounds(const MeshCPU& cpu) noexcept
+	{
+		MeshBounds b{};
+		if (cpu.vertices.empty())
+		{
+			return b;
+		}
+		const auto& v0 = cpu.vertices.front();
+		float minX = v0.px, minY = v0.py, minZ = v0.pz;
+		float maxX = v0.px, maxY = v0.py, maxZ = v0.pz;
+
+		for (const auto& v : cpu.vertices)
+		{
+			minX = std::min(minX, v.px); minY = std::min(minY, v.py); minZ = std::min(minZ, v.pz);
+			maxX = std::max(maxX, v.px); maxY = std::max(maxY, v.py); maxZ = std::max(maxZ, v.pz);
+		}
+
+		b.aabbMin = mathUtils::Vec3(minX, minY, minZ);
+		b.aabbMax = mathUtils::Vec3(maxX, maxY, maxZ);
+		b.sphereCenter = (b.aabbMin + b.aabbMax) * 0.5f;
+		const mathUtils::Vec3 ext = b.aabbMax - b.sphereCenter;
+		b.sphereRadius = mathUtils::Length(ext);
+		return b;
 	}
 } // namespace rendern
 
@@ -388,12 +430,14 @@ export template <>
 				}
 
 				auto cpuPtr = std::make_shared<MeshCPU>(std::move(cpu));
+				const rendern::MeshBounds bounds = ComputeMeshBounds(*cpuPtr);
 				MeshIO ioCopy = io;
 
 				ioCopy.render.Enqueue([this,
 					id = ticket.id,
 					generation = ticket.generation,
 					cpuPtr,
+					bounds,
 					props = std::move(props),
 					ioCopy]() mutable
 					{
@@ -436,6 +480,7 @@ export template <>
 						}
 
 						MeshEntry& entry = it->second;
+						entry.meshHandle->SetBounds(bounds);
 						MeshRHI old = entry.meshHandle->ReplaceResource(std::move(gpu));
 						if (old.vertexBuffer.id != 0 || old.indexBuffer.id != 0)
 						{

@@ -86,7 +86,7 @@ export namespace rendern
 	float shininess{};
 	float specStrength{};
 
-	rendern::MaterialHandle material{};
+	std::uint32_t permBits{};
 };
 
 	struct BatchKeyHash
@@ -109,6 +109,8 @@ export namespace rendern
 		std::size_t operator()(const BatchKey& key) const noexcept
 		{
 			std::size_t seed = HashPtr(key.mesh);
+
+			HashCombine(seed, HashU32(key.permBits));
 
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.albedoDescIndex)));
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.normalDescIndex)));
@@ -141,6 +143,7 @@ export namespace rendern
 		bool operator()(const BatchKey& lhs, const BatchKey& rhs) const noexcept
 		{
 			return lhs.mesh == rhs.mesh &&
+				lhs.permBits == rhs.permBits &&
 				lhs.albedoDescIndex == rhs.albedoDescIndex &&
 				lhs.normalDescIndex == rhs.normalDescIndex &&
 				lhs.metalnessDescIndex == rhs.metalnessDescIndex &&
@@ -341,6 +344,40 @@ export namespace rendern
 				? (static_cast<float>(scDesc.extent.width) / static_cast<float>(scDesc.extent.height))
 				: 1.0f;
 
+
+			const mathUtils::Mat4 cameraProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+			const mathUtils::Mat4 cameraView = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+			const mathUtils::Mat4 cameraViewProj = cameraProj * cameraView;
+			const mathUtils::Frustum cameraFrustum = mathUtils::ExtractFrustumRH_ZO(cameraViewProj);
+			const bool doFrustumCulling = settings_.enableFrustumCulling;
+
+			auto IsVisible = [&](const rendern::MeshResource* meshRes, const mathUtils::Mat4& model) -> bool
+				{
+					if (!doFrustumCulling || !meshRes)
+					{
+						return true;
+					}
+					const auto& b = meshRes->GetBounds();
+					if (b.sphereRadius <= 0.0f)
+					{
+						return true;
+					}
+
+					const mathUtils::Vec4 wc4 = model * mathUtils::Vec4(b.sphereCenter, 1.0f);
+					const mathUtils::Vec3 worldCenter{ wc4.x, wc4.y, wc4.z };
+
+					const mathUtils::Vec3 c0{ model[0].x, model[0].y, model[0].z };
+					const mathUtils::Vec3 c1{ model[1].x, model[1].y, model[1].z };
+					const mathUtils::Vec3 c2{ model[2].x, model[2].y, model[2].z };
+					const float s0 = mathUtils::Length(c0);
+					const float s1 = mathUtils::Length(c1);
+					const float s2 = mathUtils::Length(c2);
+					const float maxScale = std::max(s0, std::max(s1, s2));
+					const float worldRadius = b.sphereRadius * maxScale;
+
+					return mathUtils::IntersectsSphere(cameraFrustum, worldCenter, worldRadius);
+				};
+
 			// Limit how far we render directional shadows to keep resolution usable.
 			const float shadowFar = std::min(scene.camera.farZ, settings_.dirShadowDistance);
 			const float shadowNear = std::max(scene.camera.nearZ, 0.05f);
@@ -490,7 +527,7 @@ export namespace rendern
 				{
 					continue;
 				}
-
+				const mathUtils::Mat4 model = item.transform.ToMatrix();
 				// IMPORTANT: exclude alpha-blended objects from shadow casting
 				MaterialParams params{};
 				MaterialPerm perm = MaterialPerm::UseShadow;
@@ -516,7 +553,7 @@ export namespace rendern
 					continue;
 				}
 
-				const mathUtils::Mat4 model = item.transform.ToMatrix();
+
 
 				InstanceData inst{};
 				inst.i0 = model[0];
@@ -577,9 +614,14 @@ export namespace rendern
 					continue;
 				}
 
+				const mathUtils::Mat4 model = item.transform.ToMatrix();
+				if (!IsVisible(item.mesh.get(), model))
+				{
+					continue;
+				}
+
 				BatchKey key{};
 				key.mesh = mesh;
-				key.material = item.material;
 
 				MaterialParams params{};
 				MaterialPerm perm = MaterialPerm::UseShadow;
@@ -598,6 +640,8 @@ export namespace rendern
 					params.albedoDescIndex = 0;
 					perm = MaterialPerm::UseShadow;
 				}
+
+				key.permBits = static_cast<std::uint32_t>(perm);
 
 				// IMPORTANT: BatchKey must include material parameters,
 				// otherwise different materials get incorrectly merged.
@@ -621,8 +665,6 @@ export namespace rendern
 				key.specStrength = params.specStrength;
 
 				// Instance (ROWS)
-				const mathUtils::Mat4 model = item.transform.ToMatrix();
-
 				InstanceData inst{};
 				inst.i0 = model[0];
 				inst.i1 = model[1];
@@ -632,7 +674,19 @@ export namespace rendern
 				const bool isTransparent = HasFlag(perm, MaterialPerm::Transparent) || (params.baseColor.w < 0.999f);
 				if (isTransparent)
 				{
-					const mathUtils::Vec3 deltaToCamera = item.transform.position - camPos;
+					mathUtils::Vec3 sortPos = item.transform.position;
+					const auto& b = item.mesh->GetBounds();
+					if (b.sphereRadius > 0.0f)
+					{
+						const mathUtils::Vec4 wc4 = model * mathUtils::Vec4(b.sphereCenter, 1.0f);
+						sortPos = mathUtils::Vec3(wc4.x, wc4.y, wc4.z);
+					}
+					else
+					{
+						sortPos = mathUtils::Vec3(model[3].x, model[3].y, model[3].z);
+					}
+
+					const mathUtils::Vec3 deltaToCamera = sortPos - camPos;
 					const float dist2 = mathUtils::Dot(deltaToCamera, deltaToCamera);
 					const std::uint32_t localOff = static_cast<std::uint32_t>(transparentInstances.size());
 					transparentInstances.push_back(inst);

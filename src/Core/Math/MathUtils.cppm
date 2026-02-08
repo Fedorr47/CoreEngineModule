@@ -181,6 +181,77 @@ export namespace mathUtils
 	//inline Vec4 operator*(const Mat4& m, const Vec4& v) noexcept { return Mul(m, v); }
 	//inline Mat4 operator*(const Mat4& a, const Mat4& b) noexcept { return Mul(a, b); }
 
+	// ------------------------------------------------------------
+	// Frustum culling helpers (RH, clip-space Z in [0..1])
+	// ------------------------------------------------------------
+	enum class FrustumPlane : std::uint32_t { Left = 0, Right, Bottom, Top, Near, Far };
+
+	struct Plane
+	{
+		Vec3 n{ 0.0f, 0.0f, 0.0f }; // normalized normal
+		float d{ 0.0f };           // plane: dot(n, x) + d = 0, inside if >= 0
+	};
+
+	inline float Distance(const Plane& p, const Vec3& x) noexcept
+	{
+		return Dot(p.n, x) + p.d;
+	}
+
+	struct Frustum
+	{
+		Plane planes[6]{};
+	};
+
+	inline Vec4 Row(const Mat4& m, int row) noexcept
+	{
+		return Vec4(m[0][row], m[1][row], m[2][row], m[3][row]);
+	}
+
+	inline Plane NormalizePlane(const Vec4& p) noexcept
+	{
+		Plane out{};
+		const float len = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+		if (len > 0.0f)
+		{
+			out.n = Vec3(p.x / len, p.y / len, p.z / len);
+			out.d = p.w / len;
+		}
+		return out;
+	}
+
+	inline Frustum ExtractFrustumRH_ZO(const Mat4& viewProj) noexcept
+	{
+		// Clip tests in D3D-style clip space (column-vector convention):
+		//   -w <= x <= w
+		//   -w <= y <= w
+		//    0 <= z <= w
+		const Vec4 r0 = Row(viewProj, 0);
+		const Vec4 r1 = Row(viewProj, 1);
+		const Vec4 r2 = Row(viewProj, 2);
+		const Vec4 r3 = Row(viewProj, 3);
+
+		Frustum f{};
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Left)]   = NormalizePlane(r3 + r0);
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Right)]  = NormalizePlane(r3 - r0);
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Top)]    = NormalizePlane(r3 - r1);
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Near)]   = NormalizePlane(r2);
+		f.planes[static_cast<std::uint32_t>(FrustumPlane::Far)]    = NormalizePlane(r3 - r2);
+		return f;
+	}
+
+	inline bool IntersectsSphere(const Frustum& fr, const Vec3& center, float radius) noexcept
+	{
+		for (const Plane& p : fr.planes)
+		{
+			if (Distance(p, center) < -radius)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	inline Mat4 operator*(const Mat4& a, const Mat4& b) noexcept { return Mul(a, b); }
 
 	// --- GLM-compatible transforms (column-major, post-multiply by transform) ---
