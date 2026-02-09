@@ -27,6 +27,23 @@ export namespace mathUtils
 	inline constexpr float Pi = pi_v<double>;
 	inline constexpr float TwoPi = Pi*2;
 
+	struct Vec2
+	{
+		float x{ 0 }, y{ 0 };
+
+		constexpr Vec2() = default;
+		constexpr Vec2(float x_, float y_) : x(x_), y(y_) {}
+
+		constexpr float& operator[](std::size_t i) noexcept
+		{
+			return (i == 0) ? x : y;
+		}
+		constexpr const float& operator[](std::size_t i) const noexcept
+		{
+			return (i == 0) ? x : y;
+		}
+	};
+
 	struct Vec3
 	{
 		float x{ 0 }, y{ 0 }, z{ 0 };
@@ -357,5 +374,4 @@ export namespace mathUtils
 		Result[3][2] = -(zFar * zNear) / (zFar - zNear);
 		return Result;
 	}
-
 }

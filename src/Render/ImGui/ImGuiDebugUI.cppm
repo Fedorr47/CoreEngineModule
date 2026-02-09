@@ -103,6 +103,19 @@ namespace rendern::ui
             return changed;
         }
 
+        static mathUtils::Mat4 GetViewProj(const ImVec2& displaySize, Camera camera)
+        {
+            const float aspect = (displaySize.y > 0.0f) ? (displaySize.x / displaySize.y) : 1.0f;
+
+            const mathUtils::Mat4 projection =
+                mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(camera.fovYDeg), aspect, camera.nearZ, camera.farZ);
+
+            const mathUtils::Mat4 view =
+                mathUtils::LookAt(camera.position, camera.target, camera.up);
+
+            return projection * view;
+        }
+
         static void ApplyDefaultsForType(rendern::Light& l)
         {
             if (l.type == rendern::LightType::Directional)
@@ -199,7 +212,7 @@ namespace rendern::ui
         {
             const mathUtils::Vec4 clip = viewProj * mathUtils::Vec4(worldPosition, 1.0f);
 
-            if (clip.w <= 0.00001f)
+            if (std::abs(clip.w) < 1e-4f)
             {
                 return false;
             }
@@ -267,6 +280,49 @@ namespace rendern::ui
             outMax = wmax;
         }
 
+        static void DrawArrow(
+            const mathUtils::Mat4& viewProj,
+            const rendern::RendererSettings& rendererSettings,
+            const mathUtils::Vec3& worldStart,
+            const mathUtils::Vec3& worldEnd,
+            ImU32 color,
+            const ImVec2& displaySize,
+            ImDrawList* drawList
+        )
+        {
+            ImVec2 startScreen{};
+            ImVec2 endScreen{};
+
+            if (!ProjectWorldToScreen(worldStart, viewProj, displaySize, startScreen))
+            {
+                return;
+            }
+            if (!ProjectWorldToScreen(worldEnd, viewProj, displaySize, endScreen))
+            {
+                return;
+            }
+
+            drawList->AddLine(startScreen, endScreen, color, 2.0f);
+
+            // simple arrow head (screen-space)
+            const ImVec2 dir = ImVec2(endScreen.x - startScreen.x, endScreen.y - startScreen.y);
+            const float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (len > 1.0f)
+            {
+                const ImVec2 unit = ImVec2(dir.x / len, dir.y / len);
+                const ImVec2 left = ImVec2(-unit.y, unit.x);
+
+                const float headSize = 8.0f * rendererSettings.debugLightGizmoScale;
+                const ImVec2 p0 = endScreen;
+                const ImVec2 p1 = ImVec2(endScreen.x - unit.x * headSize + left.x * headSize * 0.6f,
+                    endScreen.y - unit.y * headSize + left.y * headSize * 0.6f);
+                const ImVec2 p2 = ImVec2(endScreen.x - unit.x * headSize - left.x * headSize * 0.6f,
+                    endScreen.y - unit.y * headSize - left.y * headSize * 0.6f);
+
+                drawList->AddTriangleFilled(p0, p1, p2, color);
+            }
+        }
+
         static bool IntersectRayAABB(const Ray& ray, const mathUtils::Vec3& bmin, const mathUtils::Vec3& bmax, float& outT) noexcept
         {
             float tmin = 0.0f;
@@ -294,7 +350,10 @@ namespace rendern::ui
                 const float invD = 1.0f / dir;
                 float t1 = (mn[axis] - ori) * invD;
                 float t2 = (mx[axis] - ori) * invD;
-                if (t1 > t2) std::swap(t1, t2);
+                if (t1 > t2)
+                {
+                    std::swap(t1, t2);
+                }
 
                 tmin = std::max(tmin, t1);
                 tmax = std::min(tmax, t2);
@@ -308,23 +367,25 @@ namespace rendern::ui
             return true;
         }
 
-        static Ray BuildMouseRay(const rendern::Scene& scene, const rendern::CameraController& camCtl,
-            const ImVec2& mousePos, const ImVec2& displaySize) noexcept
+        static Ray BuildMouseRay(
+            const rendern::Scene& scene, 
+            const rendern::CameraController& camCtl,
+            const ImVec2& mousePos, 
+            const ImVec2& displaySize) noexcept
         {
-            const float w = (displaySize.x > 1.0f) ? displaySize.x : 1.0f;
-            const float h = (displaySize.y > 1.0f) ? displaySize.y : 1.0f;
+            const float width = (displaySize.x > 1.0f) ? displaySize.x : 1.0f;
+            const float height = (displaySize.y > 1.0f) ? displaySize.y : 1.0f;
 
             // NDC in [-1..1], with +Y up.
-            const float ndcX = (mousePos.x / w) * 2.0f - 1.0f;
-            const float ndcY = 1.0f - (mousePos.y / h) * 2.0f;
+            const float ndcX = (mousePos.x / width) * 2.0f - 1.0f;
+            const float ndcY = 1.0f - (mousePos.y / height) * 2.0f;
 
-            const float aspect = w / h;
+            const float aspect = width / height;
             const float tanHalfFov = std::tan(mathUtils::DegToRad(scene.camera.fovYDeg) * 0.5f);
 
-            const mathUtils::Vec3 forward = camCtl.Forward();
-            const mathUtils::Vec3 up0 = scene.camera.up;
-            const mathUtils::Vec3 right = mathUtils::Normalize(mathUtils::Cross(up0, forward));
-            const mathUtils::Vec3 up = mathUtils::Normalize(mathUtils::Cross(forward, right));
+            const mathUtils::Vec3 forward = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+            const mathUtils::Vec3 right = mathUtils::Normalize(mathUtils::Cross(forward, scene.camera.up));
+            const mathUtils::Vec3 up = mathUtils::Normalize(mathUtils::Cross(right, forward));
 
             mathUtils::Vec3 dir = forward;
             dir = dir + right * (ndcX * aspect * tanHalfFov);
@@ -337,10 +398,16 @@ namespace rendern::ui
             return ray;
         }
 
-        static int PickNodeUnderMouse(const rendern::Scene& scene, const rendern::LevelInstance& levelInst,
-            const ImVec2& mousePos, const ImVec2& displaySize, const rendern::CameraController& camCtl)
+        static int PickNodeUnderMouse(
+            const rendern::Scene& scene, 
+            const rendern::LevelInstance& levelInst,
+            const ImVec2& mousePos, 
+            const ImVec2& displaySize, 
+            const rendern::CameraController& camCtl,
+            float& outBestT,
+            Ray& outRay)
         {
-            const Ray ray = BuildMouseRay(scene, camCtl, mousePos, displaySize);
+            outRay = BuildMouseRay(scene, camCtl, mousePos, displaySize);
 
             float bestT = std::numeric_limits<float>::infinity();
             int bestNode = -1;
@@ -359,12 +426,12 @@ namespace rendern::ui
                     continue;
                 }
 
-                const auto& b = item.mesh->GetBounds();
+                const auto& meshBounds = item.mesh->GetBounds();
                 mathUtils::Vec3 wmin{}, wmax{};
-                TransformAABB(b.aabbMin, b.aabbMax, item.transform.ToMatrix(), wmin, wmax);
+                TransformAABB(meshBounds.aabbMin, meshBounds.aabbMax, item.transform.ToMatrix(), wmin, wmax);
 
                 float t = 0.0f;
-                if (IntersectRayAABB(ray, wmin, wmax, t))
+                if (IntersectRayAABB(outRay, wmin, wmax, t))
                 {
                     if (t < bestT)
                     {
@@ -374,23 +441,18 @@ namespace rendern::ui
                 }
             }
 
+            outBestT = bestT;
             return bestNode;
         }
 
+
         static void DrawLightGizmosOverlay(const rendern::Scene& scene, const rendern::RendererSettings& rendererSettings)
         {
+
             const ImGuiIO& io = ImGui::GetIO();
             const ImVec2 displaySize = io.DisplaySize;
 
-            const float aspect = (displaySize.y > 0.0f) ? (displaySize.x / displaySize.y) : 1.0f;
-
-            const mathUtils::Mat4 projection =
-                mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-
-            const mathUtils::Mat4 view =
-                mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
-
-            const mathUtils::Mat4 viewProj = projection * view;
+            const mathUtils::Mat4 viewProj = GetViewProj(displaySize, scene.camera);
 
             ImDrawList* drawList = ImGui::GetForegroundDrawList();
             if (!drawList)
@@ -400,41 +462,6 @@ namespace rendern::ui
 
             const float pointRadius = 6.0f * rendererSettings.debugLightGizmoScale;
             const float arrowLength = rendererSettings.lightGizmoArrowLength * rendererSettings.debugLightGizmoScale;
-
-            auto DrawArrow = [&](const mathUtils::Vec3& worldStart, const mathUtils::Vec3& worldEnd, ImU32 color)
-                {
-                    ImVec2 startScreen{};
-                    ImVec2 endScreen{};
-
-                    if (!ProjectWorldToScreen(worldStart, viewProj, displaySize, startScreen))
-                    {
-                        return;
-                    }
-                    if (!ProjectWorldToScreen(worldEnd, viewProj, displaySize, endScreen))
-                    {
-                        return;
-                    }
-
-                    drawList->AddLine(startScreen, endScreen, color, 2.0f);
-
-                    // simple arrow head (screen-space)
-                    const ImVec2 dir = ImVec2(endScreen.x - startScreen.x, endScreen.y - startScreen.y);
-                    const float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-                    if (len > 1.0f)
-                    {
-                        const ImVec2 unit = ImVec2(dir.x / len, dir.y / len);
-                        const ImVec2 left = ImVec2(-unit.y, unit.x);
-
-                        const float headSize = 8.0f * rendererSettings.debugLightGizmoScale;
-                        const ImVec2 p0 = endScreen;
-                        const ImVec2 p1 = ImVec2(endScreen.x - unit.x * headSize + left.x * headSize * 0.6f,
-                            endScreen.y - unit.y * headSize + left.y * headSize * 0.6f);
-                        const ImVec2 p2 = ImVec2(endScreen.x - unit.x * headSize - left.x * headSize * 0.6f,
-                            endScreen.y - unit.y * headSize - left.y * headSize * 0.6f);
-
-                        drawList->AddTriangleFilled(p0, p1, p2, color);
-                    }
-                };
 
             for (std::size_t lightIndex = 0; lightIndex < scene.lights.size(); ++lightIndex)
             {
@@ -452,7 +479,7 @@ namespace rendern::ui
                     const mathUtils::Vec3 directionFromLight = mathUtils::Normalize(light.direction); // your convention: FROM light
                     const mathUtils::Vec3 arrowEnd = anchor + directionFromLight * arrowLength;
 
-                    DrawArrow(anchor, arrowEnd, color);
+                    DrawArrow(viewProj, rendererSettings, anchor, arrowEnd, color, displaySize, drawList);
 
                     ImVec2 labelPos{};
                     if (ProjectWorldToScreen(anchor, viewProj, displaySize, labelPos))
@@ -486,7 +513,7 @@ namespace rendern::ui
                 {
                     const mathUtils::Vec3 directionFromLight = mathUtils::Normalize(light.direction); // FROM light
                     const mathUtils::Vec3 arrowEnd = light.position + directionFromLight * arrowLength;
-                    DrawArrow(light.position, arrowEnd, color);
+                    DrawArrow(viewProj, rendererSettings, light.position, arrowEnd, color, displaySize, drawList);
                 }
             }
         }
@@ -745,6 +772,11 @@ namespace rendern::ui
         static std::string cachedSourcePath;
         static bool saveStatusIsError = false;
 
+        static bool haveRay = false;
+        static Ray lastRay{};
+        static float lastRayLen = 5.0f;
+        static bool lastRayHit = false;
+
         // Keep save path input synced with loaded sourcePath (unless user edits it).
         if (cachedSourcePath != level.sourcePath)
         {
@@ -758,14 +790,29 @@ namespace rendern::ui
         // ------------------------------------------------------------
         {
             const ImGuiIO& io = ImGui::GetIO();
+            static ImVec2 mousePos{};
+            static ImVec2 displaySize{};
+
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse)
             {
-                const ImVec2 mp = io.MousePos;
-                const ImVec2 ds = io.DisplaySize;
-                if (mp.x >= 0.0f && mp.y >= 0.0f && mp.x <= ds.x && mp.y <= ds.y)
+                mousePos = io.MousePos;
+                displaySize = io.DisplaySize;
+
+                if (mousePos.x >= 0.0f && mousePos.y >= 0.0f && mousePos.x <= displaySize.x && mousePos.y <= displaySize.y)
                 {
-                    const int picked = PickNodeUnderMouse(scene, levelInst, mp, ds, camCtl);
-                    if (picked >= 0 && picked < static_cast<int>(level.nodes.size()) && level.nodes[static_cast<std::size_t>(picked)].alive)
+                    float bestT = 0.0f;
+                    Ray ray{};
+
+                    const int picked = PickNodeUnderMouse(scene, levelInst, mousePos, displaySize, camCtl, bestT, ray);
+
+                    haveRay = true;
+                    lastRay = ray;
+
+                    lastRayHit = (picked >= 0) && std::isfinite(bestT);
+                    lastRayLen = lastRayHit ? bestT : scene.camera.farZ;
+
+                    if (picked >= 0 && picked < static_cast<int>(level.nodes.size()) &&
+                        level.nodes[static_cast<std::size_t>(picked)].alive)
                     {
                         selectedNode = picked;
                     }
@@ -774,6 +821,13 @@ namespace rendern::ui
                         selectedNode = -1;
                     }
                 }
+            }
+
+            if (haveRay)
+            {
+                ImDrawList* drawList = ImGui::GetForegroundDrawList();
+                ImVec2 center(displaySize.x * 0.5f, displaySize.y * lastRayLen);
+                drawList->AddLine(center, mousePos, IM_COL32(255, 80, 80, 255), 2.0f);
             }
         }
 
@@ -1090,7 +1144,9 @@ namespace rendern::ui
 
         // Selection validity
         if (selectedNode >= 0 && (!nodeAlive(selectedNode)))
+        {
             selectedNode = -1;
+        }
 
         if (selectedNode >= 0 && nodeAlive(selectedNode))
         {
