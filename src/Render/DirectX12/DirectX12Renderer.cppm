@@ -553,8 +553,6 @@ export namespace rendern
 					continue;
 				}
 
-
-
 				InstanceData inst{};
 				inst.i0 = model[0];
 				inst.i1 = model[1];
@@ -1282,31 +1280,6 @@ export namespace rendern
 						{
 							flags |= kFlagUseEnv;
 						}
-						if (batch.material.normalDescIndex != 0)
-						{
-							flags |= kFlagUseNormal;
-						}
-						if (batch.material.metalnessDescIndex != 0)
-						{
-							flags |= kFlagUseMetalTex;
-						}
-						if (batch.material.roughnessDescIndex != 0)
-						{
-							flags |= kFlagUseRoughTex;
-						}
-						if (batch.material.aoDescIndex != 0)
-						{
-							flags |= kFlagUseAOTex;
-						}
-						if (batch.material.emissiveDescIndex != 0)
-						{
-							flags |= kFlagUseEmissiveTex;
-						}
-						if (scene.skyboxDescIndex != 0)
-						{
-							flags |= kFlagUseEnv;
-						}
-
 						PerBatchConstants constants{};
 						const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
 						const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
@@ -1391,6 +1364,30 @@ export namespace rendern
 							if (useShadow)
 							{
 								flags |= kFlagUseShadow;
+							}
+							if (batchTransparent.material.normalDescIndex != 0)
+							{
+								flags |= kFlagUseNormal;
+							}
+							if (batchTransparent.material.metalnessDescIndex != 0)
+							{
+								flags |= kFlagUseMetalTex;
+							}
+							if (batchTransparent.material.roughnessDescIndex != 0)
+							{
+								flags |= kFlagUseRoughTex;
+							}
+							if (batchTransparent.material.aoDescIndex != 0)
+							{
+								flags |= kFlagUseAOTex;
+							}
+							if (batchTransparent.material.emissiveDescIndex != 0)
+							{
+								flags |= kFlagUseEmissiveTex;
+							}
+							if (scene.skyboxDescIndex != 0)
+							{
+								flags |= kFlagUseEnv;
 							}
 
 							PerBatchConstants constants{};

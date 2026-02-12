@@ -9,6 +9,10 @@
     "quad": {
       "path": "models/quad.obj",
       "debugName": "quad.obj"
+    },
+    "seahawk": {
+      "path": "models/Seahawk.obj",
+      "debugName": "Seahawk.obj"
     }
   },
   "textures": {
@@ -22,6 +26,42 @@
       "kind": "cube",
       "source": "cross",
       "cross": "textures/skybox/Cubemap_Sky_03-512x512.png",
+      "srgb": true,
+      "mips": true
+    },
+    "Ship_Albedo": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship_color_4.jpg",
+      "srgb": true,
+      "mips": true
+    },
+    "Ship_Normal": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship_nmap_2_Tris.jpg",
+      "srgb": false,
+      "mips": true
+    },
+    "Ship_Metalness": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship_metalness.jpg",
+      "srgb": false,
+      "mips": true
+    },
+    "Ship_Roughness": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship_rough.jpg",
+      "srgb": false,
+      "mips": true
+    },
+    "Ship_AO": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship Ao_Blender.jpg",
+      "srgb": false,
+      "mips": true
+    },
+    "Ship_Emissive": {
+      "kind": "tex2d",
+      "path": "textures/Intergalactic Spaceship_emi.jpg",
       "srgb": true,
       "mips": true
     }
@@ -84,6 +124,32 @@
         "UseShadow",
         "Transparent"
       ]
+    },
+    "ship": {
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shininess": 64.0,
+      "specStrength": 0.5,
+      "shadowBias": 0.0015,
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "ao": 1.0,
+      "emissiveStrength": 1.0,
+      "flags": [
+        "UseShadow"
+      ],
+      "textures": {
+        "albedo": "Ship_Albedo",
+        "normal": "Ship_Normal",
+        "metalness": "Ship_Metalness",
+        "roughness": "Ship_Roughness",
+        "ao": "Ship_AO",
+        "emissive": "Ship_Emissive"
+      }
     }
   },
   "camera": {
@@ -213,6 +279,30 @@
           4.0,
           4.0,
           4.0
+        ]
+      }
+    },
+    {
+      "name": "Seahawk",
+      "parent": -1,
+      "visible": true,
+      "mesh": "seahawk",
+      "material": "ship",
+      "transform": {
+        "position": [
+          0.0,
+          1.2,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          180.0,
+          0.0
+        ],
+        "scale": [
+          0.02,
+          0.02,
+          0.02
         ]
       }
     },

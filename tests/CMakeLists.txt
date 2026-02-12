@@ -1,7 +1,7 @@
 add_executable(CoreEngineModuleTests
-  TestInputCore.cpp
-  TestControllerBase.cpp
-  TestCameraController.cpp
+  "unit/InputTests/TestInputCore.cpp"
+  "unit/InputTests/TestControllerBase.cpp"
+  "unit/InputTests/TestCameraController.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests

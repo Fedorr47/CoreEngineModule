@@ -16,8 +16,6 @@ using namespace std::string_view_literals;
 
 export namespace mathUtils
 {
-	// Tiny engine-local math layer (GLM-like), to remove the external GLM dependency.
-	//
 	// Conventions are intentionally compatible with the previous GLM usage:
 	//  - Mat4 is COLUMN-major and stores 4 columns (Vec4).
 	//  - Indexing matches GLM: m[col][row].
@@ -32,11 +30,13 @@ export namespace mathUtils
 		float x{ 0 }, y{ 0 };
 
 		constexpr Vec2() = default;
-		constexpr Vec2(float x_, float y_) : x(x_), y(y_) {}
+		constexpr Vec2(float X, float Y) : 
+			x(X),
+			y(Y) {}
 
 		constexpr float& operator[](std::size_t i) noexcept
 		{
-			return (i == 0) ? x : y;
+			return const_cast<float&>(std::as_const(*this)[i]);
 		}
 		constexpr const float& operator[](std::size_t i) const noexcept
 		{
@@ -49,11 +49,11 @@ export namespace mathUtils
 		float x{ 0 }, y{ 0 }, z{ 0 };
 
 		constexpr Vec3() = default;
-		constexpr Vec3(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
+		constexpr Vec3(float X, float Y, float Z) : x(X), y(Y), z(X) {}
 
 		constexpr float& operator[](std::size_t i) noexcept
 		{
-			return (i == 0) ? x : (i == 1) ? y : z;
+			return const_cast<float&>(std::as_const(*this)[i]);
 		}
 		constexpr const float& operator[](std::size_t i) const noexcept
 		{
@@ -71,13 +71,7 @@ export namespace mathUtils
 
 		constexpr float& operator[](std::size_t i) noexcept
 		{
-			switch (i)
-			{
-			case 0: return x;
-			case 1: return y;
-			case 2: return z;
-			default: return w;
-			}
+			return const_cast<float&>(std::as_const(*this)[i]);
 		}
 		constexpr const float& operator[](std::size_t i) const noexcept
 		{
@@ -99,15 +93,15 @@ export namespace mathUtils
 	struct Mat4
 	{
 		// 4 columns
-		Vec4 c[4]{};
+		Vec4 columns[4]{};
 
 		constexpr Mat4() : Mat4(1.0f) {}
 		explicit constexpr Mat4(float diag)
-			: c{ Vec4(diag, 0, 0, 0), Vec4(0, diag, 0, 0), Vec4(0, 0, diag, 0), Vec4(0, 0, 0, diag) }
+			: columns{ Vec4(diag, 0, 0, 0), Vec4(0, diag, 0, 0), Vec4(0, 0, diag, 0), Vec4(0, 0, 0, diag) }
 		{}
 
-		constexpr Vec4& operator[](std::size_t col) noexcept { return c[col]; }
-		constexpr const Vec4& operator[](std::size_t col) const noexcept { return c[col]; }
+		constexpr Vec4& operator[](std::size_t col) noexcept { return columns[col]; }
+		constexpr const Vec4& operator[](std::size_t col) const noexcept { return columns[col]; }
 	};
 
 	// --- basic ops ---
@@ -143,9 +137,7 @@ export namespace mathUtils
 		return v / len;
 	}
 
-	// Compatibility helpers (older code used these names).
 	inline Vec3 Normalize(const Vec3& v) noexcept { return MakeUnitVector(v); }
-	inline Vec3 Sub(const Vec3& a, const Vec3& b) noexcept { return a - b; }
 
 	[[nodiscard]] inline constexpr float DegToRad(float degrees) noexcept
 	{
@@ -159,20 +151,20 @@ export namespace mathUtils
 
 	inline Mat4 Transpose(const Mat4& m) noexcept
 	{
-		Mat4 r(0.0f);
-		for (int c = 0; c < 4; ++c)
+		Mat4 transonsdeMat(0.0f);
+		for (int col = 0; col < 4; ++col)
 		{
 			for (int row = 0; row < 4; ++row)
 			{
-				r[row][c] = m[c][row];
+				transonsdeMat[row][col] = m[col][row];
 			}
 		}
-		return r;
+		return transonsdeMat;
 	}
 
 	inline const float* ValuePtr(const Mat4& m) noexcept
 	{
-		return &m.c[0].x;
+		return &m.columns[0].x;
 	}
 
 	// Matrix * vector (column-vector convention): v' = M * v
@@ -185,33 +177,36 @@ export namespace mathUtils
 
 	inline Mat4 Mul(const Mat4& a, const Mat4& b) noexcept
 	{
-		Mat4 r(0.0f);
+		Mat4 multipliedMat(0.0f);
 		// Each column of result is a * (column of b)
 		for (int col = 0; col < 4; ++col)
 		{
-			r[col] = Mul(a, b[col]);
+			multipliedMat[col] = Mul(a, b[col]);
 		}
-		return r;
+		return multipliedMat;
 	}
-
-	// Operator sugar (keeps calling code close to previous GLM style).
-	//inline Vec4 operator*(const Mat4& m, const Vec4& v) noexcept { return Mul(m, v); }
-	//inline Mat4 operator*(const Mat4& a, const Mat4& b) noexcept { return Mul(a, b); }
 
 	// ------------------------------------------------------------
 	// Frustum culling helpers (RH, clip-space Z in [0..1])
 	// ------------------------------------------------------------
-	enum class FrustumPlane : std::uint32_t { Left = 0, Right, Bottom, Top, Near, Far };
+	enum class FrustumPlane : std::uint32_t 
+	{ 
+		Left = 0, 
+		Right, 
+		Bottom, 
+		Top, 
+		Near, 
+		Far };
 
 	struct Plane
 	{
-		Vec3 n{ 0.0f, 0.0f, 0.0f }; // normalized normal
-		float d{ 0.0f };           // plane: dot(n, x) + d = 0, inside if >= 0
+		Vec3 norm{ 0.0f, 0.0f, 0.0f }; // normalized normal
+		float dist{ 0.0f };           // plane: dot(n, x) + d = 0, inside if >= 0
 	};
 
 	inline float Distance(const Plane& p, const Vec3& x) noexcept
 	{
-		return Dot(p.n, x) + p.d;
+		return Dot(p.norm, x) + p.dist;
 	}
 
 	struct Frustum
@@ -230,8 +225,8 @@ export namespace mathUtils
 		const float len = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
 		if (len > 0.0f)
 		{
-			out.n = Vec3(p.x / len, p.y / len, p.z / len);
-			out.d = p.w / len;
+			out.norm = Vec3(p.x / len, p.y / len, p.z / len);
+			out.dist = p.w / len;
 		}
 		return out;
 	}
@@ -247,21 +242,21 @@ export namespace mathUtils
 		const Vec4 r2 = Row(viewProj, 2);
 		const Vec4 r3 = Row(viewProj, 3);
 
-		Frustum f{};
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Left)]   = NormalizePlane(r3 + r0);
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Right)]  = NormalizePlane(r3 - r0);
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Top)]    = NormalizePlane(r3 - r1);
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Near)]   = NormalizePlane(r2);
-		f.planes[static_cast<std::uint32_t>(FrustumPlane::Far)]    = NormalizePlane(r3 - r2);
-		return f;
+		Frustum fruustrum{};
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Left)]   = NormalizePlane(r3 + r0);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Right)]  = NormalizePlane(r3 - r0);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Top)]    = NormalizePlane(r3 - r1);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Near)]   = NormalizePlane(r2);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Far)]    = NormalizePlane(r3 - r2);
+		return fruustrum;
 	}
 
-	inline bool IntersectsSphere(const Frustum& fr, const Vec3& center, float radius) noexcept
+	inline bool IntersectsSphere(const Frustum& frustrum, const Vec3& center, float radius) noexcept
 	{
-		for (const Plane& p : fr.planes)
+		for (const Plane& plane : frustrum.planes)
 		{
-			if (Distance(p, center) < -radius)
+			if (Distance(plane, center) < -radius)
 			{
 				return false;
 			}
@@ -274,7 +269,6 @@ export namespace mathUtils
 	// --- GLM-compatible transforms (column-major, post-multiply by transform) ---
 	inline Mat4 Translate(const Mat4& m, const Vec3& v) noexcept
 	{
-		// GLM ext/matrix_transform.inl translate()
 		Mat4 Result = m;
 		Result[3] = m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
 		return Result;
@@ -282,7 +276,6 @@ export namespace mathUtils
 
 	inline Mat4 Scale(const Mat4& m, const Vec3& v) noexcept
 	{
-		// GLM ext/matrix_transform.inl scale()
 		Mat4 Result(0.0f);
 		Result[0] = m[0] * v.x;
 		Result[1] = m[1] * v.y;
@@ -293,24 +286,23 @@ export namespace mathUtils
 
 	inline Mat4 Rotate(const Mat4& m, float angleRad, const Vec3& axisIn) noexcept
 	{
-		// GLM ext/matrix_transform.inl rotate()
-		const float c = std::cos(angleRad);
-		const float s = std::sin(angleRad);
+		const float cosAngle = std::cos(angleRad);
+		const float sinAngle = std::sin(angleRad);
 		const Vec3 axis = MakeUnitVector(axisIn);
-		const Vec3 temp = (1.0f - c) * axis;
+		const Vec3 temp = (1.0f - cosAngle) * axis;
 
 		Mat4 RotateM(1.0f);
-		RotateM[0][0] = c + temp.x * axis.x;
-		RotateM[0][1] = temp.x * axis.y + s * axis.z;
-		RotateM[0][2] = temp.x * axis.z - s * axis.y;
+		RotateM[0][0] = cosAngle + temp.x * axis.x;
+		RotateM[0][1] = temp.x * axis.y + sinAngle * axis.z;
+		RotateM[0][2] = temp.x * axis.z - sinAngle * axis.y;
 
-		RotateM[1][0] = temp.y * axis.x - s * axis.z;
-		RotateM[1][1] = c + temp.y * axis.y;
-		RotateM[1][2] = temp.y * axis.z + s * axis.x;
+		RotateM[1][0] = temp.y * axis.x - sinAngle * axis.z;
+		RotateM[1][1] = cosAngle + temp.y * axis.y;
+		RotateM[1][2] = temp.y * axis.z + sinAngle * axis.x;
 
-		RotateM[2][0] = temp.z * axis.x + s * axis.y;
-		RotateM[2][1] = temp.z * axis.y - s * axis.x;
-		RotateM[2][2] = c + temp.z * axis.z;
+		RotateM[2][0] = temp.z * axis.x + sinAngle * axis.y;
+		RotateM[2][1] = temp.z * axis.y - sinAngle * axis.x;
+		RotateM[2][2] = cosAngle + temp.z * axis.z;
 
 		Mat4 Result(0.0f);
 		Result[0] = m[0] * RotateM[0][0] + m[1] * RotateM[0][1] + m[2] * RotateM[0][2];
@@ -322,7 +314,6 @@ export namespace mathUtils
 
 	inline Mat4 LookAtRH(const Vec3& eye, const Vec3& center, const Vec3& up) noexcept
 	{
-		// GLM ext/matrix_transform.inl lookAtRH()
 		const Vec3 f = MakeUnitVector(center - eye);
 		const Vec3 s = MakeUnitVector(Cross(f, up));
 		const Vec3 u = Cross(s, f);
@@ -351,7 +342,6 @@ export namespace mathUtils
 
 	inline Mat4 OrthoRH_ZO(float left, float right, float bottom, float top, float zNear, float zFar) noexcept
 	{
-		// GLM ext/matrix_clip_space.inl orthoRH_ZO()
 		Mat4 Result(1.0f);
 		Result[0][0] = 2.0f / (right - left);
 		Result[1][1] = 2.0f / (top - bottom);
@@ -364,7 +354,6 @@ export namespace mathUtils
 
 	inline Mat4 PerspectiveRH_ZO(float fovy, float aspect, float zNear, float zFar) noexcept
 	{
-		// GLM ext/matrix_clip_space.inl perspectiveRH_ZO()
 		const float tanHalfFovy = std::tan(fovy * 0.5f);
 		Mat4 Result(0.0f);
 		Result[0][0] = 1.0f / (aspect * tanHalfFovy);
