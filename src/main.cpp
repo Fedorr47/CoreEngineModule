@@ -31,23 +31,24 @@ namespace
     };
 
     // Global pointers used by Win32 WndProc (kept minimal and explicit)
-    Win32Window* g_window = nullptr;
+    Win32Window* g_window = nullptr; // main window
     rendern::Win32Input* g_input = nullptr;
 
 #if defined(CORE_USE_DX12)
-    bool g_showUI = true;
+    Win32Window* g_debugWindow = nullptr;
+    bool g_showDebugWindow = true;
     bool g_imguiInitialized = false;
 #endif
 
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
-        if (g_input)
+        if (g_input && g_window && hwnd == g_window->hwnd)
         {
             g_input->OnWndProc(hwnd, msg, wParam, lParam);
         }
 
 #if defined(CORE_USE_DX12)
-        if (g_imguiInitialized)
+        if (g_imguiInitialized && g_debugWindow && hwnd == g_debugWindow->hwnd)
         {
             if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
             {
@@ -59,22 +60,34 @@ namespace
         switch (msg)
         {
         case WM_CLOSE:
+            #if defined(CORE_USE_DX12)
+            if (g_debugWindow && hwnd == g_debugWindow->hwnd)
+            {
+                ShowWindow(hwnd, SW_HIDE);
+                g_showDebugWindow = false;
+                return 0;
+            }
+            #endif
+
             DestroyWindow(hwnd);
             return 0;
 
         case WM_DESTROY:
-            if (g_window)
+            if (g_window && hwnd == g_window->hwnd)
             {
                 g_window->running = false;
+                PostQuitMessage(0);
             }
-            PostQuitMessage(0);
             return 0;
 
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
             {
-                DestroyWindow(hwnd);
-                return 0;
+                if (g_window && hwnd == g_window->hwnd)
+                {
+                    DestroyWindow(hwnd);
+                    return 0;
+                }
             }
 #if defined(CORE_USE_DX12)
             if (wParam == VK_F1)
@@ -82,7 +95,15 @@ namespace
                 const bool wasDown = (lParam & (1 << 30)) != 0;
                 if (!wasDown)
                 {
-                    g_showUI = !g_showUI;
+                    g_showDebugWindow = !g_showDebugWindow;
+                    if (g_debugWindow && g_debugWindow->hwnd)
+                    {
+                        ShowWindow(g_debugWindow->hwnd, g_showDebugWindow ? SW_SHOW : SW_HIDE);
+                        if (g_showDebugWindow)
+                        {
+                            SetForegroundWindow(g_debugWindow->hwnd);
+                        }
+                    }
                 }
                 return 0;
             }
@@ -96,7 +117,7 @@ namespace
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
 
-    Win32Window CreateWindowWin32(int width, int height, const std::wstring& title)
+    Win32Window CreateWindowWin32(int width, int height, const std::wstring& title, bool show = true)
     {
         Win32Window window{};
         window.width = width;
@@ -148,7 +169,7 @@ namespace
             throw std::runtime_error("CreateWindowExW failed");
         }
 
-        ShowWindow(window.hwnd, SW_SHOW);
+        ShowWindow(window.hwnd, show ? SW_SHOW : SW_HIDE);
         UpdateWindow(window.hwnd);
         return window;
     }
@@ -292,7 +313,12 @@ namespace
 
     const void* BuildImGuiFrameIfEnabled(rhi::IRHIDevice& device, rendern::RendererSettings& settings, rendern::Scene& scene, rendern::CameraController& cameraController, rendern::LevelAsset& levelAsset, rendern::LevelInstance& levelInstance, AssetManager& assets)
     {
-        if (!g_imguiInitialized)
+        if (!g_imguiInitialized || !g_showDebugWindow || !g_debugWindow || !g_debugWindow->hwnd)
+        {
+            return nullptr;
+        }
+
+        if (!IsWindowVisible(g_debugWindow->hwnd))
         {
             return nullptr;
         }
@@ -301,32 +327,59 @@ namespace
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        if (g_showUI)
-        {
-            rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
-            rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
-        }
+        rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
+        rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
 
         ImGui::Render();
 
-        if (g_showUI)
-        {
-            return static_cast<const void*>(ImGui::GetDrawData());
-        }
-
-        return nullptr;
+        return static_cast<const void*>(ImGui::GetDrawData());
     }
 
     rendern::InputCapture GetInputCaptureForImGui()
     {
         rendern::InputCapture capture{};
-        if (g_imguiInitialized && g_showUI)
+        if (g_imguiInitialized && g_showDebugWindow && g_debugWindow && g_debugWindow->hwnd)
         {
-            const ImGuiIO& io = ImGui::GetIO();
-            capture.captureKeyboard = io.WantCaptureKeyboard;
-            capture.captureMouse = io.WantCaptureMouse;
+            if (IsWindowVisible(g_debugWindow->hwnd) && GetForegroundWindow() == g_debugWindow->hwnd)
+            {
+                const ImGuiIO& io = ImGui::GetIO();
+                capture.captureKeyboard = io.WantCaptureKeyboard;
+                capture.captureMouse = io.WantCaptureMouse;
+            }
         }
         return capture;
+    }
+
+    void RenderImGuiToSwapChainIfEnabled(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData)
+    {
+        if (!imguiDrawData || !g_imguiInitialized || !g_showDebugWindow || !g_debugWindow || !g_debugWindow->hwnd)
+        {
+            return;
+        }
+        if (!IsWindowVisible(g_debugWindow->hwnd))
+        {
+            return;
+        }
+
+        const rhi::Extent2D extent = swapChain.GetDesc().extent;
+
+        rhi::CommandList cmd{};
+
+        rhi::BeginPassDesc begin{};
+        begin.frameBuffer = swapChain.GetCurrentBackBuffer();
+        begin.extent = extent;
+        begin.swapChain = &swapChain;
+        begin.clearDesc.clearColor = true;
+        begin.clearDesc.clearDepth = false;
+        begin.clearDesc.color = { 0.08f, 0.08f, 0.08f, 1.0f };
+
+        cmd.BeginPass(begin);
+        cmd.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+        cmd.DX12ImGuiRender(imguiDrawData);
+        cmd.EndPass();
+
+        device.SubmitCommandList(std::move(cmd));
+        swapChain.Present();
     }
 #else
     const void* BuildImGuiFrameIfEnabled(rhi::IRHIDevice&, rendern::RendererSettings&, rendern::Scene&, rendern::CameraController&, rendern::LevelAsset&, rendern::LevelInstance&, AssetManager&)
@@ -515,12 +568,36 @@ int main(int argc, char** argv)
         Win32Window window = CreateWindowWin32(config.windowWidth, config.windowHeight, config.windowTitle);
         g_window = &window;
 
+#if defined(CORE_USE_DX12)
+        Win32Window debugWindow{};
+        std::unique_ptr<rhi::IRHISwapChain> debugSwapChain;
+        if (requestedBackend == rhi::Backend::DirectX12)
+        {
+            debugWindow = CreateWindowWin32(900, 900, L"CoreEngineModule - Debug UI", /*show=*/true);
+            g_debugWindow = &debugWindow;
+        }
+#endif
+
         rendern::Win32Input win32Input{};
         g_input = &win32Input;
 
         std::unique_ptr<rhi::IRHIDevice> device;
         std::unique_ptr<rhi::IRHISwapChain> swapChain;
         CreateDeviceAndSwapChain(requestedBackend, window.hwnd, config.windowWidth, config.windowHeight, device, swapChain);
+
+#if defined(CORE_USE_DX12)
+        if (requestedBackend == rhi::Backend::DirectX12)
+        {
+            rhi::DX12SwapChainDesc debugSwapChainDesc{};
+            debugSwapChainDesc.hwnd = debugWindow.hwnd;
+            debugSwapChainDesc.bufferCount = 2;
+            debugSwapChainDesc.base.extent = rhi::Extent2D{ 900u, 900u };
+            debugSwapChainDesc.base.backbufferFormat = rhi::Format::BGRA8_UNORM;
+            debugSwapChainDesc.base.vsync = false;
+
+            debugSwapChain = rhi::CreateDX12SwapChain(*device, debugSwapChainDesc);
+        }
+#endif
 
         // Asset/Resource system: CPU decode on job system, GPU upload on render queue.
         StbTextureDecoder textureDecoder{};
@@ -543,7 +620,10 @@ int main(int argc, char** argv)
         rendern::Renderer renderer{ *device, rendererSettings };
 
 #if defined(CORE_USE_DX12)
-        InitializeImGui(window.hwnd, *device, swapChain->GetDesc().backbufferFormat, /*backbufferCount=*/2);
+        if (requestedBackend == rhi::Backend::DirectX12 && debugSwapChain && debugWindow.hwnd)
+        {
+            InitializeImGui(debugWindow.hwnd, *device, debugSwapChain->GetDesc().backbufferFormat, /*backbufferCount=*/2);
+        }
 #endif
 
         // Scene
@@ -594,11 +674,19 @@ int main(int argc, char** argv)
             win32Input.NewFrame(window.hwnd);
             cameraController.Update(deltaSeconds, win32Input.State(), scene.camera);
 
-            // ImGui (optional)
+            // ImGui (optional) - rendered into a separate debug window swapchain
             const void* imguiDrawData = BuildImGuiFrameIfEnabled(*device, rendererSettings, scene, cameraController, levelAsset, levelInstance, assets);
-// Render
+
+            // Render main scene (no UI overlay)
             renderer.SetSettings(rendererSettings);
-            renderer.RenderFrame(*swapChain, scene, imguiDrawData);
+            renderer.RenderFrame(*swapChain, scene, /*imguiDrawData=*/nullptr);
+
+#if defined(CORE_USE_DX12)
+            if (debugSwapChain)
+            {
+                RenderImGuiToSwapChainIfEnabled(*device, *debugSwapChain, imguiDrawData);
+            }
+#endif
 
             TinySleep();
         }
@@ -622,6 +710,15 @@ int main(int argc, char** argv)
             DestroyWindow(window.hwnd);
             window.hwnd = nullptr;
         }
+
+#if defined(CORE_USE_DX12)
+        if (debugWindow.hwnd)
+        {
+            DestroyWindow(debugWindow.hwnd);
+            debugWindow.hwnd = nullptr;
+        }
+        g_debugWindow = nullptr;
+#endif
 
         g_window = nullptr;
         g_input = nullptr;

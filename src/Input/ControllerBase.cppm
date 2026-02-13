@@ -20,9 +20,13 @@ export namespace rendern
         bool CanUpdate(const InputState& input) const noexcept
         {
             if (!enabled_)
+            {
                 return false;
+            }
             if (requireFocus_ && !input.hasFocus)
+            {    
                 return false;
+            }
             return true;
         }
 

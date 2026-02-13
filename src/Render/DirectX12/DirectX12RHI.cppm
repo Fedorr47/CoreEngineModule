@@ -486,11 +486,6 @@ export namespace rhi
             return textureHandle;
         }
 
-        void SetSwapChain(DX12SwapChain* swapChain)
-        {
-            swapChain_ = swapChain;
-        }
-
         std::string_view GetName() const override
         {
             return "DirectX12 RHI";
@@ -869,8 +864,8 @@ export namespace rhi
             if (end > entry.desc.sizeInBytes)
                 throw std::runtime_error("DX12: UpdateBuffer out of bounds");
 
-            // If swapchain not set yet → blocking upload.
-            if (!swapChain_)
+            // If we haven't submitted anything yet, it's safe to do a blocking upload.
+            if (!hasSubmitted_)
             {
                 ImmediateUploadBuffer(entry, data, offsetBytes);
                 return;
@@ -908,14 +903,14 @@ export namespace rhi
                     pendingBufferUpdates_.end());
             }
 
-            if (entry.resource && swapChain_)
+            if (entry.resource && hasSubmitted_)
             {
                 CurrentFrame().deferredResources.push_back(std::move(entry.resource));
             }
 
             if (entry.hasSRV && entry.srvIndex != 0)
             {
-                if (swapChain_)
+                if (hasSubmitted_)
                 {
                     CurrentFrame().deferredFreeSrv.push_back(entry.srvIndex);
                 }
@@ -1046,13 +1041,11 @@ export namespace rhi
         // ---------------- Submission ----------------
         void SubmitCommandList(CommandList&& commandList) override
         {
-            if (!swapChain_)
-            {
-                throw std::runtime_error("DX12: swapchain is not set on device (CreateDX12SwapChain must set it).");
-            }
-
             // Begin frame: wait/recycle per-frame stuff + reset allocator/list
             BeginFrame();
+            hasSubmitted_ = true;
+
+            hasSubmitted_ = true;
 
             // Set descriptor heaps (SRV)
             ID3D12DescriptorHeap* heaps[] = { NativeSRVHeap() };
@@ -1179,11 +1172,12 @@ export namespace rhi
 
 
 
-            UINT curNumRT = 1;
+            UINT curNumRT = 0;
             std::array<DXGI_FORMAT, 8> curRTVFormats{};
-            curRTVFormats[0] = swapChain_->BackBufferFormat();
-            DXGI_FORMAT curDSVFormat = swapChain_->DepthFormat();
+            std::fill(curRTVFormats.begin(), curRTVFormats.end(), DXGI_FORMAT_UNKNOWN);
+            DXGI_FORMAT curDSVFormat = DXGI_FORMAT_UNKNOWN;
             bool curPassIsSwapChain = false;
+            DX12SwapChain* curSwapChain = nullptr;
 
             auto Barrier = [&](ID3D12Resource* res, D3D12_RESOURCE_STATES& curState, D3D12_RESOURCE_STATES desired)
                 {
@@ -1221,9 +1215,9 @@ export namespace rhi
                     Barrier(it->second.resource.Get(), it->second.state, desired);
                 };
 
-            auto TransitionBackBuffer = [&](D3D12_RESOURCE_STATES desired)
+            auto TransitionBackBuffer = [&](DX12SwapChain& sc, D3D12_RESOURCE_STATES desired)
                 {
-                    Barrier(swapChain_->CurrentBackBuffer(), swapChain_->CurrentBackBufferState(), desired);
+                    Barrier(sc.CurrentBackBuffer(), sc.CurrentBackBufferState(), desired);
                 };
 
             auto EnsurePSO = [&](PipelineHandle pipelineHandle, InputLayoutHandle layout) -> ID3D12PipelineState*
@@ -1379,20 +1373,29 @@ export namespace rhi
 
                             if (pass.frameBuffer.id == 0)
                             {
-                                if (!swapChain_)
-                                    throw std::runtime_error("DX12: CommandBeginPass: swapChain is null");
+                                if (!pass.swapChain)
+                                {
+                                    throw std::runtime_error("DX12: CommandBeginPass: pass.swapChain is null (frameBuffer.id == 0)");
+                                }
 
-                                TransitionBackBuffer(D3D12_RESOURCE_STATE_RENDER_TARGET);
+                                auto* sc = dynamic_cast<DX12SwapChain*>(pass.swapChain);
+                                if (!sc)
+                                {
+                                    throw std::runtime_error("DX12: CommandBeginPass: pass.swapChain is not DX12SwapChain");
+                                }
 
-                                rtvs[0] = swapChain_->CurrentRTV();
+                                curSwapChain = sc;
+                                TransitionBackBuffer(*sc, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+                                rtvs[0] = sc->CurrentRTV();
                                 numRT = 1;
 
                                 curNumRT = numRT;
-                                curRTVFormats[0] = swapChain_->BackBufferFormat();
+                                curRTVFormats[0] = sc->BackBufferFormat();
 
-                                dsv = swapChain_->DSV();
+                                dsv = sc->DSV();
                                 hasDSV = (dsv.ptr != 0);
-                                curDSVFormat = swapChain_->DepthFormat();
+                                curDSVFormat = sc->DepthFormat();
 
                                 const D3D12_CPU_DESCRIPTOR_HANDLE* rtvPtr = rtvs.data();
                                 const D3D12_CPU_DESCRIPTOR_HANDLE* dsvPtr = hasDSV ? &dsv : nullptr;
@@ -1486,6 +1489,7 @@ export namespace rhi
                                 }
 
                                 curPassIsSwapChain = false;
+                                curSwapChain = nullptr;
 
                                 curNumRT = numRT;
 
@@ -1514,7 +1518,11 @@ export namespace rhi
                         {
                             if (curPassIsSwapChain)
                             {
-                                TransitionBackBuffer(D3D12_RESOURCE_STATE_PRESENT);
+                                if (!curSwapChain)
+                                {
+                                    throw std::runtime_error("DX12: CommandEndPass: curSwapChain is null");
+                                }
+                                TransitionBackBuffer(*curSwapChain, D3D12_RESOURCE_STATE_PRESENT);
                             }
                         }
                         else if constexpr (std::is_same_v<T, CommandSetViewport>)
@@ -2195,8 +2203,8 @@ export namespace rhi
 
         void BeginFrame()
         {
-            const std::uint32_t swapIdx = static_cast<std::uint32_t>(swapChain_->FrameIndex());
-            activeFrameIndex_ = swapIdx % kFramesInFlight;
+            activeFrameIndex_ = static_cast<std::uint32_t>(submitIndex_ % kFramesInFlight);
+            ++submitIndex_;
 
             FrameResource& fr = frames_[activeFrameIndex_];
 
@@ -2627,6 +2635,10 @@ export namespace rhi
         std::array<FrameResource, kFramesInFlight> frames_{};
         std::uint32_t activeFrameIndex_{ 0 };
 
+        // Submission tracking (decoupled from any particular swapchain)
+        std::uint64_t submitIndex_{ 0 };
+        bool hasSubmitted_{ false };
+
         ComPtr<ID3D12GraphicsCommandList> cmdList_;
 
         ComPtr<ID3D12Fence> fence_;
@@ -2656,8 +2668,7 @@ export namespace rhi
         std::vector<UINT> freeRTV_;
         std::vector<UINT> freeDSV_;
 
-        // Pointers
-        DX12SwapChain* swapChain_{ nullptr };
+
 
         // Resource tables
         std::uint32_t nextBufId_{ 1 };
@@ -2840,7 +2851,6 @@ export namespace rhi
         }
 
         auto swapChainDesc = std::make_unique<DX12SwapChain>(*dxDev, std::move(desc));
-        dxDev->SetSwapChain(swapChainDesc.get());
         return swapChainDesc;
     }
 

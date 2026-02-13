@@ -181,6 +181,7 @@ struct RGTextureDesc
 				begin.frameBuffer = frameBuffer;
 				begin.extent = passExtent;
 				begin.clearDesc = pass.attachments.clearDesc;
+				begin.swapChain = pass.attachments.useSwapChainBackbuffer ? &swapChain : nullptr;
 
 				commandList.BeginPass(begin);
 

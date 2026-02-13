@@ -198,10 +198,14 @@ export namespace rhi
 		float depth{ 1.0f };
 	};
 
+	class IRHISwapChain;
+
 	struct BeginPassDesc {
 		FrameBufferHandle frameBuffer{};
 		Extent2D extent{};
 		ClearDesc clearDesc{};
+		// Optional: when frameBuffer.id == 0 (swapchain backbuffer), this selects which swapchain.
+		IRHISwapChain* swapChain{ nullptr };
 	};
 
 	struct InputLayoutDesc

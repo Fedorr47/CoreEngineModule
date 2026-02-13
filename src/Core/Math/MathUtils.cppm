@@ -140,7 +140,7 @@ export namespace mathUtils
 
 	inline float Dot(const Vec2& a, const Vec2& b) noexcept { return a.x * b.x + a.y * b.y; }
 	inline float Dot(const Vec3& a, const Vec3& b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z; }
-	inline Vec3 Cross2(const Vec2& a, const Vec2& b) noexcept { return Vec3(0,0,a.x * b.y - a.y * b.y); }
+	inline Vec3 Cross2(const Vec2& a, const Vec2& b) noexcept { return Vec3(0,0,a.x * b.y - a.y * b.x); }
 	inline Vec3 Cross(const Vec3& a, const Vec3& b) noexcept
 	{
 		return Vec3(

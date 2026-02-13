@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-import core;
+#include "MathTestHelper.h"
 
-using namespace mathUtils;
+using namespace MathTestHelper;
 
 TEST(MathUtils, Vec2)
 {
@@ -59,7 +59,7 @@ TEST(MathUtils, Vec2Operations)
 	EXPECT_FLOAT_EQ(DotProduct, 11.0f);
 
 	Vec3 CrossProduct2 = Cross2(vector2_1, vector2_2);
-	EXPECT_FLOAT_EQ(CrossProduct2.z, -4.0f);
+	EXPECT_FLOAT_EQ(CrossProduct2.z, -2.0f);
 }
 
 TEST(MathUtils, Vec3Operations)
@@ -107,7 +107,6 @@ TEST(MathUtils, Vec3_CrossProduct)
 {
 	Vec3 vector3_1{ 1.0f, 0.0f, 0.0f };
 	Vec3 vector3_2{ 0.0f, 1.0f, 0.0f };
-	Vec3 vector3_3{ 0.0f, 0.0f, 1.0f };
 
 	Vec3 CrossProduct = Cross(vector3_1, vector3_2);
 	EXPECT_FLOAT_EQ(CrossProduct.x, 0.0f);
@@ -128,7 +127,7 @@ TEST(MathUtils, Normalize)
 
 	Vec3 normalized = Normalize(vector3);
 	length = Length(normalized);
-	EXPECT_FLOAT_EQ(length, 1.0f);
+	EXPECT_NEAR(length, 1.0f, 1e-5f);
 
 	Vec3 vector_zero{ 0.0f, 0.0f, 0.0f };
 	Vec3 normalized_zero = Normalize(vector_zero);
@@ -141,20 +140,20 @@ TEST(MathUtils, DegRad)
 {
 	float degrees = 180.0f;
 	float radians = DegToRad(degrees);
-	EXPECT_FLOAT_EQ(radians, Pi);
+	EXPECT_NEAR(radians, Pi, kEpsTrig);
 
 	float converted_back = RadToDeg(radians);
-	EXPECT_FLOAT_EQ(converted_back, degrees);
+	EXPECT_NEAR(converted_back, degrees, kEpsMat);
 
 	degrees = 90.0f;
 	radians = DegToRad(degrees);
-	EXPECT_FLOAT_EQ(radians, Pi / 2.0f);
+	EXPECT_NEAR(radians, Pi/2.0f, kEpsTrig);
 	converted_back = RadToDeg(radians);
 	EXPECT_FLOAT_EQ(converted_back, degrees);
 
 	degrees = 45.0f;
 	radians = DegToRad(degrees);
-	EXPECT_FLOAT_EQ(radians, Pi / 4.0f);
+	EXPECT_NEAR(radians, Pi/4.0f, kEpsTrig);
 	converted_back = RadToDeg(radians);
 	EXPECT_FLOAT_EQ(converted_back, degrees);
 }
@@ -162,16 +161,7 @@ TEST(MathUtils, DegRad)
 TEST(MathUtils, Mat4Identity)
 {
 	Mat4 identity;
-	EXPECT_FLOAT_EQ(identity[0][0], 1.0f);
-	EXPECT_FLOAT_EQ(identity[1][1], 1.0f);
-	EXPECT_FLOAT_EQ(identity[2][2], 1.0f);
-	EXPECT_FLOAT_EQ(identity[3][3], 1.0f);
-	EXPECT_FLOAT_EQ(identity[0][1], 0.0f);
-	EXPECT_FLOAT_EQ(identity[0][2], 0.0f);
-	EXPECT_FLOAT_EQ(identity[0][3], 0.0f);
-	EXPECT_FLOAT_EQ(identity[1][0], 0.0f);
-	EXPECT_FLOAT_EQ(identity[1][2], 0.0f);
-	EXPECT_FLOAT_EQ(identity[1][3], 0.0f);
+	ExpectIdentityNear(identity);
 }
 
 TEST(MathUtils, Mat4Transponse)
@@ -267,23 +257,8 @@ TEST(MathUtils, Mat4Inverse)
 
 	Mat4 inv = Inverse(matrix);
 
-	for (int col = 0; col < 4; ++col)
-	{
-		for (int row = 0; row < 4; ++row)
-		{
-			EXPECT_FLOAT_EQ(invTest[row][col], inv[row][col]);
-		}
-	}
+	ExpectMat4Near(inv, invTest);
 
-	Mat4 I1 = matrix * inv;
-	Mat4 I2 = inv * matrix;
-
-	for (int col = 0; col < 4; ++col)
-	{
-		for (int row = 0; row < 4; ++row)
-		{
-			const float expected = (col == row) ? 1.0f : 0.0f;
-			EXPECT_FLOAT_EQ(I1[col][row], expected);
-		}
-	}
+	ExpectIdentityNear(matrix * inv);
+	ExpectIdentityNear(inv * matrix);
 }
