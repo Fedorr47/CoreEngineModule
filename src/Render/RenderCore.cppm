@@ -154,16 +154,20 @@ export namespace rendern
 	public:
 		explicit PSOCache(rhi::IRHIDevice& device) : device_(device) {}
 
-		rhi::PipelineHandle GetOrCreate(std::string_view name, rhi::ShaderHandle vertexShader, rhi::ShaderHandle fragmentShader)
+		rhi::PipelineHandle GetOrCreate(
+			std::string_view name,
+			rhi::ShaderHandle vertexShader,
+			rhi::ShaderHandle fragmentShader,
+			rhi::PrimitiveTopologyType topologyType = rhi::PrimitiveTopologyType::Triangle)
 		{
-			const std::string key = std::string(name) + "_" + std::to_string(vertexShader.id) + "_" + std::to_string(fragmentShader.id);
+			const std::string key = std::string(name) + "_" + std::to_string(vertexShader.id) + "_" + std::to_string(fragmentShader.id) + "_" + std::to_string(static_cast<std::uint32_t>(topologyType));
 
 			if (auto it = psoCache_.find(key); it != psoCache_.end())
 			{
 				return it->second;
 			}
 
-			rhi::PipelineHandle pipeline = device_.CreatePipeline(name, vertexShader, fragmentShader);
+			rhi::PipelineHandle pipeline = device_.CreatePipeline(name, vertexShader, fragmentShader, topologyType);
 			psoCache_.emplace(key, pipeline);
 			return pipeline;
 		}

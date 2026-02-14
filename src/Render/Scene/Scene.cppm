@@ -81,6 +81,16 @@ export namespace rendern
 		float attQuadratic{ 0.04f };
 	};
 
+	// Debug visualization data (runtime-only).
+	struct DebugRay
+	{
+		bool enabled{ false };
+		mathUtils::Vec3 origin{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 direction{ 0.0f, 0.0f, 1.0f }; // should be normalized
+		float length{ 0.0f };
+		bool hit{ false };
+	};
+
 	struct MaterialParams
 	{
 		mathUtils::Vec4 baseColor{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -183,11 +193,15 @@ export namespace rendern
 
 		rhi::TextureDescIndex skyboxDescIndex{ 0 };
 
+		DebugRay debugPickRay{};
+
 		void Clear()
 		{
 			drawItems.clear();
 			lights.clear();
 			skyboxDescIndex = 0;
+			debugPickRay = {};
+
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

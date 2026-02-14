@@ -119,6 +119,30 @@ D3D12_COMPARISON_FUNC ToD3DCompare(rhi::CompareOp compareOp)
     }
 }
 
+D3D12_PRIMITIVE_TOPOLOGY_TYPE ToD3DTopologyType(rhi::PrimitiveTopologyType topologyType)
+{
+    switch (topologyType)
+    {
+    case rhi::PrimitiveTopologyType::Line:
+        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+    case rhi::PrimitiveTopologyType::Triangle:
+    default:
+        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    }
+}
+
+D3D_PRIMITIVE_TOPOLOGY ToD3DTopology(rhi::PrimitiveTopology topology)
+{
+    switch (topology)
+    {
+    case rhi::PrimitiveTopology::LineList:
+        return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+    case rhi::PrimitiveTopology::TriangleList:
+    default:
+        return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    }
+}
+
 D3D12_CULL_MODE ToD3DCull(rhi::CullMode cullMode)
 {
     switch (cullMode)
@@ -190,6 +214,7 @@ export namespace rhi
         SwapChainDesc GetDesc() const override;
         FrameBufferHandle GetCurrentBackBuffer() const override;
         void Present() override;
+        void Resize(Extent2D newExtent) override;
 
         std::uint32_t FrameIndex() const noexcept { return static_cast<std::uint32_t>(currBackBuffer_); }
 
@@ -536,6 +561,9 @@ export namespace rhi
                 imguiInitialized_ = false;
             }
         }
+
+        void WaitIdle() override { FlushGPU(); }
+
         Backend GetBackend() const noexcept override
         {
             return Backend::DirectX12;
@@ -1021,7 +1049,7 @@ export namespace rhi
             shaders_.erase(shader.id);
         }
 
-        PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) override
+        PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader, PrimitiveTopologyType topologyType) override
         {
             PipelineHandle handle{ ++nextPsoId_ };
             PipelineEntry pipelineEntry{};
@@ -1058,6 +1086,7 @@ export namespace rhi
             PipelineHandle curPipe{};
 
             InputLayoutHandle curLayout{};
+            D3D_PRIMITIVE_TOPOLOGY currentTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
             static constexpr std::uint32_t kMaxVBSlots = 2;
             std::array<BufferHandle, kMaxVBSlots> vertexBuffers{};
             std::array<std::uint32_t, kMaxVBSlots> vbStrides{};
@@ -1330,7 +1359,7 @@ export namespace rhi
                     pipelineDesc.DepthStencilState.DepthFunc = ToD3DCompare(curState.depth.depthCompareOp);
 
                     pipelineDesc.InputLayout = { layIt->second.elems.data(), static_cast<UINT>(layIt->second.elems.size()) };
-                    pipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+                    pipelineDesc.PrimitiveTopologyType = ToD3DTopologyType(pit->second.topologyType);
 
                     pipelineDesc.NumRenderTargets = curNumRT;
                     for (UINT i = 0; i < curNumRT; ++i)
@@ -1547,6 +1576,10 @@ export namespace rhi
                         {
                             curState = cmd.state;
                         }
+                        else if constexpr (std::is_same_v<T, CommandSetPrimitiveTopology>)
+                        {
+                            currentTopology = ToD3DTopology(cmd.topology);
+                        }
                         else if constexpr (std::is_same_v<T, CommandBindPipeline>)
                         {
                             curPipe = cmd.pso;
@@ -1696,7 +1729,7 @@ export namespace rhi
                                 vbv[s].StrideInBytes = vbStrides[s];
                             }
                             cmdList_->IASetVertexBuffers(0, numVB, vbv.data());
-                            cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                            cmdList_->IASetPrimitiveTopology(currentTopology);
 
                             if (indexBuffer)
                             {
@@ -1767,7 +1800,7 @@ export namespace rhi
                                 vbv[s].StrideInBytes = vbStrides[s];
                             }
                             cmdList_->IASetVertexBuffers(0, numVB, vbv.data());
-                            cmdList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                            cmdList_->IASetPrimitiveTopology(currentTopology);
 
                             WriteCBAndBind();
 
@@ -1937,6 +1970,7 @@ export namespace rhi
             std::string debugName;
             ShaderHandle vs{};
             ShaderHandle ps{};
+			PrimitiveTopologyType topologyType{};
         };
 
         struct TextureEntry
@@ -2822,6 +2856,102 @@ export namespace rhi
     {
         // similar to GL: 0 stands to swapchain backbuffer
         return FrameBufferHandle{ 0 };
+    }
+
+    
+
+    void DX12SwapChain::Resize(Extent2D newExtent)
+    {
+        // NOTE: ResizeBuffers requires that all references to the swapchain buffers are released.
+        if (newExtent.width == 0 || newExtent.height == 0)
+        {
+            // Minimized / hidden. Keep desc in sync, but don't touch DXGI buffers.
+            chainSwapDesc_.base.extent = newExtent;
+            return;
+        }
+
+        if (newExtent.width == chainSwapDesc_.base.extent.width && newExtent.height == chainSwapDesc_.base.extent.height)
+        {
+            return;
+        }
+
+        // Make sure GPU is not using the current backbuffers/depth.
+        device_.WaitIdle();
+
+        // Release current backbuffer/depth resources before ResizeBuffers.
+        for (auto& bb : backBuffers_)
+        {
+            bb.Reset();
+        }
+        depth_.Reset();
+
+        const UINT bufferCount = static_cast<UINT>(backBuffers_.size());
+
+        ThrowIfFailed(swapChain_->ResizeBuffers(
+            bufferCount,
+            static_cast<UINT>(newExtent.width),
+            static_cast<UINT>(newExtent.height),
+            bbFormat_,
+            0),
+            "DX12: ResizeBuffers failed");
+
+        // Recreate RTVs.
+        for (UINT i = 0; i < bufferCount; ++i)
+        {
+            ThrowIfFailed(swapChain_->GetBuffer(i, IID_PPV_ARGS(&backBuffers_[i])),
+                "DX12: GetBuffer failed");
+
+            D3D12_CPU_DESCRIPTOR_HANDLE descHandle = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
+            descHandle.ptr += static_cast<SIZE_T>(i) * rtvInc_;
+            device_.NativeDevice()->CreateRenderTargetView(backBuffers_[i].Get(), nullptr, descHandle);
+        }
+
+        // Recreate depth buffer + DSV.
+        {
+            D3D12_CPU_DESCRIPTOR_HANDLE dsv = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
+
+            D3D12_HEAP_PROPERTIES heapProps{};
+            heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+            D3D12_RESOURCE_DESC resourceDesc{};
+            resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            resourceDesc.Width = static_cast<UINT64>(newExtent.width);
+            resourceDesc.Height = static_cast<UINT>(newExtent.height);
+            resourceDesc.DepthOrArraySize = 1;
+            resourceDesc.MipLevels = 1;
+            resourceDesc.Format = depthFormat_;
+            resourceDesc.SampleDesc.Count = 1;
+            resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+            D3D12_CLEAR_VALUE clearValue{};
+            clearValue.Format = depthFormat_;
+            clearValue.DepthStencil.Depth = 1.0f;
+            clearValue.DepthStencil.Stencil = 0;
+
+            ThrowIfFailed(device_.NativeDevice()->CreateCommittedResource(
+                &heapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &resourceDesc,
+                D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                &clearValue,
+                IID_PPV_ARGS(&depth_)),
+                "DX12: Create depth buffer failed (Resize)");
+
+            D3D12_DEPTH_STENCIL_VIEW_DESC viewDesc{};
+            viewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+            viewDesc.Format = depthFormat_;
+            viewDesc.Flags = D3D12_DSV_FLAG_NONE;
+            viewDesc.Texture2D.MipSlice = 0;
+
+            device_.NativeDevice()->CreateDepthStencilView(depth_.Get(), &viewDesc, dsv);
+            dsv_ = dsv;
+        }
+
+        chainSwapDesc_.base.extent = newExtent;
+
+        ResetBackBufferStates(D3D12_RESOURCE_STATE_PRESENT);
+        currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
     }
 
     void DX12SwapChain::EnsureSizeUpToDate()

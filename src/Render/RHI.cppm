@@ -62,6 +62,18 @@ export namespace rhi
 		UINT32
 	};
 
+	enum class PrimitiveTopologyType : std::uint8_t
+	{
+		Triangle,
+		Line
+	};
+
+	enum class PrimitiveTopology : std::uint8_t
+	{
+		TriangleList,
+		LineList
+	};
+
 	enum class BufferBindFlag : std::uint8_t
 	{
 		VertexBuffer,
@@ -235,6 +247,10 @@ export namespace rhi
 	{
 		GraphicsState state{};
 	};
+	struct CommandSetPrimitiveTopology
+	{
+		PrimitiveTopology topology{ PrimitiveTopology::TriangleList };
+	};
 	struct CommandBindPipeline
 	{
 		PipelineHandle pso{};
@@ -331,6 +347,7 @@ export namespace rhi
 		CommandEndPass,
 		CommandSetViewport,
 		CommandSetState,
+		CommandSetPrimitiveTopology,
 		CommandBindPipeline,
 		CommandBindInputLayout,
 		CommandBindVertexBuffer,
@@ -366,6 +383,10 @@ export namespace rhi
 		void SetState(const GraphicsState& state)
 		{
 			commands.emplace_back(CommandSetState{ state });
+		}
+		void SetPrimitiveTopology(PrimitiveTopology topology)
+		{
+			commands.emplace_back(CommandSetPrimitiveTopology{ topology });
 		}
 		void BindPipeline(PipelineHandle pso)
 		{
@@ -458,6 +479,7 @@ export namespace rhi
 		virtual SwapChainDesc GetDesc() const = 0;
 		virtual FrameBufferHandle GetCurrentBackBuffer() const = 0;
 		virtual void Present() = 0;
+		virtual void Resize(Extent2D newExtent) = 0;
 	};
 
 	class IRHIDevice
@@ -473,6 +495,7 @@ export namespace rhi
 		virtual void InitImGui([[maybe_unused]] void* hwnd, [[maybe_unused]] int framesInFlight, [[maybe_unused]] Format rtvFormat) {}
 		virtual void ImGuiNewFrame() {}
 		virtual void ShutdownImGui() {}
+		virtual void WaitIdle() {}
 
 		// Textures
 		virtual TextureHandle CreateTexture2D(Extent2D extendt, Format format) = 0;
@@ -497,7 +520,7 @@ export namespace rhi
 		virtual ShaderHandle CreateShader(ShaderStage stage, std::string_view debugName, std::string_view sourceOrBytecode) = 0;
 		virtual void DestroyShader(ShaderHandle shader) noexcept = 0;
 
-		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) = 0;
+		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader, PrimitiveTopologyType topologyType = PrimitiveTopologyType::Triangle) = 0;
 		virtual void DestroyPipeline(PipelineHandle pso) noexcept = 0;
 
 		// Submission
@@ -537,6 +560,10 @@ namespace rhi
 			return FrameBufferHandle{ 0 };
 		}
 		void Present() override {}
+		void Resize(Extent2D newExtent) override
+		{
+			desc_.extent = newExtent;
+		}
 
 	private:
 		SwapChainDesc desc_;
@@ -612,7 +639,7 @@ namespace rhi
 		}
 		void DestroyShader(ShaderHandle) noexcept override {}
 
-		PipelineHandle CreatePipeline(std::string_view, ShaderHandle, ShaderHandle) override
+		PipelineHandle CreatePipeline(std::string_view, ShaderHandle, ShaderHandle, PrimitiveTopologyType) override
 		{
 			PipelineHandle handle{};
 			handle.id = ++nextId_;

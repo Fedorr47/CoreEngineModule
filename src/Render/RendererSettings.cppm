@@ -23,6 +23,7 @@ export namespace rendern
 		bool debugPrintDrawCalls{ false }; // prints MainPass draw-call count (DX12) once per ~60 frames
 
 		bool drawLightGizmos{ true };
+		bool debugDrawDepthTest{ true };
 		float lightGizmoHalfSize{ 0.15f };
 		float debugLightGizmoScale = 1.0f;
 		float lightGizmoArrowLength{ 1.5f };

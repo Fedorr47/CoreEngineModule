@@ -27,6 +27,10 @@ namespace
         HWND hwnd{};
         int width{};
         int height{};
+        bool pendingResize{ false };
+        int pendingWidth{};
+        int pendingHeight{};
+        bool minimized{ false };
         bool running{ true };
     };
 
@@ -50,7 +54,7 @@ namespace
 #if defined(CORE_USE_DX12)
         if (g_imguiInitialized && g_debugWindow && hwnd == g_debugWindow->hwnd)
         {
-            if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+            if (msg != WM_SIZE && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
             {
                 return 1;
             }
@@ -79,6 +83,34 @@ namespace
                 PostQuitMessage(0);
             }
             return 0;
+
+        case WM_SIZE:
+        {
+            Win32Window* win = nullptr;
+            if (g_window && hwnd == g_window->hwnd)
+            {
+                win = g_window;
+            }
+#if defined(CORE_USE_DX12)
+            else if (g_debugWindow && hwnd == g_debugWindow->hwnd)
+            {
+                win = g_debugWindow;
+            }
+#endif
+            if (win)
+            {
+                const int newW = static_cast<int>(LOWORD(lParam));
+                const int newH = static_cast<int>(HIWORD(lParam));
+                win->width = newW;
+                win->height = newH;
+                win->pendingWidth = newW;
+                win->pendingHeight = newH;
+                win->pendingResize = true;
+                win->minimized = (wParam == SIZE_MINIMIZED) || (newW == 0) || (newH == 0);
+                return 0;
+            }
+            break;
+        }
 
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
@@ -144,8 +176,7 @@ namespace
             }
         }
 
-        // Disable resizing for now (swapchain resize handling isn't wired here).
-        const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+        const DWORD style = WS_OVERLAPPEDWINDOW;
 
         RECT rect{ 0, 0, width, height };
         AdjustWindowRect(&rect, style, FALSE);
@@ -655,6 +686,40 @@ int main(int argc, char** argv)
                 break;
             }
 
+            // Apply pending window resizes (recreate swapchain buffers)
+            if (swapChain && window.pendingResize)
+            {
+                window.pendingResize = false;
+                if (window.pendingWidth > 0 && window.pendingHeight > 0)
+                {
+                    swapChain->Resize(rhi::Extent2D{
+                        static_cast<std::uint32_t>(window.pendingWidth),
+                        static_cast<std::uint32_t>(window.pendingHeight)
+                    });
+                }
+            }
+
+#if defined(CORE_USE_DX12)
+            if (debugSwapChain && debugWindow.hwnd && debugWindow.pendingResize)
+            {
+                debugWindow.pendingResize = false;
+                if (debugWindow.pendingWidth > 0 && debugWindow.pendingHeight > 0)
+                {
+                    debugSwapChain->Resize(rhi::Extent2D{
+                        static_cast<std::uint32_t>(debugWindow.pendingWidth),
+                        static_cast<std::uint32_t>(debugWindow.pendingHeight)
+                    });
+                }
+            }
+#endif
+
+            // If main window is minimized, skip rendering/presenting to avoid DXGI issues.
+            if (window.minimized || window.width <= 0 || window.height <= 0)
+            {
+                TinySleep();
+                continue;
+            }
+
             // Drive uploads/destruction
             assets.ProcessUploads(
                 config.maxTextureUploadsPerFrame,
@@ -682,7 +747,7 @@ int main(int argc, char** argv)
             renderer.RenderFrame(*swapChain, scene, /*imguiDrawData=*/nullptr);
 
 #if defined(CORE_USE_DX12)
-            if (debugSwapChain)
+            if (debugSwapChain && debugWindow.hwnd && !debugWindow.minimized && debugWindow.width > 0 && debugWindow.height > 0)
             {
                 RenderImGuiToSwapChainIfEnabled(*device, *debugSwapChain, imguiDrawData);
             }

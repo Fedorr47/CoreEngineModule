@@ -373,15 +373,13 @@ namespace rendern::ui
     
         ImGui::Separator();
         ImGui::Text("Debug draw");
-        ImGui::Checkbox("Light gizmos (3D)", &rs.drawLightGizmos);
-        if (rs.drawLightGizmos)
-    {
+        ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
+        ImGui::BeginDisabled(!rs.drawLightGizmos);
+        ImGui::Checkbox("Depth test (main view)", &rs.debugDrawDepthTest);
         ImGui::SliderFloat("Gizmo half-size", &rs.lightGizmoHalfSize, 0.01f, 2.0f, "%.3f");
         ImGui::SliderFloat("Arrow length", &rs.lightGizmoArrowLength, 0.05f, 25.0f, "%.3f");
-        ImGui::SliderFloat("Arrow thickness", &rs.lightGizmoArrowThickness, 0.001f, 2.0f, "%.3f");
-        DrawLightGizmosOverlay(scene, rs);
-    }
-    
+        ImGui::SliderFloat("Arrow thickness (UI only)", &rs.lightGizmoArrowThickness, 0.001f, 2.0f, "%.3f");
+        ImGui::EndDisabled();
         ImGui::Separator();
         if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
     {

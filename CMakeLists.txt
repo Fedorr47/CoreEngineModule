@@ -252,6 +252,7 @@ set(COMMON_MODULES
   Render/RenderCore.cppm
   Render/RHI.cppm
   Render/RenderGraph.cppm
+  Render/Debug/DebugDraw.cppm
   Render/Bindless.cppm
   Render/GpuMemory.cppm
   Render/RendererSettings.cppm
@@ -294,6 +295,7 @@ set(DX12_MODULES
   Render/DirectX12/DirectX12Core.cppm
   Render/DirectX12/DirectX12RHI.cppm
   Render/DirectX12/DirectX12Renderer.cppm
+  Render/DirectX12/DebugDrawRendererDX12.cppm
   Render/DirectX12/DirectX12TextureUploader.cppm
   Render/ImGui/ImGuiDebugUI.cppm
 )

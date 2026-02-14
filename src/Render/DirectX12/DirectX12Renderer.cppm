@@ -37,6 +37,8 @@ import :render_graph;
 import :file_system;
 import :mesh;
 import :scene_bridge;
+import :debug_draw;
+import :debug_draw_renderer_dx12;
 
 export namespace rendern
 {
@@ -286,6 +288,7 @@ export namespace rendern
 			, settings_(std::move(settings))
 			, shaderLibrary_(device)
 			, psoCache_(device)
+			, debugDrawRenderer_(device, shaderLibrary_, psoCache_)
 		{
 			CreateResources();
 		}
@@ -1440,6 +1443,98 @@ export namespace rendern
 					}
 				});
 
+			// Debug primitives (no ImGui dependency) - rendered in the main view.
+			debugDraw::DebugDrawList debugList;
+			if (settings_.drawLightGizmos)
+			{
+				const float scale = settings_.debugLightGizmoScale;
+				const float halfSize = settings_.lightGizmoHalfSize * scale;
+				const float arrowLen = settings_.lightGizmoArrowLength * scale;
+
+				for (const auto& light : scene.lights)
+				{
+					const std::uint32_t colDir  = debugDraw::PackRGBA8(255, 255, 255, 255);
+					const std::uint32_t colPoint= debugDraw::PackRGBA8(255, 220,  80, 255);
+					const std::uint32_t colSpot = debugDraw::PackRGBA8( 80, 220, 255, 255);
+
+					switch (light.type)
+					{
+					case LightType::Directional:
+					{
+						const mathUtils::Vec3 dir = mathUtils::Normalize(light.direction);
+						const mathUtils::Vec3 anchor = scene.camera.target;
+						debugList.AddArrow(anchor, anchor + dir * arrowLen, colDir);
+						break;
+					}
+					case LightType::Point:
+					{
+						const mathUtils::Vec3 p = light.position;
+						debugList.AddLine(p - mathUtils::Vec3(halfSize, 0.0f, 0.0f), p + mathUtils::Vec3(halfSize, 0.0f, 0.0f), colPoint);
+						debugList.AddLine(p - mathUtils::Vec3(0.0f, halfSize, 0.0f), p + mathUtils::Vec3(0.0f, halfSize, 0.0f), colPoint);
+						debugList.AddLine(p - mathUtils::Vec3(0.0f, 0.0f, halfSize), p + mathUtils::Vec3(0.0f, 0.0f, halfSize), colPoint);
+						debugList.AddWireSphere(p, halfSize, colPoint, 16);
+						break;
+					}
+					case LightType::Spot:
+					{
+						const mathUtils::Vec3 p = light.position;
+						const mathUtils::Vec3 dir = mathUtils::Normalize(light.direction);
+						debugList.AddArrow(p, p + dir * arrowLen, colSpot);
+						const float outerRad = mathUtils::DegToRad(light.outerHalfAngleDeg);
+						debugList.AddWireCone(p, dir, arrowLen, outerRad, colSpot, 24);
+						break;
+					}
+					default:
+						break;
+					}
+				}
+			}
+
+			// Pick ray (from the editor UI) visualized in the main view via DebugDraw.
+			if (scene.debugPickRay.enabled)
+			{
+				const std::uint32_t colHit = debugDraw::PackRGBA8(80, 255, 80, 255);
+				const std::uint32_t colMiss = debugDraw::PackRGBA8(255, 80, 80, 255);
+				const std::uint32_t col = scene.debugPickRay.hit ? colHit : colMiss;
+
+				mathUtils::Vec3 dir = scene.debugPickRay.direction;
+				const float dirLen = mathUtils::Length(dir);
+				if (dirLen > 1e-5f)
+				{
+					dir = dir / dirLen;
+				}
+				else
+				{
+					dir = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
+				}
+
+				const mathUtils::Vec3 a = scene.debugPickRay.origin;
+				const mathUtils::Vec3 b = a + dir * scene.debugPickRay.length;
+				debugList.AddLine(a, b, col);
+				if (scene.debugPickRay.hit)
+				{
+					const float cross = settings_.lightGizmoHalfSize * 0.25f;
+					debugList.AddAxesCross(b, cross, col);
+				}
+			}
+
+			debugDrawRenderer_.Upload(debugList);
+			if (debugList.VertexCount() > 0)
+			{
+				rhi::ClearDesc clear{};
+				clear.clearColor = false;
+				clear.clearDepth = false;
+
+				const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+				const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+				const mathUtils::Mat4 viewProj = proj * view;
+
+				graph.AddSwapChainPass("DebugPrimitivesPass", clear, [this, viewProj](renderGraph::PassContext& ctx)
+				{
+					debugDrawRenderer_.Draw(ctx.commandList, viewProj, settings_.debugDrawDepthTest);
+				});
+			}
+
 			graph.Execute(device_, swapChain);
 			swapChain.Present();
 		}
@@ -1459,6 +1554,7 @@ export namespace rendern
 				device_.DestroyBuffer(shadowDataBuffer_);
 			}
 			DestroyMesh(device_, skyboxMesh_);
+			debugDrawRenderer_.Shutdown();
 			psoCache_.ClearCache();
 			shaderLibrary_.ClearCache();
 		}
@@ -1787,6 +1883,7 @@ export namespace rendern
 
 		ShaderLibrary shaderLibrary_;
 		PSOCache psoCache_;
+		debugDraw::DebugDrawRendererDX12 debugDrawRenderer_;
 
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)

@@ -425,6 +425,11 @@ namespace rhi
 			}
 		}
 
+		void Resize(Extent2D newExtent) override
+		{
+			desc_.base.extent = newExtent;
+		}
+
 	private:
 		GLSwapChainDesc desc_{};
 	};
@@ -759,7 +764,7 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 			}
 		}
 
-		PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader) override
+		PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader, PrimitiveTopologyType) override
 		{
 			GLuint programId = glCreateProgram();
 			if (programId == 0)
@@ -1320,7 +1325,7 @@ void ExecuteOnce(const CommandSetUniformInt& cmd)
 			if (cmd.baseVertex != 0)
 			{
 				glDrawElementsBaseVertex(
-					GL_TRIANGLES,
+					currentTopology_,
 					static_cast<GLsizei>(cmd.indexCount),
 					indexType,
 					reinterpret_cast<const void*>(start),
@@ -1329,7 +1334,7 @@ void ExecuteOnce(const CommandSetUniformInt& cmd)
 			else
 			{
 				glDrawElements(
-					GL_TRIANGLES,
+					currentTopology_,
 					static_cast<GLsizei>(cmd.indexCount),
 					indexType,
 					reinterpret_cast<const void*>(start));
@@ -1345,7 +1350,7 @@ void ExecuteOnce(const CommandSetUniformInt& cmd)
 				boundVao_ = vao;
 			}
 
-			glDrawArrays(GL_TRIANGLES, static_cast<GLint>(cmd.firstVertex), static_cast<GLsizei>(cmd.vertexCount));
+			glDrawArrays(currentTopology_, static_cast<GLint>(cmd.firstVertex), static_cast<GLsizei>(cmd.vertexCount));
 		}
 
 		//---------------------------------------------------------------------//
@@ -1368,6 +1373,8 @@ void ExecuteOnce(const CommandSetUniformInt& cmd)
 		// Current program + uniform location cache per program
 		std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache_{};
 		GLuint currentProgram_{ 0 };
+
+		GLenum currentTopology_{ GL_TRIANGLES };
 
 		// Current bindings for VAO build
 		rhi::InputLayoutHandle currentLayout_{};
