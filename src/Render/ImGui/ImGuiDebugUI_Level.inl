@@ -1,179 +1,5 @@
 namespace rendern::ui
 {
-    struct Ray
-    {
-        mathUtils::Vec3 origin{ 0.0f, 0.0f, 0.0f };
-        mathUtils::Vec3 dir{ 0.0f, 0.0f, 1.0f }; // normalized
-    };
-    
-    static mathUtils::Vec3 MinVec3(const mathUtils::Vec3& a, const mathUtils::Vec3& b) noexcept
-    {
-        return { std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z) };
-    }
-    
-    static mathUtils::Vec3 MaxVec3(const mathUtils::Vec3& a, const mathUtils::Vec3& b) noexcept
-    {
-        return { std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z) };
-    }
-    
-    static mathUtils::Vec3 TransformPoint(const mathUtils::Mat4& m, const mathUtils::Vec3& p) noexcept
-    {
-        const mathUtils::Vec4 w = m * mathUtils::Vec4(p, 1.0f);
-        return { w.x, w.y, w.z };
-    }
-    
-    static void TransformAABB(
-        const mathUtils::Vec3& bmin,
-        const mathUtils::Vec3& bmax,
-        const mathUtils::Mat4& m,
-        mathUtils::Vec3& outMin,
-        mathUtils::Vec3& outMax) noexcept
-    {
-        const mathUtils::Vec3 c[8] =
-        {
-            { bmin.x, bmin.y, bmin.z }, { bmax.x, bmin.y, bmin.z }, { bmin.x, bmax.y, bmin.z }, { bmax.x, bmax.y, bmin.z },
-            { bmin.x, bmin.y, bmax.z }, { bmax.x, bmin.y, bmax.z }, { bmin.x, bmax.y, bmax.z }, { bmax.x, bmax.y, bmax.z },
-        };
-    
-        mathUtils::Vec3 wmin{ std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity() };
-        mathUtils::Vec3 wmax{ -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity() };
-    
-        for (const auto& p : c)
-        {
-            const mathUtils::Vec3 wp = TransformPoint(m, p);
-            wmin = MinVec3(wmin, wp);
-            wmax = MaxVec3(wmax, wp);
-        }
-    
-        outMin = wmin;
-        outMax = wmax;
-    }
-    
-    static bool IntersectRayAABB(
-        const Ray& ray,
-        const mathUtils::Vec3& bmin,
-        const mathUtils::Vec3& bmax, float& outT) noexcept
-    {
-        float tmin = 0.0f;
-        float tmax = std::numeric_limits<float>::infinity();
-    
-        const float o[3] = { ray.origin.x, ray.origin.y, ray.origin.z };
-        const float d[3] = { ray.dir.x, ray.dir.y, ray.dir.z };
-        const float mn[3] = { bmin.x, bmin.y, bmin.z };
-        const float mx[3] = { bmax.x, bmax.y, bmax.z };
-    
-        for (int axis = 0; axis < 3; ++axis)
-        {
-            const float dir = d[axis];
-            const float ori = o[axis];
-    
-            if (std::abs(dir) < 1e-8f)
-            {
-                if (ori < mn[axis] || ori > mx[axis])
-                {
-                    return false;
-                }
-                continue;
-            }
-    
-            const float invD = 1.0f / dir;
-            float t1 = (mn[axis] - ori) * invD;
-            float t2 = (mx[axis] - ori) * invD;
-            if (t1 > t2)
-            {
-                std::swap(t1, t2);
-            }
-    
-            tmin = std::max(tmin, t1);
-            tmax = std::min(tmax, t2);
-            if (tmin > tmax)
-            {
-                return false;
-            }
-        }
-    
-        outT = tmin;
-        return true;
-    }
-    
-    static Ray BuildMouseRay(
-        const rendern::Scene& scene,
-        const rendern::CameraController& camCtl,
-        const ImVec2& mousePos,
-        const ImVec2& displaySize) noexcept
-    {
-        const float width = (displaySize.x > 1.0f) ? displaySize.x : 1.0f;
-        const float height = (displaySize.y > 1.0f) ? displaySize.y : 1.0f;
-    
-        // NDC in [-1..1], with +Y up.
-        const float ndcX = (mousePos.x / width) * 2.0f - 1.0f;
-        const float ndcY = 1.0f - (mousePos.y / height) * 2.0f;
-    
-        const float aspect = width / height;
-        const float tanHalfFov = std::tan(mathUtils::DegToRad(scene.camera.fovYDeg) * 0.5f);
-    
-        const mathUtils::Vec3 forward = mathUtils::Normalize(scene.camera.target - scene.camera.position);
-        const mathUtils::Vec3 right = mathUtils::Normalize(mathUtils::Cross(forward, scene.camera.up));
-        const mathUtils::Vec3 up = mathUtils::Normalize(mathUtils::Cross(right, forward));
-    
-        mathUtils::Vec3 dir = forward;
-        dir = dir + right * (ndcX * aspect * tanHalfFov);
-        dir = dir + up * (ndcY * tanHalfFov);
-        dir = mathUtils::Normalize(dir);
-    
-        Ray ray;
-        ray.origin = scene.camera.position;
-        ray.dir = dir;
-        return ray;
-    }
-    
-    static int PickNodeUnderMouse(
-        const rendern::Scene& scene,
-        const rendern::LevelInstance& levelInst,
-        const ImVec2& mousePos,
-        const ImVec2& displaySize,
-        const rendern::CameraController& camCtl,
-        float& outBestT,
-        Ray& outRay)
-    {
-        outRay = BuildMouseRay(scene, camCtl, mousePos, displaySize);
-    
-        float bestT = std::numeric_limits<float>::infinity();
-        int bestNode = -1;
-    
-        for (int di = 0; di < static_cast<int>(scene.drawItems.size()); ++di)
-        {
-            const int nodeIndex = levelInst.GetNodeIndexFromDrawIndex(di);
-            if (nodeIndex < 0)
-            {
-                continue;
-            }
-    
-            const rendern::DrawItem& item = scene.drawItems[static_cast<std::size_t>(di)];
-            if (!item.mesh)
-            {
-                continue;
-            }
-    
-            const auto& meshBounds = item.mesh->GetBounds();
-            mathUtils::Vec3 wmin{}, wmax{};
-            TransformAABB(meshBounds.aabbMin, meshBounds.aabbMax, item.transform.ToMatrix(), wmin, wmax);
-    
-            float t = 0.0f;
-            if (IntersectRayAABB(outRay, wmin, wmax, t))
-            {
-                if (t < bestT)
-                {
-                    bestT = t;
-                    bestNode = nodeIndex;
-                }
-            }
-        }
-    
-        outBestT = bestT;
-        return bestNode;
-    }
-
     void DrawLevelEditorUI(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
@@ -194,16 +20,17 @@ namespace rendern::ui
         static char nameBuf[128]{};
         static char importPathBuf[512]{};
 
+        // Selection is driven by the main viewport (mouse picking) or by this UI.
+        if (scene.editorSelectedNode != selectedNode)
+        {
+            selectedNode = scene.editorSelectedNode;
+        }
+
         // Save state
         static char savePathBuf[512]{};
         static char saveStatusBuf[512]{};
         static std::string cachedSourcePath;
         static bool saveStatusIsError = false;
-
-        static bool haveRay = false;
-        static Ray lastRay{};
-        static float lastRayLen = 5.0f;
-        static bool lastRayHit = false;
 
         // Keep save path input synced with loaded sourcePath (unless user edits it).
         if (cachedSourcePath != level.sourcePath)
@@ -211,52 +38,6 @@ namespace rendern::ui
             cachedSourcePath = level.sourcePath;
             const std::string fallback = cachedSourcePath.empty() ? std::string("levels/edited.level.json") : cachedSourcePath;
             std::snprintf(savePathBuf, sizeof(savePathBuf), "%s", fallback.c_str());
-        }
-
-        // ------------------------------------------------------------
-        // Mouse picking (click in viewport selects a node)
-        // ------------------------------------------------------------
-        {
-            const ImGuiIO& io = ImGui::GetIO();
-            static ImVec2 mousePos{};
-            static ImVec2 displaySize{};
-
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse)
-            {
-                mousePos = io.MousePos;
-                displaySize = io.DisplaySize;
-
-                if (mousePos.x >= 0.0f && mousePos.y >= 0.0f && mousePos.x <= displaySize.x && mousePos.y <= displaySize.y)
-                {
-                    float bestT = 0.0f;
-                    Ray ray{};
-
-                    const int picked = PickNodeUnderMouse(scene, levelInst, mousePos, displaySize, camCtl, bestT, ray);
-
-                    haveRay = true;
-                    lastRay = ray;
-
-                    lastRayHit = (picked >= 0) && std::isfinite(bestT);
-                    lastRayLen = lastRayHit ? bestT : scene.camera.farZ;
-
-                    if (picked >= 0 && picked < static_cast<int>(level.nodes.size()) &&
-                        level.nodes[static_cast<std::size_t>(picked)].alive)
-                    {
-                        selectedNode = picked;
-                    }
-                    else
-                    {
-                        selectedNode = -1;
-                    }
-                }
-            }
-
-            if (haveRay)
-            {
-                ImDrawList* drawList = ImGui::GetForegroundDrawList();
-                ImVec2 center(displaySize.x * 0.5f, displaySize.y * lastRayLen);
-                drawList->AddLine(center, mousePos, IM_COL32(255, 80, 80, 255), 2.0f);
-            }
         }
 
         // ------------------------------------------------------------
@@ -733,6 +514,9 @@ namespace rendern::ui
         }
 
         ImGui::EndChild();
+
+        // Expose selection to the rest of the app (main viewport already writes here too).
+        scene.editorSelectedNode = selectedNode;
 
         // Push transforms to Scene if needed
         levelInst.SyncTransformsIfDirty(level, scene);

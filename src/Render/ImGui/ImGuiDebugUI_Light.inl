@@ -63,19 +63,6 @@ namespace rendern::ui
         return changed;
     }
 
-    static mathUtils::Mat4 GetViewProj(const ImVec2& displaySize, Camera camera)
-    {
-        const float aspect = (displaySize.y > 0.0f) ? (displaySize.x / displaySize.y) : 1.0f;
-
-        const mathUtils::Mat4 projection =
-            mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(camera.fovYDeg), aspect, camera.nearZ, camera.farZ);
-
-        const mathUtils::Mat4 view =
-            mathUtils::LookAt(camera.position, camera.target, camera.up);
-
-        return projection * view;
-    }
-
     static void ApplyDefaultsForType(rendern::Light& l)
     {
         if (l.type == rendern::LightType::Directional)
@@ -164,79 +151,7 @@ namespace rendern::ui
         ImGui::PopID();
     } 
 
-    static void DrawLightGizmosOverlay(
-        const rendern::Scene& scene,
-        const rendern::RendererSettings& rendererSettings)
-    {
-
-        const ImGuiIO& io = ImGui::GetIO();
-        const ImVec2 displaySize = io.DisplaySize;
-
-        const mathUtils::Mat4 viewProj = GetViewProj(displaySize, scene.camera);
-
-        ImDrawList* drawList = ImGui::GetForegroundDrawList();
-        if (!drawList)
-        {
-            return;
-        }
-
-        const float pointRadius = 6.0f * rendererSettings.debugLightGizmoScale;
-        const float arrowLength = rendererSettings.lightGizmoArrowLength * rendererSettings.debugLightGizmoScale;
-
-        for (std::size_t lightIndex = 0; lightIndex < scene.lights.size(); ++lightIndex)
-        {
-            const rendern::Light& light = scene.lights[lightIndex];
-
-            ImU32 color = IM_COL32(255, 255, 255, 255);
-            if (light.type == rendern::LightType::Directional) { color = IM_COL32(255, 230, 120, 255); }
-            if (light.type == rendern::LightType::Point) { color = IM_COL32(120, 255, 120, 255); }
-            if (light.type == rendern::LightType::Spot) { color = IM_COL32(120, 180, 255, 255); }
-
-            if (light.type == rendern::LightType::Directional)
-            {
-                // directional has no position -> draw at camera target (or center)
-                const mathUtils::Vec3 anchor = scene.camera.target;
-                const mathUtils::Vec3 directionFromLight = mathUtils::Normalize(light.direction); // your convention: FROM light
-                const mathUtils::Vec3 arrowEnd = anchor + directionFromLight * arrowLength;
-
-                DrawArrow(viewProj, rendererSettings, anchor, arrowEnd, color, displaySize, drawList);
-
-                ImVec2 labelPos{};
-                if (ProjectWorldToScreen(anchor, viewProj, displaySize, labelPos))
-                {
-                    drawList->AddText(labelPos, color, "Dir");
-                }
-
-                continue;
-            }
-
-            // point / spot: draw position marker
-            ImVec2 lightScreen{};
-            if (ProjectWorldToScreen(light.position, viewProj, displaySize, lightScreen))
-            {
-                drawList->AddCircleFilled(lightScreen, pointRadius, color);
-                drawList->AddCircle(lightScreen, pointRadius + 2.0f, IM_COL32(0, 0, 0, 180), 0, 2.0f);
-
-                char label[32]{};
-                if (light.type == rendern::LightType::Point)
-                {
-                    std::snprintf(label, sizeof(label), "P%zu", lightIndex);
-                }
-                else
-                {
-                    std::snprintf(label, sizeof(label), "S%zu", lightIndex);
-                }
-                drawList->AddText(ImVec2(lightScreen.x + 8.0f, lightScreen.y - 10.0f), color, label);
-            }
-
-            if (light.type == rendern::LightType::Spot)
-            {
-                const mathUtils::Vec3 directionFromLight = mathUtils::Normalize(light.direction); // FROM light
-                const mathUtils::Vec3 arrowEnd = light.position + directionFromLight * arrowLength;
-                DrawArrow(viewProj, rendererSettings, light.position, arrowEnd, color, displaySize, drawList);
-            }
-        }
-    }
+    
 
     // ------------------------------------------------------------
     // Light header row with actions on the right (clickable)

@@ -171,16 +171,43 @@ target_include_directories(stb_headers INTERFACE "${stb_SOURCE_DIR}")
 # ------------------------------------------------------------
 if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   set(IMGUI_DIR "")
+  set(_want_imgui_tag "v1.91.0-docking")
+  set(_imgui_submodule_dir "${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui")
 
-  if (USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui/imgui.cpp")
-    set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui")
+  # Prefer extern/imgui only if it is the Docking branch.
+  # Otherwise you'll get compile errors such as:
+  #   ImGuiConfigFlags_DockingEnable not found
+  # because upstream master without docking doesn't define it.
+  set(_imgui_submodule_is_docking FALSE)
+  if (USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp" AND EXISTS "${_imgui_submodule_dir}/imgui.h")
+    file(READ "${_imgui_submodule_dir}/imgui.h" _imgui_h_contents)
+    string(FIND "${_imgui_h_contents}" "ImGuiConfigFlags_DockingEnable" _dock_flag_pos)
+    if (NOT _dock_flag_pos EQUAL -1)
+      set(_imgui_submodule_is_docking TRUE)
+    endif()
+  endif()
+
+  if (_imgui_submodule_is_docking)
+    set(IMGUI_DIR "${_imgui_submodule_dir}")
   else()
+    if (USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp")
+      message(WARNING "extern/imgui is present but NOT the docking branch; ignoring it and fetching ${_want_imgui_tag} instead.")
+    endif()
     FetchContent_Declare(imgui
       GIT_REPOSITORY https://github.com/ocornut/imgui.git
-      GIT_TAG        v1.91.0
+      GIT_TAG        ${_want_imgui_tag}
     )
     FetchContent_MakeAvailable(imgui)
     set(IMGUI_DIR "${imgui_SOURCE_DIR}")
+  endif()
+
+  # Hard error if we still didn't get docking.
+  if (EXISTS "${IMGUI_DIR}/imgui.h")
+    file(READ "${IMGUI_DIR}/imgui.h" _imgui_h_final)
+    string(FIND "${_imgui_h_final}" "ImGuiConfigFlags_DockingEnable" _dock_flag_final_pos)
+    if (_dock_flag_final_pos EQUAL -1)
+      message(FATAL_ERROR "Dear ImGui must be built from the docking branch/tag (e.g. ${_want_imgui_tag}).")
+    endif()
   endif()
 
   add_library(imgui STATIC

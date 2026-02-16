@@ -327,6 +327,9 @@ namespace
         ImGui_ImplWin32_Init(hwnd);
         device.InitImGui(hwnd, backbufferCount, backbufferFormat);
         g_imguiInitialized = true;
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     }
 
     void ShutdownImGui(rhi::IRHIDevice& device)
@@ -357,6 +360,9 @@ namespace
         device.ImGuiNewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
+
+        // style docking host (fills the debug window and enables dock/tabs).
+        rendern::ui::BeginDebugDockSpace();
 
         rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
         rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
