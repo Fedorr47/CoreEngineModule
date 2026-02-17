@@ -34,6 +34,7 @@ export namespace rendern
 		std::string name;
 		std::string filePath;
 		std::vector<std::string> defines;
+		rhi::ShaderModel shaderModel{ rhi::ShaderModel::SM5_1 };
 
 		friend bool operator==(const ShaderKey& lhs, const ShaderKey& rhs)
 		{
@@ -41,7 +42,8 @@ export namespace rendern
 				lhs.stage == rhs.stage
 				&& lhs.name == rhs.name
 				&& lhs.filePath == rhs.filePath
-				&& lhs.defines == rhs.defines;
+				&& lhs.defines == rhs.defines
+				&& lhs.shaderModel == rhs.shaderModel;
 		}
 	};
 
@@ -57,6 +59,7 @@ export namespace rendern
 			std::size_t h = 0;
 
 			HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.stage)));
+			HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.shaderModel)));
 			HashCombine(h, std::hash<std::string>{}(key.name));
 			HashCombine(h, std::hash<std::string>{}(key.filePath));
 
@@ -130,7 +133,11 @@ export namespace rendern
 				finalText = ApplyDefinesToHLSL(textSource.text, key.defines);
 			}
 
-			rhi::ShaderHandle shader = device_.CreateShader(key.stage, key.name, finalText);
+			rhi::ShaderHandle shader = device_.CreateShaderEx(key.stage, key.name, finalText, key.shaderModel);
+			if (!shader)
+			{
+				return {};
+			}
 			shaderCache_.emplace(key, shader);
 			return shader;
 		}
@@ -158,16 +165,21 @@ export namespace rendern
 			std::string_view name,
 			rhi::ShaderHandle vertexShader,
 			rhi::ShaderHandle fragmentShader,
-			rhi::PrimitiveTopologyType topologyType = rhi::PrimitiveTopologyType::Triangle)
+			rhi::PrimitiveTopologyType topologyType = rhi::PrimitiveTopologyType::Triangle,
+			std::uint32_t viewInstanceCount = 1)
 		{
-			const std::string key = std::string(name) + "_" + std::to_string(vertexShader.id) + "_" + std::to_string(fragmentShader.id) + "_" + std::to_string(static_cast<std::uint32_t>(topologyType));
+			const std::string key = std::string(name) + "_" + std::to_string(vertexShader.id) + "_" + std::to_string(fragmentShader.id) + "_" + std::to_string(static_cast<std::uint32_t>(topologyType)) + "_" + std::to_string(viewInstanceCount);
 
 			if (auto it = psoCache_.find(key); it != psoCache_.end())
 			{
 				return it->second;
 			}
 
-			rhi::PipelineHandle pipeline = device_.CreatePipeline(name, vertexShader, fragmentShader, topologyType);
+			rhi::PipelineHandle pipeline = device_.CreatePipelineEx(name, vertexShader, fragmentShader, topologyType, viewInstanceCount);
+			if (!pipeline)
+			{
+				return {};
+			}
 			psoCache_.emplace(key, pipeline);
 			return pipeline;
 		}

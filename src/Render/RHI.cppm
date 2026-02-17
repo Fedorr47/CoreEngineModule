@@ -141,6 +141,12 @@ export namespace rhi
 		Compute
 	};
 
+	enum class ShaderModel : std::uint8_t
+	{
+		SM5_1,
+		SM6_1
+	};
+
 	// Vulkan/DX12 backends can map these indices into global descriptor tables.
 	// The OpenGL backend emulates them by keeping a small mapping.
 	using TextureDescIndex = std::uint32_t;
@@ -316,7 +322,7 @@ export namespace rhi
 	{
 		std::uint32_t slot{ 0 };   // backend-defined slot (DX12 root parameter index)
 		std::uint32_t size{ 0 };   // bytes used in `data`
-		std::array<std::byte, 256> data{};
+		std::array<std::byte, 512> data{};
 	};
 
 	// DX12-only: render Dear ImGui draw data into the current render target.
@@ -430,9 +436,9 @@ export namespace rhi
 		}
 		void SetConstants(std::uint32_t slot, std::span<const std::byte> bytes)
 		{
-			if (bytes.size() > 256)
+			if (bytes.size() > 512)
 			{
-				throw std::runtime_error("CommandList::SetConstants: payload too large (max 256 bytes)");
+				throw std::runtime_error("CommandList::SetConstants: payload too large (max 512 bytes)");
 			}
 
 			CommandSetConstants cmd{};
@@ -505,6 +511,10 @@ export namespace rhi
 		// Framebuffers
 		virtual FrameBufferHandle CreateFramebuffer(TextureHandle color, TextureHandle depth) = 0;
 		virtual FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) = 0;
+		virtual FrameBufferHandle CreateFramebufferCube(TextureHandle colorCube, TextureHandle depthCube)
+		{
+			return CreateFramebufferCubeFace(colorCube, 0u, depthCube);
+		}
 		virtual void DestroyFramebuffer(FrameBufferHandle frameBuffer) noexcept = 0;
 
 		// Buffers
@@ -517,10 +527,30 @@ export namespace rhi
 		virtual void DestroyInputLayout(InputLayoutHandle layout) noexcept = 0;
 
 		// Shaders and Pipelines
+		virtual bool SupportsShaderModel6() const { return false; }
+		virtual bool SupportsViewInstancing() const { return false; }
+
 		virtual ShaderHandle CreateShader(ShaderStage stage, std::string_view debugName, std::string_view sourceOrBytecode) = 0;
+		virtual ShaderHandle CreateShaderEx(ShaderStage stage, std::string_view debugName, std::string_view sourceOrBytecode, ShaderModel shaderModel)
+		{
+			if (shaderModel == ShaderModel::SM5_1)
+			{
+				return CreateShader(stage, debugName, sourceOrBytecode);
+			}
+			return {};
+		}
 		virtual void DestroyShader(ShaderHandle shader) noexcept = 0;
 
 		virtual PipelineHandle CreatePipeline(std::string_view debugName, ShaderHandle vertexShader, ShaderHandle pixelShader, PrimitiveTopologyType topologyType = PrimitiveTopologyType::Triangle) = 0;
+		virtual PipelineHandle CreatePipelineEx(
+			std::string_view debugName,
+			ShaderHandle vertexShader,
+			ShaderHandle pixelShader,
+			PrimitiveTopologyType topologyType,
+			[[maybe_unused]] std::uint32_t viewInstanceCount)
+		{
+			return CreatePipeline(debugName, vertexShader, pixelShader, topologyType);
+		}
 		virtual void DestroyPipeline(PipelineHandle pso) noexcept = 0;
 
 		// Submission

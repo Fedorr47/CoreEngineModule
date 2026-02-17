@@ -1,0 +1,449 @@
+From 493a6021262548945d4e9cd31146e0896abf9ce6 Mon Sep 17 00:00:00 2001
+From: oai <oai@example.com>
+Date: Tue, 17 Feb 2026 16:14:22 +0000
+Subject: [PATCH] dx12: add cubemap all-faces RTV/DSV + framebuffer cube
+
+---
+ .../DirectX12/RHIImpl/DirectX12RHI_Device.inl | 330 ++++++++++++++----
+ 1 file changed, 256 insertions(+), 74 deletions(-)
+
+diff --git a/src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl b/src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl
+index 78b009d..c8baeaa 100644
+--- a/src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl
++++ b/src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl
+@@ -458,23 +458,14 @@
+             return textureHandle;
+         }
+ 
+-
+         TextureHandle CreateTextureCube(Extent2D extent, Format format) override
+         {
+-            // Currently used for point light shadows: R32_FLOAT distance cubemap.
+-            if (IsDepthFormat(format))
+-            {
+-                throw std::runtime_error("DX12: CreateTextureCube: depth formats are not supported for cubemaps");
+-            }
+-
+             TextureHandle textureHandle{ ++nextTexId_ };
+             TextureEntry textureEntry{};
+             textureEntry.extent = extent;
+             textureEntry.format = format;
+             textureEntry.type = TextureEntry::Type::Cube;
+ 
+-            const DXGI_FORMAT dxFmt = ToDXGIFormat(format);
+-
+             D3D12_HEAP_PROPERTIES heapProps{};
+             heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+ 
+@@ -484,48 +475,111 @@
+             resourceDesc.Height = extent.height;
+             resourceDesc.DepthOrArraySize = 6; // cubemap faces
+             resourceDesc.MipLevels = 1;
+-            resourceDesc.Format = dxFmt;
+             resourceDesc.SampleDesc.Count = 1;
+             resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+-            resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+ 
+-            D3D12_CLEAR_VALUE clearValue{};
+-            clearValue.Format = dxFmt;
+-            clearValue.Color[0] = 1.0f;
+-            clearValue.Color[1] = 1.0f;
+-            clearValue.Color[2] = 1.0f;
+-            clearValue.Color[3] = 1.0f;
++            if (IsDepthFormat(format))
++            {
++                // Cubemap depth (used by View-Instancing point-shadow pass).
++                DXGI_FORMAT dsvFmt = ToDXGIFormat(format);
++                DXGI_FORMAT resFmt = dsvFmt;
++                DXGI_FORMAT srvFmt = DXGI_FORMAT_UNKNOWN;
+ 
+-            const D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATE_RENDER_TARGET;
++                if (format == Format::D32_FLOAT)
++                {
++                    resFmt = DXGI_FORMAT_R32_TYPELESS;
++                    srvFmt = DXGI_FORMAT_R32_FLOAT;
++                }
++                else if (format == Format::D24_UNORM_S8_UINT)
++                {
++                    resFmt = DXGI_FORMAT_R24G8_TYPELESS;
++                    srvFmt = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
++                }
+ 
+-            ThrowIfFailed(NativeDevice()->CreateCommittedResource(
+-                &heapProps,
+-                D3D12_HEAP_FLAG_NONE,
+-                &resourceDesc,
+-                initState,
+-                &clearValue,
+-                IID_PPV_ARGS(&textureEntry.resource)),
+-                "DX12: Create cubemap texture failed");
++                resourceDesc.Format = resFmt;
++                resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
++
++                D3D12_CLEAR_VALUE clearValue{};
++                clearValue.Format = dsvFmt;
++                clearValue.DepthStencil.Depth = 1.0f;
++                clearValue.DepthStencil.Stencil = 0;
+ 
+-            textureEntry.resourceFormat = dxFmt;
+-            textureEntry.srvFormat = dxFmt;
+-            textureEntry.rtvFormat = dxFmt;
+-            textureEntry.state = initState;
++                ThrowIfFailed(NativeDevice()->CreateCommittedResource(
++                    &heapProps,
++                    D3D12_HEAP_FLAG_NONE,
++                    &resourceDesc,
++                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
++                    &clearValue,
++                    IID_PPV_ARGS(&textureEntry.resource)),
++                    "DX12: Create cubemap depth texture failed");
+ 
+-            EnsureRTVHeap();
+-            textureEntry.hasRTVFaces = true;
+-            for (UINT face = 0; face < 6; ++face)
+-            {
+-                textureEntry.rtvFaces[face] = AllocateRTVTexture2DArraySlice(textureEntry.resource.Get(), dxFmt, face, textureEntry.rtvIndexFaces[face]);
++                textureEntry.resourceFormat = resFmt;
++                textureEntry.dsvFormat = dsvFmt;
++                textureEntry.srvFormat = srvFmt;
++                textureEntry.state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
++
++                EnsureDSVHeap();
++                textureEntry.dsvAllFaces = AllocateDSVTexture2DArray(textureEntry.resource.Get(), dsvFmt, 0, 6, textureEntry.dsvIndexAllFaces);
++                textureEntry.hasDSVAllFaces = true;
++
++                // Optional SRV for sampling (not required for point shadows in this engine, but useful for future features).
++                if (srvFmt != DXGI_FORMAT_UNKNOWN)
++                {
++                    AllocateSRV(textureEntry, srvFmt, 1);
++                }
+             }
++            else
++            {
++                // Color cubemap (currently used for point light shadows: R32_FLOAT distance map).
++                const DXGI_FORMAT dxFmt = ToDXGIFormat(format);
++
++                resourceDesc.Format = dxFmt;
++                resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
++
++                D3D12_CLEAR_VALUE clearValue{};
++                clearValue.Format = dxFmt;
++                clearValue.Color[0] = 1.0f;
++                clearValue.Color[1] = 1.0f;
++                clearValue.Color[2] = 1.0f;
++                clearValue.Color[3] = 1.0f;
++
++                const D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATE_RENDER_TARGET;
++
++                ThrowIfFailed(NativeDevice()->CreateCommittedResource(
++                    &heapProps,
++                    D3D12_HEAP_FLAG_NONE,
++                    &resourceDesc,
++                    initState,
++                    &clearValue,
++                    IID_PPV_ARGS(&textureEntry.resource)),
++                    "DX12: Create cubemap color texture failed");
++
++                textureEntry.resourceFormat = dxFmt;
++                textureEntry.srvFormat = dxFmt;
++                textureEntry.rtvFormat = dxFmt;
++                textureEntry.state = initState;
++
++                EnsureRTVHeap();
++
++                // One RTV per face (fallback 6-pass path).
++                textureEntry.hasRTVFaces = true;
++                for (UINT face = 0; face < 6; ++face)
++                {
++                    textureEntry.rtvFaces[face] = AllocateRTVTexture2DArraySlice(textureEntry.resource.Get(), dxFmt, face, textureEntry.rtvIndexFaces[face]);
++                }
+ 
+-            AllocateSRV(textureEntry, dxFmt, 1);
++                // One RTV that targets all 6 faces as a Texture2DArray view (View-Instancing path).
++                textureEntry.rtvAllFaces = AllocateRTVTexture2DArray(textureEntry.resource.Get(), dxFmt, 0, 6, textureEntry.rtvIndexAllFaces);
++                textureEntry.hasRTVAllFaces = true;
++
++                AllocateSRV(textureEntry, dxFmt, 1);
++            }
+ 
+             textures_[textureHandle.id] = std::move(textureEntry);
+             return textureHandle;
+         }
+ 
+-        void DestroyTexture(TextureHandle texture) noexcept override
++        void DestroyTexture(TextureHandle texture) noexcept override(TextureHandle texture) noexcept override
+         {
+             if (texture.id == 0)
+             {
+@@ -564,10 +618,18 @@
+                     CurrentFrame().deferredFreeRtv.push_back(idx);
+                 }
+             }
++            if (entry.hasRTVAllFaces)
++            {
++                CurrentFrame().deferredFreeRtv.push_back(entry.rtvIndexAllFaces);
++            }
+             if (entry.hasDSV)
+             {
+                 CurrentFrame().deferredFreeDsv.push_back(entry.dsvIndex);
+             }
++            if (entry.hasDSVAllFaces)
++            {
++                CurrentFrame().deferredFreeDsv.push_back(entry.dsvIndexAllFaces);
++            }
+         }
+ 
+         // ---------------- Framebuffers ----------------
+@@ -582,6 +644,17 @@
+         }
+ 
+ 
++        FrameBufferHandle CreateFramebufferCube(TextureHandle colorCube, TextureHandle depthCube) override
++        {
++            FrameBufferHandle frameBuffer{ ++nextFBId_ };
++            FramebufferEntry frameBufEntry{};
++            frameBufEntry.color = colorCube;
++            frameBufEntry.depth = depthCube;
++            frameBufEntry.colorCubeAllFaces = true;
++            framebuffers_[frameBuffer.id] = frameBufEntry;
++            return frameBuffer;
++        }
++
+         FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) override
+         {
+             FrameBufferHandle frameBuffer{ ++nextFBId_ };
+@@ -1321,36 +1394,49 @@
+ 
+                                     auto& te = it->second;
+ 
+-                                    if (fb.colorCubeFace != 0xFFFFFFFFu)
+-                                    {
+-                                        if (!te.hasRTVFaces)
+-                                        {
+-                                            throw std::runtime_error("DX12: CommandBeginPass: cubemap color texture has no RTV faces");
+-                                        }
+-                                        if (fb.colorCubeFace >= 6)
+-                                        {
+-                                            throw std::runtime_error("DX12: CommandBeginPass: cubemap face index out of range");
+-                                        }
+-
+-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+-
+-                                        rtvs[0] = te.rtvFaces[fb.colorCubeFace];
+-                                        numRT = 1;
+-                                        curRTVFormats[0] = te.rtvFormat;
+-                                    }
+-                                    else
+-                                    {
+-                                        if (!te.hasRTV)
+-                                        {
+-                                            throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
+-                                        }
++if (fb.colorCubeAllFaces)
++{
++    if (!te.hasRTVAllFaces)
++    {
++        throw std::runtime_error("DX12: CommandBeginPass: cubemap color texture has no RTV (all faces)");
++    }
++
++    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
++
++    rtvs[0] = te.rtvAllFaces;
++    numRT = 1;
++    curRTVFormats[0] = te.rtvFormat;
++}
++else if (fb.colorCubeFace != 0xFFFFFFFFu)
++{
++    if (!te.hasRTVFaces)
++    {
++        throw std::runtime_error("DX12: CommandBeginPass: cubemap color texture has no RTV faces");
++    }
++    if (fb.colorCubeFace >= 6)
++    {
++        throw std::runtime_error("DX12: CommandBeginPass: cubemap face index out of range");
++    }
++
++    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
++
++    rtvs[0] = te.rtvFaces[fb.colorCubeFace];
++    numRT = 1;
++    curRTVFormats[0] = te.rtvFormat;
++}
++else
++{
++    if (!te.hasRTV)
++    {
++        throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
++    }
+ 
+-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
++    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+ 
+-                                        rtvs[0] = te.rtv;
+-                                        numRT = 1;
+-                                        curRTVFormats[0] = te.rtvFormat;
+-                                    }
++    rtvs[0] = te.rtv;
++    numRT = 1;
++    curRTVFormats[0] = te.rtvFormat;
++}
+                                 }
+                                 // Depth
+                                 if (fb.depth)
+@@ -1361,17 +1447,29 @@
+                                         throw std::runtime_error("DX12: CommandBeginPass: framebuffer depth texture not found");
+                                     }
+ 
+-                                    auto& te = it->second;
+-                                    if (!te.hasDSV)
+-                                    {
+-                                        throw std::runtime_error("DX12: CommandBeginPass: depth texture has no DSV");
+-                                    }
++auto& te = it->second;
++
++if (fb.colorCubeAllFaces && te.hasDSVAllFaces)
++{
++    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
++
++    dsv = te.dsvAllFaces;
++    hasDSV = true;
++    curDSVFormat = te.dsvFormat;
++}
++else
++{
++    if (!te.hasDSV)
++    {
++        throw std::runtime_error("DX12: CommandBeginPass: depth texture has no DSV");
++    }
+ 
+-                                    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
++    Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+ 
+-                                    dsv = te.dsv;
+-                                    hasDSV = true;
+-                                    curDSVFormat = te.dsvFormat;
++    dsv = te.dsv;
++    hasDSV = true;
++    curDSVFormat = te.dsvFormat;
++}
+                                 }
+ 
+                                 curPassIsSwapChain = false;
+@@ -1868,9 +1966,19 @@
+             std::array<UINT, 6> rtvIndexFaces{};
+             std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 6> rtvFaces{};
+ 
++
++            // For cubemap render targets (RTV for all 6 faces as a Texture2DArray view)
++            bool hasRTVAllFaces{ false };
++            UINT rtvIndexAllFaces{ 0 };
++            D3D12_CPU_DESCRIPTOR_HANDLE rtvAllFaces{};
+             bool hasDSV{ false };
+             UINT dsvIndex{ 0 };
+             D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
++
++            // For cubemap depth targets (DSV for all 6 faces as a Texture2DArray view)
++            bool hasDSVAllFaces{ false };
++            UINT dsvIndexAllFaces{ 0 };
++            D3D12_CPU_DESCRIPTOR_HANDLE dsvAllFaces{};
+         };
+ 
+ 
+@@ -1881,6 +1989,9 @@
+ 
+             // UINT32_MAX means "regular 2D color attachment".
+             std::uint32_t colorCubeFace{ 0xFFFFFFFFu };
++
++            // If true, bind the cubemap RTV/DSV as a 2D array view with ArraySize=6 (View-Instancing path).
++            bool colorCubeAllFaces{ false };
+         };
+ 
+         static constexpr std::uint32_t kFramesInFlight = 3;
+@@ -2379,6 +2490,40 @@
+         }
+ 
+ 
++        D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTVTexture2DArray(ID3D12Resource* res, DXGI_FORMAT fmt, UINT firstSlice, UINT arraySize, UINT& outIndex)
++        {
++            EnsureRTVHeap();
++
++            UINT idx = 0;
++            if (!freeRTV_.empty())
++            {
++                idx = freeRTV_.back();
++                freeRTV_.pop_back();
++            }
++            else
++            {
++                idx = nextRTV_++;
++            }
++
++            D3D12_RENDER_TARGET_VIEW_DESC viewDesc{};
++            viewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
++            viewDesc.Format = fmt;
++            viewDesc.Texture2DArray.MipSlice = 0;
++            viewDesc.Texture2DArray.FirstArraySlice = firstSlice;
++            viewDesc.Texture2DArray.ArraySize = arraySize;
++            viewDesc.Texture2DArray.PlaneSlice = 0;
++
++            const D3D12_CPU_DESCRIPTOR_HANDLE cpu =
++            {
++                rtvHeap_->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(idx) * static_cast<SIZE_T>(rtvInc_)
++            };
++
++            NativeDevice()->CreateRenderTargetView(res, &viewDesc, cpu);
++            outIndex = idx;
++            return cpu;
++        }
++
++
+         D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV(ID3D12Resource* res, DXGI_FORMAT fmt, UINT& outIndex)
+         {
+             UINT idx = 0;
+@@ -2410,6 +2555,43 @@
+             return handle;
+         }
+ 
++
++
++        D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSVTexture2DArray(ID3D12Resource* res, DXGI_FORMAT fmt, UINT firstSlice, UINT arraySize, UINT& outIndex)
++        {
++            EnsureDSVHeap();
++
++            UINT idx = 0;
++            if (!freeDSV_.empty())
++            {
++                idx = freeDSV_.back();
++                freeDSV_.pop_back();
++            }
++            else
++            {
++                idx = nextDSV_++;
++            }
++            outIndex = idx;
++
++            if (idx >= 256u)
++            {
++                throw std::runtime_error("DX12: DSV heap exhausted (increase EnsureDSVHeap() NumDescriptors).");
++            }
++
++            D3D12_CPU_DESCRIPTOR_HANDLE handle = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
++            handle.ptr += static_cast<SIZE_T>(idx) * dsvInc_;
++
++            D3D12_DEPTH_STENCIL_VIEW_DESC viewDesc{};
++            viewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
++            viewDesc.Format = fmt;
++            viewDesc.Flags = D3D12_DSV_FLAG_NONE;
++            viewDesc.Texture2DArray.MipSlice = 0;
++            viewDesc.Texture2DArray.FirstArraySlice = firstSlice;
++            viewDesc.Texture2DArray.ArraySize = arraySize;
++
++            NativeDevice()->CreateDepthStencilView(res, &viewDesc, handle);
++            return handle;
++        }
+         UINT AllocateSrvIndex()
+         {
+             UINT idx = 0;
+-- 
+2.39.5
+

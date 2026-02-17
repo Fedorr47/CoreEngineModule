@@ -53,6 +53,8 @@ struct RGTextureDesc
 
 		// If set, color attachment is treated as a cubemap and this selects the face [0..5].
 		std::optional<std::uint32_t> colorCubeFace;
+		// If true, color cubemap is rendered as all faces (array layers) in a single pass (e.g. DX12 view-instancing).
+		bool colorCubeAllFaces{ false };
 		rhi::ClearDesc clearDesc{};
 	};
 
@@ -166,7 +168,11 @@ struct RGTextureDesc
 						passExtent = textures_[pass.attachments.depth->id].extent;
 					}
 
-					if (pass.attachments.colorCubeFace && color.id != 0)
+					if (pass.attachments.colorCubeAllFaces && color.id != 0)
+					{
+						frameBuffer = device.CreateFramebufferCube(color, depth);
+					}
+					else if (pass.attachments.colorCubeFace && color.id != 0)
 					{
 						frameBuffer = device.CreateFramebufferCubeFace(color, *pass.attachments.colorCubeFace, depth);
 					}
