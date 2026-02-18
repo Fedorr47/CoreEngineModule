@@ -296,6 +296,30 @@ namespace rendern::ui
         ImGui::SliderFloat("Arrow thickness (UI only)", &rs.lightGizmoArrowThickness, 0.001f, 2.0f, "%.3f");
         ImGui::EndDisabled();
         ImGui::Separator();
+        if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Checkbox("Enable reflection capture", &rs.enableReflectionCapture);
+
+            ImGui::BeginDisabled(!rs.enableReflectionCapture);
+            ImGui::Checkbox("Update every frame", &rs.reflectionCaptureUpdateEveryFrame);
+            ImGui::Checkbox("Follow selected object", &rs.reflectionCaptureFollowSelectedObject);
+
+            int res = static_cast<int>(rs.reflectionCaptureResolution);
+            if (ImGui::InputInt("Capture resolution", &res))
+            {
+                res = std::clamp(res, 32, 2048);
+                rs.reflectionCaptureResolution = static_cast<std::uint32_t>(res);
+            }
+
+            ImGui::DragFloat("Capture near Z", &rs.reflectionCaptureNearZ, 0.01f, 0.001f, 10.0f, "%.3f");
+            ImGui::DragFloat("Capture far Z", &rs.reflectionCaptureFarZ, 1.0f, 1.0f, 5000.0f, "%.1f");
+            if (rs.reflectionCaptureFarZ < rs.reflectionCaptureNearZ)
+                rs.reflectionCaptureFarZ = rs.reflectionCaptureNearZ;
+
+            ImGui::EndDisabled();
+        }
+
+        ImGui::Separator();
         if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Text("Count: %d", static_cast<int>(scene.lights.size()));

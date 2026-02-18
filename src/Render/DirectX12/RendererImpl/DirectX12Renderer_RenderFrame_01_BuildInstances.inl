@@ -7,6 +7,7 @@
 			// ---- Shadow packing (per mesh) ----
 			std::unordered_map<const rendern::MeshRHI*, std::vector<InstanceData>> shadowTmp;
 			shadowTmp.reserve(scene.drawItems.size());
+			std::uint32_t envSource = 0u;
 
 			for (const auto& item : scene.drawItems)
 			{
@@ -18,12 +19,14 @@
 				const mathUtils::Mat4 model = item.transform.ToMatrix();
 				// IMPORTANT: exclude alpha-blended objects from shadow casting
 				MaterialParams params{};
+				envSource = 0u;
 				MaterialPerm perm = MaterialPerm::UseShadow;
 				if (item.material.id != 0)
 				{
 					const auto& mat = scene.GetMaterial(item.material);
 					params = mat.params;
 					perm = EffectivePerm(mat);
+					envSource = static_cast<std::uint32_t>(mat.envSource);
 				}
 				else
 				{
@@ -169,6 +172,7 @@
 				}
 
 				key.permBits = static_cast<std::uint32_t>(perm);
+				key.envSource = envSource;
 
 				// IMPORTANT: BatchKey must include material parameters,
 				// otherwise different materials get incorrectly merged.

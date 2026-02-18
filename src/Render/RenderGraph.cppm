@@ -31,6 +31,8 @@ struct RGTextureDesc
 	{
 		rhi::Extent2D extent{ 0, 0 };
 		rhi::Format format{ rhi::Format::Unknown };
+		// If set, this texture is provided by the caller and will not be created/destroyed by the render graph.
+		rhi::TextureHandle externalTexture{};
 		ResourceUsage usage{ ResourceUsage::Unknown };
 		TextureType type{ TextureType::Tex2D };
 		std::string debugName;
@@ -107,6 +109,12 @@ struct RGTextureDesc
 			return RGTexture{ .id = id };
 		}
 
+		RGTexture ImportTexture(rhi::TextureHandle externalTexture, RGTextureDesc desc)
+		{
+			desc.externalTexture = externalTexture;
+			return CreateTexture(std::move(desc));
+		}
+
 		void AddPass(std::string_view name, PassAttachments attachments, PassCallback callback)
 		{
 			passes_.emplace_back(PassNode{.name = std::string(name), .attachments = std::move(attachments), .execute = std::move(callback) });
@@ -130,12 +138,22 @@ struct RGTextureDesc
 		{
 			std::vector<rhi::TextureHandle> allocatedTextures;
 			allocatedTextures.reserve(textures_.size());
+			std::vector<std::uint8_t> owned;
+			owned.reserve(textures_.size());
 			for (const auto& texDesc : textures_)
 			{
+				if (texDesc.externalTexture)
+				{
+					allocatedTextures.push_back(texDesc.externalTexture);
+					owned.push_back(0);
+					continue;
+				}
+
 				rhi::TextureHandle texture = (texDesc.type == TextureType::Cube)
 					? device.CreateTextureCube(texDesc.extent, texDesc.format)
 					: device.CreateTexture2D(texDesc.extent, texDesc.format);
 				allocatedTextures.push_back(texture);
+				owned.push_back(1);
 			}
 
 			RenderGraphResources resources(allocatedTextures);
@@ -203,9 +221,12 @@ struct RGTextureDesc
 			{
 				device.DestroyFramebuffer(frameBuffer);
 			}
-			for (auto texture : allocatedTextures)
+			for (std::size_t i = 0; i < allocatedTextures.size(); ++i)
 			{
-				device.DestroyTexture(texture);
+				if (owned[i] != 0)
+				{
+					device.DestroyTexture(allocatedTextures[i]);
+				}
 			}
 		}
 	private:

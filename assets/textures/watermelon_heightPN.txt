@@ -1,0 +1,4 @@
+depth_min:-0.0470284
+depth_max:0.112698
+depth_map_range:0.225397
+depth_midpoint:0.5

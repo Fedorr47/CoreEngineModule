@@ -1245,6 +1245,29 @@ export namespace rendern
 					def.material.permFlags = ParsePermFlags(*flagsV);
 				}
 
+				// Optional: which environment cubemap source the material wants.
+				auto parseEnvSource = [&](const JsonValue& v)
+				{
+					if (!v.IsString())
+					{
+						throw std::runtime_error("Level JSON: materials." + id + ".envSource must be a string");
+					}
+					std::string s = v.AsString();
+					for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+					if (s == "skybox") def.material.envSource = EnvSource::Skybox;
+					else if (s == "reflectioncapture" || s == "reflection_capture" || s == "capture") def.material.envSource = EnvSource::ReflectionCapture;
+					else throw std::runtime_error("Level JSON: materials." + id + ".envSource must be skybox|reflectionCapture");
+				};
+
+				if (auto* envV = TryGet(md, "envSource"))
+				{
+					parseEnvSource(*envV);
+				}
+				else if (auto* envV2 = TryGet(md, "env"))
+				{
+					parseEnvSource(*envV2);
+				}
+
 				if (auto* texBindV = TryGet(md, "textures"))
 				{
 					const JsonObject& tbo = texBindV->AsObject();
@@ -1781,6 +1804,10 @@ export namespace rendern
 				ss << ", \"roughness\": "; writeFloat(ss, p.roughness);
 				ss << ", \"ao\": "; writeFloat(ss, p.ao);
 				ss << ", \"emissiveStrength\": "; writeFloat(ss, p.emissiveStrength);
+						if (md.material.envSource == EnvSource::ReflectionCapture)
+						{
+							ss << ", \"envSource\": \"reflectionCapture\"";
+						}
 
 				// flags as array (parser expects array)
 				ss << ", \"flags\": [";

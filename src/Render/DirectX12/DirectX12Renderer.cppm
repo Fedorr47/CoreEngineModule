@@ -89,6 +89,7 @@ export namespace rendern
 	float specStrength{};
 
 	std::uint32_t permBits{};
+	std::uint32_t envSource{};
 };
 
 	struct BatchKeyHash
@@ -113,6 +114,8 @@ export namespace rendern
 			std::size_t seed = HashPtr(key.mesh);
 
 			HashCombine(seed, HashU32(key.permBits));
+
+			HashCombine(seed, HashU32(key.envSource));
 
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.albedoDescIndex)));
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.normalDescIndex)));
@@ -146,6 +149,7 @@ export namespace rendern
 		{
 			return lhs.mesh == rhs.mesh &&
 				lhs.permBits == rhs.permBits &&
+				lhs.envSource == rhs.envSource &&
 				lhs.albedoDescIndex == rhs.albedoDescIndex &&
 				lhs.normalDescIndex == rhs.normalDescIndex &&
 				lhs.metalnessDescIndex == rhs.metalnessDescIndex &&
@@ -296,6 +300,7 @@ export namespace rendern
 		void SetSettings(const RendererSettings& settings)
 		{
 			settings_ = settings;
+			EnsureReflectionCaptureResources();
 		}
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const Scene& scene, const void* imguiDrawData)
@@ -368,6 +373,55 @@ export namespace rendern
 			#include "RendererImpl/DirectX12Renderer_CreateResources_03_DynamicBuffers.inl"
 		}
 
+		void EnsureReflectionCaptureResources()
+		{
+			if (device_.GetBackend() != rhi::Backend::DirectX12)
+			{
+				return;
+			}
+
+			const std::uint32_t res = std::clamp(settings_.reflectionCaptureResolution, 32u, 2048u);
+			const rhi::Extent2D desired{ res, res };
+
+			const bool needRecreate =
+				(!reflectionCaptureCube_) ||
+				(reflectionCaptureExtent_.width != desired.width) ||
+				(reflectionCaptureExtent_.height != desired.height);
+
+			if (!needRecreate)
+			{
+				return;
+			}
+
+			// Recreate both color and depth cubemaps.
+			if (reflectionCaptureCube_)
+			{
+				device_.DestroyTexture(reflectionCaptureCube_);
+				reflectionCaptureCube_ = {};
+			}
+			if (reflectionCaptureDepthCube_)
+			{
+				device_.DestroyTexture(reflectionCaptureDepthCube_);
+				reflectionCaptureDepthCube_ = {};
+			}
+
+			reflectionCaptureCube_ = device_.CreateTextureCube(desired, rhi::Format::RGBA8_UNORM);
+			reflectionCaptureDepthCube_ = device_.CreateTextureCube(desired, rhi::Format::D32_FLOAT);
+			reflectionCaptureExtent_ = desired;
+
+			if (reflectionCaptureCube_)
+			{
+				if (reflectionCaptureCubeDescIndex_ == 0)
+				{
+					reflectionCaptureCubeDescIndex_ = device_.AllocateTextureDesctiptor(reflectionCaptureCube_);
+				}
+				else
+				{
+					device_.UpdateTextureDescriptor(reflectionCaptureCubeDescIndex_, reflectionCaptureCube_);
+				}
+			}
+		}
+
 	private:
 		static constexpr std::uint32_t kMaxLights = 64;
 		static constexpr std::uint32_t kDefaultInstanceBufferSizeBytes = 8u * 1024u * 1024u; // 8 MB (combined shadow+main instances)
@@ -404,6 +458,11 @@ export namespace rendern
 		rhi::PipelineHandle psoPointShadowVI_{}; // SM6.1 + SV_ViewID + view instancing (single-pass cubemap)
 		bool disablePointShadowVI_{ false };// do not try again after first failure (until restart)
 		rhi::GraphicsState pointShadowState_{};
+
+		// Reflection capture cubemap (persistent). RenderGraph will import this texture when building passes.
+		rhi::TextureHandle reflectionCaptureCube_{};
+		rhi::TextureHandle reflectionCaptureDepthCube_{};
+		rhi::TextureDescIndex reflectionCaptureCubeDescIndex_{}; // SRV for sampling in main pass
 
 		MeshRHI skyboxMesh_{};
 		rhi::PipelineHandle psoSkybox_{};

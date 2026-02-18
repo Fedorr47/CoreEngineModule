@@ -33,4 +33,8 @@
 					id.debugName = "InstanceVB";
 					instanceBuffer_ = device_.CreateBuffer(id);
 				}
+
+				// Persistent reflection capture cubemap.
+				// The texture is (re)created based on current RendererSettings (resolution).
+				EnsureReflectionCaptureResources();
 			}

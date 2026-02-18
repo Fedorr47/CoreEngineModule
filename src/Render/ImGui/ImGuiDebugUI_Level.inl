@@ -517,6 +517,7 @@ namespace rendern::ui
 
         // Expose selection to the rest of the app (main viewport already writes here too).
         scene.editorSelectedNode = selectedNode;
+        scene.editorSelectedDrawItem = levelInst.GetNodeDrawIndex(selectedNode);
 
         // Push transforms to Scene if needed
         levelInst.SyncTransformsIfDirty(level, scene);

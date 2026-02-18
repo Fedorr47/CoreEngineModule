@@ -121,6 +121,12 @@ export namespace rendern
 		rhi::TextureDescIndex emissiveDescIndex{ 0 };
 	};
 
+	enum class EnvSource : std::uint8_t
+	{
+		Skybox = 0,
+		ReflectionCapture = 1
+	};
+
 	enum class MaterialPerm : std::uint32_t
 	{
 		None		= 0,
@@ -157,6 +163,7 @@ export namespace rendern
 	{
 		MaterialParams params{};
 		MaterialPerm permFlags{ MaterialPerm::UseShadow };
+		EnvSource envSource{ EnvSource::Skybox };
 	};
 
 	inline MaterialPerm EffectivePerm(const Material& material) noexcept
@@ -197,6 +204,9 @@ export namespace rendern
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };
+
+		// Editor selection (runtime-only). Index into Scene::drawItems (or -1).
+		int editorSelectedDrawItem{ -1 };
 
 		void Clear()
 		{

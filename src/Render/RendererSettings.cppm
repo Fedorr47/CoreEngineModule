@@ -1,6 +1,7 @@
 module;
 
 #include <filesystem>
+#include <cstdint>
 
 // Shared, backend-agnostic renderer settings.
 export module core:renderer_settings;
@@ -21,6 +22,14 @@ export namespace rendern
 		bool enableDepthPrepass{ false };
 		bool enableFrustumCulling{ true };
 		bool debugPrintDrawCalls{ false }; // prints MainPass draw-call count (DX12) once per ~60 frames
+
+		// Reflection capture (cubemap). Currently used by DX12 backend.
+		bool enableReflectionCapture{ false };
+		bool reflectionCaptureUpdateEveryFrame{ false };
+		bool reflectionCaptureFollowSelectedObject{ true };
+		std::uint32_t reflectionCaptureResolution{ 256 }; // cube face size (px)
+		float reflectionCaptureNearZ{ 0.05f };
+		float reflectionCaptureFarZ{ 200.0f };
 
 		bool drawLightGizmos{ true };
 		bool debugDrawDepthTest{ true };
