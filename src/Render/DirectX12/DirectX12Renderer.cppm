@@ -205,6 +205,25 @@ export namespace rendern
 	};
 	static_assert(sizeof(PerBatchConstants) == 240);
 
+	struct alignas(16) ReflectionCaptureConstants
+	{
+		// 6 matrices * 4 rows = 24 float4 rows = 96 floats = 384 bytes
+		std::array<float, 16u * 6u> uFaceViewProj{};   // row-major rows for each face (4 rows per face)
+
+		std::array<float, 4> uCapturePosAmbient{};     // xyz + ambientStrength
+		std::array<float, 4> uBaseColor{};             // rgba
+		std::array<float, 4> uParams{};                // x=lightCount, y=flagsBits(asfloat), z,w unused
+	};
+	static_assert(sizeof(ReflectionCaptureConstants) <= 512);
+
+	struct alignas(16) ReflectionCaptureFaceConstants
+	{
+		std::array<float, 16> uViewProj{};             // 4 rows
+		std::array<float, 4>  uCapturePosAmbient{};    // xyz + ambientStrength
+		std::array<float, 4>  uBaseColor{};            // rgba
+		std::array<float, 4>  uParams{};               // x=lightCount, y=flagsBits(asfloat), z,w unused
+	};
+	static_assert(sizeof(ReflectionCaptureFaceConstants) <= 512);
 
 	// shadow metadata for Spot/Point arrays (bound as StructuredBuffer at t11).
 	// We pack indices/bias as floats to keep the struct simple across compilers.
@@ -308,6 +327,7 @@ export namespace rendern
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl"
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl"
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl"
+			#include "RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl"
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl"
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass.inl"
 			#include "RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl"
@@ -371,6 +391,8 @@ export namespace rendern
 			#include "RendererImpl/DirectX12Renderer_CreateResources_01_MainPipelines.inl"
 			#include "RendererImpl/DirectX12Renderer_CreateResources_02_ShadowPipelines.inl"
 			#include "RendererImpl/DirectX12Renderer_CreateResources_03_DynamicBuffers.inl"
+
+			EnsureReflectionCaptureResources();
 		}
 
 		void EnsureReflectionCaptureResources()
@@ -384,42 +406,57 @@ export namespace rendern
 			const rhi::Extent2D desired{ res, res };
 
 			const bool needRecreate =
-				(!reflectionCaptureCube_) ||
-				(reflectionCaptureExtent_.width != desired.width) ||
-				(reflectionCaptureExtent_.height != desired.height);
+				(!reflectionCube_) ||
+				(reflectionCubeExtent_.width != desired.width) ||
+				(reflectionCubeExtent_.height != desired.height);
 
 			if (!needRecreate)
 			{
 				return;
 			}
 
-			// Recreate both color and depth cubemaps.
-			if (reflectionCaptureCube_)
+			// (Re)create both color and depth cubemaps.
+			const rhi::TextureHandle newCube = device_.CreateTextureCube(desired, rhi::Format::RGBA8_UNORM);
+			const rhi::TextureHandle newDepthCube = device_.CreateTextureCube(desired, rhi::Format::D32_FLOAT);
+
+			if (!newCube || !newDepthCube)
 			{
-				device_.DestroyTexture(reflectionCaptureCube_);
-				reflectionCaptureCube_ = {};
-			}
-			if (reflectionCaptureDepthCube_)
-			{
-				device_.DestroyTexture(reflectionCaptureDepthCube_);
-				reflectionCaptureDepthCube_ = {};
+				if (newCube)
+				{
+					device_.DestroyTexture(newCube);
+				}
+				if (newDepthCube)
+				{
+					device_.DestroyTexture(newDepthCube);
+				}
+				return;
 			}
 
-			reflectionCaptureCube_ = device_.CreateTextureCube(desired, rhi::Format::RGBA8_UNORM);
-			reflectionCaptureDepthCube_ = device_.CreateTextureCube(desired, rhi::Format::D32_FLOAT);
-			reflectionCaptureExtent_ = desired;
-
-			if (reflectionCaptureCube_)
+			if (reflectionCube_)
 			{
-				if (reflectionCaptureCubeDescIndex_ == 0)
-				{
-					reflectionCaptureCubeDescIndex_ = device_.AllocateTextureDesctiptor(reflectionCaptureCube_);
-				}
-				else
-				{
-					device_.UpdateTextureDescriptor(reflectionCaptureCubeDescIndex_, reflectionCaptureCube_);
-				}
+				device_.DestroyTexture(reflectionCube_);
+				reflectionCube_ = {};
 			}
+			if (reflectionDepthCube_)
+			{
+				device_.DestroyTexture(reflectionDepthCube_);
+				reflectionDepthCube_ = {};
+			}
+
+			reflectionCube_ = newCube;
+			reflectionDepthCube_ = newDepthCube;
+			reflectionCubeExtent_ = desired;
+
+			if (reflectionCubeDescIndex_ == 0)
+			{
+				reflectionCubeDescIndex_ = device_.AllocateTextureDesctiptor(reflectionCube_);
+			}
+			else
+			{
+				device_.UpdateTextureDescriptor(reflectionCubeDescIndex_, reflectionCube_);
+			}
+			reflectionCaptureDirty_ = true;
+			reflectionCaptureHasLastPos_ = false;
 		}
 
 	private:
@@ -459,10 +496,24 @@ export namespace rendern
 		bool disablePointShadowVI_{ false };// do not try again after first failure (until restart)
 		rhi::GraphicsState pointShadowState_{};
 
-		// Reflection capture cubemap (persistent). RenderGraph will import this texture when building passes.
-		rhi::TextureHandle reflectionCaptureCube_{};
-		rhi::TextureHandle reflectionCaptureDepthCube_{};
-		rhi::TextureDescIndex reflectionCaptureCubeDescIndex_{}; // SRV for sampling in main pass
+		// Reflection capture cubemap (persistent). RenderGraph will import these textures when building passes.
+		rhi::TextureHandle reflectionCube_{};
+		rhi::TextureHandle reflectionDepthCube_{};
+		rhi::TextureDescIndex reflectionCubeDescIndex_{}; // SRV for sampling in main pass
+		rhi::Extent2D reflectionCubeExtent_{}; // last created face size
+
+		// Reflection capture pipelines (created in 0007).
+		rhi::PipelineHandle psoReflectionCapture_{};            // optional (6-pass shader later)
+		rhi::PipelineHandle psoReflectionCaptureLayered_{};     // SM6.1 layered
+		bool disableReflectionCaptureLayered_{ false };
+		rhi::PipelineHandle psoReflectionCaptureVI_{};          // SM6.1 view instancing
+		bool disableReflectionCaptureVI_{ false };
+
+		// Reflection capture update state.
+		bool reflectionCaptureDirty_{ true };
+		bool reflectionCaptureHasLastPos_{ false };
+		mathUtils::Vec3 reflectionCaptureLastPos_{};
+		int reflectionCaptureLastSelectedDrawItem_{ -1 };
 
 		MeshRHI skyboxMesh_{};
 		rhi::PipelineHandle psoSkybox_{};

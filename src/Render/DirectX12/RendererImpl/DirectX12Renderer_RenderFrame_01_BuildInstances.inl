@@ -258,11 +258,58 @@
 				mainBatches.push_back(batch);
 			}
 
+			// ---- Optional: layered reflection-capture packing (duplicate MAIN instances x6 for cubemap slices) ----
+			// Layered reflection capture uses SV_RenderTargetArrayIndex in VS and assumes each original instance
+			// is duplicated 6 times in order (faces 0..5).
+			std::vector<InstanceData> reflectionInstancesLayered;
+			std::vector<Batch> reflectionBatchesLayered;
+
+			const bool buildLayeredReflectionCapture =
+				(psoReflectionCaptureLayered_ && !disableReflectionCaptureLayered_) &&
+				device_.SupportsShaderModel6() && device_.SupportsVPAndRTArrayIndexFromAnyShader();
+
+			if (buildLayeredReflectionCapture && !mainBatches.empty())
+			{
+				constexpr std::uint32_t kFaces = 6u;
+
+				// reserve roughly
+				std::size_t totalMainInst = 0;
+				for (const Batch& b : mainBatches) totalMainInst += b.instanceCount;
+
+				reflectionInstancesLayered.reserve(totalMainInst * kFaces);
+				reflectionBatchesLayered.reserve(mainBatches.size());
+
+				for (const Batch& b : mainBatches)
+				{
+					if (!b.mesh || b.instanceCount == 0)
+						continue;
+
+					Batch lb = b;
+					lb.instanceOffset = static_cast<std::uint32_t>(reflectionInstancesLayered.size());
+					lb.instanceCount = b.instanceCount * kFaces;
+
+					const std::uint32_t begin = b.instanceOffset;
+					const std::uint32_t end = begin + b.instanceCount;
+
+					for (std::uint32_t i = begin; i < end; ++i)
+					{
+						const InstanceData& inst = mainInstances[i];
+						for (std::uint32_t face = 0; face < kFaces; ++face)
+						{
+							reflectionInstancesLayered.push_back(inst);
+						}
+					}
+
+					reflectionBatchesLayered.push_back(lb);
+				}
+			}
+
 			// ---- Combine and upload once ----
 			const std::uint32_t shadowBase = 0;
 			const std::uint32_t mainBase = static_cast<std::uint32_t>(shadowInstances.size());
 			const std::uint32_t transparentBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
 			const std::uint32_t layeredShadowBase = transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
+			const std::uint32_t layeredReflectionBase = layeredShadowBase + static_cast<std::uint32_t>(shadowInstancesLayered.size());
 
 			for (auto& sbatch : shadowBatches)
 			{
@@ -275,6 +322,10 @@
 			for (auto& lbatch : shadowBatchesLayered)
 			{
 				lbatch.instanceOffset += layeredShadowBase;
+			}
+			for (auto& rbatch : reflectionBatchesLayered)
+			{
+				rbatch.instanceOffset += layeredReflectionBase;
 			}
 
 			std::vector<TransparentDraw> transparentDraws;
@@ -297,11 +348,19 @@
 				});
 
 			std::vector<InstanceData> combinedInstances;
-			combinedInstances.reserve(shadowInstances.size() + mainInstances.size() + transparentInstances.size() + shadowInstancesLayered.size());
+			combinedInstances.reserve(
+				shadowInstances.size() +
+				mainInstances.size() +
+				transparentInstances.size() +
+				shadowInstancesLayered.size() +
+				reflectionInstancesLayered.size());
+
 			combinedInstances.insert(combinedInstances.end(), shadowInstances.begin(), shadowInstances.end());
 			combinedInstances.insert(combinedInstances.end(), mainInstances.begin(), mainInstances.end());
 			combinedInstances.insert(combinedInstances.end(), transparentInstances.begin(), transparentInstances.end());
 			combinedInstances.insert(combinedInstances.end(), shadowInstancesLayered.begin(), shadowInstancesLayered.end());
+			combinedInstances.insert(combinedInstances.end(), reflectionInstancesLayered.begin(), reflectionInstancesLayered.end());
+
 
 			const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceData));
 

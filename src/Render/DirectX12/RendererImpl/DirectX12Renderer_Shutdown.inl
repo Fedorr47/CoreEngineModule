@@ -11,22 +11,22 @@
 				device_.DestroyBuffer(shadowDataBuffer_);
 			}
 
-			if (reflectionCaptureCubeDescIndex_ != 0)
+			if (reflectionCubeDescIndex_ != 0)
 			{
-				device_.FreeTextureDescriptor(reflectionCaptureCubeDescIndex_);
-				reflectionCaptureCubeDescIndex_ = 0;
+				device_.FreeTextureDescriptor(reflectionCubeDescIndex_);
+				reflectionCubeDescIndex_ = 0;
 			}
-			if (reflectionCaptureCube_)
+			if (reflectionCube_)
 			{
-				device_.DestroyTexture(reflectionCaptureCube_);
-				reflectionCaptureCube_ = {};
+				device_.DestroyTexture(reflectionCube_);
+				reflectionCube_ = {};
 			}
-			if (reflectionCaptureDepthCube_)
+			if (reflectionDepthCube_)
 			{
-				device_.DestroyTexture(reflectionCaptureDepthCube_);
-				reflectionCaptureDepthCube_ = {};
+				device_.DestroyTexture(reflectionDepthCube_);
+				reflectionDepthCube_ = {};
 			}
-			//reflectionCaptureExtent_ = {};
+			reflectionCubeExtent_ = {};
 			DestroyMesh(device_, skyboxMesh_);
 			debugDrawRenderer_.Shutdown();
 			psoCache_.ClearCache();

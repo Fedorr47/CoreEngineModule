@@ -130,7 +130,16 @@
 						ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
 						ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
 						ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
-						ctx.commandList.BindTextureDesc(17, scene.skyboxDescIndex);
+						rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+						if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (batch.materialHandle.id != 0))
+						{
+							const auto& mat = scene.GetMaterial(batch.materialHandle);
+							if (mat.envSource == EnvSource::ReflectionCapture)
+							{
+								envDescIndex = reflectionCubeDescIndex_;
+							}
+						}
+						ctx.commandList.BindTextureDesc(17, envDescIndex);
 
 						std::uint32_t flags = 0;
 						if (useTex)
@@ -161,7 +170,7 @@
 						{
 							flags |= kFlagUseEmissiveTex;
 						}
-						if (scene.skyboxDescIndex != 0)
+						if (envDescIndex != 0)
 						{
 							flags |= kFlagUseEnv;
 						}
@@ -239,7 +248,16 @@
 							ctx.commandList.BindTextureDesc(14, batchTransparent.material.roughnessDescIndex);
 							ctx.commandList.BindTextureDesc(15, batchTransparent.material.aoDescIndex);
 							ctx.commandList.BindTextureDesc(16, batchTransparent.material.emissiveDescIndex);
-							ctx.commandList.BindTextureDesc(17, scene.skyboxDescIndex);
+							rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+							if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (batchTransparent.materialHandle.id != 0))
+							{
+								const auto& mat = scene.GetMaterial(batchTransparent.materialHandle);
+								if (mat.envSource == EnvSource::ReflectionCapture)
+								{
+									envDescIndex = reflectionCubeDescIndex_;
+								}
+							}
+							ctx.commandList.BindTextureDesc(17, envDescIndex);
 
 							std::uint32_t flags = 0;
 							if (useTex)
@@ -270,7 +288,7 @@
 							{
 								flags |= kFlagUseEmissiveTex;
 							}
-							if (scene.skyboxDescIndex != 0)
+							if (envDescIndex != 0)
 							{
 								flags |= kFlagUseEnv;
 							}

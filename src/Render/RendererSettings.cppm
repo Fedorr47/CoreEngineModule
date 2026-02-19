@@ -24,8 +24,8 @@ export namespace rendern
 		bool debugPrintDrawCalls{ false }; // prints MainPass draw-call count (DX12) once per ~60 frames
 
 		// Reflection capture (cubemap). Currently used by DX12 backend.
-		bool enableReflectionCapture{ false };
-		bool reflectionCaptureUpdateEveryFrame{ false };
+		bool enableReflectionCapture{ true };
+		bool reflectionCaptureUpdateEveryFrame{ true };
 		bool reflectionCaptureFollowSelectedObject{ true };
 		std::uint32_t reflectionCaptureResolution{ 256 }; // cube face size (px)
 		float reflectionCaptureNearZ{ 0.05f };

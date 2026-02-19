@@ -742,8 +742,10 @@ float4 PSMain(VSOut IN) : SV_Target0
     float3 ambient = 0.0f;
     if (useEnv)
     {
-        // Assume env has mips (generated on load). Use a conservative mipMax; sampling out of range clamps.
-        const float mipMax = 9.0f;
+       // Compute mipMax from actual env mip levels (important for dynamic cubemaps that may have 1 mip).
+        uint w, h, levels;
+        gEnv.GetDimensions(0, w, h, levels);
+        float mipMax = (levels > 0u) ? (float) (levels - 1u) : 0.0f;
 
         const float3 R = reflect(-V, N);
 

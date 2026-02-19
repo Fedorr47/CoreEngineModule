@@ -140,3 +140,103 @@
 			
 			pointShadowState_.blend.enable = false;
 			}
+
+			// ---------------- ReflectionCapture PSOs ----------------
+			if (device_.GetBackend() == rhi::Backend::DirectX12)
+			{
+				const std::filesystem::path reflPath = corefs::ResolveAsset("shaders\\ReflectionCapture_dx12.hlsl");
+				const std::filesystem::path reflVIPath = corefs::ResolveAsset("shaders\\ReflectionCaptureVI_dx12.hlsl");
+				const std::filesystem::path reflLayeredPath = corefs::ResolveAsset("shaders\\ReflectionCaptureLayered_dx12.hlsl");
+
+				// Fallback (SM5.x) - 6 passes, one face at a time
+				{
+					const auto vsRefl = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Vertex,
+						.name = "VS_ReflectionCapture",
+						.filePath = reflPath.string(),
+						.defines = {}
+						});
+					const auto psRefl = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Pixel,
+						.name = "PS_ReflectionCapture",
+						.filePath = reflPath.string(),
+						.defines = {}
+						});
+
+					psoReflectionCapture_ = psoCache_.GetOrCreate("PSO_ReflectionCapture", vsRefl, psRefl);
+				}
+
+				// VI (SM6.1) - single pass, SV_ViewID, view count = 6
+				if (!disableReflectionCaptureVI_)
+				{
+					if (device_.SupportsShaderModel6() && device_.SupportsViewInstancing())
+					{
+						const auto vsReflVI = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Vertex,
+							.name = "VS_ReflectionCaptureVI",
+							.filePath = reflVIPath.string(),
+							.defines = {},
+							.shaderModel = rhi::ShaderModel::SM6_1
+							});
+						const auto psReflVI = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Pixel,
+							.name = "PS_ReflectionCaptureVI",
+							.filePath = reflVIPath.string(),
+							.defines = {},
+							.shaderModel = rhi::ShaderModel::SM6_1
+							});
+
+						if (vsReflVI && psReflVI)
+						{
+							psoReflectionCaptureVI_ =
+								psoCache_.GetOrCreate("PSO_ReflectionCapture_VI", vsReflVI, psReflVI, rhi::PrimitiveTopologyType::Triangle, 6);
+						}
+					}
+					else
+					{
+						disableReflectionCaptureVI_ = true;
+					}
+
+					if (!psoReflectionCaptureVI_)
+					{
+						disableReflectionCaptureVI_ = true;
+					}
+				}
+
+				// Layered (SM6.1) - single pass, SV_RenderTargetArrayIndex
+				if (!disableReflectionCaptureLayered_)
+				{
+					if (device_.SupportsShaderModel6() && device_.SupportsVPAndRTArrayIndexFromAnyShader())
+					{
+						const auto vsReflLayered = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Vertex,
+							.name = "VS_ReflectionCaptureLayered",
+							.filePath = reflLayeredPath.string(),
+							.defines = {},
+							.shaderModel = rhi::ShaderModel::SM6_1
+							});
+						const auto psReflLayered = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Pixel,
+							.name = "PS_ReflectionCaptureLayered",
+							.filePath = reflLayeredPath.string(),
+							.defines = {},
+							.shaderModel = rhi::ShaderModel::SM6_1
+							});
+
+						if (vsReflLayered && psReflLayered)
+						{
+							psoReflectionCaptureLayered_ =
+								psoCache_.GetOrCreate("PSO_ReflectionCapture_Layered", vsReflLayered, psReflLayered);
+						}
+					}
+					else
+					{
+						disableReflectionCaptureLayered_ = true;
+					}
+
+					if (!psoReflectionCaptureLayered_)
+					{
+						disableReflectionCaptureLayered_ = true;
+					}
+				}
+			}
