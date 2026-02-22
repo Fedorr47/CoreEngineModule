@@ -279,10 +279,31 @@ namespace rendern::ui
             ImGui::Separator();
         }
 
+
+		int current = static_cast<int>(rs.debugShadowCubeMapType);
+        std::vector<const char*> citems;
+		citems.reserve(2);
+		
+		citems.push_back("Point");
+        citems.push_back("Reflection");
+
         ImGui::Separator();
         ImGui::Text("Shadow cube atlas)");
         ImGui::Checkbox("Show cube atlas", &rs.ShowCubeAtlas);
-        ImGui::SliderFloat("Index of cube atlas", &rs.debugCubeAtlasIndex, 0.0f, 5.0f, "%.3f");
+        int debugCubeAtlasIndex = static_cast<int>(rs.debugCubeAtlasIndex);
+        if (ImGui::Combo("Type", &current, citems.data(), static_cast<int>(citems.size())))
+        {
+            rs.debugShadowCubeMapType = static_cast<std::uint32_t>(current);
+        }
+        if (ImGui::InputInt("Index of cube", &debugCubeAtlasIndex))
+        {
+            if (debugCubeAtlasIndex < 0)
+            {
+                debugCubeAtlasIndex = 0;
+            }
+            rs.debugCubeAtlasIndex = static_cast<std::uint32_t>(debugCubeAtlasIndex);
+        }
+        
     
         ImGui::Separator();
         ImGui::Text("Shadow bias (texels)");
@@ -308,6 +329,31 @@ namespace rendern::ui
             ImGui::BeginDisabled(!rs.enableReflectionCapture);
             ImGui::Checkbox("Update every frame", &rs.reflectionCaptureUpdateEveryFrame);
             ImGui::Checkbox("Follow selected object", &rs.reflectionCaptureFollowSelectedObject);
+
+            // Capture owner is separate from the current editor selection.
+            // If set, it defines the capture position for the reflection cubemap.
+            {
+                int ownerNode = scene.editorReflectionCaptureOwnerNode;
+                if (ImGui::InputInt("Capture owner node", &ownerNode))
+                {
+                    if (ownerNode < -1)
+                    {
+                        ownerNode = -1;
+                    }
+                    scene.editorReflectionCaptureOwnerNode = ownerNode;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Set owner = selected"))
+                {
+                    scene.editorReflectionCaptureOwnerNode = scene.editorSelectedNode;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Clear owner"))
+                {
+                    scene.editorReflectionCaptureOwnerNode = -1;
+                }
+                ImGui::TextDisabled("Resolved draw item: %d", scene.editorReflectionCaptureOwnerDrawItem);
+            }
 
             int res = static_cast<int>(rs.reflectionCaptureResolution);
             if (ImGui::InputInt("Capture resolution", &res))

@@ -130,6 +130,15 @@
 			}
 
 			// ---- Main packing: opaque (batched) + transparent (sorted per-item) ----
+			// NOTE: mainTmp is camera-culled (IsVisible), but reflection capture must NOT depend on the camera.
+			// We therefore build an additional "no-cull" packing for reflection capture / cube atlas.
+			const bool buildCaptureNoCull = settings_.enableReflectionCapture || settings_.ShowCubeAtlas;
+			std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> captureTmp;
+			if (buildCaptureNoCull)
+			{
+				captureTmp.reserve(scene.drawItems.size());
+			}
+
 			std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> mainTmp;
 			mainTmp.reserve(scene.drawItems.size());
 
@@ -148,10 +157,9 @@
 				}
 
 				const mathUtils::Mat4 model = item.transform.ToMatrix();
-				if (!IsVisible(item.mesh.get(), model))
-				{
-					continue;
-				}
+				// Camera visibility is used only for MAIN/transparent lists.
+				// Reflection capture uses a separate no-cull packing (captureTmp).
+				const bool visibleInMain = IsVisible(item.mesh.get(), model);
 
 				BatchKey key{};
 				key.mesh = mesh;
@@ -207,6 +215,26 @@
 				inst.i2 = model[2];
 				inst.i3 = model[3];
 
+				// Build no-cull capture batches (used by reflection capture / debug cube atlas).
+				// Note: capture shaders do not sample the environment cubemap, so capturing reflective objects
+				// does not create recursion/feedback.
+				if (buildCaptureNoCull)
+				{
+					auto& bucket = captureTmp[key];
+					if (bucket.inst.empty())
+					{
+						bucket.materialHandle = item.material;
+						bucket.material = params; // representative material for this batch
+					}
+					bucket.inst.push_back(inst);
+				}
+
+				// Main pass: optionally cull and split transparent.
+				if (!IsVisible(item.mesh.get(), model))
+				{
+					continue;
+				}
+
 				const bool isTransparent = HasFlag(perm, MaterialPerm::Transparent) || (params.baseColor.w < 0.999f);
 				if (isTransparent)
 				{
@@ -227,6 +255,24 @@
 					const std::uint32_t localOff = static_cast<std::uint32_t>(transparentInstances.size());
 					transparentInstances.push_back(inst);
 					transparentTmp.push_back(TransparentTemp{ mesh, params, item.material, localOff, dist2 });
+					// Add to reflection-capture no-cull packing (opaque only).
+					if (buildCaptureNoCull)
+					{
+						auto& cbucket = captureTmp[key];
+						if (cbucket.inst.empty())
+						{
+							cbucket.materialHandle = item.material;
+							cbucket.material = params;
+						}
+						cbucket.inst.push_back(inst);
+					}
+
+					// Main packing remains camera-culled.
+					if (!visibleInMain)
+					{
+						continue;
+					}
+
 					continue;
 				}
 
@@ -263,6 +309,32 @@
 				mainBatches.push_back(batch);
 			}
 
+			// ---- Reflection-capture no-cull packing (opaque) ----
+			std::vector<InstanceData> captureMainInstancesNoCull;
+			std::vector<Batch> captureMainBatchesNoCull;
+
+			if (buildCaptureNoCull && !captureTmp.empty())
+			{
+				captureMainInstancesNoCull.reserve(scene.drawItems.size());
+				captureMainBatchesNoCull.reserve(captureTmp.size());
+
+				for (auto& [key, bt] : captureTmp)
+				{
+					if (bt.inst.empty())
+						continue;
+
+					Batch batch{};
+					batch.mesh = key.mesh;
+					batch.materialHandle = bt.materialHandle;
+					batch.material = bt.material;
+					batch.instanceOffset = static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
+					batch.instanceCount = static_cast<std::uint32_t>(bt.inst.size());
+
+					captureMainInstancesNoCull.insert(captureMainInstancesNoCull.end(), bt.inst.begin(), bt.inst.end());
+					captureMainBatchesNoCull.push_back(batch);
+				}
+			}
+
 			// ---- Optional: layered reflection-capture packing (duplicate MAIN instances x6 for cubemap slices) ----
 			// Layered reflection capture uses SV_RenderTargetArrayIndex in VS and assumes each original instance
 			// is duplicated 6 times in order (faces 0..5).
@@ -273,18 +345,21 @@
 				(psoReflectionCaptureLayered_ && !disableReflectionCaptureLayered_) &&
 				device_.SupportsShaderModel6() && device_.SupportsVPAndRTArrayIndexFromAnyShader();
 
-			if (buildLayeredReflectionCapture && !mainBatches.empty())
+			if (buildLayeredReflectionCapture && !captureMainBatchesNoCull.empty())
 			{
 				constexpr std::uint32_t kFaces = 6u;
 
 				// reserve roughly
 				std::size_t totalMainInst = 0;
-				for (const Batch& b : mainBatches) totalMainInst += b.instanceCount;
+				for (const Batch& b : captureMainBatchesNoCull)
+				{
+					totalMainInst += b.instanceCount;
+				}
 
 				reflectionInstancesLayered.reserve(totalMainInst * kFaces);
-				reflectionBatchesLayered.reserve(mainBatches.size());
+				reflectionBatchesLayered.reserve(captureMainBatchesNoCull.size());
 
-				for (const Batch& b : mainBatches)
+				for (const Batch& b : captureMainBatchesNoCull)
 				{
 					if (!b.mesh || b.instanceCount == 0)
 						continue;
@@ -298,7 +373,7 @@
 
 					for (std::uint32_t i = begin; i < end; ++i)
 					{
-						const InstanceData& inst = mainInstances[i];
+						const InstanceData& inst = captureMainInstancesNoCull[i];
 						for (std::uint32_t face = 0; face < kFaces; ++face)
 						{
 							reflectionInstancesLayered.push_back(inst);
@@ -316,7 +391,8 @@
 				};
 			const std::uint32_t shadowBase = 0;
 			const std::uint32_t mainBase = static_cast<std::uint32_t>(shadowInstances.size());
-			const std::uint32_t transparentBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
+			const std::uint32_t captureMainBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
+			const std::uint32_t transparentBase = captureMainBase + static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
 
 			const std::uint32_t transparentEnd =
 				transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
@@ -324,6 +400,7 @@
 			const std::uint32_t layeredReflectionBase =
 				AlignUpU32(layeredShadowBase + static_cast<std::uint32_t>(shadowInstancesLayered.size()), 6u);
 
+			const std::uint32_t captureNoCullBase = layeredReflectionBase + static_cast<std::uint32_t>(reflectionInstancesLayered.size());
 
 			for (auto& sbatch : shadowBatches)
 			{
@@ -332,6 +409,10 @@
 			for (auto& mbatch : mainBatches)
 			{
 				mbatch.instanceOffset += mainBase;
+			}
+			for (auto& cbatch : captureMainBatchesNoCull)
+			{
+				cbatch.instanceOffset += captureMainBase;
 			}
 			for (auto& lbatch : shadowBatchesLayered)
 			{
@@ -363,7 +444,7 @@
 
 			std::vector<InstanceData> combinedInstances;
 			const std::uint32_t finalCount =
-				layeredReflectionBase + (std::uint32_t)reflectionInstancesLayered.size();
+				captureNoCullBase + (std::uint32_t)captureMainInstancesNoCull.size();
 
 			combinedInstances.clear();
 			combinedInstances.reserve(finalCount);
@@ -371,6 +452,7 @@
 			// 1) normal groups
 			combinedInstances.insert(combinedInstances.end(), shadowInstances.begin(), shadowInstances.end());
 			combinedInstances.insert(combinedInstances.end(), mainInstances.begin(), mainInstances.end());
+			combinedInstances.insert(combinedInstances.end(), captureMainInstancesNoCull.begin(), captureMainInstancesNoCull.end());
 			combinedInstances.insert(combinedInstances.end(), transparentInstances.begin(), transparentInstances.end());
 
 			// 2) pad up to layeredShadowBase (between transparent and layered shadow)
@@ -389,11 +471,17 @@
 			combinedInstances.insert(combinedInstances.end(),
 				reflectionInstancesLayered.begin(), reflectionInstancesLayered.end());
 
+			// 6) reflection-capture no-cull (opaque)
+			combinedInstances.insert(combinedInstances.end(),
+				captureMainInstancesNoCull.begin(), captureMainInstancesNoCull.end());
+
 			assert(shadowBase == 0u);
 			assert(mainBase == shadowInstances.size());
-			assert(transparentBase == shadowInstances.size() + mainInstances.size());
+			assert(captureMainBase == shadowInstances.size() + mainInstances.size());
+			assert(transparentBase == captureMainBase + captureMainInstancesNoCull.size());
 			assert(layeredShadowBase >= transparentBase + transparentInstances.size());
 			assert(layeredReflectionBase >= layeredShadowBase + shadowInstancesLayered.size());
+			assert(captureNoCullBase >= layeredReflectionBase + reflectionInstancesLayered.size());
 			assert(combinedInstances.size() == finalCount);
 
 			const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceData));

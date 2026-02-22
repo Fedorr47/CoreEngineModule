@@ -208,6 +208,11 @@ export namespace rendern
 		// Editor selection (runtime-only). Index into Scene::drawItems (or -1).
 		int editorSelectedDrawItem{ -1 };
 
+		// Reflection capture owner (runtime-only).
+		// Node index is stable (LevelAsset::nodes). DrawItem index is derived from LevelInstance mapping.
+		int editorReflectionCaptureOwnerNode{ -1 };
+		int editorReflectionCaptureOwnerDrawItem{ -1 };
+
 		void Clear()
 		{
 			drawItems.clear();
@@ -215,7 +220,9 @@ export namespace rendern
 			skyboxDescIndex = 0;
 			debugPickRay = {};
 			editorSelectedNode = -1;
-
+			editorSelectedDrawItem = -1;
+			editorReflectionCaptureOwnerNode = -1;
+			editorReflectionCaptureOwnerDrawItem = -1;
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

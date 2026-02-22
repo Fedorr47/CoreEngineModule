@@ -2,7 +2,7 @@
 // NOTE: Save as UTF-8 without BOM.
 
 SamplerState gPointClamp : register(s2);
-TextureCube<float> gCube : register(t0);
+Texture2DArray<float4> gCube : register(t0);
 
 cbuffer DebugCubeAtlasCB : register(b0)
 {
@@ -10,8 +10,11 @@ cbuffer DebugCubeAtlasCB : register(b0)
     float uGamma; // 1.0 = linear
     uint uInvert; // 1 -> invert (near=white)
     uint uShowGrid; // 1 -> draw tile borders
-    float2 uInvViewport; // (1/width, 1/height)  <-- важно!
-    float2 _pad;
+    uint uMode; // 0 = depth grayscale (use .r), 1 = color (use .rgb)
+    uint _pad0;
+    float2 uViewportOrigin; // in pixels (top-left)
+    float2 uInvViewportSize; // (1/width, 1/height)
+    float2 _pad1;
 };
 
 struct VSOut
@@ -32,27 +35,10 @@ VSOut VSMain(uint vid : SV_VertexID)
     return o;
 }
 
-// st in [-1..1], Y up.
-// Face order: +X, -X, +Y, -Y, +Z, -Z
-float3 DirFromFaceST(uint face, float2 st)
-{
-    if (face == 0)
-        return float3(1.0, st.y, -st.x); // +X
-    if (face == 1)
-        return float3(-1.0, st.y, st.x); // -X
-    if (face == 2)
-        return float3(st.x, 1.0, -st.y); // +Y
-    if (face == 3)
-        return float3(st.x, -1.0, st.y); // -Y
-    if (face == 4)
-        return float3(st.x, st.y, 1.0); // +Z
-    return float3(-st.x, st.y, -1.0); // -Z
-}
-
 float4 PSMain(VSOut i) : SV_Target
 {
     // SV_Position in pixel coords (top-left origin in D3D)
-    float2 uv = i.pos.xy * uInvViewport;
+    float2 uv = (i.pos.xy - uViewportOrigin) * uInvViewportSize;
     uv = saturate(uv);
 
     // atlas 3x2 tiles
@@ -72,21 +58,27 @@ float4 PSMain(VSOut i) : SV_Target
             return float4(1, 1, 1, 1);
     }
 
-    // local face coords: st in [-1..1], with +Y up
-    float2 st;
-    st.x = uvLocal.x * 2.0 - 1.0;
-    st.y = (1.0 - uvLocal.y) * 2.0 - 1.0;
-
-    float3 dir = normalize(DirFromFaceST(face, st));
-
-    float stored = gCube.SampleLevel(gPointClamp, dir, 0).r;
-
-    // show as grayscale
-    float v = saturate(stored * uInvRange);
-    if (uInvert != 0)
-        v = 1.0 - v;
-    if (abs(uGamma - 1.0) > 1e-3)
-        v = pow(v, 1.0 / max(uGamma, 1e-3));
-
-    return float4(v, v, v, 1.0);
+    // Sample the selected cubemap face as an array slice.
+    // This avoids TextureCube vs Texture2DArray view-dimension mismatch and shows faces exactly as stored.
+    float4 sampled = gCube.SampleLevel(gPointClamp, float3(uvLocal, (float) face), 0);
+    
+    if (uMode == 0u)
+    {
+        // depth grayscale (point shadow distance)
+        float stored = sampled.r;
+        float v = saturate(stored * uInvRange);
+        if (uInvert != 0u)
+            v = 1.0 - v;
+        if (abs(uGamma - 1.0) > 1e-3)
+            v = pow(v, 1.0 / max(uGamma, 1e-3));
+        return float4(v, v, v, 1.0);
+    }
+    else
+    {
+        // color (reflection capture)
+        float3 c = saturate(sampled.rgb);
+        if (abs(uGamma - 1.0) > 1e-3)
+            c = pow(c, 1.0 / max(uGamma, 1e-3));
+        return float4(c, 1.0);
+    }
 }

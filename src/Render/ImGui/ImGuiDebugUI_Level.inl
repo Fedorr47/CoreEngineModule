@@ -519,6 +519,10 @@ namespace rendern::ui
         scene.editorSelectedNode = selectedNode;
         scene.editorSelectedDrawItem = levelInst.GetNodeDrawIndex(selectedNode);
 
+        // Keep reflection-capture owner draw-item index in sync with the LevelInstance mapping.
+        // Owner node index is stored in Scene (stable). Draw-item index can change (e.g. visibility toggle).
+        scene.editorReflectionCaptureOwnerDrawItem = levelInst.GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode);
+
         // Push transforms to Scene if needed
         levelInst.SyncTransformsIfDirty(level, scene);
 

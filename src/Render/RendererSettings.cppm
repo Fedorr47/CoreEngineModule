@@ -38,8 +38,9 @@ export namespace rendern
 		float lightGizmoArrowLength{ 1.5f };
 		float lightGizmoArrowThickness{ 0.05f };
 
-		bool ShowCubeAtlas{ false }; // debug: visualize point shadow cubemap atlas on the swapchain (DX12-only)
-		float debugCubeAtlasIndex{ 0.0f };
+		bool ShowCubeAtlas{ true }; // debug: visualize point shadow cubemap atlas on the swapchain (DX12-only)
+		std::uint32_t debugCubeAtlasIndex{ 0 };
+		std::uint32_t debugShadowCubeMapType{ 1 };
 
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};

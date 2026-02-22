@@ -516,6 +516,9 @@ export namespace rendern
 		mathUtils::Vec3 reflectionCaptureLastPos_{};
 		int reflectionCaptureLastSelectedDrawItem_{ -1 };
 
+		int reflectionCaptureLastAnchorKind_{ 0 }; // 0=auto/none, 1=selected, 2=owner
+		int reflectionCaptureLastAnchorNode_{ -1 }; // LevelAsset node index (or -1)
+
 		MeshRHI skyboxMesh_{};
 		rhi::PipelineHandle psoSkybox_{};
 		// Debug: visualize a cubemap as a 3x2 atlas (swapchain pass).

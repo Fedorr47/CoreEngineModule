@@ -15,7 +15,7 @@ StructuredBuffer<GPULight> gLights : register(t2);
 
 cbuffer ReflectionCaptureFaceCB : register(b0)
 {
-    float4x4 uViewProj;
+    row_major float4x4 uViewProj;
     float4 uCapturePosAmbient; // xyz + ambientStrength
     float4 uBaseColor; // rgba
     float4 uParams; // x=lightCount, y=flags(asfloat)
@@ -100,8 +100,7 @@ float4 PS_ReflectionCapture(VSOut IN) : SV_Target0
         alphaOut *= tex.a;
     }
 
-    const float ambient = uCapturePosAmbient.w;
-    float3 color = baseColor * ambient + EvalDirLight(IN.nrmW, baseColor);
-
-    return float4(color, alphaOut);
+    // Debug-friendly capture: store raw (textured) albedo into the cubemap.
+    // This makes it easy to verify geometry is actually rendered into the capture.
+    return float4(baseColor, alphaOut);
 }

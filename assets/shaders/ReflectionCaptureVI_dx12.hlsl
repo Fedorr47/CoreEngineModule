@@ -99,8 +99,7 @@ float4 PS_ReflectionCaptureVI(VSOut IN) : SV_Target0
         alphaOut *= tex.a;
     }
 
-    const float ambient = uCapturePosAmbient.w;
-    float3 color = baseColor * ambient + EvalDirLight(IN.nrmW, baseColor);
-
-    return float4(color, alphaOut);
+    // Debug-friendly capture: store raw (textured) albedo into the cubemap.
+    // This makes it easy to verify geometry is actually rendered into the capture.
+    return float4(baseColor, alphaOut);
 }

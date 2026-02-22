@@ -5,29 +5,70 @@
 //  - VI:      SV_ViewID (requires ViewInstancing + PSO)
 //  - Fallback: 6 passes, one face at a time
 
-/*
 if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture_)
 {
 	// Decide capture position.
-	// We want the capture centered on the reflective object (probe anchor), not on the camera.
+	// We want the capture centered on a * probe owner * (a specific Level node), not on the camera.
 	// Priority:
-	//  1) Follow editor selection (if enabled and valid)
-	//  2) Otherwise, auto-pick the closest draw item that uses EnvSource::ReflectionCapture (typically MirrorSphere)
-	//  3) Fallback to camera position if nothing matches
-	mathUtils::Vec3 capturePos = camPos;
+	//  1) Owner node (Scene::editorReflectionCaptureOwnerNode) if set
+	//  2) Follow editor selection (if enabled and valid)
+	//  3) Otherwise, auto-pick the closest draw item that uses EnvSource::ReflectionCapture (typically MirrorSphere)
+	//  4) Fallback to last capture position (or camera position for the very first capture)
+	mathUtils::Vec3 capturePos = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
 	int captureAnchorDrawItem = -1;
 
-	// Follow selected object (editor selection).
+	int anchorKind = 0; // 0=auto/none, 1=selected, 2=owner
+	int anchorNode = -1;
+
+	// IMPORTANT:
+	// LevelInstance pushes node transforms into DrawItem::transform as a *matrix* (useMatrix=true),
+	// but does NOT populate Transform::position. Using it.transform.position would always read (0,0,0).
+	// Extract translation from the matrix when available.
+	const auto GetDrawItemWorldPos = [&scene](int drawItemIndex) -> mathUtils::Vec3
+		{
+			if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
+			{
+				return { 0.0f, 0.0f, 0.0f };
+			}
+			const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
+			if (di.transform.useMatrix)
+			{
+				const mathUtils::Vec4& t = di.transform.matrix[3]; // column-major translation
+				return { t.x, t.y, t.z };
+			}
+			return di.transform.position;
+		};
+
+	// 1) Owner node (stable by LevelAsset index). Draw-item mapping is updated by Level UI.
+	const int ownerNode = scene.editorReflectionCaptureOwnerNode;
+	const int ownerDrawItem = scene.editorReflectionCaptureOwnerDrawItem;
+	if (ownerNode >= 0)
+	{
+		anchorKind = 2;
+		anchorNode = ownerNode;
+		if (ownerDrawItem >= 0 && static_cast<std::size_t>(ownerDrawItem) < scene.drawItems.size())
+		{
+			captureAnchorDrawItem = ownerDrawItem;
+			capturePos = GetDrawItemWorldPos(ownerDrawItem);
+		}
+	}
+
+	// 2) Follow selected object (editor selection) if no owner is set.
 	const int selectedDrawItem = scene.editorSelectedDrawItem;
-	if (settings_.reflectionCaptureFollowSelectedObject && selectedDrawItem >= 0
+
+	if (anchorKind == 0 && settings_.reflectionCaptureFollowSelectedObject && selectedDrawItem >= 0
 		&& static_cast<std::size_t>(selectedDrawItem) < scene.drawItems.size())
 	{
+		anchorKind = 1;
+		anchorNode = scene.editorSelectedNode;
 		captureAnchorDrawItem = selectedDrawItem;
 		const auto& it = scene.drawItems[static_cast<std::size_t>(selectedDrawItem)];
-		capturePos = it.transform.position;
+		capturePos = GetDrawItemWorldPos(selectedDrawItem);
 	}
-	else
+	else if (anchorKind == 0)
 	{
+		// 3) Auto-pick closest reflective item around the last stable capture position.
+		const mathUtils::Vec3 pickOrigin = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
 		float bestDist2 = 3.402823466e+38f; // FLT_MAX
 
 		for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
@@ -40,7 +81,8 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 			if (mat.envSource != EnvSource::ReflectionCapture)
 				continue;
 
-			const mathUtils::Vec3 d = it.transform.position - camPos;
+			const mathUtils::Vec3 itPos = GetDrawItemWorldPos(static_cast<int>(i));
+			const mathUtils::Vec3 d = itPos - pickOrigin;
 			const float dist2 = mathUtils::Dot(d, d);
 			if (dist2 < bestDist2)
 			{
@@ -49,14 +91,23 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 				capturePos = it.transform.position;
 			}
 		}
+
+		if (captureAnchorDrawItem < 0)
+		{
+			// No anchor found: keep last capture pos if available, otherwise fallback to camera position.
+			capturePos = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
+		}
 	}
 
 	// Dirty logic: anchor change or movement.
-	if (captureAnchorDrawItem != reflectionCaptureLastSelectedDrawItem_)
+	if (captureAnchorDrawItem != reflectionCaptureLastSelectedDrawItem_
+		|| anchorKind != reflectionCaptureLastAnchorKind_
+		|| anchorNode != reflectionCaptureLastAnchorNode_)
 	{
 		reflectionCaptureLastSelectedDrawItem_ = captureAnchorDrawItem;
+		reflectionCaptureLastAnchorKind_ = anchorKind;
+		reflectionCaptureLastAnchorNode_ = anchorNode;
 		reflectionCaptureDirty_ = true;
-		reflectionCaptureHasLastPos_ = false;
 	}
 
 	if (!reflectionCaptureHasLastPos_
@@ -104,7 +155,23 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 			(!disableReflectionCaptureVI_) &&
 			(psoReflectionCaptureVI_) &&
 			device_.SupportsShaderModel6() &&
-			device_.SupportsViewInstancing();	
+			device_.SupportsViewInstancing();
+
+		// IMPORTANT:
+		// ReflectionCaptureConstants contains 6 view-projection matrices (108 DWORDs total).
+		// Our root signature binds b0 as root constants, which is limited to 64 DWORDs.
+		// Pushing 108 DWORDs via SetConstants() truncates/garbles the matrices and produces
+		// severe distortion / missing geometry in the cubemap.
+		//
+		// Until we switch reflection capture constants to a real CBV (descriptor-based constant buffer),
+		// force the fallback 6-pass path (one face per pass) which uses ReflectionCaptureFaceConstants
+		// and fits into the 64 DWORD root-constant limit.
+		const bool forceFallback = true;
+		if (forceFallback)
+		{
+			useLayered = false;
+			useVI = false;
+		}
 
 		// Common face view helper for cubemap capture. Note: we keep it consistent with Skybox_dx12.hlsl (which flips Z when sampling the skybox cubemap).
 		auto FaceView = [](const mathUtils::Vec3& pos, int face) -> mathUtils::Mat4
@@ -195,32 +262,12 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 		// For mesh passes: if we rendered skybox first, don't clear color again.
 		const rhi::ClearDesc meshClear = renderedSkybox ? clearDepthOnly : clearColorDepth;
 
-		// Avoid recursive self-capture:
-		// Do not render objects that themselves use EnvSource::ReflectionCapture into the capture cubemap.
-		auto ShouldSkipInCapture = [&scene](const Batch& b) -> bool
-			{
-				if (b.materialHandle.id == 0)
-					return false;
-
-				const auto& mat = scene.GetMaterial(b.materialHandle);
-				return (mat.envSource == EnvSource::ReflectionCapture);
-			};
-
-		std::vector<Batch> captureMainBatches;
-		captureMainBatches.reserve(mainBatches.size());
-		for (const Batch& b : mainBatches)
-		{
-			if (!ShouldSkipInCapture(b))
-				captureMainBatches.push_back(b);
-		}
-
-		std::vector<Batch> captureReflectionBatchesLayered;
-		captureReflectionBatchesLayered.reserve(reflectionBatchesLayered.size());
-		for (const Batch& b : reflectionBatchesLayered)
-		{
-			if (!ShouldSkipInCapture(b))
-				captureReflectionBatchesLayered.push_back(b);
-		}
+		// NOTE: Capture shaders (ReflectionCapture*_dx12.hlsl) do NOT sample the environment cubemap,
+		// so capturing reflective objects does not create recursion/feedback.
+		// Keeping all scene geometry here also avoids the case where materials default to EnvSource::ReflectionCapture
+		// and would otherwise filter out everything.
+		std::vector<Batch> captureMainBatches = (!captureMainBatchesNoCull.empty()) ? captureMainBatchesNoCull : mainBatches;
+		std::vector<Batch> captureReflectionBatchesLayered = reflectionBatchesLayered;
 
 		// ---------------- Layered path (one pass, SV_RenderTargetArrayIndex) ----------------
 		if (useLayered && !captureReflectionBatchesLayered.empty())
@@ -397,4 +444,3 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 		}
 	}
 }
-*/
