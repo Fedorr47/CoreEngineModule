@@ -16,7 +16,7 @@ StructuredBuffer<GPULight> gLights : register(t2);
 
 cbuffer ReflectionCaptureCB : register(b0)
 {
-	row_major float4x4 uFaceViewProj[6]; // face view-proj matrices (row-major in cbuffer) // face view-proj matrices (column-major in cbuffer)
+	float4x4 uFaceViewProj[6]; // face view-proj matrices (row-major in cbuffer) // face view-proj matrices (column-major in cbuffer)
     float4   uCapturePosAmbient; // xyz + ambientStrength
     float4   uBaseColor; // rgba
     float4 uParams; // x=lightCount, y=flags(asfloat)
@@ -25,7 +25,7 @@ cbuffer ReflectionCaptureCB : register(b0)
 static const uint FLAG_USE_TEX = 1u << 0;
 static const int LIGHT_DIR = 0;
 
-row_major float4x4 MakeMatRows(float4 r0, float4 r1, float4 r2, float4 r3)
+float4x4 MakeMatRows(float4 r0, float4 r1, float4 r2, float4 r3)
 {
 	return float4x4(r0,r1,r2,r3);
 }
@@ -40,6 +40,8 @@ struct VSIn
     float4 i1 : TEXCOORD2;
     float4 i2 : TEXCOORD3;
     float4 i3 : TEXCOORD4;
+    
+	uint instanceId : SV_InstanceID;
 };
 
 struct VSOut
@@ -51,21 +53,22 @@ struct VSOut
     uint rtIndex : SV_RenderTargetArrayIndex;
 };
 
-VSOut VS_ReflectionCaptureLayered(VSIn IN, uint instId : SV_InstanceID)
+VSOut VS_ReflectionCaptureLayered(VSIn IN)
 {
     VSOut OUT;
-
-    const uint face = (instId % 6u);
+    
+	uint face = IN.instanceId % 6u;
+    
     OUT.rtIndex = face;
 
-	row_major float4x4 model = MakeMatRows(IN.i0, IN.i1, IN.i2, IN.i3);
+	float4x4 model = MakeMatRows(IN.i0, IN.i1, IN.i2, IN.i3);
     float4 world = mul(float4(IN.pos, 1.0f), model);
 
     OUT.worldPos = world.xyz;
     OUT.nrmW = normalize(mul(float4(IN.nrm, 0.0f), model).xyz);
     OUT.uv = IN.uv;
     
-	row_major float4x4 vp = uFaceViewProj[face];
+	float4x4 vp = uFaceViewProj[face];
     OUT.posH = mul(world, vp);
 
     return OUT;
@@ -104,7 +107,5 @@ float4 PS_ReflectionCaptureLayered(VSOut IN) : SV_Target0
         alphaOut *= tex.a;
     }
 
-    // Debug-friendly capture: store raw (textured) albedo into the cubemap.
-    // This makes it easy to verify geometry is actually rendered into the capture.
     return float4(baseColor, alphaOut);
 }

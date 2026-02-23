@@ -26,7 +26,7 @@ export namespace rendern
 		// Reflection capture (cubemap). Currently used by DX12 backend.
 		bool enableReflectionCapture{ true };
 		bool reflectionCaptureUpdateEveryFrame{ true };
-		bool reflectionCaptureFollowSelectedObject{ true };
+		bool reflectionCaptureFollowSelectedObject{ false };
 		std::uint32_t reflectionCaptureResolution{ 256 }; // cube face size (px)
 		float reflectionCaptureNearZ{ 0.05f };
 		float reflectionCaptureFarZ{ 200.0f };
@@ -40,7 +40,7 @@ export namespace rendern
 
 		bool ShowCubeAtlas{ true }; // debug: visualize point shadow cubemap atlas on the swapchain (DX12-only)
 		std::uint32_t debugCubeAtlasIndex{ 0 };
-		std::uint32_t debugShadowCubeMapType{ 1 };
+		std::uint32_t debugShadowCubeMapType{ 1 }; // point shadow: cube/light index; reflection mode: reflective-owner index
 
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};

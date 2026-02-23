@@ -15,7 +15,7 @@ StructuredBuffer<GPULight> gLights : register(t2);
 
 cbuffer ReflectionCaptureFaceCB : register(b0)
 {
-    row_major float4x4 uViewProj;
+    float4x4 uViewProj;
     float4 uCapturePosAmbient; // xyz + ambientStrength
     float4 uBaseColor; // rgba
     float4 uParams; // x=lightCount, y=flags(asfloat)

@@ -176,11 +176,9 @@
 						{
 							flags |= kFlagUseEnv;
 							const bool envIsSkybox = (envDescIndex == scene.skyboxDescIndex);
-							const bool envIsReflectionCapture =
-								(settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (envDescIndex == reflectionCubeDescIndex_));
-							// Keep TextureCube sampling convention consistent: Skybox_dx12.hlsl flips Z when sampling.
-							// If the dynamic reflection cubemap appears mirrored, flip Z there too.
-							if (envIsSkybox || envIsReflectionCapture)
+							// Keep TextureCube sampling convention consistent with the visible skybox:
+							// Skybox_dx12.hlsl flips Z when sampling.
+							if (envIsSkybox)
 							{
 								flags |= kFlagEnvFlipZ;
 							}
@@ -309,11 +307,9 @@
 							{
 								flags |= kFlagUseEnv;
 								const bool envIsSkybox = (envDescIndex == scene.skyboxDescIndex);
-								const bool envIsReflectionCapture =
-									(settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (envDescIndex == reflectionCubeDescIndex_));
-								// Keep TextureCube sampling convention consistent: Skybox_dx12.hlsl flips Z when sampling.
-								// If the dynamic reflection cubemap appears mirrored, flip Z there too.
-								if (envIsSkybox || envIsReflectionCapture)
+								// Keep TextureCube sampling convention consistent with the visible skybox:
+								// Skybox_dx12.hlsl flips Z when sampling.
+								if (envIsSkybox)
 								{
 									flags |= kFlagEnvFlipZ;
 								}

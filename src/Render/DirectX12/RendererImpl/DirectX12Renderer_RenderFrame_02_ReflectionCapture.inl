@@ -10,14 +10,15 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 	// Decide capture position.
 	// We want the capture centered on a * probe owner * (a specific Level node), not on the camera.
 	// Priority:
-	//  1) Owner node (Scene::editorReflectionCaptureOwnerNode) if set
-	//  2) Follow editor selection (if enabled and valid)
-	//  3) Otherwise, auto-pick the closest draw item that uses EnvSource::ReflectionCapture (typically MirrorSphere)
-	//  4) Fallback to last capture position (or camera position for the very first capture)
+	//  1) Debug reflection-atlas owner index (RendererSettings::debugCubeAtlasIndex in Reflection mode)
+	//  2) Owner node (Scene::editorReflectionCaptureOwnerNode) if set
+	//  3) Follow editor selection (if enabled and selected item is reflective)
+	//  4) Otherwise, auto-pick the closest draw item that uses EnvSource::ReflectionCapture (typically MirrorSphere)
+	//  5) Fallback to last capture position (or camera position for the very first capture)
 	mathUtils::Vec3 capturePos = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
 	int captureAnchorDrawItem = -1;
 
-	int anchorKind = 0; // 0=auto/none, 1=selected, 2=owner
+	int anchorKind = 0; // 0=auto/none, 1=selected, 2=owner, 3=debugOwnerIndex
 	int anchorNode = -1;
 
 	// IMPORTANT:
@@ -39,25 +40,79 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 			return di.transform.position;
 		};
 
-	// 1) Owner node (stable by LevelAsset index). Draw-item mapping is updated by Level UI.
+	const auto IsReflectionCaptureDrawItem = [&scene](int drawItemIndex) -> bool
+		{
+			if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
+			{
+				return false;
+			}
+			const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
+			if (di.material.id == 0)
+			{
+				return false;
+			}
+			const auto& mat = scene.GetMaterial(di.material);
+			return mat.envSource == EnvSource::ReflectionCapture;
+		};
+
+	auto ResolveDebugReflectionOwnerByIndex = [&scene, this, &IsReflectionCaptureDrawItem]() -> int
+		{
+			if (!(settings_.ShowCubeAtlas && settings_.debugShadowCubeMapType == 1u))
+			{
+				return -1;
+			}
+
+			std::vector<int> reflectiveDrawItems;
+			reflectiveDrawItems.reserve(scene.drawItems.size());
+			for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
+			{
+				if (IsReflectionCaptureDrawItem(static_cast<int>(i)))
+				{
+					reflectiveDrawItems.push_back(static_cast<int>(i));
+				}
+			}
+			if (reflectiveDrawItems.empty())
+			{
+				return -1;
+			}
+
+			const std::uint32_t maxIdx = static_cast<std::uint32_t>(reflectiveDrawItems.size() - 1u);
+			const std::uint32_t idx = std::min(settings_.debugCubeAtlasIndex, maxIdx);
+			return reflectiveDrawItems[idx];
+		};
+
+	// 1) Debug reflection-atlas owner index (only when cube-atlas debug is showing reflection capture).
+	// In this mode, debugCubeAtlasIndex *defines* which reflective owner is being captured/debugged.
+	if (anchorKind == 0)
+	{
+		const int debugOwnerDrawItem = ResolveDebugReflectionOwnerByIndex();
+		if (debugOwnerDrawItem >= 0)
+		{
+			anchorKind = 3;
+			anchorNode = -1;
+			captureAnchorDrawItem = debugOwnerDrawItem;
+			capturePos = GetDrawItemWorldPos(debugOwnerDrawItem);
+		}
+	}
+
+	// 2) Owner node (stable by LevelAsset index). Draw-item mapping is updated by Level UI.
 	const int ownerNode = scene.editorReflectionCaptureOwnerNode;
 	const int ownerDrawItem = scene.editorReflectionCaptureOwnerDrawItem;
-	if (ownerNode >= 0)
+
+	if (anchorKind == 0 && ownerNode >= 0)
 	{
 		anchorKind = 2;
 		anchorNode = ownerNode;
-		if (ownerDrawItem >= 0 && static_cast<std::size_t>(ownerDrawItem) < scene.drawItems.size())
+		if (IsReflectionCaptureDrawItem(ownerDrawItem))
 		{
 			captureAnchorDrawItem = ownerDrawItem;
 			capturePos = GetDrawItemWorldPos(ownerDrawItem);
 		}
 	}
-
-	// 2) Follow selected object (editor selection) if no owner is set.
+	// 3) Follow selected object (editor selection) if no debug owner / explicit owner is set.
 	const int selectedDrawItem = scene.editorSelectedDrawItem;
 
-	if (anchorKind == 0 && settings_.reflectionCaptureFollowSelectedObject && selectedDrawItem >= 0
-		&& static_cast<std::size_t>(selectedDrawItem) < scene.drawItems.size())
+	if (anchorKind == 0 && settings_.reflectionCaptureFollowSelectedObject && IsReflectionCaptureDrawItem(selectedDrawItem))
 	{
 		anchorKind = 1;
 		anchorNode = scene.editorSelectedNode;
@@ -67,10 +122,9 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 	}
 	else if (anchorKind == 0)
 	{
-		// 3) Auto-pick closest reflective item around the last stable capture position.
+		// 4) Auto-pick closest reflective item around the last stable capture position.
 		const mathUtils::Vec3 pickOrigin = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
 		float bestDist2 = 3.402823466e+38f; // FLT_MAX
-
 		for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
 		{
 			const auto& it = scene.drawItems[i];
@@ -88,7 +142,7 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 			{
 				bestDist2 = dist2;
 				captureAnchorDrawItem = static_cast<int>(i);
-				capturePos = it.transform.position;
+				capturePos = itPos;
 			}
 		}
 
@@ -157,30 +211,11 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 			device_.SupportsShaderModel6() &&
 			device_.SupportsViewInstancing();
 
-		// IMPORTANT:
-		// ReflectionCaptureConstants contains 6 view-projection matrices (108 DWORDs total).
-		// Our root signature binds b0 as root constants, which is limited to 64 DWORDs.
-		// Pushing 108 DWORDs via SetConstants() truncates/garbles the matrices and produces
-		// severe distortion / missing geometry in the cubemap.
-		//
-		// Until we switch reflection capture constants to a real CBV (descriptor-based constant buffer),
-		// force the fallback 6-pass path (one face per pass) which uses ReflectionCaptureFaceConstants
-		// and fits into the 64 DWORD root-constant limit.
-		const bool forceFallback = true;
-		if (forceFallback)
-		{
-			useLayered = false;
-			useVI = false;
-		}
-
-		// Common face view helper for cubemap capture. Note: we keep it consistent with Skybox_dx12.hlsl (which flips Z when sampling the skybox cubemap).
 		auto FaceView = [](const mathUtils::Vec3& pos, int face) -> mathUtils::Mat4
 			{
-				// +X, -X, +Y, -Y, +Z, -Z
 				static const mathUtils::Vec3 dirs[6] = {
 					{ 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 }
 				};
-
 				static const mathUtils::Vec3 ups[6] = {
 					{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 0, -1 }, { 0, 0, 1 }, { 0, 1, 0 }, { 0, 1, 0 }
 				};
@@ -300,6 +335,9 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 					ctx.commandList.BindPipeline(psoReflectionCaptureLayered_);
 					ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
 
+					int captureMainBatchesNum = captureReflectionBatchesLayered.size();
+					std::cout << "ReflectionCapture: num batches = " << captureMainBatchesNum << std::endl;
+
 					for (const Batch& b : captureReflectionBatchesLayered)
 					{
 						if (!b.mesh || b.instanceCount == 0)
@@ -359,6 +397,9 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 					ctx.commandList.BindPipeline(psoReflectionCaptureVI_);
 					ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
 
+					int captureMainBatchesNum = captureMainBatches.size();
+					std::cout << "ReflectionCapture: num batches = " << captureMainBatchesNum << std::endl;
+
 					for (const Batch& b : captureMainBatches)
 					{
 						if (!b.mesh || b.instanceCount == 0)
@@ -416,6 +457,9 @@ if (settings_.enableReflectionCapture && reflectionCube_ && psoReflectionCapture
 						ctx.commandList.BindPipeline(psoReflectionCapture_);
 						ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
 
+						int captureMainBatchesNum = captureMainBatches.size();
+						std::cout << "ReflectionCapture: num batches = " << captureMainBatchesNum << std::endl;
+	
 						for (const Batch& b : captureMainBatches)
 						{
 							if (!b.mesh || b.instanceCount == 0)

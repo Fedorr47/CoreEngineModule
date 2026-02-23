@@ -80,7 +80,7 @@
 							//
 							// Priority:
 							//  1) First point shadow cube (distance map, grayscale)
-							//  2) Reflection capture cube (color), even if there is no skybox
+							//  2) Reflection capture cube (color), even if there is no skybox (owner selected by debugCubeAtlasIndex in reflection mode)
 							std::optional<renderGraph::RGTexture> debugCubeRG{};
 							float debugInvRange = 1.0f;
 							std::uint32_t debugInvert = 1u;

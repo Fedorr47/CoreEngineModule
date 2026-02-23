@@ -295,7 +295,27 @@ namespace rendern::ui
         {
             rs.debugShadowCubeMapType = static_cast<std::uint32_t>(current);
         }
-        if (ImGui::InputInt("Index of cube", &debugCubeAtlasIndex))
+        if (current == 1)
+        {
+            int reflectiveOwnerCount = 0;
+            for (const auto& di : scene.drawItems)
+            {
+                if (di.material.id == 0)
+                    continue;
+                const auto& mat = scene.GetMaterial(di.material);
+                if (mat.envSource == EnvSource::ReflectionCapture)
+                    ++reflectiveOwnerCount;
+            }
+            ImGui::TextDisabled("Reflection owner index among reflective objects (count: %d)", reflectiveOwnerCount);
+            ImGui::TextDisabled("Debug atlas index now selects which reflective owner is captured/shown.");
+            if (scene.editorReflectionCaptureOwnerNode >= 0)
+            {
+                ImGui::TextDisabled("In reflection atlas debug mode, the debug owner index overrides the explicit capture owner.");
+            }
+        }
+
+        const char* debugIndexLabel = (current == 0) ? "Point cube index" : "Reflection owner index";
+        if (ImGui::InputInt(debugIndexLabel, &debugCubeAtlasIndex))
         {
             if (debugCubeAtlasIndex < 0)
             {

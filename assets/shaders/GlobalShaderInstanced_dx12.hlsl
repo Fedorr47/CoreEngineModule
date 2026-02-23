@@ -97,6 +97,13 @@ static const uint FLAG_ENV_FLIP_Z = 1u << 8;
 // This avoids seams/garbage when the cubemap has multiple mips but only mip0 is rendered.
 static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
 
+// Temporary debug toggle for reflection vector sign (A/B test for cubemap orientation issues).
+// 0 = standard physically-correct form for V = toEye: reflect(-V, N)
+// 1 = diagnostic mode: reflect(V, N)
+#ifndef CORE_DEBUG_REFLECTION_USE_POS_V
+#define CORE_DEBUG_REFLECTION_USE_POS_V 0
+#endif
+
 static const uint kMaxSpotShadows = 4;
 static const uint kMaxPointShadows = 4;
 
@@ -853,7 +860,13 @@ float4 PSMain(VSOut IN) : SV_Target0
 		if (envForceMip0)
 			mipMax = 0.0f;
 
-        const float3 R = reflect(-V, N);
+       // A/B diagnostic toggle: if the probe is still mirrored after fixing face order/up vectors,
+      // compare reflect(-V, N) vs reflect(V, N) without touching C++ code.
+#if CORE_DEBUG_REFLECTION_USE_POS_V
+        const float3 R = reflect(V, N);
+#else
+		const float3 R = reflect(-V, N);
+        #endif
         
         // NOTE: Skybox cubemaps may use a different convention (see Skybox_dx12.hlsl which flips Z when sampling).
         // To keep IBL consistent with the visible skybox, optionally flip Z for env sampling.
