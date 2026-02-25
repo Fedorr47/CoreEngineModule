@@ -58,8 +58,8 @@ DX12SwapChain::DX12SwapChain(DX12Device& owner, DX12SwapChainDesc desc)
 
     currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
 
-    // Depth (D32)
-    depthFormat_ = DXGI_FORMAT_D32_FLOAT;
+    // Depth+Stencil (D24S8)
+    depthFormat_ = DXGI_FORMAT_D24_UNORM_S8_UINT;
     {
         D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
         heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
@@ -172,7 +172,7 @@ void DX12SwapChain::Resize(Extent2D newExtent)
         device_.NativeDevice()->CreateRenderTargetView(backBuffers_[i].Get(), nullptr, descHandle);
     }
 
-    // Recreate depth buffer + DSV.
+    // Recreate depth-stencil buffer + DSV.
     {
         D3D12_CPU_DESCRIPTOR_HANDLE dsv = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
 

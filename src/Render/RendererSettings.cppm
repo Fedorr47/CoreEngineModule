@@ -27,7 +27,7 @@ export namespace rendern
 		bool enableReflectionCapture{ true };
 		bool reflectionCaptureUpdateEveryFrame{ true };
 		bool reflectionCaptureFollowSelectedObject{ false };
-		std::uint32_t reflectionCaptureResolution{ 256 }; // cube face size (px)
+		std::uint32_t reflectionCaptureResolution{ 1024 }; // cube face size (px)
 		float reflectionCaptureNearZ{ 0.05f };
 		float reflectionCaptureFarZ{ 200.0f };
 

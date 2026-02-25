@@ -138,6 +138,12 @@
 		std::vector<TransparentTemp> transparentTmp;
 		transparentTmp.reserve(scene.drawItems.size());
 
+		std::vector<InstanceData> planarMirrorInstances;
+		planarMirrorInstances.reserve(std::min<std::size_t>(scene.drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
+
+		std::vector<PlanarMirrorDraw> planarMirrorDraws;
+		planarMirrorDraws.reserve(std::min<std::size_t>(scene.drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
+
 		// ---------------- Reflection probe assignment (multi-probe) ----------------
 		drawItemReflectionProbeIndices_.assign(scene.drawItems.size(), -1);
 		reflectiveOwnerDrawItems_.clear();
@@ -247,6 +253,7 @@
 		
 			// Instance (ROWS)
 			const bool isTransparent = HasFlag(perm, MaterialPerm::Transparent) || (params.baseColor.w < 0.999f);
+			const bool isPlanarMirror = HasFlag(perm, MaterialPerm::PlanarMirror);
 			InstanceData inst{};
 			inst.i0 = model[0];
 			inst.i1 = model[1];
@@ -294,7 +301,36 @@
 		
 				continue;
 			}
-		
+
+			if (settings_.enablePlanarReflections && isPlanarMirror && !isTransparent &&
+				planarMirrorDraws.size() < static_cast<std::size_t>(settings_.planarReflectionMaxMirrors))
+			{
+				const auto TransformPoint = [](const mathUtils::Mat4& m, const mathUtils::Vec3& v) noexcept -> mathUtils::Vec3
+					{
+						const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 1.0f);
+						return { r.x, r.y, r.z };
+					};
+				const auto TransformVector = [](const mathUtils::Mat4& m, const mathUtils::Vec3& v) noexcept -> mathUtils::Vec3
+					{
+						const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 0.0f);
+						return { r.x, r.y, r.z };
+					};
+
+				PlanarMirrorDraw mirror{};
+				mirror.mesh = mesh;
+				mirror.material = params;
+				mirror.materialHandle = item.material;
+				mirror.instanceOffset = static_cast<std::uint32_t>(planarMirrorInstances.size());
+				mirror.planePoint = TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
+				mirror.planeNormal = TransformVector(model, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
+				if (mathUtils::Length(mirror.planeNormal) > 0.0001f)
+				{
+					mirror.planeNormal = mathUtils::Normalize(mirror.planeNormal);
+					planarMirrorInstances.push_back(inst);
+					planarMirrorDraws.push_back(mirror);
+				}
+			}
+
 			auto& bucket = mainTmp[key];
 			if (bucket.inst.empty())
 			{
@@ -416,9 +452,10 @@
 		const std::uint32_t mainBase = static_cast<std::uint32_t>(shadowInstances.size());
 		const std::uint32_t captureMainBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
 		const std::uint32_t transparentBase = captureMainBase + static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
+		const std::uint32_t planarMirrorBase = transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
 		
 		const std::uint32_t transparentEnd =
-		transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
+		planarMirrorBase + static_cast<std::uint32_t>(planarMirrorInstances.size());
 		const std::uint32_t layeredShadowBase = AlignUpU32(transparentEnd, 6u);
 		const std::uint32_t layeredReflectionBase =
 		AlignUpU32(layeredShadowBase + static_cast<std::uint32_t>(shadowInstancesLayered.size()), 6u);
@@ -456,6 +493,10 @@
 			transparentDraw.dist2 = transparentInst.dist2;
 			transparentDraws.push_back(transparentDraw);
 		}
+		for (auto& mirrorDraw : planarMirrorDraws)
+		{
+			mirrorDraw.instanceOffset = planarMirrorBase + mirrorDraw.instanceOffset;
+		}
 		
 		std::sort(transparentDraws.begin(), transparentDraws.end(),
 			[](const TransparentDraw& first, const TransparentDraw& second)
@@ -475,8 +516,9 @@
 		combinedInstances.insert(combinedInstances.end(), mainInstances.begin(), mainInstances.end());
 		combinedInstances.insert(combinedInstances.end(), captureMainInstancesNoCull.begin(), captureMainInstancesNoCull.end());
 		combinedInstances.insert(combinedInstances.end(), transparentInstances.begin(), transparentInstances.end());
+		combinedInstances.insert(combinedInstances.end(), planarMirrorInstances.begin(), planarMirrorInstances.end());
 		
-		// 2) pad up to layeredShadowBase (between transparent and layered shadow)
+		// 2) pad up to layeredShadowBase (between transparent/planar-mirror and layered shadow)
 		if (combinedInstances.size() < layeredShadowBase)
 			combinedInstances.resize(layeredShadowBase);
 		
@@ -496,7 +538,8 @@
 		assert(mainBase == shadowInstances.size());
 		assert(captureMainBase == shadowInstances.size() + mainInstances.size());
 		assert(transparentBase == captureMainBase + captureMainInstancesNoCull.size());
-		assert(layeredShadowBase >= transparentBase + transparentInstances.size());
+		assert(planarMirrorBase == transparentBase + transparentInstances.size());
+		assert(layeredShadowBase >= planarMirrorBase + planarMirrorInstances.size());
 		assert(layeredReflectionBase >= layeredShadowBase + shadowInstancesLayered.size());
 		assert(combinedInstances.size() == finalCount);
 		

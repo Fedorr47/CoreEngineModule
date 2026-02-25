@@ -66,6 +66,37 @@
 				// Main pass state when running after a depth pre-pass: keep depth read-only.
 				mainAfterPreDepthState_ = state_;
 				mainAfterPreDepthState_.depth.writeEnable = false;
+
+				// Planar reflection stencil mask (writes stencil, keeps color untouched via depth-only PSO).
+				planarMaskState_ = preDepthState_;
+				planarMaskState_.depth.testEnable = true;
+				planarMaskState_.depth.writeEnable = false;
+				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
+				planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
+				planarMaskState_.blend.enable = false;
+				planarMaskState_.depth.stencil.enabled = true;
+				planarMaskState_.depth.stencil.readMask = 0xFFu;
+				planarMaskState_.depth.stencil.writeMask = 0xFFu;
+				planarMaskState_.depth.stencil.front.stencilFailOp = rhi::StencilOp::Keep;
+				planarMaskState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
+				planarMaskState_.depth.stencil.front.depthStencilPassOp = rhi::StencilOp::Replace;
+				planarMaskState_.depth.stencil.front.stencilCompareOp = rhi::CompareOp::Always;
+				planarMaskState_.depth.stencil.back = planarMaskState_.depth.stencil.front;
+
+				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
+				planarReflectedState_ = state_;
+				planarReflectedState_.depth.testEnable = false;
+				planarReflectedState_.depth.writeEnable = false;
+				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::None;
+				planarReflectedState_.blend.enable = false;
+				planarReflectedState_.depth.stencil.enabled = true;
+				planarReflectedState_.depth.stencil.readMask = 0xFFu;
+				planarReflectedState_.depth.stencil.writeMask = 0x00u;
+				planarReflectedState_.depth.stencil.front.stencilFailOp = rhi::StencilOp::Keep;
+				planarReflectedState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
+				planarReflectedState_.depth.stencil.front.depthStencilPassOp = rhi::StencilOp::Keep;
+				planarReflectedState_.depth.stencil.front.stencilCompareOp = rhi::CompareOp::Equal;
+				planarReflectedState_.depth.stencil.back = planarReflectedState_.depth.stencil.front;
 			}
 			
 			// Debug cubemap atlas pipeline (fullscreen triangle with a tiny VB).

@@ -37,19 +37,6 @@ namespace rendern::ui
         }
     }
 
-    static bool DragVec3(const char* label, mathUtils::Vec3& v, float speed = 0.05f, float minv = 0.0f, float maxv = 0.0f)
-    {
-        float a[3] = { v.x, v.y, v.z };
-        const bool changed = ImGui::DragFloat3(label, a, speed, minv, maxv, "%.3f");
-        if (changed)
-        {
-            v.x = a[0];
-            v.y = a[1];
-            v.z = a[2];
-        }
-        return changed;
-    }
-
     static bool Color3(const char* label, mathUtils::Vec3& v)
     {
         float a[3] = { v.x, v.y, v.z };
@@ -149,9 +136,7 @@ namespace rendern::ui
         }
 
         ImGui::PopID();
-    } 
-
-    
+    }
 
     // ------------------------------------------------------------
     // Light header row with actions on the right (clickable)
@@ -206,195 +191,10 @@ namespace rendern::ui
         return open;
     }
 
-    void DrawRendererDebugUI(
-        rendern::RendererSettings& rs, 
-        rendern::Scene& scene, 
-        rendern::CameraController& camCtl)
+    static void DrawLightsWindow(rendern::Scene& scene)
     {
-        ImGui::Begin("Renderer / Shadows");
-    
-        ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
-        ImGui::Checkbox("Frustum culling", &rs.enableFrustumCulling);
-        ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
-    
-        // ------------------------------------------------------------
-    // Camera
-    // ------------------------------------------------------------
-        if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            rendern::Camera& cam = scene.camera;
+        ImGui::Begin("Lights");
 
-            if (DragVec3("Position", cam.position, 0.05f))
-            {
-                cam.target = cam.position + camCtl.Forward();
-            }
-            if (DragVec3("Target", cam.target, 0.05f))
-            {
-                camCtl.ResetFromCamera(cam);
-            }
-
-            constexpr float kRadToDeg = 57.29577951308232f;
-            constexpr float kDegToRad = 0.017453292519943295f;
-
-            float yawDeg = camCtl.YawRad() * kRadToDeg;
-            float pitchDeg = camCtl.PitchRad() * kRadToDeg;
-
-            bool changedAngles = false;
-            changedAngles |= ImGui::SliderFloat("Yaw (deg)", &yawDeg, -180.0f, 180.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
-            changedAngles |= ImGui::SliderFloat("Pitch (deg)", &pitchDeg, -89.0f, 89.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
-
-            if (changedAngles)
-            {
-                camCtl.SetYawPitchRad(yawDeg * kDegToRad, pitchDeg * kDegToRad, cam);
-            }
-
-            ImGui::SliderFloat("FOV Y (deg)", &cam.fovYDeg, 20.0f, 120.0f);
-            ImGui::InputFloat("Near Z", &cam.nearZ, 0.01f, 0.1f, "%.4f");
-            ImGui::InputFloat("Far Z", &cam.farZ, 1.0f, 10.0f, "%.1f");
-
-            auto& s = camCtl.Settings();
-
-            bool enabledCtl = camCtl.Enabled();
-            if (ImGui::Checkbox("Enable controller", &enabledCtl))
-            {
-                camCtl.SetEnabled(enabledCtl);
-            }
-            ImGui::Checkbox("Invert Y", &s.invertY);
-            ImGui::SliderFloat("Move speed", &s.moveSpeed, 0.1f, 50.0f);
-            ImGui::SliderFloat("Sprint multiplier", &s.sprintMultiplier, 1.0f, 12.0f);
-            ImGui::SliderFloat("Mouse sensitivity", &s.mouseSensitivity, 0.0005f, 0.01f, "%.4f", ImGuiSliderFlags_Logarithmic);
-
-            if (ImGui::Button("Reset view"))
-            {
-                cam.position = mathUtils::Vec3(5.0f, 10.0f, 10.0f);
-                cam.target = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-                cam.up = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
-                cam.fovYDeg = 60.0f;
-                cam.nearZ = 0.01f;
-                cam.farZ = 200.0f;
-                camCtl.ResetFromCamera(cam);
-            }
-
-            ImGui::TextDisabled("Controls: hold RMB to look, WASD move, QE up/down, Shift sprint");
-            ImGui::Separator();
-        }
-
-
-		int current = static_cast<int>(rs.debugShadowCubeMapType);
-        std::vector<const char*> citems;
-		citems.reserve(2);
-		
-		citems.push_back("Point");
-        citems.push_back("Reflection");
-
-        ImGui::Separator();
-        ImGui::Text("Shadow cube atlas)");
-        ImGui::Checkbox("Show cube atlas", &rs.ShowCubeAtlas);
-        int debugCubeAtlasIndex = static_cast<int>(rs.debugCubeAtlasIndex);
-        if (ImGui::Combo("Type", &current, citems.data(), static_cast<int>(citems.size())))
-        {
-            rs.debugShadowCubeMapType = static_cast<std::uint32_t>(current);
-        }
-        if (current == 1)
-        {
-            int reflectiveOwnerCount = 0;
-            for (const auto& di : scene.drawItems)
-            {
-                if (di.material.id == 0)
-                    continue;
-                const auto& mat = scene.GetMaterial(di.material);
-                if (mat.envSource == EnvSource::ReflectionCapture)
-                    ++reflectiveOwnerCount;
-            }
-            ImGui::TextDisabled("Reflection owner index among reflective objects (count: %d)", reflectiveOwnerCount);
-            ImGui::TextDisabled("Debug atlas index now selects which reflective owner is captured/shown.");
-            if (scene.editorReflectionCaptureOwnerNode >= 0)
-            {
-                ImGui::TextDisabled("In reflection atlas debug mode, the debug owner index overrides the explicit capture owner.");
-            }
-        }
-
-        const char* debugIndexLabel = (current == 0) ? "Point cube index" : "Reflection owner index";
-        if (ImGui::InputInt(debugIndexLabel, &debugCubeAtlasIndex))
-        {
-            if (debugCubeAtlasIndex < 0)
-            {
-                debugCubeAtlasIndex = 0;
-            }
-            rs.debugCubeAtlasIndex = static_cast<std::uint32_t>(debugCubeAtlasIndex);
-        }
-        
-    
-        ImGui::Separator();
-        ImGui::Text("Shadow bias (texels)");
-        ImGui::SliderFloat("Dir base", &rs.dirShadowBaseBiasTexels, 0.0f, 5.0f, "%.3f");
-        ImGui::SliderFloat("Spot base", &rs.spotShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-        ImGui::SliderFloat("Point base", &rs.pointShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-        ImGui::SliderFloat("Slope scale", &rs.shadowSlopeScaleTexels, 0.0f, 10.0f, "%.3f");
-    
-        ImGui::Separator();
-        ImGui::Text("Debug draw");
-        ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
-        ImGui::BeginDisabled(!rs.drawLightGizmos);
-        ImGui::Checkbox("Depth test (main view)", &rs.debugDrawDepthTest);
-        ImGui::SliderFloat("Gizmo half-size", &rs.lightGizmoHalfSize, 0.01f, 2.0f, "%.3f");
-        ImGui::SliderFloat("Arrow length", &rs.lightGizmoArrowLength, 0.05f, 25.0f, "%.3f");
-        ImGui::SliderFloat("Arrow thickness (UI only)", &rs.lightGizmoArrowThickness, 0.001f, 2.0f, "%.3f");
-        ImGui::EndDisabled();
-        ImGui::Separator();
-        if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Checkbox("Enable reflection capture", &rs.enableReflectionCapture);
-
-            ImGui::BeginDisabled(!rs.enableReflectionCapture);
-            ImGui::Checkbox("Update every frame", &rs.reflectionCaptureUpdateEveryFrame);
-            ImGui::Checkbox("Follow selected object", &rs.reflectionCaptureFollowSelectedObject);
-
-            // Capture owner is separate from the current editor selection.
-            // If set, it defines the capture position for the reflection cubemap.
-            {
-                int ownerNode = scene.editorReflectionCaptureOwnerNode;
-                if (ImGui::InputInt("Capture owner node", &ownerNode))
-                {
-                    if (ownerNode < -1)
-                    {
-                        ownerNode = -1;
-                    }
-                    scene.editorReflectionCaptureOwnerNode = ownerNode;
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Set owner = selected"))
-                {
-                    scene.editorReflectionCaptureOwnerNode = scene.editorSelectedNode;
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Clear owner"))
-                {
-                    scene.editorReflectionCaptureOwnerNode = -1;
-                }
-                ImGui::TextDisabled("Resolved draw item: %d", scene.editorReflectionCaptureOwnerDrawItem);
-            }
-
-            int res = static_cast<int>(rs.reflectionCaptureResolution);
-            if (ImGui::InputInt("Capture resolution", &res))
-            {
-                res = std::clamp(res, 32, 2048);
-                rs.reflectionCaptureResolution = static_cast<std::uint32_t>(res);
-            }
-
-            ImGui::DragFloat("Capture near Z", &rs.reflectionCaptureNearZ, 0.01f, 0.001f, 10.0f, "%.3f");
-            ImGui::DragFloat("Capture far Z", &rs.reflectionCaptureFarZ, 1.0f, 1.0f, 5000.0f, "%.1f");
-            ImGui::SliderFloat("Capture FOV pad (deg)", &rs.reflectionCaptureFovPadDeg, 0.0f, 10.0f, "%.2f");
-
-            if (rs.reflectionCaptureFarZ < rs.reflectionCaptureNearZ)
-                rs.reflectionCaptureFarZ = rs.reflectionCaptureNearZ;
-
-            ImGui::EndDisabled();
-        }
-
-        ImGui::Separator();
-        if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
-    {
         ImGui::Text("Count: %d", static_cast<int>(scene.lights.size()));
 
         if (ImGui::Button("Add Directional"))
@@ -438,13 +238,11 @@ namespace rendern::ui
             char header[64]{};
             std::snprintf(header, sizeof(header), "[%s] #%zu", typeName, i);
 
-            // Enabled state derived from intensity.
             bool enabled = (l.intensity > 0.00001f);
             bool doDelete = false;
 
             const bool open = LightHeaderWithActions(header, true, enabled, doDelete);
 
-            // Apply "Enabled" change
             if (!enabled && l.intensity > 0.0f)
             {
                 prevIntensity[i] = std::max(prevIntensity[i], l.intensity);
@@ -472,10 +270,7 @@ namespace rendern::ui
 
             ++i;
         }
-    }
-    
-        ImGui::Separator();
-        ImGui::Text("F1: toggle UI");
+
         ImGui::End();
     }
 }

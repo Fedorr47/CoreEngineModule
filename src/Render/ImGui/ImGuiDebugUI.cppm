@@ -47,7 +47,11 @@ export namespace rendern::ui
 
 #if defined(CORE_USE_DX12)
 
+#include "ImGuiDebugUI_Common.inl"
+#include "ImGuiDebugUI_RendererCore.inl"
+#include "ImGuiDebugUI_Reflections.inl"
 #include "ImGuiDebugUI_Light.inl"
+#include "ImGuiDebugUI_RendererFacade.inl"
 #include "ImGuiDebugUI_Level.inl"
 
 namespace rendern::ui
@@ -98,13 +102,23 @@ namespace rendern::ui
             ImGui::DockBuilderAddNode(dockId, ImGuiDockNodeFlags_DockSpace | dockFlags);
             ImGui::DockBuilderSetNodeSize(dockId, viewport->Size);
 
-            // Split: left (Level Editor), right (Renderer). No center gap.
+            // Split: left (Level Editor), right (renderer tools stack).
             ImGuiID dockLeft = 0;
             ImGuiID dockRight = 0;
             ImGui::DockBuilderSplitNode(dockId, ImGuiDir_Left, 0.52f, &dockLeft, &dockRight);
 
+            ImGuiID dockRightTop = 0;
+            ImGuiID dockRightBottom = 0;
+            ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Up, 0.58f, &dockRightTop, &dockRightBottom);
+
+            ImGuiID dockRightBottomLeft = 0;
+            ImGuiID dockRightBottomRight = 0;
+            ImGui::DockBuilderSplitNode(dockRightBottom, ImGuiDir_Left, 0.52f, &dockRightBottomLeft, &dockRightBottomRight);
+
             ImGui::DockBuilderDockWindow("Level Editor", dockLeft);
-            ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRight);
+            ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRightTop);
+            ImGui::DockBuilderDockWindow("Reflections", dockRightBottomLeft);
+            ImGui::DockBuilderDockWindow("Lights", dockRightBottomRight);
 
             ImGui::DockBuilderFinish(dockId);
         }

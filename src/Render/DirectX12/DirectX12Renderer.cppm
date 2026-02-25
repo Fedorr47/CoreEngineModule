@@ -325,6 +325,16 @@ export namespace rendern
 		float dist2{ 0.0f };               // for sorting (bigger first)
 	};
 
+	struct PlanarMirrorDraw
+	{
+		const rendern::MeshRHI* mesh{};
+		MaterialParams material{};
+		MaterialHandle materialHandle{};
+		std::uint32_t instanceOffset{ 0 }; // absolute offset in combined instance buffer
+		mathUtils::Vec3 planePoint{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 planeNormal{ 0.0f, 1.0f, 0.0f };
+	};
+
 	struct TransparentTemp
 	{
 		const rendern::MeshRHI* mesh{};
@@ -608,6 +618,8 @@ private:
 		rhi::GraphicsState transparentState_{};
 		rhi::GraphicsState preDepthState_{};
 		rhi::GraphicsState mainAfterPreDepthState_{};
+		rhi::GraphicsState planarMaskState_{};
+		rhi::GraphicsState planarReflectedState_{};
 
 		rhi::BufferHandle instanceBuffer_{};
 		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
