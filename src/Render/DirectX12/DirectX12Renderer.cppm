@@ -91,6 +91,7 @@ export namespace rendern
 
 		std::uint32_t permBits{};
 		std::uint32_t envSource{};
+		int reflectionProbeIndex = -1;
 	};
 
 	struct BatchKeyHash
@@ -117,6 +118,7 @@ export namespace rendern
 			HashCombine(seed, HashU32(key.permBits));
 
 			HashCombine(seed, HashU32(key.envSource));
+			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.reflectionProbeIndex)));
 
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.albedoDescIndex)));
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.normalDescIndex)));
@@ -151,6 +153,7 @@ export namespace rendern
 			return lhs.mesh == rhs.mesh &&
 				lhs.permBits == rhs.permBits &&
 				lhs.envSource == rhs.envSource &&
+				lhs.reflectionProbeIndex == rhs.reflectionProbeIndex &&
 				lhs.albedoDescIndex == rhs.albedoDescIndex &&
 				lhs.normalDescIndex == rhs.normalDescIndex &&
 				lhs.metalnessDescIndex == rhs.metalnessDescIndex &&
@@ -172,6 +175,7 @@ export namespace rendern
 	{
 		MaterialParams material{};
 		MaterialHandle materialHandle{};
+		int reflectionProbeIndex = -1;
 		std::vector<InstanceData> inst;
 	};
 
@@ -182,6 +186,7 @@ export namespace rendern
 		MaterialHandle materialHandle{};
 		std::uint32_t instanceOffset = 0; // in instances[]
 		std::uint32_t instanceCount = 0;
+		int reflectionProbeIndex = -1;
 	};
 
 	struct alignas(16) PerBatchConstants
@@ -225,6 +230,36 @@ export namespace rendern
 		std::array<float, 4>  uParams{};               // x=lightCount, y=flagsBits(asfloat), z,w unused
 	};
 	static_assert(sizeof(ReflectionCaptureFaceConstants) <= 512);
+
+	// Cubemap capture face conventions.
+	// Face order is D3D cube array order: +X, -X, +Y, -Y, +Z, -Z (slices 0..5).
+	// This must stay consistent across point shadows and reflection captures.
+	mathUtils::Mat4 CubeFaceViewRH(const mathUtils::Vec3& pos, int face) noexcept
+	{
+		// +X, -X, +Y, -Y, +Z, -Z
+		static const mathUtils::Vec3 kDirs[6] = {
+			{ 1, 0, 0 }, 
+			{ -1, 0, 0 }, 
+			{ 0, 1, 0 }, 
+			{ 0, -1, 0 },
+			{ 0, 0, 1 }, 
+			{ 0, 0, -1 }
+		};
+		static const mathUtils::Vec3 kUps[6] = {
+			{ 0, 1, 0 },
+			{ 0, 1, 0 }, 
+			{ 0, 0, -1 }, 
+			{ 0, 0, 1 }, 
+			{ 0, 1, 0 }, 
+			{ 0, 1, 0 }
+		};
+		const std::uint32_t f = (face < 6u) ? face : 0u;
+
+		const mathUtils::Vec3 forward = kDirs[f];
+		const mathUtils::Vec3 up = kUps[f];
+
+		return mathUtils::LookAtRH(pos, pos + forward, up);
+	}
 
 	// shadow metadata for Spot/Point arrays (bound as StructuredBuffer at t11).
 	// We pack indices/bias as floats to keep the struct simple across compilers.
@@ -302,6 +337,18 @@ export namespace rendern
 	struct alignas(16) SkyboxConstants
 	{
 		std::array<float, 16> uViewProj{};
+	};
+
+	struct ReflectionProbeRuntime
+	{
+		int ownerDrawItem = -1;
+		mathUtils::Vec3 capturePos{};
+		bool dirty = true;
+		bool hasLastPos = false;
+		mathUtils::Vec3 lastPos{};
+		rhi::TextureHandle cube{};
+		rhi::TextureHandle depthCube{};
+		rhi::TextureDescIndex cubeDescIndex{};
 	};
 
 	class DX12Renderer
@@ -456,11 +503,95 @@ export namespace rendern
 			{
 				device_.UpdateTextureDescriptor(reflectionCubeDescIndex_, reflectionCube_);
 			}
-			reflectionCaptureDirty_ = true;
-			reflectionCaptureHasLastPos_ = false;
+	
+
+			for (ReflectionProbeRuntime& probe : reflectionProbes_)
+			{
+				if (probe.cube)
+				{
+					device_.DestroyTexture(probe.cube);
+					probe.cube = {};
+				}
+				if (probe.depthCube)
+				{
+					device_.DestroyTexture(probe.depthCube);
+					probe.depthCube = {};
+				}
+				probe.dirty = true;
+				probe.hasLastPos = false;
+			}
 		}
 
-	private:
+
+		
+	void EnsureReflectionProbeResources(std::size_t requiredCount)
+	{
+		if (requiredCount > kMaxReflectionProbes)
+		{
+			requiredCount = kMaxReflectionProbes;
+		}
+
+		if (reflectionProbes_.size() < requiredCount)
+		{
+			reflectionProbes_.resize(requiredCount);
+		}
+
+		for (std::size_t i = 0; i < requiredCount; ++i)
+		{
+			ReflectionProbeRuntime& probe = reflectionProbes_[i];
+			const bool needCreate = (!probe.cube) || (!probe.depthCube);
+			if (!needCreate)
+			{
+				continue;
+			}
+
+			if (probe.cube)
+			{
+				device_.DestroyTexture(probe.cube);
+				probe.cube = {};
+			}
+			if (probe.depthCube)
+			{
+				device_.DestroyTexture(probe.depthCube);
+				probe.depthCube = {};
+			}
+
+			probe.cube = device_.CreateTextureCube(reflectionCubeExtent_, rhi::Format::RGBA8_UNORM);
+			probe.depthCube = device_.CreateTextureCube(reflectionCubeExtent_, rhi::Format::D32_FLOAT);
+
+			if (!probe.cube || !probe.depthCube)
+			{
+				if (probe.cube)
+				{
+					device_.DestroyTexture(probe.cube);
+					probe.cube = {};
+				}
+				if (probe.depthCube)
+				{
+					device_.DestroyTexture(probe.depthCube);
+					probe.depthCube = {};
+				}
+				continue;
+			}
+
+			if (probe.cubeDescIndex == 0)
+			{
+				probe.cubeDescIndex = device_.AllocateTextureDesctiptor(probe.cube);
+			}
+			else
+			{
+				device_.UpdateTextureDescriptor(probe.cubeDescIndex, probe.cube);
+			}
+
+			probe.dirty = true;
+			probe.hasLastPos = false;
+			probe.ownerDrawItem = -1;
+			probe.capturePos = {};
+			probe.lastPos = {};
+		}
+	}
+
+private:
 		static constexpr std::uint32_t kMaxLights = 64;
 		static constexpr std::uint32_t kDefaultInstanceBufferSizeBytes = 8u * 1024u * 1024u; // 8 MB (combined shadow+main instances)
 
@@ -510,11 +641,11 @@ export namespace rendern
 		rhi::PipelineHandle psoReflectionCaptureVI_{};          // SM6.1 view instancing
 		bool disableReflectionCaptureVI_{ false };
 
-		// Reflection capture update state.
-		bool reflectionCaptureDirty_{ true };
-		bool reflectionCaptureHasLastPos_{ false };
-		mathUtils::Vec3 reflectionCaptureLastPos_{};
-		int reflectionCaptureLastSelectedDrawItem_{ -1 };
+
+		std::vector<ReflectionProbeRuntime> reflectionProbes_;
+		std::vector<int> reflectiveOwnerDrawItems_;           // frame list of owners
+		std::vector<int> drawItemReflectionProbeIndices_;     // size == scene.drawItems.size()
+		static constexpr std::size_t kMaxReflectionProbes = 16;
 
 		int reflectionCaptureLastAnchorKind_{ 0 }; // 0=auto/none, 1=selected, 2=owner, 3=debugOwnerIndex
 		int reflectionCaptureLastAnchorNode_{ -1 }; // LevelAsset node index (or -1)

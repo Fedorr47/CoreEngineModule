@@ -133,15 +133,47 @@
 						ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
 						ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
 						rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
-						if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (batch.materialHandle.id != 0))
+						bool usingReflectionProbeEnv = false;
+						rhi::TextureHandle envArrayTexture{};
+						if (batch.materialHandle.id != 0)
 						{
 							const auto& mat = scene.GetMaterial(batch.materialHandle);
+
 							if (mat.envSource == EnvSource::ReflectionCapture)
 							{
-								envDescIndex = reflectionCubeDescIndex_;
+								if (settings_.enableReflectionCapture)
+								{
+									if (batch.reflectionProbeIndex >= 0 &&
+										static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+									{
+										const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+										if (probe.cubeDescIndex != 0 && probe.cube)
+										{
+											envDescIndex = probe.cubeDescIndex;
+											envArrayTexture = probe.cube;
+											usingReflectionProbeEnv = true;
+										}
+									}
+									else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
+									{
+										envDescIndex = reflectionCubeDescIndex_;
+										envArrayTexture = reflectionCube_;
+										usingReflectionProbeEnv = true;
+									}
+								}
+							}
+							else // EnvSource::Skybox
+							{
+								envDescIndex = scene.skyboxDescIndex;
 							}
 						}
+
 						ctx.commandList.BindTextureDesc(17, envDescIndex);
+
+						if (usingReflectionProbeEnv && envArrayTexture)
+						{
+							ctx.commandList.BindTexture2DArray(18, envArrayTexture);
+						}
 
 						std::uint32_t flags = 0;
 						if (useTex)
@@ -174,19 +206,15 @@
 						}
 						if (envDescIndex != 0)
 						{
-							flags |= kFlagUseEnv;
-							const bool envIsSkybox = (envDescIndex == scene.skyboxDescIndex);
-							// Keep TextureCube sampling convention consistent with the visible skybox:
-							// Skybox_dx12.hlsl flips Z when sampling.
-							if (envIsSkybox)
-							{
-								flags |= kFlagEnvFlipZ;
-							}
+							flags |= kFlagUseEnv;							
 						}
-						if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (envDescIndex == reflectionCubeDescIndex_))
+						if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
 						{
 							// Dynamic reflection capture cubemap: render mip0 only -> force mip0 sampling in shader.
 							flags |= kFlagEnvForceMip0;
+							// Dynamic probe is sampled through manual face+UV mapping (gEnvArray).
+							// Keep an explicit runtime toggle bit for axis convention correction.
+							flags |= kFlagEnvFlipZ;
 						}
 
 						PerBatchConstants constants{};
@@ -263,16 +291,29 @@
 							ctx.commandList.BindTextureDesc(14, batchTransparent.material.roughnessDescIndex);
 							ctx.commandList.BindTextureDesc(15, batchTransparent.material.aoDescIndex);
 							ctx.commandList.BindTextureDesc(16, batchTransparent.material.emissiveDescIndex);
+							bool usingReflectionProbeEnv = false;
+							rhi::TextureHandle envArrayTexture{};
 							rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
-							if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (batchTransparent.materialHandle.id != 0))
+							if (batchTransparent.materialHandle.id != 0)
 							{
 								const auto& mat = scene.GetMaterial(batchTransparent.materialHandle);
-								if (mat.envSource == EnvSource::ReflectionCapture)
+
+								if (mat.envSource == EnvSource::ReflectionCapture && settings_.enableReflectionCapture)
 								{
-									envDescIndex = reflectionCubeDescIndex_;
+									if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
+									{
+										envDescIndex = reflectionCubeDescIndex_;
+										envArrayTexture = reflectionCube_;
+										usingReflectionProbeEnv = true;
+									}
 								}
 							}
 							ctx.commandList.BindTextureDesc(17, envDescIndex);
+
+							if (usingReflectionProbeEnv && envArrayTexture)
+							{
+								ctx.commandList.BindTexture2DArray(18, envArrayTexture);
+							}
 
 							std::uint32_t flags = 0;
 							if (useTex)
@@ -306,18 +347,12 @@
 							if (envDescIndex != 0)
 							{
 								flags |= kFlagUseEnv;
-								const bool envIsSkybox = (envDescIndex == scene.skyboxDescIndex);
-								// Keep TextureCube sampling convention consistent with the visible skybox:
-								// Skybox_dx12.hlsl flips Z when sampling.
-								if (envIsSkybox)
-								{
-									flags |= kFlagEnvFlipZ;
-								}
 								// Dynamic reflection captures update only mip0. Force mip0 sampling in the shader to
 								// avoid seams/garbage when the cube texture was created with a full mip chain.
-								if (settings_.enableReflectionCapture && (reflectionCubeDescIndex_ != 0) && (envDescIndex == reflectionCubeDescIndex_))
+								if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
 								{
 									flags |= kFlagEnvForceMip0;
+									flags |= kFlagEnvFlipZ;
 								}
 							}
 

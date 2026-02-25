@@ -103,6 +103,18 @@ export namespace rhi
 		Always
 	};
 
+	enum class StencilOp : std::uint8_t
+	{
+		Keep,
+		Zero,
+		Replace,
+		IncrementClamp,
+		DecrementClamp,
+		Invert,
+		IncrementWrap,
+		DecrementWrap
+	};
+
 	enum class VertexFormat : std::uint8_t
 	{
 		R32G32B32_FLOAT,
@@ -183,11 +195,29 @@ export namespace rhi
 		bool normalized{ false };
 	};
 
+	struct StencilFaceState
+	{
+		StencilOp failOp{ StencilOp::Keep };
+		StencilOp depthFailOp{ StencilOp::Keep };
+		StencilOp passOp{ StencilOp::Keep };
+		CompareOp compareOp{ CompareOp::Always };
+	};
+
+	struct StencilState
+	{
+		bool enable{ false };
+		std::uint8_t readMask{ 0xFF };
+		std::uint8_t writeMask{ 0xFF };
+		StencilFaceState front{};
+		StencilFaceState back{};
+	};
+
 	struct DepthState
 	{
 		bool testEnable{ true };
 		bool writeEnable{ true };
 		CompareOp depthCompareOp{ CompareOp::LessEqual };
+		StencilState stencil{};
 	};
 
 	struct RasterizerState
@@ -212,8 +242,10 @@ export namespace rhi
 	{
 		bool clearColor{ true };
 		bool clearDepth{ false };
+		bool clearStencil{ false };
 		std::array<float, 4> color{ 0.0f, 0.0f, 0.0f, 1.0f };
 		float depth{ 1.0f };
+		std::uint8_t stencil{ 0 };
 	};
 
 	class IRHISwapChain;
@@ -252,6 +284,10 @@ export namespace rhi
 	struct CommandSetState
 	{
 		GraphicsState state{};
+	};
+	struct CommandSetStencilRef
+	{
+		std::uint32_t ref{ 0 };
 	};
 	struct CommandSetPrimitiveTopology
 	{
@@ -359,6 +395,7 @@ export namespace rhi
 		CommandEndPass,
 		CommandSetViewport,
 		CommandSetState,
+		CommandSetStencilRef,
 		CommandSetPrimitiveTopology,
 		CommandBindPipeline,
 		CommandBindInputLayout,
@@ -396,6 +433,10 @@ export namespace rhi
 		void SetState(const GraphicsState& state)
 		{
 			commands.emplace_back(CommandSetState{ state });
+		}
+		void SetStencilRef(std::uint32_t ref)
+		{
+			commands.emplace_back(CommandSetStencilRef{ ref });
 		}
 		void SetPrimitiveTopology(PrimitiveTopology topology)
 		{

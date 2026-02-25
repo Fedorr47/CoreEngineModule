@@ -96,20 +96,37 @@
 								debugInvert = 1u;
 								debugMode = 0u;
 							}
-							else if (settings_.debugShadowCubeMapType == 1
-								&& settings_.enableReflectionCapture 
-								&& reflectionCube_)
+							else if (settings_.debugShadowCubeMapType == 1 && settings_.enableReflectionCapture)
 							{
-								debugCubeRG = graph.ImportTexture(reflectionCube_, renderGraph::RGTextureDesc{
-									.extent = reflectionCubeExtent_,
-									.format = rhi::Format::RGBA8_UNORM,
-									.usage = renderGraph::ResourceUsage::Sampled,
-									.type = renderGraph::TextureType::Cube,
-									.debugName = "ReflectionCaptureCube_Debug"
-									});
-								debugInvRange = 1.0f;
-								debugInvert = 0u;
-								debugMode = 1u;
+								rhi::TextureHandle debugReflectionCube{};
+								if (!reflectionProbes_.empty())
+								{
+									const std::uint32_t maxIdx = static_cast<std::uint32_t>(reflectionProbes_.size() - 1u);
+									const std::uint32_t idx = std::min(settings_.debugCubeAtlasIndex, maxIdx);
+									const ReflectionProbeRuntime& probe = reflectionProbes_[idx];
+									if (probe.cube)
+									{
+										debugReflectionCube = probe.cube;
+									}
+								}
+								else if (reflectionCube_)
+								{
+									debugReflectionCube = reflectionCube_;
+								}
+
+								if (debugReflectionCube)
+								{
+									debugCubeRG = graph.ImportTexture(debugReflectionCube, renderGraph::RGTextureDesc{
+										.extent = reflectionCubeExtent_,
+										.format = rhi::Format::RGBA8_UNORM,
+										.usage = renderGraph::ResourceUsage::Sampled,
+										.type = renderGraph::TextureType::Cube,
+										.debugName = "ReflectionCaptureCube_Debug"
+										});
+									debugInvRange = 1.0f;
+									debugInvert = 0u;
+									debugMode = 1u;
+								}
 							}
 
 							if (debugCubeRG && psoDebugCubeAtlas_ && debugCubeAtlasLayout_ && debugCubeAtlasVB_)

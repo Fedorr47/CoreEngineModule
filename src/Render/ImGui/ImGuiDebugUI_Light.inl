@@ -384,6 +384,8 @@ namespace rendern::ui
 
             ImGui::DragFloat("Capture near Z", &rs.reflectionCaptureNearZ, 0.01f, 0.001f, 10.0f, "%.3f");
             ImGui::DragFloat("Capture far Z", &rs.reflectionCaptureFarZ, 1.0f, 1.0f, 5000.0f, "%.1f");
+            ImGui::SliderFloat("Capture FOV pad (deg)", &rs.reflectionCaptureFovPadDeg, 0.0f, 10.0f, "%.2f");
+
             if (rs.reflectionCaptureFarZ < rs.reflectionCaptureNearZ)
                 rs.reflectionCaptureFarZ = rs.reflectionCaptureNearZ;
 

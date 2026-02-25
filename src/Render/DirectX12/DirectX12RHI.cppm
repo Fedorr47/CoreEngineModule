@@ -127,6 +127,31 @@ D3D12_COMPARISON_FUNC ToD3DCompare(rhi::CompareOp compareOp)
     }
 }
 
+D3D12_STENCIL_OP ToD3DStencilOp(rhi::StencilOp op)
+{
+    switch (op)
+    {
+    case rhi::StencilOp::Keep:
+        return D3D12_STENCIL_OP_KEEP;
+    case rhi::StencilOp::Zero:
+        return D3D12_STENCIL_OP_ZERO;
+    case rhi::StencilOp::Replace:
+        return D3D12_STENCIL_OP_REPLACE;
+    case rhi::StencilOp::IncrementClamp:
+        return D3D12_STENCIL_OP_INCR_SAT;
+    case rhi::StencilOp::DecrementClamp:
+        return D3D12_STENCIL_OP_DECR_SAT;
+    case rhi::StencilOp::Invert:
+        return D3D12_STENCIL_OP_INVERT;
+    case rhi::StencilOp::IncrementWrap:
+        return D3D12_STENCIL_OP_INCR;
+    case rhi::StencilOp::DecrementWrap:
+        return D3D12_STENCIL_OP_DECR;
+    default:
+        return D3D12_STENCIL_OP_KEEP;
+    }
+}
+
 D3D12_PRIMITIVE_TOPOLOGY_TYPE ToD3DTopologyType(rhi::PrimitiveTopologyType topologyType)
 {
     switch (topologyType)

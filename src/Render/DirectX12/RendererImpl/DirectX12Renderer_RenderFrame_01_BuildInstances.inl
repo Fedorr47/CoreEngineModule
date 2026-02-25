@@ -137,6 +137,39 @@
 		
 		std::vector<TransparentTemp> transparentTmp;
 		transparentTmp.reserve(scene.drawItems.size());
+
+		// ---------------- Reflection probe assignment (multi-probe) ----------------
+		drawItemReflectionProbeIndices_.assign(scene.drawItems.size(), -1);
+		reflectiveOwnerDrawItems_.clear();
+		reflectiveOwnerDrawItems_.reserve(scene.drawItems.size());
+
+		auto IsReflectionCaptureReceiver = [&scene](int drawItemIndex) -> bool
+			{
+				if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
+					return false;
+
+				const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
+				if (di.material.id == 0)
+					return false;
+
+				const auto& mat = scene.GetMaterial(di.material);
+				return mat.envSource == EnvSource::ReflectionCapture;
+			};
+
+		for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
+		{
+			if (!IsReflectionCaptureReceiver(static_cast<int>(i)))
+				continue;
+
+			if (reflectiveOwnerDrawItems_.size() >= kMaxReflectionProbes)
+				break;
+
+			const int probeIndex = static_cast<int>(reflectiveOwnerDrawItems_.size());
+			reflectiveOwnerDrawItems_.push_back(static_cast<int>(i));
+			drawItemReflectionProbeIndices_[i] = probeIndex;
+		}
+
+		EnsureReflectionProbeResources(reflectiveOwnerDrawItems_.size());
 		
 		// ---- Main packing: opaque (batched) + transparent (sorted per-item) ----
 		// NOTE: mainTmp is camera-culled (IsVisible), but reflection capture must NOT depend on the camera.
@@ -147,110 +180,6 @@
 		{
 			captureTmp.reserve(scene.drawItems.size());
 		}
-		// Exclude only the *current reflection-capture owner* from capture to avoid self-occlusion.
-		// IMPORTANT: do not use raw editorSelectedDrawItem here; with multiple reflective objects we want
-		// the exclusion to match the owner resolved for the currently displayed/captured reflection cubemap.
-		int excludeCaptureDrawItem = -1;
-		if (buildCaptureNoCull)
-		{
-			auto GetDrawItemWorldPos = [&scene](int drawItemIndex) -> mathUtils::Vec3
-				{
-					if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
-					{
-						return { 0.0f, 0.0f, 0.0f };
-					}
-					const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
-					if (di.transform.useMatrix)
-					{
-						const mathUtils::Vec4& t = di.transform.matrix[3];
-						return { t.x, t.y, t.z };
-					}
-					return di.transform.position;
-				};
-
-			auto IsReflectionCaptureDrawItem = [&scene](int drawItemIndex) -> bool
-				{
-					if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
-					{
-						return false;
-					}
-					const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
-					if (di.material.id == 0)
-					{
-						return false;
-					}
-					const auto& mat = scene.GetMaterial(di.material);
-					return mat.envSource == EnvSource::ReflectionCapture;
-				};
-
-			auto ResolveDebugReflectionOwnerByIndex = [&scene, this, &IsReflectionCaptureDrawItem]() -> int
-				{
-					if (!(settings_.ShowCubeAtlas && settings_.debugShadowCubeMapType == 1u))
-					{
-						return -1;
-					}
-
-					std::vector<int> reflectiveDrawItems;
-					reflectiveDrawItems.reserve(scene.drawItems.size());
-					for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
-					{
-						if (IsReflectionCaptureDrawItem(static_cast<int>(i)))
-						{
-							reflectiveDrawItems.push_back(static_cast<int>(i));
-						}
-					}
-					if (reflectiveDrawItems.empty())
-					{
-						return -1;
-					}
-
-					const std::uint32_t maxIdx = static_cast<std::uint32_t>(reflectiveDrawItems.size() - 1u);
-					const std::uint32_t idx = std::min(settings_.debugCubeAtlasIndex, maxIdx);
-					return reflectiveDrawItems[idx];
-				};
-
-			auto ResolveAutoReflectionOwnerClosest = [&scene, this, &camPos, &GetDrawItemWorldPos, &IsReflectionCaptureDrawItem]() -> int
-				{
-					const mathUtils::Vec3 pickOrigin = reflectionCaptureHasLastPos_ ? reflectionCaptureLastPos_ : camPos;
-					float bestDist2 = 3.402823466e+38f;
-					int bestDrawItem = -1;
-
-					for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
-					{
-						if (!IsReflectionCaptureDrawItem(static_cast<int>(i)))
-						{
-							continue;
-						}
-						const mathUtils::Vec3 itPos = GetDrawItemWorldPos(static_cast<int>(i));
-						const mathUtils::Vec3 d = itPos - pickOrigin;
-						const float dist2 = mathUtils::Dot(d, d);
-						if (dist2 < bestDist2)
-						{
-							bestDist2 = dist2;
-							bestDrawItem = static_cast<int>(i);
-						}
-					}
-					return bestDrawItem;
-				};
-
-			// Priority must match ReflectionCapture pass owner resolution.
-			// In reflection cube-atlas debug mode, debugCubeAtlasIndex selects the reflective owner to capture/show.
-			excludeCaptureDrawItem = ResolveDebugReflectionOwnerByIndex();
-			if (excludeCaptureDrawItem < 0 && IsReflectionCaptureDrawItem(scene.editorReflectionCaptureOwnerDrawItem))
-			{
-				excludeCaptureDrawItem = scene.editorReflectionCaptureOwnerDrawItem;
-			}
-			if (excludeCaptureDrawItem < 0 && settings_.reflectionCaptureFollowSelectedObject
-				&& IsReflectionCaptureDrawItem(scene.editorSelectedDrawItem))
-			{
-				excludeCaptureDrawItem = scene.editorSelectedDrawItem;
-			}
-			if (excludeCaptureDrawItem < 0)
-			{
-				excludeCaptureDrawItem = ResolveAutoReflectionOwnerClosest();
-			}
-		}
-		
 		for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++drawItemIndex)
 		{
 			const auto& item = scene.drawItems[drawItemIndex];
@@ -290,6 +219,10 @@
 		
 			key.permBits = static_cast<std::uint32_t>(perm);
 			key.envSource = itemEnvSource;
+			if (drawItemIndex < drawItemReflectionProbeIndices_.size())
+			{
+				key.reflectionProbeIndex = drawItemReflectionProbeIndices_[drawItemIndex];
+			}
 		
 			// IMPORTANT: BatchKey must include material parameters,
 			// otherwise different materials get incorrectly merged.
@@ -321,14 +254,14 @@
 			inst.i3 = model[3];
 		
 			// Reflection-capture packing is NO-CULL: add before camera-cull so capture does not depend on the editor camera
-			if (buildCaptureNoCull && !isTransparent &&
-				(excludeCaptureDrawItem < 0 || static_cast<int>(drawItemIndex) != excludeCaptureDrawItem))
+			if (buildCaptureNoCull && !isTransparent)
 			{
 				auto& bucket = captureTmp[key];
 				if (bucket.inst.empty())
 				{
 					bucket.materialHandle = item.material;
 					bucket.material = params;
+					bucket.reflectionProbeIndex = key.reflectionProbeIndex;
 				}
 				bucket.inst.push_back(inst);
 			}
@@ -367,6 +300,7 @@
 			{
 				bucket.materialHandle = item.material;
 				bucket.material = params; // representative material for this batch
+				bucket.reflectionProbeIndex = key.reflectionProbeIndex;
 			}
 			bucket.inst.push_back(inst);
 		}
@@ -390,7 +324,9 @@
 			batch.material = bt.material;
 			batch.instanceOffset = static_cast<std::uint32_t>(mainInstances.size());
 			batch.instanceCount = static_cast<std::uint32_t>(bt.inst.size());
-		
+
+			batch.reflectionProbeIndex = bt.reflectionProbeIndex;
+
 			mainInstances.insert(mainInstances.end(), bt.inst.begin(), bt.inst.end());
 			mainBatches.push_back(batch);
 		}
@@ -415,6 +351,7 @@
 				batch.material = bt.material;
 				batch.instanceOffset = static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
 				batch.instanceCount = static_cast<std::uint32_t>(bt.inst.size());
+				batch.reflectionProbeIndex = bt.reflectionProbeIndex;
 		
 				captureMainInstancesNoCull.insert(captureMainInstancesNoCull.end(), bt.inst.begin(), bt.inst.end());
 				captureMainBatchesNoCull.push_back(batch);

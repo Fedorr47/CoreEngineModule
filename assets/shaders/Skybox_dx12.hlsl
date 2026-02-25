@@ -14,6 +14,10 @@ cbuffer PerDraw : register(b0)
 	float4x4 uViewProj;
 };
 
+#ifndef CORE_SKYBOX_FLIP_Z
+#define CORE_SKYBOX_FLIP_Z 0
+#endif
+
 // Root signature: s0 exists
 SamplerState gLinear : register(s0);
 // Cubemap bound at t0
@@ -32,8 +36,10 @@ VSOut VS_Skybox(VSIn input)
 
 float4 PS_Skybox(VSOut input) : SV_Target
 {
-	float3 dir = normalize(input.dir);
-	dir = float3(dir.x, dir.y, -dir.z);
-	const float3 color = gSkybox.Sample(gLinearClamp, dir).rgb;
-	return float4(color, 1.0);
+    float3 dir = normalize(input.dir);
+#if CORE_SKYBOX_FLIP_Z
+    dir = float3(dir.x, dir.y, -dir.z);
+ #endif
+    const float3 color = gSkybox.Sample(gLinearClamp, dir).rgb;
+    return float4(color, 1.0);
 }

@@ -541,6 +541,19 @@
             resourceDesc.Height = extent.height;
             resourceDesc.DepthOrArraySize = 6; // cubemap faces
             resourceDesc.MipLevels = 1;
+            // Mip chain: reflections benefit from prefiltered mip levels (roughness->LOD).
+            // Keep point-shadow cubes at 1 mip to save memory.
+            auto CalcMipLevels = [](std::uint32_t w, std::uint32_t h) -> UINT
+                {
+                    const std::uint32_t m = (w > h) ? w : h;
+                    UINT levels = 1;
+                    std::uint32_t v = m;
+                    while (v > 1u) { v >>= 1u; ++levels; }
+                    return levels;
+                };
+
+            const UINT mipLevels = (format == Format::RGBA8_UNORM) ? CalcMipLevels(extent.width, extent.height) : 1u;
+            resourceDesc.MipLevels = static_cast<UINT16>(mipLevels);
             resourceDesc.SampleDesc.Count = 1;
             resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
@@ -1170,15 +1183,37 @@
 
             auto EnsurePSO = [&](PipelineHandle pipelineHandle, InputLayoutHandle layout) -> ID3D12PipelineState*
                 {
-                    auto PackState = [&](const GraphicsState& s) -> std::uint32_t
+                    auto PackState = [&](const GraphicsState& s) -> std::uint64_t
                         {
-                            std::uint32_t v = 0;
-                            v |= (static_cast<std::uint32_t>(s.rasterizer.cullMode) & 0x3u) << 0;
-                            v |= (static_cast<std::uint32_t>(s.rasterizer.frontFace) & 0x1u) << 2;
-                            v |= (s.depth.testEnable ? 1u : 0u) << 3;
-                            v |= (s.depth.writeEnable ? 1u : 0u) << 4;
-                            v |= (static_cast<std::uint32_t>(s.depth.depthCompareOp) & 0x7u) << 5;
-                            v |= (s.blend.enable ? 1u : 0u) << 8;
+                            std::uint64_t v = 0;
+                            std::uint32_t bit = 0;
+                            auto PackBits = [&](std::uint64_t value, std::uint32_t width)
+                                {
+                                    const std::uint64_t mask = (width >= 64u) ? ~0ull : ((1ull << width) - 1ull);
+                                    v |= (value & mask) << bit;
+                                    bit += width;
+                                };
+
+                            PackBits(static_cast<std::uint32_t>(s.rasterizer.cullMode), 2);             // 0..2
+                            PackBits(static_cast<std::uint32_t>(s.rasterizer.frontFace), 1);            // 2
+                            PackBits(s.depth.testEnable ? 1u : 0u, 1);                                  // 3
+                            PackBits(s.depth.writeEnable ? 1u : 0u, 1);                                 // 4
+                            PackBits(static_cast<std::uint32_t>(s.depth.depthCompareOp), 3);            // 5..7
+                            PackBits(s.blend.enable ? 1u : 0u, 1);                                      // 8
+
+                            PackBits(s.depth.stencil.enable ? 1u : 0u, 1);                              // 9
+                            PackBits(static_cast<std::uint32_t>(s.depth.stencil.readMask), 8);          // 10..17
+                            PackBits(static_cast<std::uint32_t>(s.depth.stencil.writeMask), 8);         // 18..25
+
+                            auto PackStencilFace = [&](const StencilFaceState& face)
+                                {
+                                    PackBits(static_cast<std::uint32_t>(face.failOp), 3);
+                                    PackBits(static_cast<std::uint32_t>(face.depthFailOp), 3);
+                                    PackBits(static_cast<std::uint32_t>(face.passOp), 3);
+                                    PackBits(static_cast<std::uint32_t>(face.compareOp), 3);
+                                };
+                            PackStencilFace(s.depth.stencil.front);                                     // 26..37
+                            PackStencilFace(s.depth.stencil.back);                                      // 38..49
                             return v;
                         };
 
@@ -1271,11 +1306,22 @@
                     pipelineDesc.RasterizerState.CullMode = ToD3DCull(curState.rasterizer.cullMode);
                     pipelineDesc.RasterizerState.FrontCounterClockwise = (curState.rasterizer.frontFace == FrontFace::CounterClockwise) ? TRUE : FALSE;
 
-                    // Depth
+                    // Depth / Stencil
                     pipelineDesc.DepthStencilState = CD3D12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
                     pipelineDesc.DepthStencilState.DepthEnable = curState.depth.testEnable ? TRUE : FALSE;
                     pipelineDesc.DepthStencilState.DepthWriteMask = curState.depth.writeEnable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
                     pipelineDesc.DepthStencilState.DepthFunc = ToD3DCompare(curState.depth.depthCompareOp);
+                    pipelineDesc.DepthStencilState.StencilEnable = curState.depth.stencil.enable ? TRUE : FALSE;
+                    pipelineDesc.DepthStencilState.StencilReadMask = curState.depth.stencil.readMask;
+                    pipelineDesc.DepthStencilState.StencilWriteMask = curState.depth.stencil.writeMask;
+                    pipelineDesc.DepthStencilState.FrontFace.StencilFailOp = ToD3DStencilOp(curState.depth.stencil.front.failOp);
+                    pipelineDesc.DepthStencilState.FrontFace.StencilDepthFailOp = ToD3DStencilOp(curState.depth.stencil.front.depthFailOp);
+                    pipelineDesc.DepthStencilState.FrontFace.StencilPassOp = ToD3DStencilOp(curState.depth.stencil.front.passOp);
+                    pipelineDesc.DepthStencilState.FrontFace.StencilFunc = ToD3DCompare(curState.depth.stencil.front.compareOp);
+                    pipelineDesc.DepthStencilState.BackFace.StencilFailOp = ToD3DStencilOp(curState.depth.stencil.back.failOp);
+                    pipelineDesc.DepthStencilState.BackFace.StencilDepthFailOp = ToD3DStencilOp(curState.depth.stencil.back.depthFailOp);
+                    pipelineDesc.DepthStencilState.BackFace.StencilPassOp = ToD3DStencilOp(curState.depth.stencil.back.passOp);
+                    pipelineDesc.DepthStencilState.BackFace.StencilFunc = ToD3DCompare(curState.depth.stencil.back.compareOp);
 
                     pipelineDesc.InputLayout = { layIt->second.elems.data(), static_cast<UINT>(layIt->second.elems.size()) };
                     pipelineDesc.PrimitiveTopologyType = ToD3DTopologyType(pit->second.topologyType);
@@ -1470,9 +1516,12 @@
                                     const float* col = c.color.data();
                                     cmdList_->ClearRenderTargetView(rtvs[0], col, 0, nullptr);
                                 }
-                                if (c.clearDepth && hasDSV)
+                                const D3D12_CLEAR_FLAGS dsClearFlags =
+                                    (c.clearDepth ? D3D12_CLEAR_FLAG_DEPTH : static_cast<D3D12_CLEAR_FLAGS>(0)) |
+                                    (c.clearStencil ? D3D12_CLEAR_FLAG_STENCIL : static_cast<D3D12_CLEAR_FLAGS>(0));
+                                if (dsClearFlags != 0 && hasDSV)
                                 {
-                                    cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
+                                    cmdList_->ClearDepthStencilView(dsv, dsClearFlags, c.depth, c.stencil, 0, nullptr);
                                 }
 
                                 curPassIsSwapChain = true;
@@ -1542,16 +1591,16 @@
                                         numRT = 1;
                                         curRTVFormats[0] = te.rtvFormat;
                                     }
-                                                                    }
-                                                                    // Depth
-                                                                    if (fb.depth)
-                                                                    {
-                                                                        auto it = textures_.find(fb.depth.id);
-                                                                        if (it == textures_.end())
-                                                                        {
-                                                                            throw std::runtime_error("DX12: CommandBeginPass: framebuffer depth texture not found");
-                                                                        }
-                                    
+                                }
+                                // Depth
+                                if (fb.depth)
+                                {
+                                    auto it = textures_.find(fb.depth.id);
+                                    if (it == textures_.end())
+                                    {
+                                        throw std::runtime_error("DX12: CommandBeginPass: framebuffer depth texture not found");
+                                    }
+                                
                                     auto& te = it->second;
                                     
                                     if (fb.colorCubeAllFaces && te.hasDSVAllFaces)
@@ -1597,9 +1646,12 @@
                                     }
                                 }
 
-                                if (c.clearDepth && hasDSV)
+                                const D3D12_CLEAR_FLAGS dsClearFlags =
+                                    (c.clearDepth ? D3D12_CLEAR_FLAG_DEPTH : static_cast<D3D12_CLEAR_FLAGS>(0)) |
+                                    (c.clearStencil ? D3D12_CLEAR_FLAG_STENCIL : static_cast<D3D12_CLEAR_FLAGS>(0));
+                                if (dsClearFlags != 0 && hasDSV)
                                 {
-                                    cmdList_->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, c.depth, 0, 0, nullptr);
+                                    cmdList_->ClearDepthStencilView(dsv, dsClearFlags, c.depth, c.stencil, 0, nullptr);
                                 }
                             }
                         }
@@ -1636,6 +1688,10 @@
                         {
                             curState = cmd.state;
                         }
+                        else if constexpr (std::is_same_v<T, CommandSetStencilRef>)
+                        {
+                            cmdList_->OMSetStencilRef(static_cast<UINT>(cmd.ref & 0xFFu));
+                         }
                         else if constexpr (std::is_same_v<T, CommandSetPrimitiveTopology>)
                         {
                             currentTopology = ToD3DTopology(cmd.topology);
@@ -2403,6 +2459,7 @@
             //  t15 ao (Texture2D)
             //  t16 emissive (Texture2D)
             //  t17 env cube (TextureCube)
+            // //  t18 env cube alias as Texture2DArray<float4> (same resource, 6 slices)
             //
             // Samplers:
 

@@ -173,17 +173,9 @@
 					rec.lightIndex = lightIndex;
 					pointShadows.push_back(rec);
 
-					auto FaceView = [](const mathUtils::Vec3& pos, int face) -> mathUtils::Mat4
+					auto FaceView = [](const mathUtils::Vec3& pos, int face) noexcept -> mathUtils::Mat4
 						{
-							// +X, -X, +Y, -Y, +Z, -Z
-							static const mathUtils::Vec3 dirs[6] = {
-								{ 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 }
-							};
-
-							static const mathUtils::Vec3 ups[6] = {
-								{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 0, -1 }, { 0, 0, 1 }, { 0, 1, 0 }, { 0, 1, 0 }
-							};
-							return mathUtils::LookAtRH(pos, pos + dirs[face], ups[face]);
+							return CubeFaceViewRH(pos, face);
 						};
 
 					const float pointNearZ = 0.01f;

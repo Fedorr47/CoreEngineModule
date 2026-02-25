@@ -42,6 +42,7 @@ export namespace rendern
 		std::uint32_t debugCubeAtlasIndex{ 0 };
 		std::uint32_t debugShadowCubeMapType{ 1 }; // point shadow: cube/light index; reflection mode: reflective-owner index
 
+		float reflectionCaptureFovPadDeg{ 0.0f };
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};
 }

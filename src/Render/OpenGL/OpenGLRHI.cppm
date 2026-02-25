@@ -176,6 +176,31 @@ namespace
 		}
 	}
 
+	static GLenum ToGLStencilOp(rhi::StencilOp op)
+	{
+		switch (op)
+		{
+		case rhi::StencilOp::Keep:
+			return GL_KEEP;
+		case rhi::StencilOp::Zero:
+			return GL_ZERO;
+		case rhi::StencilOp::Replace:
+			return GL_REPLACE;
+		case rhi::StencilOp::IncrementClamp:
+			return GL_INCR;
+		case rhi::StencilOp::DecrementClamp:
+			return GL_DECR;
+		case rhi::StencilOp::Invert:
+			return GL_INVERT;
+		case rhi::StencilOp::IncrementWrap:
+			return GL_INCR_WRAP;
+		case rhi::StencilOp::DecrementWrap:
+			return GL_DECR_WRAP;
+		default:
+			return GL_KEEP;
+		}
+	}
+
 	static GLenum ToGLCullMode(rhi::CullMode mode)
 	{
 		switch (mode)
@@ -1110,6 +1135,22 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 			glDepthMask(state.depth.writeEnable ? GL_TRUE : GL_FALSE);
 			glDepthFunc(ToGLCompareOp(state.depth.depthCompareOp));
 
+			// Stencil state
+			if (state.depth.stencil.enable)
+			{
+				glEnable(GL_STENCIL_TEST);
+				glStencilMaskSeparate(GL_FRONT, state.depth.stencil.writeMask);
+				glStencilMaskSeparate(GL_BACK, state.depth.stencil.writeMask);
+				glStencilFuncSeparate(GL_FRONT, ToGLCompareOp(state.depth.stencil.front.compareOp), static_cast<GLint>(currentStencilRef_ & 0xFFu), state.depth.stencil.readMask);
+				glStencilFuncSeparate(GL_BACK, ToGLCompareOp(state.depth.stencil.back.compareOp), static_cast<GLint>(currentStencilRef_ & 0xFFu), state.depth.stencil.readMask);
+				glStencilOpSeparate(GL_FRONT, ToGLStencilOp(state.depth.stencil.front.failOp), ToGLStencilOp(state.depth.stencil.front.depthFailOp), ToGLStencilOp(state.depth.stencil.front.passOp));
+				glStencilOpSeparate(GL_BACK, ToGLStencilOp(state.depth.stencil.back.failOp), ToGLStencilOp(state.depth.stencil.back.depthFailOp), ToGLStencilOp(state.depth.stencil.back.passOp));
+			}
+			else
+			{
+				glDisable(GL_STENCIL_TEST);
+			}
+
 			// Raster
 			if (state.rasterizer.cullMode != rhi::CullMode::None)
 			{
@@ -1213,6 +1254,11 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 				clearMask |= GL_DEPTH_BUFFER_BIT;
 				glClearDepth(static_cast<GLdouble>(cmd.desc.clearDesc.depth));
 			}
+			if (cmd.desc.clearDesc.clearStencil)
+			{
+				clearMask |= GL_STENCIL_BUFFER_BIT;
+				glClearStencil(static_cast<GLint>(cmd.desc.clearDesc.stencil));
+			}
 			if (clearMask != 0)
 			{
 				glClear(clearMask);
@@ -1228,7 +1274,17 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 
 		void ExecuteOnce(const CommandSetState& cmd)
 		{
+			currentGraphicsState_ = cmd.state;
 			ApplyState(cmd.state);
+		}
+
+		void ExecuteOnce(const CommandSetStencilRef& cmd)
+		{
+			currentStencilRef_ = (cmd.ref & 0xFFu);
+			if (currentGraphicsState_.depth.stencil.enable)
+			{
+				ApplyState(currentGraphicsState_);
+			}
 		}
 
 		void ExecuteOnce(const CommandBindPipeline& cmd)
@@ -1381,6 +1437,9 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 		GLuint currentProgram_{ 0 };
 
 		GLenum currentTopology_{ GL_TRIANGLES };
+
+		rhi::GraphicsState currentGraphicsState_{};
+		std::uint32_t currentStencilRef_{ 0 };
 
 		// Current bindings for VAO build
 		rhi::InputLayoutHandle currentLayout_{};
