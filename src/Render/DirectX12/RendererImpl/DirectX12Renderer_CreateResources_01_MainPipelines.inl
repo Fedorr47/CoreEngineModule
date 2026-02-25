@@ -74,13 +74,13 @@
 				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 				planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
 				planarMaskState_.blend.enable = false;
-				planarMaskState_.depth.stencil.enabled = true;
+				planarMaskState_.depth.stencil.enable = true;
 				planarMaskState_.depth.stencil.readMask = 0xFFu;
 				planarMaskState_.depth.stencil.writeMask = 0xFFu;
-				planarMaskState_.depth.stencil.front.stencilFailOp = rhi::StencilOp::Keep;
+				planarMaskState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 				planarMaskState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
-				planarMaskState_.depth.stencil.front.depthStencilPassOp = rhi::StencilOp::Replace;
-				planarMaskState_.depth.stencil.front.stencilCompareOp = rhi::CompareOp::Always;
+				planarMaskState_.depth.stencil.front.passOp = rhi::StencilOp::Replace;
+				planarMaskState_.depth.stencil.front.compareOp = rhi::CompareOp::Always;
 				planarMaskState_.depth.stencil.back = planarMaskState_.depth.stencil.front;
 
 				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
@@ -89,13 +89,13 @@
 				planarReflectedState_.depth.writeEnable = false;
 				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::None;
 				planarReflectedState_.blend.enable = false;
-				planarReflectedState_.depth.stencil.enabled = true;
+				planarReflectedState_.depth.stencil.enable = true;
 				planarReflectedState_.depth.stencil.readMask = 0xFFu;
 				planarReflectedState_.depth.stencil.writeMask = 0x00u;
-				planarReflectedState_.depth.stencil.front.stencilFailOp = rhi::StencilOp::Keep;
+				planarReflectedState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 				planarReflectedState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
-				planarReflectedState_.depth.stencil.front.depthStencilPassOp = rhi::StencilOp::Keep;
-				planarReflectedState_.depth.stencil.front.stencilCompareOp = rhi::CompareOp::Equal;
+				planarReflectedState_.depth.stencil.front.passOp = rhi::StencilOp::Keep;
+				planarReflectedState_.depth.stencil.front.compareOp = rhi::CompareOp::Equal;
 				planarReflectedState_.depth.stencil.back = planarReflectedState_.depth.stencil.front;
 			}
 			

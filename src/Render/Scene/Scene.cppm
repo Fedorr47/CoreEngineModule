@@ -133,7 +133,8 @@ export namespace rendern
 		UseTex		= 1u << 0,
 		UseShadow	= 1u << 1,
 		Skinning	= 1u << 2,
-		Transparent = 1u << 3
+		Transparent = 1u << 3,
+		PlanarMirror = 1u << 4
 	};
 
 	constexpr MaterialPerm operator|(MaterialPerm a, MaterialPerm b) noexcept

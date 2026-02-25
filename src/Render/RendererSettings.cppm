@@ -31,6 +31,10 @@ export namespace rendern
 		float reflectionCaptureNearZ{ 0.05f };
 		float reflectionCaptureFarZ{ 200.0f };
 
+		// Planar reflections (DX12 MVP): mark mirror materials with MaterialPerm::PlanarMirror.
+		bool enablePlanarReflections{ true };
+		std::uint32_t planarReflectionMaxMirrors{ 1 };
+
 		bool drawLightGizmos{ true };
 		bool debugDrawDepthTest{ true };
 		float lightGizmoHalfSize{ 0.15f };
