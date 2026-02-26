@@ -1,628 +1,733 @@
-				// ---------------- Main pass (swapchain) ----------------
-				rhi::ClearDesc clearDesc{};
-				clearDesc.clearColor = true;
-				clearDesc.clearDepth = !doDepthPrepass; // if we pre-filled depth, don't wipe it here
-				clearDesc.clearStencil = true;
-				clearDesc.stencil = 0;
-				clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
-				
-				graph.AddSwapChainPass("MainPass", clearDesc,
-					[this, &scene,
-					shadowRG,
-					dirLightViewProj,
-					lightCount,
-					spotShadows,
-					pointShadows,
-					mainBatches,
-					captureMainBatchesNoCull,
-					instStride,
-					transparentDraws,
-					planarMirrorDraws,
-					doDepthPrepass,
-					imguiDrawData](renderGraph::PassContext& ctx)
+// ---------------- Main pass (swapchain) ----------------
+rhi::ClearDesc clearDesc{};
+clearDesc.clearColor = true;
+clearDesc.clearDepth = !doDepthPrepass; // if we pre-filled depth, don't wipe it here
+clearDesc.clearStencil = true;
+clearDesc.stencil = 0;
+clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
+
+graph.AddSwapChainPass("MainPass", clearDesc,
+	[this, &scene,
+	shadowRG,
+	dirLightViewProj,
+	lightCount,
+	spotShadows,
+	pointShadows,
+	mainBatches,
+	captureMainBatchesNoCull,
+	instStride,
+	transparentDraws,
+	planarMirrorDraws,
+	doDepthPrepass,
+	imguiDrawData](renderGraph::PassContext& ctx)
+{
+	const auto extent = ctx.passExtent;
+
+	ctx.commandList.SetViewport(0, 0,
+		static_cast<int>(extent.width),
+		static_cast<int>(extent.height));
+
+	// If we ran a depth prepass, keep depth read-only in the main pass.
+	ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+
+	const float aspect = extent.height
+		? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+		: 1.0f;
+
+	const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+	const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+	const mathUtils::Vec3 camPosLocal = scene.camera.position;
+
+	const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+	const mathUtils::Mat4 viewProj = proj * view;
+
+
+	// --- Skybox draw ---
+	{
+		if (scene.skyboxDescIndex != 0)
+		{
+			mathUtils::Mat4 viewNoTranslation = view;
+			viewNoTranslation[3] = mathUtils::Vec4(0, 0, 0, 1);
+
+			const mathUtils::Mat4 viewProjSkybox = proj * viewNoTranslation;
+			const mathUtils::Mat4 viewProjSkyboxTranspose = mathUtils::Transpose(viewProjSkybox);
+
+			SkyboxConstants skyboxConstants{};
+			std::memcpy(skyboxConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjSkyboxTranspose), sizeof(float) * 16);
+
+			ctx.commandList.SetState(skyboxState_);
+			ctx.commandList.BindPipeline(psoSkybox_);
+			ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+
+			ctx.commandList.BindInputLayout(skyboxMesh_.layout);
+			ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
+			ctx.commandList.BindIndexBuffer(skyboxMesh_.indexBuffer, skyboxMesh_.indexType, 0);
+
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &skyboxConstants, 1 }));
+			ctx.commandList.DrawIndexed(skyboxMesh_.indexCount, skyboxMesh_.indexType, 0, 0);
+
+			ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+		}
+	}
+
+	// Bind directional shadow map at slot 1 (t1)
+	{
+		const auto shadowTex = ctx.resources.GetTexture(shadowRG);
+		ctx.commandList.BindTexture2D(1, shadowTex);
+	}
+
+	// Bind Spot shadow maps at t3..t6 and Point shadow cubemaps at t7..t10.
+	for (std::size_t spotShadowIndex = 0; spotShadowIndex < spotShadows.size(); ++spotShadowIndex)
+	{
+		const auto tex = ctx.resources.GetTexture(spotShadows[spotShadowIndex].tex);
+		ctx.commandList.BindTexture2D(3 + static_cast<std::uint32_t>(spotShadowIndex), tex);
+	}
+	for (std::size_t pointShadowIndex = 0; pointShadowIndex < pointShadows.size(); ++pointShadowIndex)
+	{
+		const auto tex = ctx.resources.GetTexture(pointShadows[pointShadowIndex].cube);
+		ctx.commandList.BindTexture2DArray(7 + static_cast<std::uint32_t>(pointShadowIndex), tex);
+	}
+
+	// Bind shadow metadata SB at t11
+	ctx.commandList.BindStructuredBufferSRV(11, shadowDataBuffer_);
+
+	// Bind lights (t2 StructuredBuffer SRV)
+	ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
+
+	constexpr std::uint32_t kFlagUseTex = 1u << 0;
+	constexpr std::uint32_t kFlagUseShadow = 1u << 1;
+	constexpr std::uint32_t kFlagUseNormal = 1u << 2;
+	constexpr std::uint32_t kFlagUseMetalTex = 1u << 3;
+	constexpr std::uint32_t kFlagUseRoughTex = 1u << 4;
+	constexpr std::uint32_t kFlagUseAOTex = 1u << 5;
+	constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
+	constexpr std::uint32_t kFlagUseEnv = 1u << 7;
+	constexpr std::uint32_t kFlagEnvFlipZ = 1u << 8;
+	constexpr std::uint32_t kFlagEnvForceMip0 = 1u << 9;
+
+	for (const Batch& batch : mainBatches)
+	{
+		if (!batch.mesh || batch.instanceCount == 0)
+		{
+			continue;
+		}
+
+		MaterialPerm perm = MaterialPerm::UseShadow;
+		if (batch.materialHandle.id != 0)
+		{
+			perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
+		}
+		else
+		{
+			// Fallback: infer only from params.
+			if (batch.material.albedoDescIndex != 0)
+			{
+				perm = perm | MaterialPerm::UseTex;
+			}
+		}
+
+		const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+		const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+
+		ctx.commandList.BindPipeline(MainPipelineFor(perm));
+		ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
+		ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
+		ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
+		ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
+		ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
+		ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
+		rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+		bool usingReflectionProbeEnv = false;
+		rhi::TextureHandle envArrayTexture{};
+		if (batch.materialHandle.id != 0)
+		{
+			const auto& mat = scene.GetMaterial(batch.materialHandle);
+
+			if (mat.envSource == EnvSource::ReflectionCapture)
+			{
+				if (settings_.enableReflectionCapture)
 				{
-					const auto extent = ctx.passExtent;
-				
-					ctx.commandList.SetViewport(0, 0,
-						static_cast<int>(extent.width),
-						static_cast<int>(extent.height));
-				
-					// If we ran a depth prepass, keep depth read-only in the main pass.
-					ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
-				
-					const float aspect = extent.height
-						? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
-						: 1.0f;
-				
-					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
-					const mathUtils::Vec3 camPosLocal = scene.camera.position;
-				
-					const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
-					const mathUtils::Mat4 viewProj = proj * view;
-				
-				
-					// --- Skybox draw ---
+					if (batch.reflectionProbeIndex >= 0 &&
+						static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
 					{
-						if (scene.skyboxDescIndex != 0)
+						const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+						if (probe.cubeDescIndex != 0 && probe.cube)
 						{
-							mathUtils::Mat4 viewNoTranslation = view;
-							viewNoTranslation[3] = mathUtils::Vec4(0, 0, 0, 1);
-				
-							const mathUtils::Mat4 viewProjSkybox = proj * viewNoTranslation;
-							const mathUtils::Mat4 viewProjSkyboxTranspose = mathUtils::Transpose(viewProjSkybox);
-				
-							SkyboxConstants skyboxConstants{};
-							std::memcpy(skyboxConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjSkyboxTranspose), sizeof(float) * 16);
-				
-							ctx.commandList.SetState(skyboxState_);
-							ctx.commandList.BindPipeline(psoSkybox_);
-							ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
-				
-							ctx.commandList.BindInputLayout(skyboxMesh_.layout);
-							ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
-							ctx.commandList.BindIndexBuffer(skyboxMesh_.indexBuffer, skyboxMesh_.indexType, 0);
-				
-							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &skyboxConstants, 1 }));
-							ctx.commandList.DrawIndexed(skyboxMesh_.indexCount, skyboxMesh_.indexType, 0, 0);
-				
-							ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+							envDescIndex = probe.cubeDescIndex;
+							envArrayTexture = probe.cube;
+							usingReflectionProbeEnv = true;
 						}
 					}
-				
-					// Bind directional shadow map at slot 1 (t1)
+					else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
 					{
-						const auto shadowTex = ctx.resources.GetTexture(shadowRG);
-						ctx.commandList.BindTexture2D(1, shadowTex);
+						envDescIndex = reflectionCubeDescIndex_;
+						envArrayTexture = reflectionCube_;
+						usingReflectionProbeEnv = true;
 					}
-				
-					// Bind Spot shadow maps at t3..t6 and Point shadow cubemaps at t7..t10.
-					for (std::size_t spotShadowIndex = 0; spotShadowIndex < spotShadows.size(); ++spotShadowIndex)
-					{
-						const auto tex = ctx.resources.GetTexture(spotShadows[spotShadowIndex].tex);
-						ctx.commandList.BindTexture2D(3 + static_cast<std::uint32_t>(spotShadowIndex), tex);
-					}
-					for (std::size_t pointShadowIndex = 0; pointShadowIndex < pointShadows.size(); ++pointShadowIndex)
-					{
-						const auto tex = ctx.resources.GetTexture(pointShadows[pointShadowIndex].cube);
-						ctx.commandList.BindTexture2DArray(7 + static_cast<std::uint32_t>(pointShadowIndex), tex);
-					}
-				
-					// Bind shadow metadata SB at t11
-					ctx.commandList.BindStructuredBufferSRV(11, shadowDataBuffer_);
-				
-					// Bind lights (t2 StructuredBuffer SRV)
-					ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
-				
-					constexpr std::uint32_t kFlagUseTex = 1u << 0;
-					constexpr std::uint32_t kFlagUseShadow = 1u << 1;
-					constexpr std::uint32_t kFlagUseNormal = 1u << 2;
-					constexpr std::uint32_t kFlagUseMetalTex = 1u << 3;
-					constexpr std::uint32_t kFlagUseRoughTex = 1u << 4;
-					constexpr std::uint32_t kFlagUseAOTex = 1u << 5;
-					constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
-					constexpr std::uint32_t kFlagUseEnv = 1u << 7;
-					constexpr std::uint32_t kFlagEnvFlipZ = 1u << 8;
-					constexpr std::uint32_t kFlagEnvForceMip0 = 1u << 9;
-				
-					for (const Batch& batch : mainBatches)
-					{
-						if (!batch.mesh || batch.instanceCount == 0)
-						{
-							continue;
-						}
-				
-						MaterialPerm perm = MaterialPerm::UseShadow;
-						if (batch.materialHandle.id != 0)
-						{
-							perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
-						}
-						else
-						{
-							// Fallback: infer only from params.
-							if (batch.material.albedoDescIndex != 0)
-							{
-								perm = perm | MaterialPerm::UseTex;
-							}
-						}
-				
-						const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
-						const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
-				
-						ctx.commandList.BindPipeline(MainPipelineFor(perm));
-						ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
-						ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
-						ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
-						ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
-						ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
-						ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
-						rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
-						bool usingReflectionProbeEnv = false;
-						rhi::TextureHandle envArrayTexture{};
-						if (batch.materialHandle.id != 0)
-						{
-							const auto& mat = scene.GetMaterial(batch.materialHandle);
-				
-							if (mat.envSource == EnvSource::ReflectionCapture)
-							{
-								if (settings_.enableReflectionCapture)
-								{
-									if (batch.reflectionProbeIndex >= 0 &&
-										static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
-									{
-										const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-										if (probe.cubeDescIndex != 0 && probe.cube)
-										{
-											envDescIndex = probe.cubeDescIndex;
-											envArrayTexture = probe.cube;
-											usingReflectionProbeEnv = true;
-										}
-									}
-									else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
-									{
-										envDescIndex = reflectionCubeDescIndex_;
-										envArrayTexture = reflectionCube_;
-										usingReflectionProbeEnv = true;
-									}
-								}
-							}
-							else // EnvSource::Skybox
-							{
-								envDescIndex = scene.skyboxDescIndex;
-							}
-						}
-				
-						ctx.commandList.BindTextureDesc(17, envDescIndex);
-				
-						if (usingReflectionProbeEnv && envArrayTexture)
-						{
-							ctx.commandList.BindTexture2DArray(18, envArrayTexture);
-						}
-				
-						std::uint32_t flags = 0;
-						if (useTex)
-						{
-							flags |= kFlagUseTex;
-						}
-						if (useShadow)
-						{
-							flags |= kFlagUseShadow;
-						}
-						if (batch.material.normalDescIndex != 0)
-						{
-							flags |= kFlagUseNormal;
-						}
-						if (batch.material.metalnessDescIndex != 0)
-						{
-							flags |= kFlagUseMetalTex;
-						}
-						if (batch.material.roughnessDescIndex != 0)
-						{
-							flags |= kFlagUseRoughTex;
-						}
-						if (batch.material.aoDescIndex != 0)
-						{
-							flags |= kFlagUseAOTex;
-						}
-						if (batch.material.emissiveDescIndex != 0)
-						{
-							flags |= kFlagUseEmissiveTex;
-						}
-						if (envDescIndex != 0)
-						{
-							flags |= kFlagUseEnv;
-						}
-						if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
-						{
-							// Dynamic reflection capture cubemap: render mip0 only -> force mip0 sampling in shader.
-							flags |= kFlagEnvForceMip0;
-							// Dynamic probe is sampled through manual face+UV mapping (gEnvArray).
-							// Keep an explicit runtime toggle bit for axis convention correction.
-							flags |= kFlagEnvFlipZ;
-						}
-				
-						PerBatchConstants constants{};
-						const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
-						const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-				
-						std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-						std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-				
-						constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
-						constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-						constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
-				
-						const float materialBiasTexels = batch.material.shadowBias;
-						constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
-				
-						constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
-				
-						constants.uCounts = {
-							static_cast<float>(lightCount),
-							static_cast<float>(spotShadows.size()),
-							static_cast<float>(pointShadows.size()),
-							0.0f
-						};
-				
-						constants.uShadowBias = {
-							settings_.dirShadowBaseBiasTexels,
-							settings_.spotShadowBaseBiasTexels,
-							settings_.pointShadowBaseBiasTexels,
-							settings_.shadowSlopeScaleTexels
-						};
+				}
+			}
+			else // EnvSource::Skybox
+			{
+				envDescIndex = scene.skyboxDescIndex;
+			}
+		}
 
-						constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
-						if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
-							static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
-						{
-							const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-							constants.uEnvProbePosExtent = { probe.capturePos.x, probe.capturePos.y, probe.capturePos.z, settings_.reflectionProbeBoxHalfExtent };
-						}
-				
-						// IA (instanced)
-						ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
-						ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
-						ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batch.instanceOffset * instStride);
-						ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
-				
-						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-						ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
-					}
-				
-				
-					// --- Planar reflections (MVP stencil-gated overlay; first N mirrors) ---
-					if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
-					{
-						const auto ReflectPointOnPlane = [](const mathUtils::Vec3& p, const mathUtils::Vec3& planePoint, const mathUtils::Vec3& planeNormal) noexcept -> mathUtils::Vec3
-							{
-								const float d = mathUtils::Dot(p - planePoint, planeNormal);
-								return p - (2.0f * d) * planeNormal;
-							};
-						const auto ReflectVectorOnPlane = [](const mathUtils::Vec3& v, const mathUtils::Vec3& planeNormal) noexcept -> mathUtils::Vec3
-							{
-								const float d = mathUtils::Dot(v, planeNormal);
-								return v - (2.0f * d) * planeNormal;
-							};
-				
-						struct PlanarMaskPassConstants
-						{
-							std::array<float, 16> uLightViewProj{};
-						};
-				
-						std::uint32_t mirrorIndex = 0u;
-						for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
-						{
-							if (!mirror.mesh || mirror.mesh->indexCount == 0)
-							{
-								continue;
-							}
-							if (mirrorIndex >= settings_.planarReflectionMaxMirrors)
-							{
-								break;
-							}
-				
-							mathUtils::Vec3 planeN = mirror.planeNormal;
-							if (mathUtils::Length(planeN) < 0.0001f)
-							{
-								continue;
-							}
-							planeN = mathUtils::Normalize(planeN);
-				
-							// 1) Visible mirror pixels -> stencil = ref (depth tested against current scene depth).
-							ctx.commandList.SetState(planarMaskState_);
-							ctx.commandList.SetStencilRef(1u + mirrorIndex);
-							ctx.commandList.BindPipeline(psoShadow_);
-				
-							PlanarMaskPassConstants maskConstants{};
-							const mathUtils::Mat4 viewProjMaskT = mathUtils::Transpose(viewProj);
-							std::memcpy(maskConstants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjMaskT), sizeof(float) * 16);
-							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &maskConstants, 1 }));
-				
-							ctx.commandList.BindInputLayout(mirror.mesh->layoutInstanced);
-							ctx.commandList.BindVertexBuffer(0, mirror.mesh->vertexBuffer, mirror.mesh->vertexStrideBytes, 0);
-							ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, mirror.instanceOffset * instStride);
-							ctx.commandList.BindIndexBuffer(mirror.mesh->indexBuffer, mirror.mesh->indexType, 0);
-							ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
-				
-							// 2) Render reflected scene only inside this stencil region.
-							const mathUtils::Vec3 reflCamPos = ReflectPointOnPlane(camPosLocal, mirror.planePoint, planeN);
-							const mathUtils::Vec3 reflTarget = ReflectPointOnPlane(scene.camera.target, mirror.planePoint, planeN);
-							mathUtils::Vec3 reflUp = ReflectVectorOnPlane(scene.camera.up, planeN);
-							if (mathUtils::Length(reflUp) < 0.0001f)
-							{
-								reflUp = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
-							}
-							reflUp = mathUtils::Normalize(reflUp);
-				
-							const mathUtils::Mat4 reflView = mathUtils::LookAt(reflCamPos, reflTarget, reflUp);
-							const mathUtils::Mat4 reflViewProj = proj * reflView;
-							const mathUtils::Vec3 reflCamF = mathUtils::Normalize(reflTarget - reflCamPos);
-				
-							ctx.commandList.SetState(planarReflectedState_);
-							ctx.commandList.SetStencilRef(1u + mirrorIndex);
-				
-							const auto& planarBatches = !captureMainBatchesNoCull.empty() ? captureMainBatchesNoCull : mainBatches;
+		ctx.commandList.BindTextureDesc(17, envDescIndex);
 
-							for (const Batch& batch : planarBatches)
-							{
-								if (!batch.mesh || batch.instanceCount == 0)
-								{
-									continue;
-								}
-				
-								MaterialPerm perm = MaterialPerm::UseShadow;
-								if (batch.materialHandle.id != 0)
-								{
-									perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
-								}
-								else
-								{
-									if (batch.material.albedoDescIndex != 0)
-									{
-										perm = perm | MaterialPerm::UseTex;
-									}
-								}
-								if (HasFlag(perm, MaterialPerm::PlanarMirror))
-								{
-									continue; // avoid self-recursion in MVP path
-								}
+		if (usingReflectionProbeEnv && envArrayTexture)
+		{
+			ctx.commandList.BindTexture2DArray(18, envArrayTexture);
+		}
 
-								// NOTE:
-								// In the MVP stencil-overlay planar reflection path we mirror the view. However,
-								// most lighting/shadowing in the main shader is computed in world-space and expects
-								// a consistent world position. Without reflecting world-space inputs (positions,
-								// normals, lights, shadow matrices), shadowing can look severely wrong (often
-								// like big black patches). For now render planar reflections without shadows.
-								perm = static_cast<MaterialPerm>(static_cast<std::uint32_t>(perm) & ~static_cast<std::uint32_t>(MaterialPerm::UseShadow));
-				
-								const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
-								const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
-				
-								ctx.commandList.BindPipeline(MainPipelineFor(perm));
-								ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
-								ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
-								ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
-								ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
-								ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
-								ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
-				
-								rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
-								bool usingReflectionProbeEnv = false;
-								rhi::TextureHandle envArrayTexture{};
-								if (batch.materialHandle.id != 0)
-								{
-									const auto& mat = scene.GetMaterial(batch.materialHandle);
-									if (mat.envSource == EnvSource::ReflectionCapture)
-									{
-										if (settings_.enableReflectionCapture)
-										{
-											if (batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
-											{
-												const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-												if (probe.cubeDescIndex != 0 && probe.cube)
-												{
-													envDescIndex = probe.cubeDescIndex;
-													envArrayTexture = probe.cube;
-													usingReflectionProbeEnv = true;
-												}
-											}
-											else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
-											{
-												envDescIndex = reflectionCubeDescIndex_;
-												envArrayTexture = reflectionCube_;
-												usingReflectionProbeEnv = true;
-											}
-										}
-									}
-									else
-									{
-										envDescIndex = scene.skyboxDescIndex;
-									}
-								}
-				
-								ctx.commandList.BindTextureDesc(17, envDescIndex);
-								if (usingReflectionProbeEnv && envArrayTexture)
-								{
-									ctx.commandList.BindTexture2DArray(18, envArrayTexture);
-								}
-				
-								std::uint32_t flags = 0;
-								if (useTex) flags |= kFlagUseTex;
-								if (useShadow) flags |= kFlagUseShadow;
-								if (batch.material.normalDescIndex != 0) flags |= kFlagUseNormal;
-								if (batch.material.metalnessDescIndex != 0) flags |= kFlagUseMetalTex;
-								if (batch.material.roughnessDescIndex != 0) flags |= kFlagUseRoughTex;
-								if (batch.material.aoDescIndex != 0) flags |= kFlagUseAOTex;
-								if (batch.material.emissiveDescIndex != 0) flags |= kFlagUseEmissiveTex;
-								if (envDescIndex != 0) flags |= kFlagUseEnv;
-								if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
-								{
-									flags |= kFlagEnvForceMip0;
-									flags |= kFlagEnvFlipZ;
-								}
-				
-								PerBatchConstants constants{};
-								const mathUtils::Mat4 viewProjT = mathUtils::Transpose(reflViewProj);
-								const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-								std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-								std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-								constants.uCameraAmbient = { reflCamPos.x, reflCamPos.y, reflCamPos.z, 0.22f };
-								constants.uCameraForward = { reflCamF.x, reflCamF.y, reflCamF.z, 0.0f };
-								constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
-								constants.uMaterialFlags = { 0.0f, 0.0f, batch.material.shadowBias, AsFloatBits(flags) };
-								constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
-								constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
-								constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
-								constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
-								if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
-									static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
-								{
-									const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-									constants.uEnvProbePosExtent = { probe.capturePos.x, probe.capturePos.y, probe.capturePos.z, settings_.reflectionProbeBoxHalfExtent };
-								}
-				
-								ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
-								ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
-								ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batch.instanceOffset * instStride);
-								ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
-								ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-								ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
-							}
-				
-							++mirrorIndex;
-						}
-				
-						// Restore state for the following passes (transparent / imgui).
-						ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
-						ctx.commandList.SetStencilRef(0);
-					}
-				
-					if (!transparentDraws.empty())
+		std::uint32_t flags = 0;
+		if (useTex)
+		{
+			flags |= kFlagUseTex;
+		}
+		if (useShadow)
+		{
+			flags |= kFlagUseShadow;
+		}
+		if (batch.material.normalDescIndex != 0)
+		{
+			flags |= kFlagUseNormal;
+		}
+		if (batch.material.metalnessDescIndex != 0)
+		{
+			flags |= kFlagUseMetalTex;
+		}
+		if (batch.material.roughnessDescIndex != 0)
+		{
+			flags |= kFlagUseRoughTex;
+		}
+		if (batch.material.aoDescIndex != 0)
+		{
+			flags |= kFlagUseAOTex;
+		}
+		if (batch.material.emissiveDescIndex != 0)
+		{
+			flags |= kFlagUseEmissiveTex;
+		}
+		if (envDescIndex != 0)
+		{
+			flags |= kFlagUseEnv;
+		}
+		if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
+		{
+			// Dynamic reflection capture cubemap: render mip0 only -> force mip0 sampling in shader.
+			flags |= kFlagEnvForceMip0;
+			// Dynamic probe is sampled through manual face+UV mapping (gEnvArray).
+			// Keep an explicit runtime toggle bit for axis convention correction.
+			flags |= kFlagEnvFlipZ;
+		}
+
+		PerBatchConstants constants{};
+		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+		const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+
+		std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+		std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+		constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
+		constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+		constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
+
+		const float materialBiasTexels = batch.material.shadowBias;
+		constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+
+		constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+
+		constants.uCounts = {
+			static_cast<float>(lightCount),
+			static_cast<float>(spotShadows.size()),
+			static_cast<float>(pointShadows.size()),
+			0.0f
+		};
+
+		constants.uShadowBias = {
+			settings_.dirShadowBaseBiasTexels,
+			settings_.spotShadowBaseBiasTexels,
+			settings_.pointShadowBaseBiasTexels,
+			settings_.shadowSlopeScaleTexels
+		};
+
+		constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+		constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+		if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
+			static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+		{
+			const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+			const float h = settings_.reflectionProbeBoxHalfExtent;
+
+			constants.uEnvProbeBoxMin = {
+				probe.capturePos.x - h,
+				probe.capturePos.y - h,
+				probe.capturePos.z - h,
+				0.0f
+			};
+
+			constants.uEnvProbeBoxMax = {
+				probe.capturePos.x + h,
+				probe.capturePos.y + h,
+				probe.capturePos.z + h,
+				0.0f
+			};
+		}
+
+		// IA (instanced)
+		ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
+		ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
+		ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batch.instanceOffset * instStride);
+		ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
+
+		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+		ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
+	}
+
+
+	// --- Planar reflections (stencil-gated overlay; coplanar mirrors are grouped to avoid seams) ---
+	if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
+	{
+		const auto ReflectPointOnPlane = [](const mathUtils::Vec3& p, const mathUtils::Vec3& planePoint, const mathUtils::Vec3& planeNormal) noexcept -> mathUtils::Vec3
+			{
+				const float d = mathUtils::Dot(p - planePoint, planeNormal);
+				return p - (2.0f * d) * planeNormal;
+			};
+		const auto ReflectVectorOnPlane = [](const mathUtils::Vec3& v, const mathUtils::Vec3& planeNormal) noexcept -> mathUtils::Vec3
+			{
+				const float d = mathUtils::Dot(v, planeNormal);
+				return v - (2.0f * d) * planeNormal;
+			};
+
+		// Planar mask uses the depth-only Shadow pipeline to avoid writing color.
+		struct PlanarMaskPassConstants
+		{
+			std::array<float, 16> uLightViewProj{};
+		};
+
+		struct PlanarGroup
+		{
+			mathUtils::Vec3 n{};
+			float d = 0.0f; // plane: n·x + d = 0
+			mathUtils::Vec3 point{};
+			std::vector<const PlanarMirrorDraw*> mirrors;
+		};
+
+		std::vector<PlanarGroup> groups;
+		groups.reserve(planarMirrorDraws.size());
+
+		auto CanonicalizePlane = [&](mathUtils::Vec3 n, const mathUtils::Vec3& point) noexcept -> std::pair<mathUtils::Vec3, float>
+			{
+				if (mathUtils::Length(n) < 1e-6f)
+				{
+					return { mathUtils::Vec3(0, 1, 0), 0.0f };
+				}
+				n = mathUtils::Normalize(n);
+
+				// Ensure the plane normal points towards the ORIGINAL camera (stable orientation).
+				if (mathUtils::Dot(n, camPosLocal - point) < 0.0f)
+				{
+					n = n * -1.0f;
+				}
+
+				const float d = -mathUtils::Dot(n, point);
+				return { n, d };
+			};
+
+		// Group mirrors by (nearly) the same plane to avoid visible seams between tiles.
+		const float kNormalCosEps = 0.9995f; // ~1.8 degrees
+		const float kDistEps = 0.02f;        // world units
+
+		for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
+		{
+			if (!mirror.mesh || mirror.mesh->indexCount == 0)
+			{
+				continue;
+			}
+
+			auto [n, d] = CanonicalizePlane(mirror.planeNormal, mirror.planePoint);
+
+			bool merged = false;
+			for (auto& g : groups)
+			{
+				if (mathUtils::Dot(n, g.n) >= kNormalCosEps && std::fabs(d - g.d) <= kDistEps)
+				{
+					g.mirrors.push_back(&mirror);
+					merged = true;
+					break;
+				}
+			}
+
+			if (!merged)
+			{
+				PlanarGroup g{};
+				g.n = n;
+				g.d = d;
+				g.point = mirror.planePoint;
+				g.mirrors.push_back(&mirror);
+				groups.push_back(std::move(g));
+			}
+		}
+
+		// Render each plane-group: (1) mark stencil, (2) draw reflected scene once for the whole group.
+		std::uint32_t groupIndex = 0u;
+		for (const PlanarGroup& grp : groups)
+		{
+			if (groupIndex >= settings_.planarReflectionMaxMirrors)
+			{
+				break;
+			}
+
+			// 1) Visible mirror pixels -> stencil = ref (depth tested against current scene depth).
+			ctx.commandList.SetState(planarMaskState_);
+			ctx.commandList.SetStencilRef(1u + groupIndex);
+			ctx.commandList.BindPipeline(psoShadow_);
+
+			PlanarMaskPassConstants maskConstants{};
+			const mathUtils::Mat4 viewProjMaskT = mathUtils::Transpose(viewProj);
+			std::memcpy(maskConstants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjMaskT), sizeof(float) * 16);
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &maskConstants, 1 }));
+
+			for (const PlanarMirrorDraw* mirrorPtr : grp.mirrors)
+			{
+				const PlanarMirrorDraw& mirror = *mirrorPtr;
+
+				ctx.commandList.BindInputLayout(mirror.mesh->layoutInstanced);
+				ctx.commandList.BindVertexBuffer(0, mirror.mesh->vertexBuffer, mirror.mesh->vertexStrideBytes, 0);
+				ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, mirror.instanceOffset * instStride);
+				ctx.commandList.BindIndexBuffer(mirror.mesh->indexBuffer, mirror.mesh->indexType, 0);
+				ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
+			}
+
+			// 2) Render reflected scene only inside this stencil region.
+			// Reflect the camera around the plane, then use an oblique projection to clip everything on the camera-side of the mirror plane.
+			const mathUtils::Vec3 planeN = grp.n;
+			const mathUtils::Vec3 planePoint = grp.point;
+
+			const mathUtils::Vec3 reflCamPos = ReflectPointOnPlane(camPosLocal, planePoint, planeN);
+			const mathUtils::Vec3 reflTarget = ReflectPointOnPlane(scene.camera.target, planePoint, planeN);
+			mathUtils::Vec3 reflUp = ReflectVectorOnPlane(scene.camera.up, planeN);
+			if (mathUtils::Length(reflUp) < 1e-6f)
+			{
+				reflUp = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
+			}
+			reflUp = mathUtils::Normalize(reflUp);
+
+			const mathUtils::Mat4 reflView = mathUtils::LookAt(reflCamPos, reflTarget, reflUp);
+
+			// Plane in world: n·x + d = 0  ->  (n, d)
+			const mathUtils::Vec4 planeW(planeN.x, planeN.y, planeN.z, -mathUtils::Dot(planeN, planePoint));
+
+			// Transform plane to reflected VIEW space: planeV = transpose(inverse(V)) * planeW
+			mathUtils::Vec4 planeV = mathUtils::Transpose(mathUtils::Inverse(reflView)) * planeW;
+
+			// Normalize the plane (important for stable clipping).
+			const float pvLen = std::sqrt(planeV.x * planeV.x + planeV.y * planeV.y + planeV.z * planeV.z);
+			if (pvLen > 1e-6f)
+			{
+				planeV = planeV * (1.0f / pvLen);
+			}
+
+			// Push the plane slightly towards the discarded side to reduce precision artifacts at the mirror boundary.
+			planeV.w += 0.01f;
+
+			const mathUtils::Mat4 reflProj = mathUtils::PerspectiveRH_ZO_Oblique(proj, planeV);
+			const mathUtils::Mat4 reflViewProj = reflProj * reflView;
+			const mathUtils::Vec3 reflCamF = mathUtils::Normalize(reflTarget - reflCamPos);
+
+			ctx.commandList.SetState(planarReflectedState_);
+			ctx.commandList.SetStencilRef(1u + groupIndex);
+
+			const auto& planarBatches = !captureMainBatchesNoCull.empty() ? captureMainBatchesNoCull : mainBatches;
+
+			for (const Batch& batch : planarBatches)
+			{
+				if (!batch.mesh || batch.instanceCount == 0)
+				{
+					continue;
+				}
+
+				MaterialPerm perm = MaterialPerm::UseShadow;
+				if (batch.materialHandle.id != 0)
+				{
+					perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
+				}
+				else
+				{
+					if (batch.material.albedoDescIndex != 0)
 					{
-						ctx.commandList.SetState(transparentState_);
-				
-						for (const TransparentDraw& batchTransparent : transparentDraws)
+						perm = perm | MaterialPerm::UseTex;
+					}
+				}
+				if (HasFlag(perm, MaterialPerm::PlanarMirror))
+				{
+					continue; // avoid self-recursion in planar path
+				}
+
+				const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+				const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+
+				ctx.commandList.BindPipeline(MainPipelineFor(perm));
+				ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
+				ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
+				ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
+				ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
+				ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
+				ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
+
+				rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+				bool usingReflectionProbeEnv = false;
+				rhi::TextureHandle envArrayTexture{};
+				if (batch.materialHandle.id != 0)
+				{
+					const auto& mat = scene.GetMaterial(batch.materialHandle);
+					if (mat.envSource == EnvSource::ReflectionCapture)
+					{
+						if (settings_.enableReflectionCapture)
 						{
-							if (!batchTransparent.mesh)
+							if (batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
 							{
-								continue;
-							}
-				
-							MaterialPerm perm = MaterialPerm::UseShadow;
-							if (batchTransparent.materialHandle.id != 0)
-							{
-								perm = EffectivePerm(scene.GetMaterial(batchTransparent.materialHandle));
-							}
-							else
-							{
-								if (batchTransparent.material.albedoDescIndex != 0)
+								const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+								if (probe.cubeDescIndex != 0 && probe.cube)
 								{
-									perm = perm | MaterialPerm::UseTex;
+									envDescIndex = probe.cubeDescIndex;
+									envArrayTexture = probe.cube;
+									usingReflectionProbeEnv = true;
 								}
 							}
-				
-							const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
-							const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
-				
-							ctx.commandList.BindPipeline(MainPipelineFor(perm));
-							ctx.commandList.BindTextureDesc(0, batchTransparent.material.albedoDescIndex);
-							ctx.commandList.BindTextureDesc(12, batchTransparent.material.normalDescIndex);
-							ctx.commandList.BindTextureDesc(13, batchTransparent.material.metalnessDescIndex);
-							ctx.commandList.BindTextureDesc(14, batchTransparent.material.roughnessDescIndex);
-							ctx.commandList.BindTextureDesc(15, batchTransparent.material.aoDescIndex);
-							ctx.commandList.BindTextureDesc(16, batchTransparent.material.emissiveDescIndex);
-							bool usingReflectionProbeEnv = false;
-							rhi::TextureHandle envArrayTexture{};
-							rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
-							if (batchTransparent.materialHandle.id != 0)
+							else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
 							{
-								const auto& mat = scene.GetMaterial(batchTransparent.materialHandle);
-				
-								if (mat.envSource == EnvSource::ReflectionCapture && settings_.enableReflectionCapture)
-								{
-									if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
-									{
-										envDescIndex = reflectionCubeDescIndex_;
-										envArrayTexture = reflectionCube_;
-										usingReflectionProbeEnv = true;
-									}
-								}
+								envDescIndex = reflectionCubeDescIndex_;
+								envArrayTexture = reflectionCube_;
+								usingReflectionProbeEnv = true;
 							}
-							ctx.commandList.BindTextureDesc(17, envDescIndex);
-				
-							if (usingReflectionProbeEnv && envArrayTexture)
-							{
-								ctx.commandList.BindTexture2DArray(18, envArrayTexture);
-							}
-				
-							std::uint32_t flags = 0;
-							if (useTex)
-							{
-								flags |= kFlagUseTex;
-							}
-							if (useShadow)
-							{
-								flags |= kFlagUseShadow;
-							}
-							if (batchTransparent.material.normalDescIndex != 0)
-							{
-								flags |= kFlagUseNormal;
-							}
-							if (batchTransparent.material.metalnessDescIndex != 0)
-							{
-								flags |= kFlagUseMetalTex;
-							}
-							if (batchTransparent.material.roughnessDescIndex != 0)
-							{
-								flags |= kFlagUseRoughTex;
-							}
-							if (batchTransparent.material.aoDescIndex != 0)
-							{
-								flags |= kFlagUseAOTex;
-							}
-							if (batchTransparent.material.emissiveDescIndex != 0)
-							{
-								flags |= kFlagUseEmissiveTex;
-							}
-							if (envDescIndex != 0)
-							{
-								flags |= kFlagUseEnv;
-								// Dynamic reflection captures update only mip0. Force mip0 sampling in the shader to
-								// avoid seams/garbage when the cube texture was created with a full mip chain.
-								if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
-								{
-									flags |= kFlagEnvForceMip0;
-									flags |= kFlagEnvFlipZ;
-								}
-							}
-				
-							PerBatchConstants constants{};
-							const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
-							const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-				
-							std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-							std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-				
-							constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
-							constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-							constants.uBaseColor = { batchTransparent.material.baseColor.x, batchTransparent.material.baseColor.y, batchTransparent.material.baseColor.z, batchTransparent.material.baseColor.w };
-				
-							const float materialBiasTexels = batchTransparent.material.shadowBias;
-							constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
-				
-							constants.uPbrParams = { batchTransparent.material.metallic, batchTransparent.material.roughness, batchTransparent.material.ao, batchTransparent.material.emissiveStrength };
-				
-							constants.uCounts = {
-								static_cast<float>(lightCount),
-								static_cast<float>(spotShadows.size()),
-								static_cast<float>(pointShadows.size()),
-								0.0f
-							};
-				
-							constants.uShadowBias = {
-								settings_.dirShadowBaseBiasTexels,
-								settings_.spotShadowBaseBiasTexels,
-								settings_.pointShadowBaseBiasTexels,
-								settings_.shadowSlopeScaleTexels
-							};
-							constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
-				
-							ctx.commandList.BindInputLayout(batchTransparent.mesh->layoutInstanced);
-							ctx.commandList.BindVertexBuffer(0, batchTransparent.mesh->vertexBuffer, batchTransparent.mesh->vertexStrideBytes, 0);
-							ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batchTransparent.instanceOffset * instStride);
-							ctx.commandList.BindIndexBuffer(batchTransparent.mesh->indexBuffer, batchTransparent.mesh->indexType, 0);
-				
-							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-				
-							// IMPORTANT: transparent = one object per draw (instanceCount = 1)
-							ctx.commandList.DrawIndexed(batchTransparent.mesh->indexCount, batchTransparent.mesh->indexType, 0, 0, 1, 0);
 						}
 					}
-				
-				
-					// ImGui overlay (optional)
-					if (imguiDrawData)
+					else
 					{
-						ctx.commandList.DX12ImGuiRender(imguiDrawData);
+						envDescIndex = scene.skyboxDescIndex;
 					}
-				});
+				}
+
+				ctx.commandList.BindTextureDesc(17, envDescIndex);
+				if (usingReflectionProbeEnv && envArrayTexture)
+				{
+					ctx.commandList.BindTexture2DArray(18, envArrayTexture);
+				}
+
+				std::uint32_t flags = 0;
+				if (useTex) flags |= kFlagUseTex;
+				if (useShadow) flags |= kFlagUseShadow;
+				if (batch.material.normalDescIndex != 0) flags |= kFlagUseNormal;
+				if (batch.material.metalnessDescIndex != 0) flags |= kFlagUseMetalTex;
+				if (batch.material.roughnessDescIndex != 0) flags |= kFlagUseRoughTex;
+				if (batch.material.aoDescIndex != 0) flags |= kFlagUseAOTex;
+				if (batch.material.emissiveDescIndex != 0) flags |= kFlagUseEmissiveTex;
+				if (envDescIndex != 0) flags |= kFlagUseEnv;
+				if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
+				{
+					flags |= kFlagEnvForceMip0;
+					flags |= kFlagEnvFlipZ;
+				}
+
+				PerBatchConstants constants{};
+				const mathUtils::Mat4 viewProjT = mathUtils::Transpose(reflViewProj);
+				const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+				std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+				std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+				constants.uCameraAmbient = { reflCamPos.x, reflCamPos.y, reflCamPos.z, 0.22f };
+				constants.uCameraForward = { reflCamF.x, reflCamF.y, reflCamF.z, 0.0f };
+				constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
+				constants.uMaterialFlags = { 0.0f, 0.0f, batch.material.shadowBias, AsFloatBits(flags) };
+				constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+				constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
+				constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
+				constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+				constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+				if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
+					static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+				{
+					const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+					const float h = settings_.reflectionProbeBoxHalfExtent;
+
+					constants.uEnvProbeBoxMin = {
+						probe.capturePos.x - h,
+						probe.capturePos.y - h,
+						probe.capturePos.z - h,
+						0.0f
+					};
+
+					constants.uEnvProbeBoxMax = {
+						probe.capturePos.x + h,
+						probe.capturePos.y + h,
+						probe.capturePos.z + h,
+						0.0f
+					};
+				}
+
+				ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
+				ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
+				ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batch.instanceOffset * instStride);
+				ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
+				ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+				ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
+			}
+
+			++groupIndex;
+		}
+
+		// Restore state for the following passes (transparent / imgui).
+		ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+		ctx.commandList.SetStencilRef(0);
+	}
+
+	if (!transparentDraws.empty())
+	{
+		ctx.commandList.SetState(transparentState_);
+
+		for (const TransparentDraw& batchTransparent : transparentDraws)
+		{
+			if (!batchTransparent.mesh)
+			{
+				continue;
+			}
+
+			MaterialPerm perm = MaterialPerm::UseShadow;
+			if (batchTransparent.materialHandle.id != 0)
+			{
+				perm = EffectivePerm(scene.GetMaterial(batchTransparent.materialHandle));
+			}
+			else
+			{
+				if (batchTransparent.material.albedoDescIndex != 0)
+				{
+					perm = perm | MaterialPerm::UseTex;
+				}
+			}
+
+			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+
+			ctx.commandList.BindPipeline(MainPipelineFor(perm));
+			ctx.commandList.BindTextureDesc(0, batchTransparent.material.albedoDescIndex);
+			ctx.commandList.BindTextureDesc(12, batchTransparent.material.normalDescIndex);
+			ctx.commandList.BindTextureDesc(13, batchTransparent.material.metalnessDescIndex);
+			ctx.commandList.BindTextureDesc(14, batchTransparent.material.roughnessDescIndex);
+			ctx.commandList.BindTextureDesc(15, batchTransparent.material.aoDescIndex);
+			ctx.commandList.BindTextureDesc(16, batchTransparent.material.emissiveDescIndex);
+			bool usingReflectionProbeEnv = false;
+			rhi::TextureHandle envArrayTexture{};
+			rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+			if (batchTransparent.materialHandle.id != 0)
+			{
+				const auto& mat = scene.GetMaterial(batchTransparent.materialHandle);
+
+				if (mat.envSource == EnvSource::ReflectionCapture && settings_.enableReflectionCapture)
+				{
+					if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
+					{
+						envDescIndex = reflectionCubeDescIndex_;
+						envArrayTexture = reflectionCube_;
+						usingReflectionProbeEnv = true;
+					}
+				}
+			}
+			ctx.commandList.BindTextureDesc(17, envDescIndex);
+
+			if (usingReflectionProbeEnv && envArrayTexture)
+			{
+				ctx.commandList.BindTexture2DArray(18, envArrayTexture);
+			}
+
+			std::uint32_t flags = 0;
+			if (useTex)
+			{
+				flags |= kFlagUseTex;
+			}
+			if (useShadow)
+			{
+				flags |= kFlagUseShadow;
+			}
+			if (batchTransparent.material.normalDescIndex != 0)
+			{
+				flags |= kFlagUseNormal;
+			}
+			if (batchTransparent.material.metalnessDescIndex != 0)
+			{
+				flags |= kFlagUseMetalTex;
+			}
+			if (batchTransparent.material.roughnessDescIndex != 0)
+			{
+				flags |= kFlagUseRoughTex;
+			}
+			if (batchTransparent.material.aoDescIndex != 0)
+			{
+				flags |= kFlagUseAOTex;
+			}
+			if (batchTransparent.material.emissiveDescIndex != 0)
+			{
+				flags |= kFlagUseEmissiveTex;
+			}
+			if (envDescIndex != 0)
+			{
+				flags |= kFlagUseEnv;
+				// Dynamic reflection captures update only mip0. Force mip0 sampling in the shader to
+				// avoid seams/garbage when the cube texture was created with a full mip chain.
+				if (settings_.enableReflectionCapture && usingReflectionProbeEnv)
+				{
+					flags |= kFlagEnvForceMip0;
+					flags |= kFlagEnvFlipZ;
+				}
+			}
+
+			PerBatchConstants constants{};
+			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+
+			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+			std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+			constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
+			constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+			constants.uBaseColor = { batchTransparent.material.baseColor.x, batchTransparent.material.baseColor.y, batchTransparent.material.baseColor.z, batchTransparent.material.baseColor.w };
+
+			const float materialBiasTexels = batchTransparent.material.shadowBias;
+			constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+
+			constants.uPbrParams = { batchTransparent.material.metallic, batchTransparent.material.roughness, batchTransparent.material.ao, batchTransparent.material.emissiveStrength };
+
+			constants.uCounts = {
+				static_cast<float>(lightCount),
+				static_cast<float>(spotShadows.size()),
+				static_cast<float>(pointShadows.size()),
+				0.0f
+			};
+
+			constants.uShadowBias = {
+				settings_.dirShadowBaseBiasTexels,
+				settings_.spotShadowBaseBiasTexels,
+				settings_.pointShadowBaseBiasTexels,
+				settings_.shadowSlopeScaleTexels
+			};
+			constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+			constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+			ctx.commandList.BindInputLayout(batchTransparent.mesh->layoutInstanced);
+			ctx.commandList.BindVertexBuffer(0, batchTransparent.mesh->vertexBuffer, batchTransparent.mesh->vertexStrideBytes, 0);
+			ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batchTransparent.instanceOffset * instStride);
+			ctx.commandList.BindIndexBuffer(batchTransparent.mesh->indexBuffer, batchTransparent.mesh->indexType, 0);
+
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+
+			// IMPORTANT: transparent = one object per draw (instanceCount = 1)
+			ctx.commandList.DrawIndexed(batchTransparent.mesh->indexCount, batchTransparent.mesh->indexType, 0, 0, 1, 0);
+		}
+	}
+
+
+	// ImGui overlay (optional)
+	if (imguiDrawData)
+	{
+		ctx.commandList.DX12ImGuiRender(imguiDrawData);
+	}
+});

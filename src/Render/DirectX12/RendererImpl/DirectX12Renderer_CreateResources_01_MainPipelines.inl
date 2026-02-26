@@ -44,17 +44,33 @@
 					}
 			
 					psoMain_[idx] = psoCache_.GetOrCreate(psoName, vs, ps);
+
+					// Planar reflection variant: same shader but with CORE_PLANAR_CLIP enabled (VS outputs SV_ClipDistance0).
+					{
+						auto planarDefs = defs;
+						planarDefs.push_back("CORE_PLANAR_CLIP=1");
+						const auto vsPlanar = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Vertex,
+							.name = "VSMain",
+							.filePath = shaderPath.string(),
+							.defines = planarDefs
+							});
+						const auto psPlanar = shaderLibrary_.GetOrCreateShader(ShaderKey{
+							.stage = rhi::ShaderStage::Pixel,
+							.name = "PSMain",
+							.filePath = shaderPath.string(),
+							.defines = planarDefs
+							});
+						psoPlanar_[idx] = psoCache_.GetOrCreate(psoName + "_Planar", vsPlanar, psPlanar);
+					}
 				}
 			
 				state_.depth.testEnable = true;
 				state_.depth.writeEnable = true;
 				state_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
-			
 				state_.rasterizer.cullMode = rhi::CullMode::Back;
 				state_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
-			
 				state_.blend.enable = false;
-			
 				transparentState_ = state_;
 				transparentState_.depth.writeEnable = false;
 				transparentState_.blend.enable = true;
@@ -72,11 +88,6 @@
 				planarMaskState_.depth.testEnable = true;
 				planarMaskState_.depth.writeEnable = false;
 				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
-				// Reflection across a plane flips triangle winding (det(R) < 0). Keep backface culling
-				// but invert the front-face definition to avoid drawing backfaces (which look black
-				// with one-sided lighting).
-				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::Back;
-				planarReflectedState_.rasterizer.frontFace = rhi::FrontFace::Clockwise;
 				planarMaskState_.blend.enable = false;
 				planarMaskState_.depth.stencil.enable = true;
 				planarMaskState_.depth.stencil.readMask = 0xFFu;
@@ -91,9 +102,9 @@
 				planarReflectedState_ = state_;
 				planarReflectedState_.depth.testEnable = false;
 				planarReflectedState_.depth.writeEnable = false;
-				// We reflect the *camera* (LookAtRH), not the *world*, so winding does NOT need flipping.
-				// Keep the engine's default FrontFace (CCW) and just cull backfaces to avoid dark backface lighting.
-				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::Back;
+				// Any planar reflection introduces a handedness flip (det < 0), so triangle winding flips.
+				// Keep backface culling but invert FrontFace.
+				planarReflectedState_.rasterizer.frontFace = state_.rasterizer.frontFace;
 				planarReflectedState_.blend.enable = false;
 				planarReflectedState_.depth.stencil.enable = true;
 				planarReflectedState_.depth.stencil.readMask = 0xFFu;

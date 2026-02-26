@@ -211,9 +211,10 @@ export namespace rendern
 
 		// xyz = probe capture position, w = box half-extent (world units).
 		// Used for parallax-corrected (box-projected) reflection probes when sampling dynamic env cubemaps.
-		std::array<float, 4>  uEnvProbePosExtent{};
+		std::array<float, 4> uEnvProbeBoxMin{};
+		std::array<float, 4> uEnvProbeBoxMax{};
 	};
-	static_assert(sizeof(PerBatchConstants) == 256);
+	static_assert(sizeof(PerBatchConstants) == 272);
 
 	struct alignas(16) ReflectionCaptureConstants
 	{
@@ -427,6 +428,14 @@ export namespace rendern
 			}
 		}
 
+		rhi::PipelineHandle PlanarPipelineFor(MaterialPerm perm) const noexcept
+		{
+			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+			const std::uint32_t idx = (useTex ? 1u : 0u) | (useShadow ? 2u : 0u);
+			return psoPlanar_[idx];
+		}
+
 		rhi::PipelineHandle MainPipelineFor(MaterialPerm perm) const noexcept
 		{
 			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
@@ -618,6 +627,7 @@ private:
 
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
+		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
 		rhi::GraphicsState state_{};
 		rhi::GraphicsState transparentState_{};
 		rhi::GraphicsState preDepthState_{};

@@ -23,16 +23,17 @@ export namespace mathUtils
 	//    follow the same formulas as GLM.
 
 	inline constexpr float Pi = pi_v<double>;
-	inline constexpr float TwoPi = Pi*2;
+	inline constexpr float TwoPi = Pi * 2;
 
 	struct Vec2
 	{
 		float x{ 0 }, y{ 0 };
 
 		constexpr Vec2() = default;
-		constexpr Vec2(float X, float Y) : 
+		constexpr Vec2(float X, float Y) :
 			x(X),
-			y(Y) {}
+			y(Y) {
+		}
 
 		constexpr float& operator[](std::size_t i) noexcept
 		{
@@ -100,14 +101,15 @@ export namespace mathUtils
 		constexpr Mat4() : Mat4(1.0f) {}
 		explicit constexpr Mat4(float diag)
 			: columns{ Vec4(diag, 0, 0, 0), Vec4(0, diag, 0, 0), Vec4(0, 0, diag, 0), Vec4(0, 0, 0, diag) }
-		{}
+		{
+		}
 
 		constexpr Vec4& operator[](std::size_t col) noexcept { return columns[col]; }
 		constexpr const Vec4& operator[](std::size_t col) const noexcept { return columns[col]; }
 
 		constexpr float& operator()(std::size_t row, std::size_t col) noexcept
 		{
-			return const_cast<float&>(std::as_const(*this)(row,col));
+			return const_cast<float&>(std::as_const(*this)(row, col));
 		}
 		constexpr const float& operator()(std::size_t row, std::size_t col) const noexcept
 		{
@@ -140,7 +142,8 @@ export namespace mathUtils
 
 	inline float Dot(const Vec2& a, const Vec2& b) noexcept { return a.x * b.x + a.y * b.y; }
 	inline float Dot(const Vec3& a, const Vec3& b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z; }
-	inline Vec3 Cross2(const Vec2& a, const Vec2& b) noexcept { return Vec3(0,0,a.x * b.y - a.y * b.x); }
+	inline float Dot(const Vec4& a, const Vec4& b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
+	inline Vec3 Cross2(const Vec2& a, const Vec2& b) noexcept { return Vec3(0, 0, a.x * b.y - a.y * b.x); }
 	inline Vec3 Cross(const Vec3& a, const Vec3& b) noexcept
 	{
 		return Vec3(
@@ -213,14 +216,15 @@ export namespace mathUtils
 	// ------------------------------------------------------------
 	// Frustum culling helpers (RH, clip-space Z in [0..1])
 	// ------------------------------------------------------------
-	enum class FrustumPlane : std::uint32_t 
-	{ 
-		Left = 0, 
-		Right, 
-		Bottom, 
-		Top, 
-		Near, 
-		Far };
+	enum class FrustumPlane : std::uint32_t
+	{
+		Left = 0,
+		Right,
+		Bottom,
+		Top,
+		Near,
+		Far
+	};
 
 	struct Plane
 	{
@@ -267,12 +271,12 @@ export namespace mathUtils
 		const Vec4 r3 = Row(viewProj, 3);
 
 		Frustum fruustrum{};
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Left)]   = NormalizePlane(r3 + r0);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Right)]  = NormalizePlane(r3 - r0);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Left)] = NormalizePlane(r3 + r0);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Right)] = NormalizePlane(r3 - r0);
 		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Top)]    = NormalizePlane(r3 - r1);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Near)]   = NormalizePlane(r2);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Far)]    = NormalizePlane(r3 - r2);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Top)] = NormalizePlane(r3 - r1);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Near)] = NormalizePlane(r2);
+		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Far)] = NormalizePlane(r3 - r2);
 		return fruustrum;
 	}
 
@@ -297,10 +301,10 @@ export namespace mathUtils
 		const Vec3 c = m[2].xyz();
 		const Vec3 d = m[3].xyz();
 
-		const float x = m(3,0);
-		const float y = m(3,1);
-		const float z = m(3,2);
-		const float w = m(3,3);
+		const float x = m(3, 0);
+		const float y = m(3, 1);
+		const float z = m(3, 2);
+		const float w = m(3, 3);
 
 		Vec3 s = Cross(a, b);
 		Vec3 t = Cross(c, d);
@@ -430,5 +434,48 @@ export namespace mathUtils
 		Result[2][3] = -1.0f;
 		Result[3][2] = -(zFar * zNear) / (zFar - zNear);
 		return Result;
+	}
+	// Oblique near-plane clipping for planar reflections / portals.
+	// Modifies a standard perspective projection so that the given clip plane becomes the new near plane.
+	//
+	// Conventions:
+	//  - RH, Z in [0..1] (D3D-style)
+	//  - Column-major matrices, column-vector multiplication: clip = P * V * worldPos
+	//  - clipPlaneView is in VIEW space: ax + by + cz + d = 0
+	//
+	// Based on Eric Lengyel's "Oblique View Frustum Clipping" (as popularized by Unity's CalculateObliqueMatrix).
+	inline Mat4 PerspectiveRH_ZO_Oblique(const Mat4& proj, const Vec4& clipPlaneView) noexcept
+	{
+		// If plane is degenerate, return original projection.
+		const Vec3 n{ clipPlaneView.x, clipPlaneView.y, clipPlaneView.z };
+		const float nLen = Length(n);
+		if (nLen < 1e-6f)
+		{
+			return proj;
+		}
+
+		// Build the 'q' point in clip space and transform it back by inverse(proj).
+		auto Sign = [](float v) noexcept -> float { return (v >= 0.0f) ? 1.0f : -1.0f; };
+		const Vec4 qClip{ Sign(clipPlaneView.x), Sign(clipPlaneView.y), 1.0f, 1.0f };
+
+		const Mat4 invProj = Inverse(proj);
+		const Vec4 q = invProj * qClip;
+
+		const float denom = Dot(clipPlaneView, q);
+		if (std::fabs(denom) < 1e-6f)
+		{
+			return proj;
+		}
+
+		const Vec4 c = clipPlaneView * (2.0f / denom);
+
+		// Replace the third row of the projection matrix:
+		//   row2 = c - row3
+		Mat4 out = proj;
+		out[0][2] = c.x - out[0][3];
+		out[1][2] = c.y - out[1][3];
+		out[2][2] = c.z - out[2][3];
+		out[3][2] = c.w - out[3][3];
+		return out;
 	}
 }
