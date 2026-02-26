@@ -31,6 +31,10 @@ export namespace rendern
 		float reflectionCaptureNearZ{ 0.05f };
 		float reflectionCaptureFarZ{ 200.0f };
 
+		// Parallax-corrected (box-projected) reflection probes: box half-extent in world units.
+		// 0 disables box projection (falls back to direction-only env sampling).
+		float reflectionProbeBoxHalfExtent{ 10.0f };
+
 		// Planar reflections (DX12 MVP): mark mirror materials with MaterialPerm::PlanarMirror.
 		bool enablePlanarReflections{ true };
 		std::uint32_t planarReflectionMaxMirrors{ 1 };

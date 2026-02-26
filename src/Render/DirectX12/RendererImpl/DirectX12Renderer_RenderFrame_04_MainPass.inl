@@ -14,6 +14,7 @@
 					spotShadows,
 					pointShadows,
 					mainBatches,
+					captureMainBatchesNoCull,
 					instStride,
 					transparentDraws,
 					planarMirrorDraws,
@@ -149,6 +150,16 @@
 									if (batch.reflectionProbeIndex >= 0 &&
 										static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
 									{
+										const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+										if (probe.cubeDescIndex != 0 && probe.cube)
+										{
+											envDescIndex = probe.cubeDescIndex;
+											envArrayTexture = probe.cube;
+											usingReflectionProbeEnv = true;
+										}
+									}
+									else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
+									{
 										envDescIndex = reflectionCubeDescIndex_;
 										envArrayTexture = reflectionCube_;
 										usingReflectionProbeEnv = true;
@@ -239,6 +250,14 @@
 							settings_.pointShadowBaseBiasTexels,
 							settings_.shadowSlopeScaleTexels
 						};
+
+						constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
+						if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
+							static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+						{
+							const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+							constants.uEnvProbePosExtent = { probe.capturePos.x, probe.capturePos.y, probe.capturePos.z, settings_.reflectionProbeBoxHalfExtent };
+						}
 				
 						// IA (instanced)
 						ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
@@ -322,7 +341,9 @@
 							ctx.commandList.SetState(planarReflectedState_);
 							ctx.commandList.SetStencilRef(1u + mirrorIndex);
 				
-							for (const Batch& batch : mainBatches)
+							const auto& planarBatches = !captureMainBatchesNoCull.empty() ? captureMainBatchesNoCull : mainBatches;
+
+							for (const Batch& batch : planarBatches)
 							{
 								if (!batch.mesh || batch.instanceCount == 0)
 								{
@@ -345,6 +366,14 @@
 								{
 									continue; // avoid self-recursion in MVP path
 								}
+
+								// NOTE:
+								// In the MVP stencil-overlay planar reflection path we mirror the view. However,
+								// most lighting/shadowing in the main shader is computed in world-space and expects
+								// a consistent world position. Without reflecting world-space inputs (positions,
+								// normals, lights, shadow matrices), shadowing can look severely wrong (often
+								// like big black patches). For now render planar reflections without shadows.
+								perm = static_cast<MaterialPerm>(static_cast<std::uint32_t>(perm) & ~static_cast<std::uint32_t>(MaterialPerm::UseShadow));
 				
 								const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
 								const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
@@ -424,6 +453,13 @@
 								constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
 								constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
 								constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
+								constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
+								if (usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 &&
+									static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+								{
+									const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
+									constants.uEnvProbePosExtent = { probe.capturePos.x, probe.capturePos.y, probe.capturePos.z, settings_.reflectionProbeBoxHalfExtent };
+								}
 				
 								ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
 								ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
@@ -569,6 +605,7 @@
 								settings_.pointShadowBaseBiasTexels,
 								settings_.shadowSlopeScaleTexels
 							};
+							constants.uEnvProbePosExtent = { 0.0f, 0.0f, 0.0f, 0.0f };
 				
 							ctx.commandList.BindInputLayout(batchTransparent.mesh->layoutInstanced);
 							ctx.commandList.BindVertexBuffer(0, batchTransparent.mesh->vertexBuffer, batchTransparent.mesh->vertexStrideBytes, 0);

@@ -29,6 +29,34 @@ namespace rendern::ui::level_ui_detail
             st.selectedNode = newIdx;
         }
         ImGui::SameLine();
+        if (ImGui::Button("Add Planar Mirror"))
+        {
+            // Planar reflections are stencil-gated in DX12 renderer. This spawns a quad and assigns
+            // a material with MaterialPerm::PlanarMirror.
+            EnsureDefaultMesh(level, "quad", "models/quad.obj");
+
+            const std::string matId = "planar_mirror";
+            if (!level.materials.contains(matId))
+            {
+                rendern::LevelMaterialDef def{};
+                def.material.permFlags = rendern::MaterialPerm::PlanarMirror; // not shadowed; overlay draws reflection
+                def.material.params.baseColor = mathUtils::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                def.material.params.metallic = 1.0f;
+                def.material.params.roughness = 0.02f;
+                level.materials.emplace(matId, std::move(def));
+            }
+
+            // Make sure runtime material handle exists before spawning the node.
+            levelInst.EnsureMaterial(level, scene, matId);
+
+            rendern::Transform t = ComputeSpawnTransform(scene, camCtl);
+            // Spawn as a vertical mirror facing the camera by default.
+            t.rotationDegrees.x = 90.0f;
+            t.scale = mathUtils::Vec3(3.0f, 1.0f, 3.0f);
+            const int newIdx = levelInst.AddNode(level, scene, assets, "quad", matId, parentForNew, t, "PlanarMirror");
+            st.selectedNode = newIdx;
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Add Empty"))
         {
             const int newIdx = levelInst.AddNode(level, scene, assets, "", "", parentForNew, ComputeSpawnTransform(scene, camCtl), "Empty");

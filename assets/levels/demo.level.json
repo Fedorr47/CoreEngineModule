@@ -27,6 +27,7 @@
     "glass": {"baseColor": [0.200000,0.600000,1.000000,0.350000], "shininess": 128.000000, "specStrength": 0.900000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.080000, "ao": 1.000000, "emissiveStrength": 1.000000, "flags": ["useShadow", "transparent"], "textures": {}},
     "ground": {"baseColor": [0.800000,0.800000,0.800000,1.000000], "shininess": 16.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.900000, "ao": 1.000000, "emissiveStrength": 1.000000, "flags": ["useShadow"], "textures": {}},
     "mirror": {"baseColor": [1.000000,1.000000,1.000000,1.000000], "shininess": 256.000000, "specStrength": 1.000000, "shadowBias": 0.000000, "metallic": 1.000000, "roughness": 0.020000, "ao": 1.000000, "emissiveStrength": 1.000000, "envSource": "reflectionCapture", "flags": ["useShadow"], "textures": {}},
+    "planar_mirror": {"baseColor": [1.000000,1.000000,1.000000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 1.000000, "roughness": 0.020000, "ao": 1.000000, "emissiveStrength": 1.000000, "flags": ["planarMirror"], "textures": {}},
     "ship": {"baseColor": [1.000000,1.000000,1.000000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.001500, "metallic": 1.000000, "roughness": 1.000000, "ao": 1.000000, "emissiveStrength": 1.000000, "flags": ["useShadow"], "textures": {
       "albedo": "Ship_Albedo",
       "ao": "Ship_AO",
@@ -41,7 +42,7 @@
       "roughness": "watermelon_roughness"
     }}
   },
-  "camera": {"position": [2.249210,3.121976,-4.907383], "target": [1.494975,3.403396,-4.314145], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.010000, "farZ": 200.000000},
+  "camera": {"position": [1.024224,4.374444,-2.835134], "target": [1.921502,3.932983,-2.837279], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.010000, "farZ": 200.000000},
   "lights": [
     {"type": "directional", "position": [0.000000,0.000000,0.000000], "direction": [-0.357771,-0.894427,-0.268328], "color": [1.000000,1.000000,1.000000], "intensity": 4.560000, "range": 10.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.120000, "attQuadratic": 0.040000},
     {"type": "point", "position": [-1.350000,5.100000,-1.350000], "direction": [0.000000,-1.000000,0.000000], "color": [1.000000,1.000000,1.000000], "intensity": 0.000000, "range": 120.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.020000, "attQuadratic": 0.004000},
@@ -68,6 +69,7 @@
     {"name": "Cube_0_3", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [-2.700000,2.300000,1.350000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Cube_1_3", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [-1.350000,2.300000,1.350000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Cube_2_3", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [0.000000,2.300000,1.350000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
-    {"name": "Cube_3_3", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [1.350000,2.300000,1.350000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}}
+    {"name": "Cube_3_3", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [1.350000,2.300000,1.350000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
+    {"name": "PlanarMirror", "parent": -1, "visible": true, "mesh": "quad", "material": "planar_mirror", "transform": {"position": [4.403162,2.933000,-1.781000], "rotationDegrees": [90.000000,89.000000,-89.199997], "scale": [3.000000,1.000000,3.000000]}}
   ]
 }

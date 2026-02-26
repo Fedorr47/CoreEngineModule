@@ -42,7 +42,8 @@
 			}
 		
 			const bool isTransparent = HasFlag(perm, MaterialPerm::Transparent) || (params.baseColor.w < 0.999f);
-			if (isTransparent)
+			const bool isPlanarMirror = HasFlag(perm, MaterialPerm::PlanarMirror);
+			if (isTransparent || isPlanarMirror)
 			{
 				continue;
 			}
@@ -180,7 +181,7 @@
 		// ---- Main packing: opaque (batched) + transparent (sorted per-item) ----
 		// NOTE: mainTmp is camera-culled (IsVisible), but reflection capture must NOT depend on the camera.
 		// We therefore build an additional "no-cull" packing for reflection capture / cube atlas.
-		const bool buildCaptureNoCull = settings_.enableReflectionCapture || settings_.ShowCubeAtlas;
+		const bool buildCaptureNoCull = settings_.enableReflectionCapture || settings_.ShowCubeAtlas || settings_.enablePlanarReflections;
 		std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> captureTmp;
 		if (buildCaptureNoCull)
 		{
@@ -322,7 +323,7 @@
 				mirror.materialHandle = item.material;
 				mirror.instanceOffset = static_cast<std::uint32_t>(planarMirrorInstances.size());
 				mirror.planePoint = TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
-				mirror.planeNormal = TransformVector(model, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
+				mirror.planeNormal = TransformVector(model, mathUtils::Vec3(0.0f, 0.0f, 1.0f));
 				if (mathUtils::Length(mirror.planeNormal) > 0.0001f)
 				{
 					mirror.planeNormal = mathUtils::Normalize(mirror.planeNormal);
@@ -480,7 +481,11 @@
 		{
 			rbatch.instanceOffset += layeredReflectionBase;
 		}
-		
+		for (auto& mirrorDraw : planarMirrorDraws)
+		{
+			mirrorDraw.instanceOffset = planarMirrorBase + mirrorDraw.instanceOffset;
+		}
+
 		std::vector<TransparentDraw> transparentDraws;
 		transparentDraws.reserve(transparentTmp.size());
 		for (const auto& transparentInst : transparentTmp)
@@ -492,10 +497,6 @@
 			transparentDraw.instanceOffset = transparentBase + transparentInst.localInstanceOffset;
 			transparentDraw.dist2 = transparentInst.dist2;
 			transparentDraws.push_back(transparentDraw);
-		}
-		for (auto& mirrorDraw : planarMirrorDraws)
-		{
-			mirrorDraw.instanceOffset = planarMirrorBase + mirrorDraw.instanceOffset;
 		}
 		
 		std::sort(transparentDraws.begin(), transparentDraws.end(),

@@ -208,8 +208,12 @@ export namespace rendern
 
 		// dirBaseTexels, spotBaseTexels, pointBaseTexels, slopeScaleTexels
 		std::array<float, 4>  uShadowBias{};
+
+		// xyz = probe capture position, w = box half-extent (world units).
+		// Used for parallax-corrected (box-projected) reflection probes when sampling dynamic env cubemaps.
+		std::array<float, 4>  uEnvProbePosExtent{};
 	};
-	static_assert(sizeof(PerBatchConstants) == 240);
+	static_assert(sizeof(PerBatchConstants) == 256);
 
 	struct alignas(16) ReflectionCaptureConstants
 	{

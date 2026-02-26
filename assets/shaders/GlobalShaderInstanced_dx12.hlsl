@@ -84,6 +84,10 @@ cbuffer PerBatchCB : register(b0)
 
     // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
 	float4 uShadowBias;
+	
+	// xyz = probe capture position, w = box half-extent (world units).
+	// Used for parallax-corrected (box-projected) reflection probes when sampling dynamic env cubemaps.
+	float4 uEnvProbePosExtent;
 };
 
 // Flags (must match C++)
@@ -657,6 +661,32 @@ float3 SampleEnvArray(float3 dir, float lod)
 	return gEnvArray.SampleLevel(gPointClamp, float3(fu.uv, (float) fu.face), lod).rgb;
 }
 
+// Parallax-corrected cubemap sampling for reflection probes (box projection).
+// NOTE: We assume a uniform box: probePos +/- halfExtent on all axes.
+// worldPos is the shading point position. dir is the reflection direction (normalized).
+float3 ParallaxCorrect_Box(float3 worldPos, float3 dir, float3 probePos, float halfExtent)
+{
+	if (halfExtent <= 0.0f)
+		return dir;
+
+	const float3 boxMin = probePos - halfExtent.xxx;
+	const float3 boxMax = probePos + halfExtent.xxx;
+
+    // Avoid division by ~0 components (treat 0 as +epsilon).
+	const float3 s = (dir >= 0.0f) ? 1.0f : -1.0f;
+	const float3 invDir = s * rcp(max(abs(dir), 1.0e-6f));
+
+	const float3 tMax = (boxMax - worldPos) * invDir;
+	const float3 tMin = (boxMin - worldPos) * invDir;
+	const float3 tCandidate = (dir >= 0.0f) ? tMax : tMin;
+
+	float t = min(tCandidate.x, min(tCandidate.y, tCandidate.z));
+	t = max(t, 0.0f);
+
+	const float3 hit = worldPos + dir * t;
+	return normalize(hit - probePos);
+}
+
 float ShadowPoint(Texture2DArray<float> distArr,
                   float3 lightPos, float range,
                   float3 worldPos, float biasTexels)
@@ -873,7 +903,7 @@ float4 PSMain(VSOut IN) : SV_Target0
 			Rm.z = -Rm.z;
 
 		float3 mirrorColor = envForceMip0
-        ? SampleEnvArray(Rm, 0.0f)
+        ? SampleEnvArray(ParallaxCorrect_Box(IN.worldPos, Rm, uEnvProbePosExtent.xyz, uEnvProbePosExtent.w), 0.0f)
         : gEnv.SampleLevel(gLinearClamp, Rm, 0.0f).rgb;
 
 		return float4(mirrorColor * baseColor, saturate(alphaOut));
@@ -1051,9 +1081,15 @@ float4 PSMain(VSOut IN) : SV_Target0
 		const float3 envDiffuse = useManualEnv
             ? SampleEnvArray(envN, lodDiffuse)
             : gEnv.SampleLevel(gLinearClamp, envN, lodDiffuse).rgb;
+			
+		float3 envRspec = envR;
+		if (useManualEnv)
+		{
+			envRspec = ParallaxCorrect_Box(IN.worldPos, envR, uEnvProbePosExtent.xyz, uEnvProbePosExtent.w);
+		}
         
 		const float3 envSpec = useManualEnv
-            ? SampleEnvArray(envR, lodSpec)
+            ? SampleEnvArray(envRspec, lodSpec)
             : gEnv.SampleLevel(gLinearClamp, envR, lodSpec).rgb;
 
 		const float3 F = FresnelSchlick(NdotV, F0);

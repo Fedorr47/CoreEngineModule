@@ -46,6 +46,9 @@ namespace rendern::ui
         ImGui::DragFloat("Capture far Z", &rs.reflectionCaptureFarZ, 1.0f, 1.0f, 5000.0f, "%.1f");
         ImGui::SliderFloat("Capture FOV pad (deg)", &rs.reflectionCaptureFovPadDeg, 0.0f, 10.0f, "%.2f");
 
+        ImGui::DragFloat("Probe box half extent", &rs.reflectionProbeBoxHalfExtent, 0.1f, 0.0f, 1000.0f, "%.2f");
+        ImGui::TextDisabled("Used for box-projected reflections when EnvSource=ReflectionCapture (0 disables).");
+
         if (rs.reflectionCaptureFarZ < rs.reflectionCaptureNearZ)
             rs.reflectionCaptureFarZ = rs.reflectionCaptureNearZ;
 
