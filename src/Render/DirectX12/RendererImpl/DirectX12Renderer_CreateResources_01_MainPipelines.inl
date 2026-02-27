@@ -48,7 +48,7 @@
 					// Planar reflection variant: same shader but with CORE_PLANAR_CLIP enabled (VS outputs SV_ClipDistance0).
 					{
 						auto planarDefs = defs;
-						planarDefs.push_back("CORE_PLANAR_CLIP=1");
+						planarDefs.push_back("CORE_PLANAR_CLIP=0");
 						const auto vsPlanar = shaderLibrary_.GetOrCreateShader(ShaderKey{
 							.stage = rhi::ShaderStage::Vertex,
 							.name = "VSMain",
@@ -100,10 +100,12 @@
 
 				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
 				planarReflectedState_ = state_;
-				planarReflectedState_.depth.testEnable = false;
+				// Reflected scene overlay: stencil-gated, depth-tested against the main depth buffer.
+				planarReflectedState_.depth.testEnable = true;
 				planarReflectedState_.depth.writeEnable = false;
-				// Any planar reflection introduces a handedness flip (det < 0), so triangle winding flips.
-				// Keep backface culling but invert FrontFace.
+				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
+				// Robust option: disable culling for the reflected pass (avoids winding issues when the view is mirrored).
+				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::None;
 				planarReflectedState_.rasterizer.frontFace = state_.rasterizer.frontFace;
 				planarReflectedState_.blend.enable = false;
 				planarReflectedState_.depth.stencil.enable = true;

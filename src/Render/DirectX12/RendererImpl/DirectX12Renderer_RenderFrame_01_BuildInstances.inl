@@ -472,6 +472,14 @@ const std::uint32_t captureMainBase = static_cast<std::uint32_t>(shadowInstances
 const std::uint32_t transparentBase = captureMainBase + static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
 const std::uint32_t planarMirrorBase = transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
 
+// Planar mirrors live in the combined instance buffer after transparent instances.
+// PlanarMirrorDraw.instanceOffset was recorded relative to planarMirrorInstances (0..N-1),
+// so shift it to the combined buffer base.
+for (PlanarMirrorDraw& mirror : planarMirrorDraws)
+{	
+	mirror.instanceOffset += planarMirrorBase;	
+}
+
 const std::uint32_t transparentEnd =
 planarMirrorBase + static_cast<std::uint32_t>(planarMirrorInstances.size());
 const std::uint32_t layeredShadowBase = AlignUpU32(transparentEnd, 6u);

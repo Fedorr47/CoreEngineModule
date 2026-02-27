@@ -104,9 +104,12 @@ static const uint FLAG_ENV_FLIP_Z = 1u << 8;
 static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
 
 // Planar reflection clip-plane (used only in a dedicated planar PSO)
-// Reuse uShadowBias storage to avoid increasing root-constant size.
+// We pack the plane as:
+//   (nx, ny) in uMaterialFlags.xy  (these are otherwise unused)
+//   (nz)     in uCameraForward.w  (otherwise unused)
+//   (d)      in uCounts.w         (otherwise unused)
 #if defined(CORE_PLANAR_CLIP) && CORE_PLANAR_CLIP
-    #define uClipPlane uShadowBias
+    #define uClipPlane (float4(uMaterialFlags.x, uMaterialFlags.y, uCameraForward.w, uCounts.w))
 #endif
 
 #ifndef CORE_DEBUG_REFLECTION_USE_POS_V
