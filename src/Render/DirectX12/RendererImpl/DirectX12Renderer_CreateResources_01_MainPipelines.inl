@@ -90,6 +90,7 @@
 				planarMaskState_.depth.writeEnable = false;
 				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 				planarMaskState_.blend.enable = false;
+				planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
 				planarMaskState_.depth.stencil.enable = true;
 				planarMaskState_.depth.stencil.readMask = 0xFFu;
 				planarMaskState_.depth.stencil.writeMask = 0xFFu;

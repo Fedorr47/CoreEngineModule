@@ -6,16 +6,6 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		std::array<float, 16> uLightViewProj{};
 	};
 
-	struct PlanarGroup
-	{
-		mathUtils::Vec3 n{};
-		float d = 0.0f; // plane: n·x + d = 0
-		mathUtils::Vec3 point{};
-		std::vector<const PlanarMirrorDraw*> mirrors;
-	};
-
-	std::vector<PlanarGroup> groups;
-	groups.reserve(planarMirrorDraws.size());
 
 	auto CanonicalizePlane = [&](mathUtils::Vec3 n, const mathUtils::Vec3& point) noexcept -> std::pair<mathUtils::Vec3, float>
 		{
@@ -31,13 +21,26 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 				n = n * -1.0f;
 			}
 
-			const float d = -mathUtils::Dot(n, point);
+			const float d = -mathUtils::Dot(n, point); // plane: n·x + d = 0
 			return { n, d };
 		};
+	
+	auto ReflectPoint = [](const mathUtils::Vec3& p, const mathUtils::Vec3& n, float d) noexcept -> mathUtils::Vec3
+		{
+			// p' = p - 2 * (n·p + d) * n
+			const float dist = mathUtils::Dot(n, p) + d;
+			return p - n * (2.0f * dist);
+		};
 
-	// Group mirrors by (nearly) the same plane to avoid visible seams between tiles.
-	const float kNormalCosEps = 0.9995f; // ~1.8 degrees
-	const float kDistEps = 0.02f;        // world units
+	auto ReflectVector = [](const mathUtils::Vec3& v, const mathUtils::Vec3& n) noexcept -> mathUtils::Vec3
+		{
+			// v' = v - 2 * (n·v) * n
+			return v - n * (2.0f * mathUtils::Dot(n, v));
+		};
+
+	const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+
+	std::uint32_t mirrorIndex = 0u;
 
 	for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
 	{
@@ -46,74 +49,44 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			continue;
 		}
 
-		auto [n, d] = CanonicalizePlane(mirror.planeNormal, mirror.planePoint);
-
-		bool merged = false;
-		for (auto& g : groups)
-		{
-			if (mathUtils::Dot(n, g.n) >= kNormalCosEps && std::fabs(d - g.d) <= kDistEps)
-			{
-				g.mirrors.push_back(&mirror);
-				merged = true;
-				break;
-			}
-		}
-
-		if (!merged)
-		{
-			PlanarGroup g{};
-			g.n = n;
-			g.d = d;
-			g.point = mirror.planePoint;
-			g.mirrors.push_back(&mirror);
-			groups.push_back(std::move(g));
-		}
-	}
-
-	// Render each plane-group: (1) mark stencil, (2) draw reflected scene once for the whole group.
-	std::uint32_t groupIndex = 0u;
-	for (const PlanarGroup& grp : groups)
-	{
-		if (groupIndex >= settings_.planarReflectionMaxMirrors)
+		
+		if (mirrorIndex >= settings_.planarReflectionMaxMirrors)
 		{
 			break;
 		}
 
-		// 1) Visible mirror pixels -> stencil = ref (depth tested against current scene depth).
+		auto [planeN, planeD] = CanonicalizePlane(mirror.planeNormal, mirror.planePoint);
+		
+		// ---------------- (1) Stencil mask: visible mirror pixels -> stencil = ref ----------------
 		ctx.commandList.SetState(planarMaskState_);
-		ctx.commandList.SetStencilRef(1u + groupIndex);
+		ctx.commandList.SetStencilRef(1u + mirrorIndex);
 		ctx.commandList.BindPipeline(psoShadow_);
 
 		PlanarMaskPassConstants maskConstants{};
-		const mathUtils::Mat4 viewProjMaskT = mathUtils::Transpose(viewProj);
-		std::memcpy(maskConstants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjMaskT), sizeof(float) * 16);
+		std::memcpy(maskConstants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
 		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &maskConstants, 1 }));
 
-		for (const PlanarMirrorDraw* mirrorPtr : grp.mirrors)
-		{
-			const PlanarMirrorDraw& mirror = *mirrorPtr;
+		ctx.commandList.BindInputLayout(mirror.mesh->layoutInstanced);
+		ctx.commandList.BindVertexBuffer(0, mirror.mesh->vertexBuffer, mirror.mesh->vertexStrideBytes, 0);
+		ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, mirror.instanceOffset* instStride);
+		ctx.commandList.BindIndexBuffer(mirror.mesh->indexBuffer, mirror.mesh->indexType, 0);
+		ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
 
-			ctx.commandList.BindInputLayout(mirror.mesh->layoutInstanced);
-			ctx.commandList.BindVertexBuffer(0, mirror.mesh->vertexBuffer, mirror.mesh->vertexStrideBytes, 0);
-			ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, mirror.instanceOffset * instStride);
-			ctx.commandList.BindIndexBuffer(mirror.mesh->indexBuffer, mirror.mesh->indexType, 0);
-			ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
+		// ---------------- (2) Reflected scene: reflected camera, stencil-gated ----------------
+		const mathUtils::Vec3 reflEye = ReflectPoint(camPosLocal, planeN, planeD);
+		const mathUtils::Vec3 reflTarget = ReflectPoint(scene.camera.target, planeN, planeD);
+		mathUtils::Vec3 reflUp = ReflectVector(scene.camera.up, planeN);
+		if (mathUtils::Length(reflUp) < 1e-6f)
+		{
+			reflUp = scene.camera.up;
 		}
 
-		// 2) Render reflected scene only inside this stencil region.
-		// IMPORTANT: We use the classic stencil-mirror approach (as in Frank Luna's StencilDemo):
-		// keep the camera the same, but reflect the *geometry* in the vertex shader about the mirror plane.
-		// That way the reflected scene projects correctly onto the mirror pixels.
-		const mathUtils::Vec3 planeN = grp.n;
-		const mathUtils::Vec3 planePoint = grp.point;
-
-		// Clip plane: keep only geometry "behind" the mirror plane (opposite to the camera side).
-		// In D3D, SV_ClipDistance clips when < 0, so we want positive on the kept side.
-		const mathUtils::Vec3 clipN = planeN * -1.0f;
-		const float clipD = mathUtils::Dot(planeN, planePoint) + 0.01f;
-
+		const mathUtils::Mat4 viewRefl = mathUtils::LookAt(reflEye, reflTarget, reflUp);
+		const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(proj * viewRefl);
+		const mathUtils::Vec3 reflForward = mathUtils::Normalize(reflTarget - reflEye);
+		
 		ctx.commandList.SetState(planarReflectedState_);
-		ctx.commandList.SetStencilRef(1u + groupIndex);
+		ctx.commandList.SetStencilRef(1u + mirrorIndex);
 
 		const auto& planarBatches = !captureMainBatchesNoCull.empty() ? captureMainBatchesNoCull : mainBatches;
 
@@ -144,7 +117,8 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
 			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
 
-			ctx.commandList.BindPipeline(PlanarPipelineFor(perm));
+			// Use the regular main pipeline (no special planar defines).
+			ctx.commandList.BindPipeline(MainPipelineFor(perm));
 			ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
 			ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
 			ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
@@ -208,16 +182,18 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			}
 
 			PerBatchConstants constants{};
-			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
 			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjReflT), sizeof(float) * 16);
 			std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-			constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
-			constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, clipN.z };
+			constants.uCameraAmbient = { reflEye.x, reflEye.y, reflEye.z, 0.22f };
+			constants.uCameraForward = { reflForward.x, reflForward.y, reflForward.z, 0.0f };
 			constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
-			constants.uMaterialFlags = { clipN.x, clipN.y, batch.material.shadowBias, AsFloatBits(flags) };
+			
+			const float materialBiasTexels = batch.material.shadowBias;
+			constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+
 			constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
-			constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), clipD };
+			constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
 			constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
 			constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
 			constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -227,19 +203,8 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 				const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
 				const float h = settings_.reflectionProbeBoxHalfExtent;
 
-				constants.uEnvProbeBoxMin = {
-					probe.capturePos.x - h,
-					probe.capturePos.y - h,
-					probe.capturePos.z - h,
-					0.0f
-				};
-
-				constants.uEnvProbeBoxMax = {
-					probe.capturePos.x + h,
-					probe.capturePos.y + h,
-					probe.capturePos.z + h,
-					0.0f
-				};
+				constants.uEnvProbeBoxMin = { probe.capturePos.x - h, probe.capturePos.y - h, probe.capturePos.z - h, 0.0f };
+				constants.uEnvProbeBoxMax = { probe.capturePos.x + h, probe.capturePos.y + h, probe.capturePos.z + h, 0.0f };
 			}
 
 			ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
@@ -250,7 +215,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
 		}
 
-		++groupIndex;
+		++mirrorIndex;
 	}
 
 	// Restore state for the following passes (transparent / imgui).
