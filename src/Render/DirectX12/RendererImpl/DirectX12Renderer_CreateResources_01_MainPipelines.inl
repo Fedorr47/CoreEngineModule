@@ -48,7 +48,7 @@
 					// Planar reflection variant: same shader but with CORE_PLANAR_CLIP enabled (VS outputs SV_ClipDistance0).
 					{
 						auto planarDefs = defs;
-						planarDefs.push_back("CORE_PLANAR_CLIP=0");
+						planarDefs.push_back("CORE_PLANAR_CLIP=1");
 						const auto vsPlanar = shaderLibrary_.GetOrCreateShader(ShaderKey{
 							.stage = rhi::ShaderStage::Vertex,
 							.name = "VSMain",
@@ -85,7 +85,8 @@
 
 				// Planar reflection stencil mask (writes stencil, keeps color untouched via depth-only PSO).
 				planarMaskState_ = preDepthState_;
-				planarMaskState_.depth.testEnable = true;
+				planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
+				planarMaskState_.depth.testEnable = false;
 				planarMaskState_.depth.writeEnable = false;
 				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 				planarMaskState_.blend.enable = false;
@@ -101,7 +102,7 @@
 				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
 				planarReflectedState_ = state_;
 				// Reflected scene overlay: stencil-gated, depth-tested against the main depth buffer.
-				planarReflectedState_.depth.testEnable = true;
+				planarReflectedState_.depth.testEnable = false;
 				planarReflectedState_.depth.writeEnable = false;
 				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 				// Robust option: disable culling for the reflected pass (avoids winding issues when the view is mirrored).

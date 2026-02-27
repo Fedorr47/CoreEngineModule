@@ -325,21 +325,60 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 		//mirror.planePoint = TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
 		//mirror.planeNormal = TransformVector(model, mathUtils::Vec3(0.0f, 0.0f, 1.0f));
 
-		// Derive a stable plane from mesh bounds (do not assume a specific local normal axis).
-		// For a planar quad/plane mesh, the axis with the smallest AABB extent is its normal.
-		mathUtils::Vec3 localPlaneP{ 0.0f, 0.0f, 0.0f };
-		mathUtils::Vec3 localPlaneN{ 0.0f, 0.0f, 1.0f };
+		// Derive a stable plane from mesh bounds.
+		// For a planar quad/plane mesh, the axis with the smallest *world-space* extent is its normal.
+		mathUtils::Vec3 planePointW{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 planeNormalW{ 0.0f, 0.0f, 1.0f };
 		{
 			const auto& b = item.mesh->GetBounds();
-			localPlaneP = b.sphereCenter;
-			const mathUtils::Vec3 e = b.aabbMax - b.aabbMin;
-			if (e.x <= e.y && e.x <= e.z)      localPlaneN = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
-			else if (e.y <= e.x && e.y <= e.z) localPlaneN = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
-			else                               localPlaneN = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
+			
+			const mathUtils::Vec3 localCenter = b.sphereCenter;
+			// Local extents (mesh space)
+			const mathUtils::Vec3 eLocal = b.aabbMax - b.aabbMin;
+
+			// World basis (includes scale); Mat4 is column-major.
+			const mathUtils::Vec3 bx{ model[0].x, model[0].y, model[0].z };
+			const mathUtils::Vec3 by{ model[1].x, model[1].y, model[1].z };
+			const mathUtils::Vec3 bz{ model[2].x, model[2].y, model[2].z };
+
+			const float sx = mathUtils::Length(bx);
+			const float sy = mathUtils::Length(by);
+			const float sz = mathUtils::Length(bz);
+
+			const auto AbsF = [](float v) noexcept { return (v < 0.0f) ? -v : v; };
+
+			const float ex = AbsF(eLocal.x) * sx;
+			const float ey = AbsF(eLocal.y) * sy;
+			const float ez = AbsF(eLocal.z) * sz;
+
+			int normalAxis = 2;
+			if (ex <= ey && ex <= ez)      normalAxis = 0;
+			else if (ey <= ex && ey <= ez) normalAxis = 1;
+
+			// Pick a point ON the plane (avoid using the bounds center blindly, otherwise the plane can be offset
+			// and the normal-orientation step may flip at the wrong time as the camera moves).
+			mathUtils::Vec3 localPMin = localCenter;
+			mathUtils::Vec3 localPMax = localCenter;
+			if (normalAxis == 0) { localPMin.x = b.aabbMin.x; localPMax.x = b.aabbMax.x; }
+			else if (normalAxis == 1) { localPMin.y = b.aabbMin.y; localPMax.y = b.aabbMax.y; }
+			else { localPMin.z = b.aabbMin.z; localPMax.z = b.aabbMax.z; }
+
+			const mathUtils::Vec3 pMinW = TransformPoint(model, localPMin);
+			const mathUtils::Vec3 pMaxW = TransformPoint(model, localPMax);
+			const mathUtils::Vec3 dMin = pMinW - camPos;
+			const mathUtils::Vec3 dMax = pMaxW - camPos;
+			const float dMin2 = mathUtils::Dot(dMin, dMin);
+			const float dMax2 = mathUtils::Dot(dMax, dMax);
+			planePointW = (dMin2 <= dMax2) ? pMinW : pMaxW;
+
+			// Normal via cross of tangents; robust under non-uniform scale.
+			if (normalAxis == 0)      planeNormalW = mathUtils::Cross(by, bz);
+			else if (normalAxis == 1) planeNormalW = mathUtils::Cross(bz, bx);
+			else                      planeNormalW = mathUtils::Cross(bx, by);
 		}
 
-		mirror.planePoint = TransformPoint(model, localPlaneP);
-		mirror.planeNormal = TransformVector(model, localPlaneN);
+		mirror.planePoint = planePointW;
+		mirror.planeNormal = planeNormalW;
 
 		if (mathUtils::Length(mirror.planeNormal) > 0.0001f)
 		{
