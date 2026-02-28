@@ -852,43 +852,112 @@ int main(int argc, char** argv)
 
             translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
 
-            // Mouse picking in MAIN viewport (LMB selects a node).
+            // Main viewport editor interaction priority:
+            // 1) active gizmo drag
+            // 2) gizmo hover / begin-drag
+            // 3) regular object picking
             {
                 const rendern::InputState& in = win32Input.State();
-                if (in.hasFocus && in.KeyPressed(VK_LBUTTON) && !in.mouse.rmbDown && !in.capture.captureMouse)
-                {
-                    POINT pt{};
-                    if (GetCursorPos(&pt) && ScreenToClient(window.hwnd, &pt))
+                auto EndGizmoDrag = [&]() noexcept
                     {
-                        const int mx = pt.x;
-                        const int my = pt.y;
-
-                        if (mx >= 0 && my >= 0 && mx < window.width && my < window.height)
+                        if (translateGizmo.IsDragging())
                         {
-                            const rendern::PickResult pick = rendern::PickNodeUnderScreenPoint(
-                                scene,
+                            translateGizmo.EndDrag(scene);
+                        }
+                    };
+
+                POINT pt{};
+                const bool hasMouseClientPos = GetCursorPos(&pt) && ScreenToClient(window.hwnd, &pt);
+                const int mx = hasMouseClientPos ? pt.x : -1;
+                const int my = hasMouseClientPos ? pt.y : -1;
+                const bool mouseInMainViewport =
+                    hasMouseClientPos &&
+                    (mx >= 0) && (my >= 0) &&
+                    (mx < window.width) && (my < window.height);
+
+                if (!in.hasFocus || in.mouse.rmbDown || in.capture.captureMouse)
+                {
+                    translateGizmo.ClearHover(scene);
+                    EndGizmoDrag();
+                }
+                else if (translateGizmo.IsDragging())
+                {
+                    if (!in.KeyDown(VK_LBUTTON))
+                    {
+                        EndGizmoDrag();
+                    }
+                    else if (mouseInMainViewport)
+                    {
+                        if (translateGizmo.UpdateDrag(
+                            levelAsset,
+                            levelInstance,
+                            scene,
+                            static_cast<float>(mx),
+                            static_cast<float>(my),
+                            static_cast<float>(window.width),
+                            static_cast<float>(window.height)))
+                        {
+                            levelInstance.MarkTransformsDirty();
+                            levelInstance.SyncTransformsIfDirty(levelAsset, scene);
+                            translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+                        }
+                    }
+                }
+                else
+                {
+                    if (mouseInMainViewport)
+                    {
+                        translateGizmo.UpdateHover(
+                            scene,
+                            static_cast<float>(mx),
+                            static_cast<float>(my),
+                            static_cast<float>(window.width),
+                            static_cast<float>(window.height));
+
+                        if (in.KeyPressed(VK_LBUTTON))
+                        {
+                            const bool gizmoConsumed = translateGizmo.TryBeginDrag(
+                                levelAsset,
                                 levelInstance,
+                                scene,
                                 static_cast<float>(mx),
                                 static_cast<float>(my),
                                 static_cast<float>(window.width),
                                 static_cast<float>(window.height));
 
-                            scene.debugPickRay.enabled = true;
-                            scene.debugPickRay.origin = pick.rayOrigin;
-                            scene.debugPickRay.direction = pick.rayDir;
-                            scene.debugPickRay.hit = (pick.nodeIndex >= 0) && std::isfinite(pick.t);
-                            scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
+                            if (!gizmoConsumed)
+                            {
+                                const rendern::PickResult pick = rendern::PickNodeUnderScreenPoint(
+                                    scene,
+                                    levelInstance,
+                                    static_cast<float>(mx),
+                                    static_cast<float>(my),
+                                    static_cast<float>(window.width),
+                                    static_cast<float>(window.height));
 
-                            if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
-                            {
-                                scene.editorSelectedNode = pick.nodeIndex;
-                                scene.editorSelectedDrawItem = levelInstance.GetNodeDrawIndex(pick.nodeIndex);
+                                scene.debugPickRay.enabled = true;
+                                scene.debugPickRay.origin = pick.rayOrigin;
+                                scene.debugPickRay.direction = pick.rayDir;
+                                scene.debugPickRay.hit = (pick.nodeIndex >= 0) && std::isfinite(pick.t);
+                                scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
+
+                                if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
+                                {
+                                    scene.editorSelectedNode = pick.nodeIndex;
+                                    scene.editorSelectedDrawItem = levelInstance.GetNodeDrawIndex(pick.nodeIndex);
+                                }
+                                else
+                                {
+                                    scene.editorSelectedNode = -1;
+                                    scene.editorSelectedDrawItem = -1;
+                                }
+
+                                translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
                             }
-                            else
-                            {
-                                scene.editorSelectedNode = -1;
-                                scene.editorSelectedDrawItem = -1;
-                            }
+                        }
+                        else
+                        {
+                            translateGizmo.ClearHover(scene);
                         }
                     }
                 }
