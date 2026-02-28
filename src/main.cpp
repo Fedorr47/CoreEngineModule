@@ -779,6 +779,8 @@ int main(int argc, char** argv)
         rendern::CameraController cameraController{};
         cameraController.ResetFromCamera(scene.camera);
 
+        rendern::TranslateGizmoController translateGizmo{};
+
         // Timer
         GameTimer frameTimer{};
         frameTimer.SetMaxDelta(0.05);
@@ -847,6 +849,8 @@ int main(int argc, char** argv)
 
             // Keep draw item transforms in sync even when the debug UI is closed.
             levelInstance.SyncTransformsIfDirty(levelAsset, scene);
+
+            translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
 
             // Mouse picking in MAIN viewport (LMB selects a node).
             {

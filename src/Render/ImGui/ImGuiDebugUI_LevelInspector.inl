@@ -244,6 +244,14 @@ namespace rendern::ui::level_ui_detail
             if (changed)
                 levelInst.MarkTransformsDirty();
 
+            ImGui::SeparatorText("Translate Gizmo");
+            bool gizmoEnabled = scene.editorTranslateGizmo.enabled;
+            if (ImGui::Checkbox("Enable translate gizmo", &gizmoEnabled))
+                scene.editorTranslateGizmo.enabled = gizmoEnabled;
+
+            ImGui::TextUnformatted("Select a node to show translate axes in the main viewport.");
+            ImGui::Text("Visible: %s", scene.editorTranslateGizmo.visible ? "Yes" : "No");
+
             ImGui::Spacing();
 
             if (ImGui::Button("Duplicate"))

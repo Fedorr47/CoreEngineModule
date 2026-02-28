@@ -119,6 +119,11 @@ namespace rendern::ui
         ImGui::Separator();
         ImGui::Text("Debug draw");
         ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
+        ImGui::Checkbox("Planar mirror normals", &rs.drawPlanarMirrorNormals);
+        if (rs.drawPlanarMirrorNormals)
+        {
+            ImGui::SliderFloat("Planar normal length", &rs.planarMirrorNormalLength, 0.05f, 20.0f, "%.3f");
+        }
         ImGui::BeginDisabled(!rs.drawLightGizmos);
         ImGui::Checkbox("Depth test (main view)", &rs.debugDrawDepthTest);
         ImGui::SliderFloat("Gizmo half-size", &rs.lightGizmoHalfSize, 0.01f, 2.0f, "%.3f");

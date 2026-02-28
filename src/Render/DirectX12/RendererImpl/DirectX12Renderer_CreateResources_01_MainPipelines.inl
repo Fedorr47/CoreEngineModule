@@ -85,7 +85,7 @@
 
 				// Planar reflection stencil mask (writes stencil, keeps color untouched via depth-only PSO).
 				planarMaskState_ = preDepthState_;
-				planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
+				planarMaskState_.rasterizer.cullMode = rhi::CullMode::Front;
 				planarMaskState_.depth.testEnable = true;
 				planarMaskState_.depth.writeEnable = false;
 				planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
@@ -103,12 +103,12 @@
 				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
 				planarReflectedState_ = state_;
 				// Reflected scene overlay: stencil-gated, depth-tested against the main depth buffer.
-				planarReflectedState_.depth.testEnable = true;
+				planarReflectedState_.depth.testEnable = false;
 				planarReflectedState_.depth.writeEnable = false;
-				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
+				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::Always;
 				// Robust option: disable culling for the reflected pass (avoids winding issues when the view is mirrored).
-				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::None;
-				planarReflectedState_.rasterizer.frontFace = state_.rasterizer.frontFace;
+				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::Back;
+				planarReflectedState_.rasterizer.frontFace = rhi::FrontFace::Clockwise;
 				planarReflectedState_.blend.enable = false;
 				planarReflectedState_.depth.stencil.enable = true;
 				planarReflectedState_.depth.stencil.readMask = 0xFFu;

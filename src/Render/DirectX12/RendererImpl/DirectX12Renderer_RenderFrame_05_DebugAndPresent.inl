@@ -45,6 +45,58 @@
 								}
 							}
 						}
+
+						if (scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
+						{
+							const mathUtils::Vec3 pivot = scene.editorTranslateGizmo.pivotWorld;
+							const float axisLen = scene.editorTranslateGizmo.axisLengthWorld;
+
+							auto AxisColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
+								{
+									if (scene.editorTranslateGizmo.activeAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 255, 255);
+									}
+									if (scene.editorTranslateGizmo.hoveredAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 0, 255);
+									}
+									return baseColor;
+								};
+
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
+						}
+
+						if (settings_.drawPlanarMirrorNormals)
+						{
+							const std::uint32_t colPosN = debugDraw::PackRGBA8(80, 255, 120, 255);
+							const std::uint32_t colNegN = debugDraw::PackRGBA8(255, 80, 80, 255);
+							const std::uint32_t colOrigin = debugDraw::PackRGBA8(255, 220, 80, 255);
+
+							const float normalLen = std::max(0.05f, settings_.planarMirrorNormalLength);
+							const float originCross = std::max(0.01f, normalLen * 0.06f);
+
+							for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
+							{
+								mathUtils::Vec3 n = mirror.planeNormal;
+								const float nLen = mathUtils::Length(n);
+								if (nLen <= 1e-5f)
+								{
+									continue;
+								}
+
+								n = n / nLen;
+
+								const mathUtils::Vec3 p = mirror.planePoint;
+								const mathUtils::Vec3 pOff = p + n * 0.02f;
+
+								debugList.AddAxesCross(pOff, originCross, colOrigin);
+								debugList.AddArrow(pOff, pOff + n * normalLen, colPosN);
+								debugList.AddArrow(pOff, pOff - n * (normalLen * 0.6f), colNegN);
+							}
+						}
 						
 						// Pick ray (from the editor UI) visualized in the main view via DebugDraw.
 						if (scene.debugPickRay.enabled)

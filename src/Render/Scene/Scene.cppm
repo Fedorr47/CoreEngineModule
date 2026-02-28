@@ -91,6 +91,24 @@ export namespace rendern
 		bool hit{ false };
 	};
 
+	enum class GizmoAxis : std::uint8_t
+	{
+		None = 0,
+		X,
+		Y,
+		Z
+	};
+
+	struct TranslateGizmoState
+	{
+		bool enabled{ true };
+		bool visible{ false };
+		GizmoAxis hoveredAxis{ GizmoAxis::None };
+		GizmoAxis activeAxis{ GizmoAxis::None };
+		mathUtils::Vec3 pivotWorld{ 0.0f, 0.0f, 0.0f };
+		float axisLengthWorld{ 1.0f };
+	};
+
 	struct MaterialParams
 	{
 		mathUtils::Vec4 baseColor{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -214,6 +232,9 @@ export namespace rendern
 		int editorReflectionCaptureOwnerNode{ -1 };
 		int editorReflectionCaptureOwnerDrawItem{ -1 };
 
+		// Editor translate gizmo (runtime-only).
+		TranslateGizmoState editorTranslateGizmo{};
+
 		void Clear()
 		{
 			drawItems.clear();
@@ -224,6 +245,7 @@ export namespace rendern
 			editorSelectedDrawItem = -1;
 			editorReflectionCaptureOwnerNode = -1;
 			editorReflectionCaptureOwnerDrawItem = -1;
+			editorTranslateGizmo = {};
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

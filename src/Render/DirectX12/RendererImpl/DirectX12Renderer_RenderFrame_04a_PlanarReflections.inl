@@ -204,7 +204,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			PerBatchConstants constants{};
 			// plane: n·x + d = 0, and we keep (n·x + d) >= 0
 			const mathUtils::Vec3 clipN = planeN;
-			const float clipD = planeD + 0.01f;
+			const float clipD = planeD - 0.05f;
 
 			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
 			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjReflT), sizeof(float) * 16);
@@ -212,7 +212,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			const mathUtils::Vec3 camPosRefl = ReflectPoint(camPosLocal, planeN, planeD);
 			constants.uCameraAmbient = { camPosRefl.x, camPosRefl.y, camPosRefl.z, 0.22f };
 			const mathUtils::Vec3 camFwdRefl = ReflectVector(camFLocal, planeN);
-			constants.uCameraForward = { camFwdRefl.x, camFwdRefl.y, camFwdRefl.z, 0.0f };
+			constants.uCameraForward = { camFwdRefl.x, camFwdRefl.y, camFwdRefl.z, clipN.z };
 			constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
 			
 			const float materialBiasTexels = batch.material.shadowBias;

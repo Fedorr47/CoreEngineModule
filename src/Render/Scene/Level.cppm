@@ -740,6 +740,48 @@ export namespace rendern
 			return drawToNode_[i];
 		}
 
+		const mathUtils::Mat4& GetNodeWorldMatrix(int nodeIndex) const noexcept
+		{
+			static const mathUtils::Mat4 identity{ 1.0f };
+			if (nodeIndex < 0)
+			{
+				return identity;
+			}
+			const std::size_t i = static_cast<std::size_t>(nodeIndex);
+			if (i >= world_.size())
+			{
+				return identity;
+			}
+			return world_[i];
+		}
+
+		mathUtils::Mat4 GetParentWorldMatrix(const LevelAsset& asset, int nodeIndex) const noexcept
+		{
+			if (!IsValidNodeIndex(asset, nodeIndex))
+			{
+				return root_;
+			}
+
+			const LevelNode& node = asset.nodes[static_cast<std::size_t>(nodeIndex)];
+			if (node.parent < 0)
+			{
+				return root_;
+			}
+
+			const std::size_t parentIndex = static_cast<std::size_t>(node.parent);
+			if (parentIndex >= world_.size())
+			{
+				return root_;
+			}
+
+			return world_[parentIndex];
+		}
+
+		mathUtils::Vec3 GetNodeWorldPosition(int nodeIndex) const noexcept
+		{
+			return GetNodeWorldMatrix(nodeIndex)[3].xyz();
+		}
+
 		// Create a new node and (optionally) spawn a DrawItem.
 		// Returns the new node index.
 		int AddNode(LevelAsset& asset,
