@@ -6,23 +6,46 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		std::array<float, 16> uLightViewProj{};
 	};
 
+	auto MakeReflectionMatrix = [](const mathUtils::Vec3& nIn, float d) noexcept -> mathUtils::Mat4
+		{
+			mathUtils::Vec3 n = nIn;
+			if (mathUtils::Length(n) < 1e-6f)
+			{
+				return mathUtils::Mat4(1.0f);
+			}
+			n = mathUtils::Normalize(n);
+			const float nx = n.x;
+			const float ny = n.y;
+			const float nz = n.z;
+
+			mathUtils::Mat4 R(1.0f);
+			R(0, 0) = 1.0f - 2.0f * nx * nx;
+			R(0, 1) = -2.0f * nx * ny;
+			R(0, 2) = -2.0f * nx * nz;
+			R(0, 3) = -2.0f * d * nx;
+
+			R(1, 0) = -2.0f * ny * nx;
+			R(1, 1) = 1.0f - 2.0f * ny * ny;
+			R(1, 2) = -2.0f * ny * nz;
+			R(1, 3) = -2.0f * d * ny;
+
+			R(2, 0) = -2.0f * nz * nx;
+			R(2, 1) = -2.0f * nz * ny;
+			R(2, 2) = 1.0f - 2.0f * nz * nz;
+			R(2, 3) = -2.0f * d * nz;
+
+			R(3, 0) = 0.0f;
+			R(3, 1) = 0.0f;
+			R(3, 2) = 0.0f;
+			R(3, 3) = 1.0f;
+			return R;
+		};
 
 	auto CanonicalizePlane = [&](mathUtils::Vec3 n, const mathUtils::Vec3& point) noexcept -> std::pair<mathUtils::Vec3, float>
 		{
-			if (mathUtils::Length(n) < 1e-6f)
-			{
-				return { mathUtils::Vec3(0, 1, 0), 0.0f };
-			}
-			n = mathUtils::Normalize(n);
-
-			// Ensure the plane normal points towards the ORIGINAL camera (stable orientation).
-			if (mathUtils::Dot(n, camPosLocal - point) < 0.0f)
-			{
-				n = n * -1.0f;
-			}
-
-			const float d = -mathUtils::Dot(n, point); // plane: n·x + d = 0
-			return { n, d };
+			n = Normalize(n);
+			float d = -Dot(n, point);
+			return { n, d }; // n·x + d = 0
 		};
 	
 	auto ReflectPoint = [](const mathUtils::Vec3& p, const mathUtils::Vec3& n, float d) noexcept -> mathUtils::Vec3
@@ -56,6 +79,11 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		}
 
 		auto [planeN, planeD] = CanonicalizePlane(mirror.planeNormal, mirror.planePoint);
+		if (mathUtils::Dot(planeN, camPosLocal) + planeD < 0.0f)
+		{
+			planeN = -planeN;
+			planeD = -planeD;
+		}
 		
 		// ---------------- (1) Stencil mask: visible mirror pixels -> stencil = ref ----------------
 		ctx.commandList.SetState(planarMaskState_);
@@ -73,17 +101,9 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
 
 		// ---------------- (2) Reflected scene: reflected camera, stencil-gated ----------------
-		const mathUtils::Vec3 reflEye = ReflectPoint(camPosLocal, planeN, planeD);
-		const mathUtils::Vec3 reflTarget = ReflectPoint(scene.camera.target, planeN, planeD);
-		mathUtils::Vec3 reflUp = ReflectVector(scene.camera.up, planeN);
-		if (mathUtils::Length(reflUp) < 1e-6f)
-		{
-			reflUp = scene.camera.up;
-		}
-
-		const mathUtils::Mat4 viewRefl = mathUtils::LookAt(reflEye, reflTarget, reflUp);
-		const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(proj * viewRefl);
-		const mathUtils::Vec3 reflForward = mathUtils::Normalize(reflTarget - reflEye);
+		const mathUtils::Mat4 reflectW = MakeReflectionMatrix(planeN, planeD);
+		const mathUtils::Mat4 viewProjRefl = viewProj * reflectW;
+		const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(viewProjRefl);
 		
 		ctx.commandList.SetState(planarReflectedState_);
 		ctx.commandList.SetStencilRef(1u + mirrorIndex);
@@ -118,7 +138,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
 
 			// Use the regular main pipeline (no special planar defines).
-			ctx.commandList.BindPipeline(MainPipelineFor(perm));
+			ctx.commandList.BindPipeline(PlanarPipelineFor(perm));
 			ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
 			ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
 			ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
@@ -182,18 +202,24 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			}
 
 			PerBatchConstants constants{};
+			// plane: n·x + d = 0, and we keep (n·x + d) >= 0
+			const mathUtils::Vec3 clipN = planeN;
+			const float clipD = planeD + 0.01f;
+
 			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
 			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjReflT), sizeof(float) * 16);
 			std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-			constants.uCameraAmbient = { reflEye.x, reflEye.y, reflEye.z, 0.22f };
-			constants.uCameraForward = { reflForward.x, reflForward.y, reflForward.z, 0.0f };
+			const mathUtils::Vec3 camPosRefl = ReflectPoint(camPosLocal, planeN, planeD);
+			constants.uCameraAmbient = { camPosRefl.x, camPosRefl.y, camPosRefl.z, 0.22f };
+			const mathUtils::Vec3 camFwdRefl = ReflectVector(camFLocal, planeN);
+			constants.uCameraForward = { camFwdRefl.x, camFwdRefl.y, camFwdRefl.z, 0.0f };
 			constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
 			
 			const float materialBiasTexels = batch.material.shadowBias;
-			constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
+			constants.uMaterialFlags = { clipN.x, clipN.y, materialBiasTexels, AsFloatBits(flags) };
 
 			constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
-			constants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
+			constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), clipD };
 			constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
 			constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
 			constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };

@@ -808,21 +808,6 @@ VSOut VSMain(VSIn IN)
 	float4 world = mul(float4(IN.pos, 1.0f), model);
 	float3 nrmW = mul(float4(IN.nrm, 0.0f), model).xyz;
 	
-#if defined(CORE_PLANAR_CLIP) && CORE_PLANAR_CLIP
-		// Planar reflections pass expects the *geometry* to be reflected about the mirror plane.
-		// The clip plane is packed as: clipN = -planeN, clipD = dot(planeN, planePoint) + eps.
-		// Reconstruct plane: planeN·x + planeD = 0, where planeD = -clipD + eps.
-		const float kPlanarEps = 0.01f;
-		const float3 planeN = -uClipPlane.xyz;
-		const float  planeD = -uClipPlane.w + kPlanarEps;
-	
-		const float dist = dot(planeN, world.xyz) + planeD;
-		world.xyz = world.xyz - 2.0f * dist * planeN;
-	
-		// Reflect normal as a direction vector.
-		nrmW = nrmW - 2.0f * dot(nrmW, planeN) * planeN;
-#endif
-	
 	OUT.worldPos = world.xyz;
 	OUT.nrmW = normalize(nrmW);
 	
@@ -831,7 +816,7 @@ VSOut VSMain(VSIn IN)
 
 	OUT.shadowPos = mul(world, uLightViewProj);
 #if defined(CORE_PLANAR_CLIP) && CORE_PLANAR_CLIP
-    OUT.clipDist = dot(float4(OUT.worldPos, 1.0f), uClipPlane);
+   OUT.clipDist = dot(float4(OUT.worldPos ,1), uClipPlane);
 #endif
 	return OUT;
 }

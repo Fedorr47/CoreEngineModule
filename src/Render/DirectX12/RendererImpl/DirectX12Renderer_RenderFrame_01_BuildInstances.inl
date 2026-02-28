@@ -311,6 +311,7 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 				const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 1.0f);
 				return { r.x, r.y, r.z };
 			};
+
 		const auto TransformVector = [](const mathUtils::Mat4& m, const mathUtils::Vec3& v) noexcept -> mathUtils::Vec3
 			{
 				const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 0.0f);
@@ -322,9 +323,11 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 		mirror.material = params;
 		mirror.materialHandle = item.material;
 		mirror.instanceOffset = static_cast<std::uint32_t>(planarMirrorInstances.size());
-		
+
+		const mathUtils::Vec3 worldX = TransformVector(model, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
+		const mathUtils::Vec3 worldY = TransformVector(model, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
 		mirror.planePoint = TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
-		mirror.planeNormal = TransformVector(model, mathUtils::Vec3(0.0f, 0.0f, 1.0f));
+		mirror.planeNormal = mathUtils::Cross(worldX, worldY);
 
 		if (mathUtils::Length(mirror.planeNormal) > 0.0001f)
 		{
@@ -332,6 +335,8 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 			planarMirrorInstances.push_back(inst);
 			planarMirrorDraws.push_back(mirror);
 		}
+
+		continue;
 	}
 
 	auto& bucket = mainTmp[key];
@@ -456,14 +461,6 @@ const std::uint32_t mainBase = static_cast<std::uint32_t>(shadowInstances.size()
 const std::uint32_t captureMainBase = static_cast<std::uint32_t>(shadowInstances.size() + mainInstances.size());
 const std::uint32_t transparentBase = captureMainBase + static_cast<std::uint32_t>(captureMainInstancesNoCull.size());
 const std::uint32_t planarMirrorBase = transparentBase + static_cast<std::uint32_t>(transparentInstances.size());
-
-// Planar mirrors live in the combined instance buffer after transparent instances.
-// PlanarMirrorDraw.instanceOffset was recorded relative to planarMirrorInstances (0..N-1),
-// so shift it to the combined buffer base.
-for (PlanarMirrorDraw& mirror : planarMirrorDraws)
-{	
-	mirror.instanceOffset += planarMirrorBase;	
-}
 
 const std::uint32_t transparentEnd =
 planarMirrorBase + static_cast<std::uint32_t>(planarMirrorInstances.size());

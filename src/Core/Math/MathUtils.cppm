@@ -60,6 +60,8 @@ export namespace mathUtils
 		{
 			return (i == 0) ? x : (i == 1) ? y : z;
 		}
+
+		Vec3 operator-() const noexcept { return Vec3(-x, -y, -z); }
 	};
 
 	struct alignas(16) Vec4
