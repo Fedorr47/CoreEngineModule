@@ -96,7 +96,10 @@ export namespace rendern
 		None = 0,
 		X,
 		Y,
-		Z
+		Z,
+		XY,
+		XZ,
+		YZ
 	};
 
 	struct TranslateGizmoState
@@ -147,12 +150,12 @@ export namespace rendern
 
 	enum class MaterialPerm : std::uint32_t
 	{
-		None		= 0,
-		UseTex		= 1u << 0,
-		UseShadow	= 1u << 1,
-		Skinning	= 1u << 2,
-		Transparent = 1u << 3,
-		PlanarMirror = 1u << 4
+		None			= 0,
+		UseTex			= 1u << 0,
+		UseShadow		= 1u << 1,
+		Skinning		= 1u << 2,
+		Transparent		= 1u << 3,
+		PlanarMirror	= 1u << 4
 	};
 
 	constexpr MaterialPerm operator|(MaterialPerm a, MaterialPerm b) noexcept

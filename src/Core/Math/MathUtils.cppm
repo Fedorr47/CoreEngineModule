@@ -146,6 +146,7 @@ export namespace mathUtils
 	inline float Dot(const Vec3& a, const Vec3& b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z; }
 	inline float Dot(const Vec4& a, const Vec4& b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
 	inline Vec3 Cross2(const Vec2& a, const Vec2& b) noexcept { return Vec3(0, 0, a.x * b.y - a.y * b.x); }
+	inline const float Cross2D(const Vec2& a, const Vec2& b) noexcept { return a.x* b.y - a.y * b.x; }
 	inline Vec3 Cross(const Vec3& a, const Vec3& b) noexcept
 	{
 		return Vec3(
@@ -479,5 +480,27 @@ export namespace mathUtils
 		out[2][2] = c.z - out[2][3];
 		out[3][2] = c.w - out[3][3];
 		return out;
+	}
+
+	const Vec3 TransformPoint(const Mat4& m, const Vec3& v) noexcept
+	{
+		const Vec4 r = m * Vec4(v, 1.0f);
+		return { r.x, r.y, r.z };
+	};
+
+	const Vec3 TransformVector(const Mat4& m, const Vec3& v) noexcept
+	{
+		const Vec4 r = m * Vec4(v, 0.0f);
+		return { r.x, r.y, r.z };
+	};
+
+	Vec3 MinVec3(const Vec3& a, const Vec3& b) noexcept
+	{
+		return { std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z) };
+	}
+
+	Vec3 MaxVec3(const Vec3& a, const Vec3& b) noexcept
+	{
+		return { std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z) };
 	}
 }

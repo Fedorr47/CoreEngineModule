@@ -10,31 +10,10 @@ export module core:picking;
 import :scene;
 import :level;
 import :math_utils;
+import :geometry;
 
 namespace
 {
-    struct Ray
-    {
-        mathUtils::Vec3 origin{ 0.0f, 0.0f, 0.0f };
-        mathUtils::Vec3 dir{ 0.0f, 0.0f, 1.0f }; // normalized
-    };
-
-    static mathUtils::Vec3 MinVec3(const mathUtils::Vec3& a, const mathUtils::Vec3& b) noexcept
-    {
-        return { std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z) };
-    }
-
-    static mathUtils::Vec3 MaxVec3(const mathUtils::Vec3& a, const mathUtils::Vec3& b) noexcept
-    {
-        return { std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z) };
-    }
-
-    static mathUtils::Vec3 TransformPoint(const mathUtils::Mat4& m, const mathUtils::Vec3& p) noexcept
-    {
-        const mathUtils::Vec4 w = m * mathUtils::Vec4(p, 1.0f);
-        return { w.x, w.y, w.z };
-    }
-
     static void TransformAABB(const mathUtils::Vec3& bmin, const mathUtils::Vec3& bmax, const mathUtils::Mat4& m,
         mathUtils::Vec3& outMin, mathUtils::Vec3& outMax) noexcept
     {
@@ -49,16 +28,16 @@ namespace
 
         for (const auto& p : c)
         {
-            const mathUtils::Vec3 wp = TransformPoint(m, p);
-            wmin = MinVec3(wmin, wp);
-            wmax = MaxVec3(wmax, wp);
+            const mathUtils::Vec3 wp = mathUtils::TransformPoint(m, p);
+            wmin = mathUtils::MinVec3(wmin, wp);
+            wmax = mathUtils::MaxVec3(wmax, wp);
         }
 
         outMin = wmin;
         outMax = wmax;
     }
 
-    static bool IntersectRayAABB(const Ray& ray, const mathUtils::Vec3& bmin, const mathUtils::Vec3& bmax, float& outT) noexcept
+    static bool IntersectRayAABB(const geometry::Ray& ray, const mathUtils::Vec3& bmin, const mathUtils::Vec3& bmax, float& outT) noexcept
     {
         float tmin = 0.0f;
         float tmax = std::numeric_limits<float>::infinity();
@@ -100,9 +79,20 @@ namespace
 
         outT = tmin;
         return true;
-    }
+    }    
+}
 
-    static Ray BuildMouseRay(const rendern::Scene& scene, float mouseX, float mouseY, float viewportW, float viewportH) noexcept
+export namespace rendern
+{
+    struct PickResult
+    {
+        int nodeIndex{ -1 };
+        float t{ std::numeric_limits<float>::infinity() };
+        mathUtils::Vec3 rayOrigin{ 0.0f, 0.0f, 0.0f };
+        mathUtils::Vec3 rayDir{ 0.0f, 0.0f, 1.0f }; // normalized
+    };
+
+    geometry::Ray BuildMouseRay(const rendern::Scene& scene, float mouseX, float mouseY, float viewportW, float viewportH) noexcept
     {
         const float width = (viewportW > 1.0f) ? viewportW : 1.0f;
         const float height = (viewportH > 1.0f) ? viewportH : 1.0f;
@@ -123,22 +113,11 @@ namespace
         dir = dir + up * (ndcY * tanHalfFov);
         dir = mathUtils::Normalize(dir);
 
-        Ray ray;
+        geometry::Ray ray;
         ray.origin = scene.camera.position;
         ray.dir = dir;
         return ray;
     }
-}
-
-export namespace rendern
-{
-    struct PickResult
-    {
-        int nodeIndex{ -1 };
-        float t{ std::numeric_limits<float>::infinity() };
-        mathUtils::Vec3 rayOrigin{ 0.0f, 0.0f, 0.0f };
-        mathUtils::Vec3 rayDir{ 0.0f, 0.0f, 1.0f }; // normalized
-    };
 
     PickResult PickNodeUnderScreenPoint(
         const rendern::Scene& scene,
@@ -150,7 +129,7 @@ export namespace rendern
     {
         PickResult out{};
 
-        const Ray ray = BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH);
+        const geometry::Ray ray = BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH);
         out.rayOrigin = ray.origin;
         out.rayDir = ray.dir;
 

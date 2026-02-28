@@ -29,10 +29,12 @@ export namespace rendern::debugDraw
 	struct DebugDrawList
 	{
 		std::vector<DebugVertex> lineVertices;
+		std::vector<DebugVertex> overlayLineVertices;
 
 		void Clear()
 		{
 			lineVertices.clear();
+			overlayLineVertices.clear();
 		}
 
 		void ReserveLines(std::size_t lineCount)
@@ -40,27 +42,48 @@ export namespace rendern::debugDraw
 			lineVertices.reserve(lineCount * 2);
 		}
 
+		void ReserveOverlayLines(std::size_t lineCount)
+		{
+			overlayLineVertices.reserve(lineCount * 2);
+		}
+
 		std::size_t VertexCount() const noexcept
+		{
+			return lineVertices.size() + overlayLineVertices.size();
+		}
+
+		std::size_t DepthVertexCount() const noexcept
 		{
 			return lineVertices.size();
 		}
 
-		void AddLine(const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t rgba)
+		std::size_t OverlayVertexCount() const noexcept
 		{
-			lineVertices.push_back(DebugVertex{ a, rgba });
-			lineVertices.push_back(DebugVertex{ b, rgba });
+			return overlayLineVertices.size();
 		}
 
-		void AddAxesCross(const mathUtils::Vec3& origin, float halfSize, std::uint32_t rgba)
+		void AddLine(const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t rgba, bool overlay = false)
 		{
-			AddLine(origin - mathUtils::Vec3(halfSize, 0.0f, 0.0f), origin + mathUtils::Vec3(halfSize, 0.0f, 0.0f), rgba);
-			AddLine(origin - mathUtils::Vec3(0.0f, halfSize, 0.0f), origin + mathUtils::Vec3(0.0f, halfSize, 0.0f), rgba);
-			AddLine(origin - mathUtils::Vec3(0.0f, 0.0f, halfSize), origin + mathUtils::Vec3(0.0f, 0.0f, halfSize), rgba);
+			auto& dst = overlay ? overlayLineVertices : lineVertices;
+			dst.push_back(DebugVertex{ a, rgba });
+			dst.push_back(DebugVertex{ b, rgba });
 		}
 
-		void AddArrow(const mathUtils::Vec3& start, const mathUtils::Vec3& end, std::uint32_t rgba, float headFrac = 0.25f, float headWidthFrac = 0.15f)
+		void AddAxesCross(const mathUtils::Vec3& origin, float halfSize, std::uint32_t rgba, bool overlay = false)
 		{
-			AddLine(start, end, rgba);
+			AddLine(origin - mathUtils::Vec3(halfSize, 0.0f, 0.0f), origin + mathUtils::Vec3(halfSize, 0.0f, 0.0f), rgba, overlay);
+			AddLine(origin - mathUtils::Vec3(0.0f, halfSize, 0.0f), origin + mathUtils::Vec3(0.0f, halfSize, 0.0f), rgba, overlay);
+			AddLine(origin - mathUtils::Vec3(0.0f, 0.0f, halfSize), origin + mathUtils::Vec3(0.0f, 0.0f, halfSize), rgba, overlay);
+		}
+
+		void AddArrow(const mathUtils::Vec3& start,
+			const mathUtils::Vec3& end,
+			std::uint32_t rgba,
+			float headFrac = 0.25f,
+			float headWidthFrac = 0.15f,
+			bool overlay = false)
+		{
+			AddLine(start, end, rgba, overlay);
 
 			const mathUtils::Vec3 dir = end - start;
 			const float len = mathUtils::Length(dir);
@@ -82,13 +105,19 @@ export namespace rendern::debugDraw
 			const float headW = len * std::clamp(headWidthFrac, 0.02f, 0.35f);
 			const mathUtils::Vec3 base = end - fwd * headLen;
 
-			AddLine(end, base + right * headW, rgba);
-			AddLine(end, base - right * headW, rgba);
-			AddLine(end, base + up2 * headW, rgba);
-			AddLine(end, base - up2 * headW, rgba);
+			AddLine(end, base + right * headW, rgba, overlay);
+			AddLine(end, base - right * headW, rgba, overlay);
+			AddLine(end, base + up2 * headW, rgba, overlay);
+			AddLine(end, base - up2 * headW, rgba, overlay);
 		}
 
-		void AddWireCone(const mathUtils::Vec3& apex, const mathUtils::Vec3& direction, float length, float outerHalfAngleRad, std::uint32_t rgba, std::uint32_t segments = 24)
+		void AddWireCone(const mathUtils::Vec3& apex,
+			const mathUtils::Vec3& direction,
+			float length,
+			float outerHalfAngleRad,
+			std::uint32_t rgba,
+			std::uint32_t segments = 24,
+			bool overlay = false)
 		{
 			if (length <= 1e-5f || segments < 3)
 			{
@@ -119,12 +148,16 @@ export namespace rendern::debugDraw
 			for (std::uint32_t i = 0; i < segments; ++i)
 			{
 				const std::uint32_t j = (i + 1) % segments;
-				AddLine(circle[i], circle[j], rgba);
-				AddLine(apex, circle[i], rgba);
+				AddLine(circle[i], circle[j], rgba, overlay);
+				AddLine(apex, circle[i], rgba, overlay);
 			}
 		}
 
-		void AddWireSphere(const mathUtils::Vec3& center, float radius, std::uint32_t rgba, std::uint32_t segments = 24)
+		void AddWireSphere(const mathUtils::Vec3& center,
+			float radius,
+			std::uint32_t rgba,
+			std::uint32_t segments = 24,
+			bool overlay = false)
 		{
 			if (radius <= 1e-5f || segments < 6)
 			{
@@ -140,7 +173,7 @@ export namespace rendern::debugDraw
 						const mathUtils::Vec3 p = center + axisA * (std::cos(t) * radius) + axisB * (std::sin(t) * radius);
 						if (i != 0)
 						{
-							AddLine(prev, p, rgba);
+							AddLine(prev, p, rgba, overlay);
 						}
 						prev = p;
 					}

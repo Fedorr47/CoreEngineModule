@@ -45,12 +45,14 @@
 								}
 							}
 						}
-
+						
 						if (scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
 						{
 							const mathUtils::Vec3 pivot = scene.editorTranslateGizmo.pivotWorld;
 							const float axisLen = scene.editorTranslateGizmo.axisLengthWorld;
-
+							const float planeInner = axisLen * 0.28f;
+							const float planeOuter = axisLen * 0.46f;
+						
 							auto AxisColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
 								{
 									if (scene.editorTranslateGizmo.activeAxis == axis)
@@ -63,39 +65,26 @@
 									}
 									return baseColor;
 								};
-
-							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
-							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
-							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
-						}
-
-						if (settings_.drawPlanarMirrorNormals)
-						{
-							const std::uint32_t colPosN = debugDraw::PackRGBA8(80, 255, 120, 255);
-							const std::uint32_t colNegN = debugDraw::PackRGBA8(255, 80, 80, 255);
-							const std::uint32_t colOrigin = debugDraw::PackRGBA8(255, 220, 80, 255);
-
-							const float normalLen = std::max(0.05f, settings_.planarMirrorNormalLength);
-							const float originCross = std::max(0.01f, normalLen * 0.06f);
-
-							for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
-							{
-								mathUtils::Vec3 n = mirror.planeNormal;
-								const float nLen = mathUtils::Length(n);
-								if (nLen <= 1e-5f)
+						
+							auto AddPlaneHandle = [&](GizmoAxis axis, const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t baseColor)
 								{
-									continue;
-								}
-
-								n = n / nLen;
-
-								const mathUtils::Vec3 p = mirror.planePoint;
-								const mathUtils::Vec3 pOff = p + n * 0.02f;
-
-								debugList.AddAxesCross(pOff, originCross, colOrigin);
-								debugList.AddArrow(pOff, pOff + n * normalLen, colPosN);
-								debugList.AddArrow(pOff, pOff - n * (normalLen * 0.6f), colNegN);
-							}
+									const std::uint32_t color = AxisColor(axis, baseColor);
+									const mathUtils::Vec3 p00 = pivot + a * planeInner + b * planeInner;
+									const mathUtils::Vec3 p10 = pivot + a * planeOuter + b * planeInner;
+									const mathUtils::Vec3 p11 = pivot + a * planeOuter + b * planeOuter;
+									const mathUtils::Vec3 p01 = pivot + a * planeInner + b * planeOuter;
+									debugList.AddLine(p00, p10, color, true);
+									debugList.AddLine(p10, p11, color, true);
+									debugList.AddLine(p11, p01, color, true);
+									debugList.AddLine(p01, p00, color, true);
+								};
+						
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
+							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
+							AddPlaneHandle(GizmoAxis::XY, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), debugDraw::PackRGBA8(255, 220, 80, 255));
+							AddPlaneHandle(GizmoAxis::XZ, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(255, 80, 255, 255));
+							AddPlaneHandle(GizmoAxis::YZ, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(80, 255, 255, 255));
 						}
 						
 						// Pick ray (from the editor UI) visualized in the main view via DebugDraw.
@@ -137,7 +126,7 @@
 							float debugInvRange = 1.0f;
 							std::uint32_t debugInvert = 1u;
 							std::uint32_t debugMode = 0u; // 0 = depth grayscale, 1 = color
-
+						
 							if (settings_.debugShadowCubeMapType == 0 && !pointShadows.empty())
 							{
 								const std::uint32_t maxIdx = static_cast<std::uint32_t>(pointShadows.size() - 1u);
@@ -165,7 +154,7 @@
 								{
 									debugReflectionCube = reflectionCube_;
 								}
-
+						
 								if (debugReflectionCube)
 								{
 									debugCubeRG = graph.ImportTexture(debugReflectionCube, renderGraph::RGTextureDesc{
@@ -180,15 +169,15 @@
 									debugMode = 1u;
 								}
 							}
-
+						
 							if (debugCubeRG && psoDebugCubeAtlas_ && debugCubeAtlasLayout_ && debugCubeAtlasVB_)
 							{
 								rhi::ClearDesc clear{};
 								clear.clearColor = false;
 								clear.clearDepth = false;
-
+						
 								const auto cubeRG = *debugCubeRG;
-
+						
 								graph.AddSwapChainPass("DebugPointShadowAtlas", clear,
 									[this, cubeRG, debugInvRange, debugInvert, debugMode](renderGraph::PassContext& ctx)
 									{
@@ -207,20 +196,20 @@
 											float _pad1;
 											float _pad2;
 										};
-
+						
 										DebugCubeAtlasCB cb{};
 										cb.uInvRange = debugInvRange;
 										cb.uGamma = 1.0f;
 										cb.uInvert = debugInvert;
-
+						
 										cb.uShowGrid = 1u;
 										cb.uMode = debugMode;
 										cb._pad0 = 0u;
-
+						
 										const std::uint32_t W = std::max(1u, ctx.passExtent.width);
 										const std::uint32_t H = std::max(1u, ctx.passExtent.height);
 										const std::uint32_t margin = 16u;
-
+						
 										// Keep 3:2 aspect (3 tiles wide, 2 tiles tall)
 										std::uint32_t insetW = std::min(512u, (W > margin * 2u) ? (W - margin * 2u) : 128u);
 										insetW = std::max(128u, insetW);
@@ -230,34 +219,34 @@
 											insetH = (H > margin * 2u) ? (H - margin * 2u) : 128u;
 											insetW = (insetH * 3u) / 2u;
 										}
-
+						
 										const std::uint32_t x0 = (W > (margin + insetW)) ? (W - margin - insetW) : 0u;
 										const std::uint32_t y0 = (H > (margin + insetH)) ? (H - margin - insetH) : 0u;
-
+						
 										cb.uViewportOriginX = float(x0);
 										cb.uViewportOriginY = float(y0);
-
+						
 										cb.uInvViewportSizeX = 1.0f / float(std::max(1u, insetW));
 										cb.uInvViewportSizeY = 1.0f / float(std::max(1u, insetH));
 										cb._pad1 = 0.0f;
 										cb._pad2 = 0.0f;
-
+						
 										ctx.commandList.SetViewport(
 											static_cast<int>(x0), static_cast<int>(y0),
 											static_cast<int>(insetW), static_cast<int>(insetH));
-
+						
 										ctx.commandList.SetState(debugCubeAtlasState_);
 										ctx.commandList.BindPipeline(psoDebugCubeAtlas_);
 										ctx.commandList.BindInputLayout(debugCubeAtlasLayout_);
 										ctx.commandList.BindVertexBuffer(0, debugCubeAtlasVB_, debugCubeAtlasVBStrideBytes_, 0);
 										ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
-
+						
 										const auto tex = ctx.resources.GetTexture(cubeRG);
 										ctx.commandList.BindTexture2DArray(0, tex); // t0 (Texture2DArray<float4>)
-
+						
 										ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &cb, 1 })); // b0
 										ctx.commandList.Draw(3);
-
+						
 										// Restore full viewport for any following swapchain passes.
 										ctx.commandList.SetViewport(0, 0, static_cast<int>(W), static_cast<int>(H));
 									});
@@ -282,4 +271,3 @@
 						}
 						
 						graph.Execute(device_, swapChain);
-						swapChain.Present();

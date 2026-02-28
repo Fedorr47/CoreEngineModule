@@ -249,7 +249,7 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::Checkbox("Enable translate gizmo", &gizmoEnabled))
                 scene.editorTranslateGizmo.enabled = gizmoEnabled;
 
-            ImGui::TextUnformatted("Select a node to show translate axes in the main viewport.");
+            ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport.");
             ImGui::Text("Visible: %s", scene.editorTranslateGizmo.visible ? "Yes" : "No");
 
             ImGui::Spacing();

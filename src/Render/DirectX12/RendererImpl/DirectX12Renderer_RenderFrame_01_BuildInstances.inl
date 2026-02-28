@@ -306,27 +306,15 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	if (settings_.enablePlanarReflections && isPlanarMirror && !isTransparent &&
 		planarMirrorDraws.size() < static_cast<std::size_t>(settings_.planarReflectionMaxMirrors))
 	{
-		const auto TransformPoint = [](const mathUtils::Mat4& m, const mathUtils::Vec3& v) noexcept -> mathUtils::Vec3
-			{
-				const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 1.0f);
-				return { r.x, r.y, r.z };
-			};
-
-		const auto TransformVector = [](const mathUtils::Mat4& m, const mathUtils::Vec3& v) noexcept -> mathUtils::Vec3
-			{
-				const mathUtils::Vec4 r = m * mathUtils::Vec4(v, 0.0f);
-				return { r.x, r.y, r.z };
-			};
-
 		PlanarMirrorDraw mirror{};
 		mirror.mesh = mesh;
 		mirror.material = params;
 		mirror.materialHandle = item.material;
 		mirror.instanceOffset = static_cast<std::uint32_t>(planarMirrorInstances.size());
 
-		const mathUtils::Vec3 worldX = TransformVector(model, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
-		const mathUtils::Vec3 worldY = TransformVector(model, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
-		mirror.planePoint = TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
+		const mathUtils::Vec3 worldX = mathUtils::TransformVector(model, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
+		const mathUtils::Vec3 worldY = mathUtils::TransformVector(model, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
+		mirror.planePoint = mathUtils::TransformPoint(model, mathUtils::Vec3(0.0f, 0.0f, 0.0f));
 		mirror.planeNormal = mathUtils::Cross(worldX, worldY);
 
 		if (mathUtils::Length(mirror.planeNormal) > 0.0001f)

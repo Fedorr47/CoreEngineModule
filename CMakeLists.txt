@@ -266,6 +266,7 @@ set(COMMON_MODULES
   Core/Core.ixx
 
   Core/Math/MathUtils.cppm
+  Core/Math/Geometry.cppm
 
   Input/Input.cppm
   Input/InputCore.cppm

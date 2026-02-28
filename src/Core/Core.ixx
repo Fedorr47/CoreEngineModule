@@ -11,6 +11,7 @@ export import :render;
 export import :mesh;
 export import :obj_loader;
 export import :math_utils;
+export import :geometry;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;
