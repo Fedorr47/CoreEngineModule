@@ -103,9 +103,9 @@
 				// Reflected scene pass: stencil-gated overlay inside visible mirror pixels (MVP path).
 				planarReflectedState_ = state_;
 				// Reflected scene overlay: stencil-gated, depth-tested against the main depth buffer.
-				planarReflectedState_.depth.testEnable = false;
-				planarReflectedState_.depth.writeEnable = false;
-				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::Always;
+				planarReflectedState_.depth.testEnable = true;
+				planarReflectedState_.depth.writeEnable = true;
+				planarReflectedState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 				// Robust option: disable culling for the reflected pass (avoids winding issues when the view is mirrored).
 				planarReflectedState_.rasterizer.cullMode = rhi::CullMode::Back;
 				planarReflectedState_.rasterizer.frontFace = rhi::FrontFace::Clockwise;
