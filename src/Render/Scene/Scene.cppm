@@ -133,6 +133,19 @@ export namespace rendern
 		float ringRadiusWorld{ 1.0f };
 	};
 
+	struct ScaleGizmoState
+	{
+		bool enabled{ true };
+		bool visible{ false };
+		GizmoAxis hoveredAxis{ GizmoAxis::None };
+		GizmoAxis activeAxis{ GizmoAxis::None };
+		mathUtils::Vec3 pivotWorld{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 axisXWorld{ 1.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 axisYWorld{ 0.0f, 1.0f, 0.0f };
+		mathUtils::Vec3 axisZWorld{ 0.0f, 0.0f, 1.0f };
+		float axisLengthWorld{ 1.0f };
+	};
+
 	struct MaterialParams
 	{
 		mathUtils::Vec4 baseColor{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -265,6 +278,9 @@ export namespace rendern
 		// Editor rotate gizmo (runtime-only).
 		RotateGizmoState editorRotateGizmo{};
 
+		// Editor scale gizmo (runtime-only).
+		ScaleGizmoState editorScaleGizmo{};
+
 		void Clear()
 		{
 			drawItems.clear();
@@ -278,6 +294,7 @@ export namespace rendern
 			editorGizmoMode = GizmoMode::Translate;
 			editorTranslateGizmo = {};
 			editorRotateGizmo = {};
+			editorScaleGizmo = {};
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

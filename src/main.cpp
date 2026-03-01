@@ -432,34 +432,41 @@ namespace
         g_imguiInitialized = false;
     }
 
-    const void* BuildImGuiFrameIfEnabled(rhi::IRHIDevice& device, rendern::RendererSettings& settings, rendern::Scene& scene, rendern::CameraController& cameraController, rendern::LevelAsset& levelAsset, rendern::LevelInstance& levelInstance, AssetManager& assets)
-    {
-        if (!g_imguiInitialized || !g_showDebugWindow || !g_debugWindow || !g_debugWindow->hwnd)
+    const void* BuildImGuiFrameIfEnabled(
+        rhi::IRHIDevice& device,
+        rendern::RendererSettings& settings, 
+        rendern::Scene& scene, 
+        rendern::CameraController& cameraController, 
+        rendern::LevelAsset& levelAsset, 
+        rendern::LevelInstance& levelInstance, 
+        AssetManager& assets)
         {
-            return nullptr;
+            if (!g_imguiInitialized || !g_showDebugWindow || !g_debugWindow || !g_debugWindow->hwnd)
+            {
+                return nullptr;
+            }
+
+            if (!IsWindowVisible(g_debugWindow->hwnd))
+            {
+                return nullptr;
+            }
+
+            device.ImGuiNewFrame();
+            ImGui_ImplWin32_NewFrame();
+            ImGui::NewFrame();
+
+            // style docking host (fills the debug window and enables dock/tabs).
+            rendern::ui::BeginDebugDockSpace();
+
+            rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
+            rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
+
+            ImGui::Render();
+
+            return static_cast<const void*>(ImGui::GetDrawData());
         }
 
-        if (!IsWindowVisible(g_debugWindow->hwnd))
-        {
-            return nullptr;
-        }
-
-        device.ImGuiNewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-
-        // style docking host (fills the debug window and enables dock/tabs).
-        rendern::ui::BeginDebugDockSpace();
-
-        rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
-        rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
-
-        ImGui::Render();
-
-        return static_cast<const void*>(ImGui::GetDrawData());
-    }
-
-    rendern::InputCapture GetInputCaptureForImGui()
+        rendern::InputCapture GetInputCaptureForImGui()
     {
         rendern::InputCapture capture{};
         if (g_imguiInitialized && g_showDebugWindow && g_debugWindow && g_debugWindow->hwnd)
@@ -781,6 +788,7 @@ int main(int argc, char** argv)
 
         rendern::TranslateGizmoController translateGizmo{};
         rendern::RotateGizmoController rotateGizmo{};
+        rendern::ScaleGizmoController scaleGizmo{};
 
         // Timer
         GameTimer frameTimer{};
@@ -848,6 +856,39 @@ int main(int argc, char** argv)
             win32Input.NewFrame(window.hwnd);
             cameraController.Update(deltaSeconds, win32Input.State(), scene.camera);
 
+            // Gizmo mode hotkeys in the main viewport/editor context.
+            {
+                const rendern::InputState& in = win32Input.State();
+                if (in.hasFocus && !in.capture.captureKeyboard && !in.mouse.rmbDown)
+                {
+                    rendern::GizmoMode nextMode = scene.editorGizmoMode;
+                    if (in.KeyPressed('Q'))
+                    {
+                        nextMode = rendern::GizmoMode::None;
+                    }
+                    else if (in.KeyPressed('W'))
+                    {
+                        nextMode = rendern::GizmoMode::Translate;
+                    }
+                    else if (in.KeyPressed('E'))
+                    {
+                        nextMode = rendern::GizmoMode::Rotate;
+                    }
+                    else if (in.KeyPressed('R'))
+                    {
+                        nextMode = rendern::GizmoMode::Scale;
+                    }
+
+                    if (nextMode != scene.editorGizmoMode)
+                    {
+                        translateGizmo.EndDrag(scene);
+                        rotateGizmo.EndDrag(scene);
+                        scaleGizmo.EndDrag(scene);
+                        scene.editorGizmoMode = nextMode;
+                    }
+                }
+            }
+
             // Keep draw item transforms in sync even when the debug UI is closed.
             levelInstance.SyncTransformsIfDirty(levelAsset, scene);
 
@@ -857,13 +898,29 @@ int main(int argc, char** argv)
                 scene.editorRotateGizmo.visible = false;
                 scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
                 scene.editorRotateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.visible = false;
+                scene.editorScaleGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.activeAxis = rendern::GizmoAxis::None;
             }
             else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
             {
                 scene.editorTranslateGizmo.visible = false;
                 scene.editorTranslateGizmo.hoveredAxis = rendern::GizmoAxis::None;
                 scene.editorTranslateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.visible = false;
+                scene.editorScaleGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.activeAxis = rendern::GizmoAxis::None;
                 rotateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+            }
+            else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
+            {
+                scene.editorTranslateGizmo.visible = false;
+                scene.editorTranslateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorTranslateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scene.editorRotateGizmo.visible = false;
+                scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorRotateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scaleGizmo.SyncVisual(levelAsset, levelInstance, scene);
             }
             else
             {
@@ -873,6 +930,9 @@ int main(int argc, char** argv)
                 scene.editorRotateGizmo.visible = false;
                 scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
                 scene.editorRotateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.visible = false;
+                scene.editorScaleGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorScaleGizmo.activeAxis = rendern::GizmoAxis::None;
             }
 
             // Gizmo hover in MAIN viewport.
@@ -891,34 +951,46 @@ int main(int argc, char** argv)
                             {
                                 translateGizmo.UpdateHover(scene, static_cast<float>(mx), static_cast<float>(my), static_cast<float>(window.width), static_cast<float>(window.height));
                                 rotateGizmo.ClearHover(scene);
+                                scaleGizmo.ClearHover(scene);
                             }
                             else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
                             {
                                 rotateGizmo.UpdateHover(scene, static_cast<float>(mx), static_cast<float>(my), static_cast<float>(window.width), static_cast<float>(window.height));
                                 translateGizmo.ClearHover(scene);
+                                scaleGizmo.ClearHover(scene);
+                            }
+                            else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
+                            {
+                                scaleGizmo.UpdateHover(scene, static_cast<float>(mx), static_cast<float>(my), static_cast<float>(window.width), static_cast<float>(window.height));
+                                translateGizmo.ClearHover(scene);
+                                rotateGizmo.ClearHover(scene);
                             }
                             else
                             {
                                 translateGizmo.ClearHover(scene);
                                 rotateGizmo.ClearHover(scene);
+                                scaleGizmo.ClearHover(scene);
                             }
                         }
                         else
                         {
                             translateGizmo.ClearHover(scene);
                             rotateGizmo.ClearHover(scene);
+                            scaleGizmo.ClearHover(scene);
                         }
                     }
                     else
                     {
                         translateGizmo.ClearHover(scene);
                         rotateGizmo.ClearHover(scene);
+                        scaleGizmo.ClearHover(scene);
                     }
                 }
                 else
                 {
                     translateGizmo.ClearHover(scene);
                     rotateGizmo.ClearHover(scene);
+                    scaleGizmo.ClearHover(scene);
                 }
             }
 
@@ -983,6 +1055,26 @@ int main(int argc, char** argv)
                                     gizmoConsumed = rotateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH);
                                 }
                             }
+                            else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
+                            {
+                                if (scaleGizmo.IsDragging())
+                                {
+                                    if (in.KeyDown(VK_LBUTTON))
+                                    {
+                                        transformChanged = scaleGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH, in.shiftDown);
+                                        gizmoConsumed = true;
+                                    }
+                                    else
+                                    {
+                                        scaleGizmo.EndDrag(scene);
+                                        gizmoConsumed = true;
+                                    }
+                                }
+                                else if (in.KeyPressed(VK_LBUTTON))
+                                {
+                                    gizmoConsumed = scaleGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH);
+                                }
+                            }
 
                             if (transformChanged)
                             {
@@ -995,6 +1087,10 @@ int main(int argc, char** argv)
                                 else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
                                 {
                                     rotateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+                                }
+                                else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
+                                {
+                                    scaleGizmo.SyncVisual(levelAsset, levelInstance, scene);
                                 }
                             }
 
@@ -1032,6 +1128,7 @@ int main(int argc, char** argv)
                             {
                                 translateGizmo.EndDrag(scene);
                                 rotateGizmo.EndDrag(scene);
+                                scaleGizmo.EndDrag(scene);
                             }
                         }
                     }
@@ -1040,6 +1137,7 @@ int main(int argc, char** argv)
                 {
                     translateGizmo.EndDrag(scene);
                     rotateGizmo.EndDrag(scene);
+                    scaleGizmo.EndDrag(scene);
                 }
             }
 

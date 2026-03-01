@@ -82,7 +82,7 @@
 							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
 							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
 							debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
-							AddPlaneHandle(GizmoAxis::XY, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), debugDraw::PackRGBA8(255, 220, 80, 255));
+										AddPlaneHandle(GizmoAxis::XY, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), debugDraw::PackRGBA8(255, 220, 80, 255));
 							AddPlaneHandle(GizmoAxis::XZ, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(255, 80, 255, 255));
 							AddPlaneHandle(GizmoAxis::YZ, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(80, 255, 255, 255));
 						}
@@ -92,10 +92,10 @@
 							const std::uint32_t colPosN = debugDraw::PackRGBA8(80, 255, 120, 255);
 							const std::uint32_t colNegN = debugDraw::PackRGBA8(255, 80, 80, 255);
 							const std::uint32_t colOrigin = debugDraw::PackRGBA8(255, 220, 80, 255);
-
+						
 							const float normalLen = std::max(0.05f, settings_.planarMirrorNormalLength);
 							const float originCross = std::max(0.01f, normalLen * 0.06f);
-
+						
 							for (const PlanarMirrorDraw& mirror : planarMirrorDraws)
 							{
 								mathUtils::Vec3 n = mirror.planeNormal;
@@ -104,12 +104,12 @@
 								{
 									continue;
 								}
-
+						
 								n = n / nLen;
-
+						
 								const mathUtils::Vec3 p = mirror.planePoint;
 								const mathUtils::Vec3 pOff = p + n * 0.02f;
-
+						
 								debugList.AddAxesCross(pOff, originCross, colOrigin);
 								debugList.AddArrow(pOff, pOff + n * normalLen, colPosN);
 								debugList.AddArrow(pOff, pOff - n * (normalLen * 0.6f), colNegN);
@@ -120,7 +120,7 @@
 						{
 							const mathUtils::Vec3 pivot = scene.editorRotateGizmo.pivotWorld;
 							const float ringRadius = scene.editorRotateGizmo.ringRadiusWorld;
-
+						
 							auto RingColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
 								{
 									if (scene.editorRotateGizmo.activeAxis == axis)
@@ -133,12 +133,44 @@
 									}
 									return baseColor;
 								};
-
+						
 							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisYWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 64, true);
 							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 64, true);
 							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisYWorld, ringRadius, RingColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 64, true);
 						}
+						if (scene.editorGizmoMode == GizmoMode::Scale && scene.editorScaleGizmo.enabled && scene.editorScaleGizmo.visible)
+						{
+							const mathUtils::Vec3 pivot = scene.editorScaleGizmo.pivotWorld;
+							const float axisLen = scene.editorScaleGizmo.axisLengthWorld;
+							const float handleHalf = std::max(axisLen * 0.08f, 0.03f);
 
+							auto AxisColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
+								{
+									if (scene.editorScaleGizmo.activeAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 255, 255);
+									}
+									if (scene.editorScaleGizmo.hoveredAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 0, 255);
+									}
+									return baseColor;
+								};
+
+							auto AddScaleHandle = [&](GizmoAxis axis, const mathUtils::Vec3& dir, std::uint32_t baseColor)
+								{
+									const std::uint32_t color = AxisColor(axis, baseColor);
+									const mathUtils::Vec3 end = pivot + dir * axisLen;
+
+									debugList.AddLine(pivot, end, color, true);
+									debugList.AddAxesCross(end, handleHalf, color, true);
+								};
+
+							AddScaleHandle(GizmoAxis::X, scene.editorScaleGizmo.axisXWorld, debugDraw::PackRGBA8(255, 80, 80, 255));
+							AddScaleHandle(GizmoAxis::Y, scene.editorScaleGizmo.axisYWorld, debugDraw::PackRGBA8(80, 255, 80, 255));
+							AddScaleHandle(GizmoAxis::Z, scene.editorScaleGizmo.axisZWorld, debugDraw::PackRGBA8(80, 160, 255, 255));
+						}
+						
 						// Pick ray (from the editor UI) visualized in the main view via DebugDraw.
 						if (scene.debugPickRay.enabled)
 						{

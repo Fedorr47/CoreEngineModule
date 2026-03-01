@@ -249,6 +249,7 @@ namespace rendern::ui::level_ui_detail
             constexpr const char* kGizmoModes[] = { "None", "Translate", "Rotate", "Scale" };
             if (ImGui::Combo("Mode", &gizmoMode, kGizmoModes, IM_ARRAYSIZE(kGizmoModes)))
                 scene.editorGizmoMode = static_cast<rendern::GizmoMode>(gizmoMode);
+            ImGui::TextUnformatted("Hotkeys: Q = None, W = Translate, E = Rotate, R = Scale");
 
             ImGui::SeparatorText("Translate Gizmo");
             bool gizmoEnabled = scene.editorTranslateGizmo.enabled;
@@ -257,6 +258,8 @@ namespace rendern::ui::level_ui_detail
 
             ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport. Hold Shift to snap by 0.5.");
             ImGui::Text("Visible: %s", scene.editorTranslateGizmo.visible ? "Yes" : "No");
+            ImGui::Text("Hovered axis: %d", static_cast<int>(scene.editorTranslateGizmo.hoveredAxis));
+            ImGui::Text("Active axis: %d", static_cast<int>(scene.editorTranslateGizmo.activeAxis));
 
             ImGui::SeparatorText("Rotate Gizmo");
             bool rotateGizmoEnabled = scene.editorRotateGizmo.enabled;
@@ -267,6 +270,16 @@ namespace rendern::ui::level_ui_detail
             ImGui::Text("Visible: %s", scene.editorRotateGizmo.visible ? "Yes" : "No");
             ImGui::Text("Hovered axis: %d", static_cast<int>(scene.editorRotateGizmo.hoveredAxis));
             ImGui::Text("Active axis: %d", static_cast<int>(scene.editorRotateGizmo.activeAxis));
+
+            ImGui::SeparatorText("Scale Gizmo");
+            bool scaleGizmoEnabled = scene.editorScaleGizmo.enabled;
+            if (ImGui::Checkbox("Enable scale gizmo", &scaleGizmoEnabled))
+                scene.editorScaleGizmo.enabled = scaleGizmoEnabled;
+
+            ImGui::TextUnformatted("LMB drag local X/Y/Z scale handles in the main viewport. Hold Shift to snap by 0.1.");
+            ImGui::Text("Visible: %s", scene.editorScaleGizmo.visible ? "Yes" : "No");
+            ImGui::Text("Hovered axis: %d", static_cast<int>(scene.editorScaleGizmo.hoveredAxis));
+            ImGui::Text("Active axis: %d", static_cast<int>(scene.editorScaleGizmo.activeAxis));
 
             ImGui::Spacing();
 

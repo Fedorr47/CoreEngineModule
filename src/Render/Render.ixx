@@ -14,6 +14,7 @@ export import :camera_controller;
 export import :scene_bridge;
 export import :editor_gizmo;
 export import :editor_rotate_gizmo;
+export import :editor_scale_gizmo;
 export import :shader_system;
 export import :sync;
 export import :shader_files;
