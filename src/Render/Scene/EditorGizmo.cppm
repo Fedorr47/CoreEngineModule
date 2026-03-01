@@ -425,7 +425,8 @@ export namespace rendern
 			float mouseX,
 			float mouseY,
 			float viewportW,
-			float viewportH) noexcept
+			float viewportH,
+			bool snapEnabled) noexcept
 		{
 			if (!dragging_ || dragNodeIndex_ < 0 || !levelInst.IsNodeAlive(asset, dragNodeIndex_))
 			{
@@ -456,7 +457,16 @@ export namespace rendern
 			const mathUtils::Mat4 invParentWorld = mathUtils::Inverse(levelInst.GetParentWorldMatrix(asset, dragNodeIndex_));
 			const mathUtils::Vec3 localDelta = mathUtils::TransformVector(invParentWorld, worldDelta);
 
-			asset.nodes[static_cast<std::size_t>(dragNodeIndex_)].transform.position = dragStartLocalPosition_ + localDelta;
+			mathUtils::Vec3 newLocalPosition = dragStartLocalPosition_ + localDelta;
+			if (snapEnabled)
+			{
+				constexpr float kTranslateSnapStep = 0.5f;
+				newLocalPosition.x = std::round(newLocalPosition.x / kTranslateSnapStep) * kTranslateSnapStep;
+				newLocalPosition.y = std::round(newLocalPosition.y / kTranslateSnapStep) * kTranslateSnapStep;
+				newLocalPosition.z = std::round(newLocalPosition.z / kTranslateSnapStep) * kTranslateSnapStep;
+			}
+
+			asset.nodes[static_cast<std::size_t>(dragNodeIndex_)].transform.position = newLocalPosition;
 			scene.editorTranslateGizmo.hoveredAxis = dragAxis_;
 			return true;
 		}

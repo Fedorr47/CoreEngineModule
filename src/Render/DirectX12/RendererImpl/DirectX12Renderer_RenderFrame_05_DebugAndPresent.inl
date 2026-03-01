@@ -46,7 +46,7 @@
 							}
 						}
 						
-						if (scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
+						if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
 						{
 							const mathUtils::Vec3 pivot = scene.editorTranslateGizmo.pivotWorld;
 							const float axisLen = scene.editorTranslateGizmo.axisLengthWorld;
@@ -86,7 +86,7 @@
 							AddPlaneHandle(GizmoAxis::XZ, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(255, 80, 255, 255));
 							AddPlaneHandle(GizmoAxis::YZ, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(80, 255, 255, 255));
 						}
-
+						
 						if (settings_.drawPlanarMirrorNormals)
 						{
 							const std::uint32_t colPosN = debugDraw::PackRGBA8(80, 255, 120, 255);
@@ -116,6 +116,29 @@
 							}
 						}
 						
+						if (scene.editorGizmoMode == GizmoMode::Rotate && scene.editorRotateGizmo.enabled && scene.editorRotateGizmo.visible)
+						{
+							const mathUtils::Vec3 pivot = scene.editorRotateGizmo.pivotWorld;
+							const float ringRadius = scene.editorRotateGizmo.ringRadiusWorld;
+
+							auto RingColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
+								{
+									if (scene.editorRotateGizmo.activeAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 255, 255);
+									}
+									if (scene.editorRotateGizmo.hoveredAxis == axis)
+									{
+										return debugDraw::PackRGBA8(255, 255, 0, 255);
+									}
+									return baseColor;
+								};
+
+							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisYWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 64, true);
+							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 64, true);
+							debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisYWorld, ringRadius, RingColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 64, true);
+						}
+
 						// Pick ray (from the editor UI) visualized in the main view via DebugDraw.
 						if (scene.debugPickRay.enabled)
 						{

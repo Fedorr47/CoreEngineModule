@@ -244,13 +244,29 @@ namespace rendern::ui::level_ui_detail
             if (changed)
                 levelInst.MarkTransformsDirty();
 
+            ImGui::SeparatorText("Gizmo");
+            int gizmoMode = static_cast<int>(scene.editorGizmoMode);
+            constexpr const char* kGizmoModes[] = { "None", "Translate", "Rotate", "Scale" };
+            if (ImGui::Combo("Mode", &gizmoMode, kGizmoModes, IM_ARRAYSIZE(kGizmoModes)))
+                scene.editorGizmoMode = static_cast<rendern::GizmoMode>(gizmoMode);
+
             ImGui::SeparatorText("Translate Gizmo");
             bool gizmoEnabled = scene.editorTranslateGizmo.enabled;
             if (ImGui::Checkbox("Enable translate gizmo", &gizmoEnabled))
                 scene.editorTranslateGizmo.enabled = gizmoEnabled;
 
-            ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport.");
+            ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport. Hold Shift to snap by 0.5.");
             ImGui::Text("Visible: %s", scene.editorTranslateGizmo.visible ? "Yes" : "No");
+
+            ImGui::SeparatorText("Rotate Gizmo");
+            bool rotateGizmoEnabled = scene.editorRotateGizmo.enabled;
+            if (ImGui::Checkbox("Enable rotate gizmo", &rotateGizmoEnabled))
+                scene.editorRotateGizmo.enabled = rotateGizmoEnabled;
+
+            ImGui::TextUnformatted("LMB drag local X/Y/Z rotation rings in the main viewport. Hold Shift to snap by 15 degrees.");
+            ImGui::Text("Visible: %s", scene.editorRotateGizmo.visible ? "Yes" : "No");
+            ImGui::Text("Hovered axis: %d", static_cast<int>(scene.editorRotateGizmo.hoveredAxis));
+            ImGui::Text("Active axis: %d", static_cast<int>(scene.editorRotateGizmo.activeAxis));
 
             ImGui::Spacing();
 

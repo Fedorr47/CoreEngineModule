@@ -149,7 +149,7 @@ namespace
             break;
         }
         case WM_CLOSE:
-            #if defined(CORE_USE_DX12)
+#if defined(CORE_USE_DX12)
             if (g_debugWindow && hwnd == g_debugWindow->hwnd)
             {
                 ShowWindow(hwnd, SW_HIDE);
@@ -157,7 +157,7 @@ namespace
                 UpdateMainMenuDebugWindowCheck();
                 return 0;
             }
-            #endif
+#endif
 
             DestroyWindow(hwnd);
             return 0;
@@ -780,6 +780,7 @@ int main(int argc, char** argv)
         cameraController.ResetFromCamera(scene.camera);
 
         rendern::TranslateGizmoController translateGizmo{};
+        rendern::RotateGizmoController rotateGizmo{};
 
         // Timer
         GameTimer frameTimer{};
@@ -803,7 +804,7 @@ int main(int argc, char** argv)
                     swapChain->Resize(rhi::Extent2D{
                         static_cast<std::uint32_t>(window.pendingWidth),
                         static_cast<std::uint32_t>(window.pendingHeight)
-                    });
+                        });
                 }
             }
 
@@ -816,7 +817,7 @@ int main(int argc, char** argv)
                     debugSwapChain->Resize(rhi::Extent2D{
                         static_cast<std::uint32_t>(debugWindow.pendingWidth),
                         static_cast<std::uint32_t>(debugWindow.pendingHeight)
-                    });
+                        });
                 }
             }
 #endif
@@ -850,90 +851,162 @@ int main(int argc, char** argv)
             // Keep draw item transforms in sync even when the debug UI is closed.
             levelInstance.SyncTransformsIfDirty(levelAsset, scene);
 
-            translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+            if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
+            {
+                translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+                scene.editorRotateGizmo.visible = false;
+                scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorRotateGizmo.activeAxis = rendern::GizmoAxis::None;
+            }
+            else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
+            {
+                scene.editorTranslateGizmo.visible = false;
+                scene.editorTranslateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorTranslateGizmo.activeAxis = rendern::GizmoAxis::None;
+                rotateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+            }
+            else
+            {
+                scene.editorTranslateGizmo.visible = false;
+                scene.editorTranslateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorTranslateGizmo.activeAxis = rendern::GizmoAxis::None;
+                scene.editorRotateGizmo.visible = false;
+                scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
+                scene.editorRotateGizmo.activeAxis = rendern::GizmoAxis::None;
+            }
 
-            // Main viewport editor interaction priority:
-            // 1) active gizmo drag
-            // 2) gizmo hover / begin-drag
-            // 3) regular object picking
+            // Gizmo hover in MAIN viewport.
             {
                 const rendern::InputState& in = win32Input.State();
-                auto EndGizmoDrag = [&]() noexcept
+                if (in.hasFocus && !in.mouse.rmbDown && !in.capture.captureMouse)
+                {
+                    POINT pt{};
+                    if (GetCursorPos(&pt) && ScreenToClient(window.hwnd, &pt))
                     {
-                        if (translateGizmo.IsDragging())
+                        const int mx = pt.x;
+                        const int my = pt.y;
+                        if (mx >= 0 && my >= 0 && mx < window.width && my < window.height)
                         {
-                            translateGizmo.EndDrag(scene);
+                            if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
+                            {
+                                translateGizmo.UpdateHover(scene, static_cast<float>(mx), static_cast<float>(my), static_cast<float>(window.width), static_cast<float>(window.height));
+                                rotateGizmo.ClearHover(scene);
+                            }
+                            else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
+                            {
+                                rotateGizmo.UpdateHover(scene, static_cast<float>(mx), static_cast<float>(my), static_cast<float>(window.width), static_cast<float>(window.height));
+                                translateGizmo.ClearHover(scene);
+                            }
+                            else
+                            {
+                                translateGizmo.ClearHover(scene);
+                                rotateGizmo.ClearHover(scene);
+                            }
                         }
-                    };
-
-                POINT pt{};
-                const bool hasMouseClientPos = GetCursorPos(&pt) && ScreenToClient(window.hwnd, &pt);
-                const int mx = hasMouseClientPos ? pt.x : -1;
-                const int my = hasMouseClientPos ? pt.y : -1;
-                const bool mouseInMainViewport =
-                    hasMouseClientPos &&
-                    (mx >= 0) && (my >= 0) &&
-                    (mx < window.width) && (my < window.height);
-
-                if (!in.hasFocus || in.mouse.rmbDown || in.capture.captureMouse)
-                {
-                    translateGizmo.ClearHover(scene);
-                    EndGizmoDrag();
-                }
-                else if (translateGizmo.IsDragging())
-                {
-                    if (!in.KeyDown(VK_LBUTTON))
-                    {
-                        EndGizmoDrag();
+                        else
+                        {
+                            translateGizmo.ClearHover(scene);
+                            rotateGizmo.ClearHover(scene);
+                        }
                     }
-                    else if (mouseInMainViewport)
+                    else
                     {
-                        if (translateGizmo.UpdateDrag(
-                            levelAsset,
-                            levelInstance,
-                            scene,
-                            static_cast<float>(mx),
-                            static_cast<float>(my),
-                            static_cast<float>(window.width),
-                            static_cast<float>(window.height)))
-                        {
-                            levelInstance.MarkTransformsDirty();
-                            levelInstance.SyncTransformsIfDirty(levelAsset, scene);
-                            translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
-                        }
+                        translateGizmo.ClearHover(scene);
+                        rotateGizmo.ClearHover(scene);
                     }
                 }
                 else
                 {
-                    if (mouseInMainViewport)
+                    translateGizmo.ClearHover(scene);
+                    rotateGizmo.ClearHover(scene);
+                }
+            }
+
+            // Mouse picking / gizmo interaction in MAIN viewport.
+            {
+                const rendern::InputState& in = win32Input.State();
+                if (in.hasFocus && !in.mouse.rmbDown && !in.capture.captureMouse)
+                {
+                    POINT pt{};
+                    if (GetCursorPos(&pt) && ScreenToClient(window.hwnd, &pt))
                     {
-                        translateGizmo.UpdateHover(
-                            scene,
-                            static_cast<float>(mx),
-                            static_cast<float>(my),
-                            static_cast<float>(window.width),
-                            static_cast<float>(window.height));
+                        const int mx = pt.x;
+                        const int my = pt.y;
 
-                        if (in.KeyPressed(VK_LBUTTON))
+                        if (mx >= 0 && my >= 0 && mx < window.width && my < window.height)
                         {
-                            const bool gizmoConsumed = translateGizmo.TryBeginDrag(
-                                levelAsset,
-                                levelInstance,
-                                scene,
-                                static_cast<float>(mx),
-                                static_cast<float>(my),
-                                static_cast<float>(window.width),
-                                static_cast<float>(window.height));
+                            const float mouseX = static_cast<float>(mx);
+                            const float mouseY = static_cast<float>(my);
+                            const float viewportW = static_cast<float>(window.width);
+                            const float viewportH = static_cast<float>(window.height);
 
-                            if (!gizmoConsumed)
+                            bool gizmoConsumed = false;
+                            bool transformChanged = false;
+
+                            if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
+                            {
+                                if (translateGizmo.IsDragging())
+                                {
+                                    if (in.KeyDown(VK_LBUTTON))
+                                    {
+                                        transformChanged = translateGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH, in.shiftDown);
+                                        gizmoConsumed = true;
+                                    }
+                                    else
+                                    {
+                                        translateGizmo.EndDrag(scene);
+                                        gizmoConsumed = true;
+                                    }
+                                }
+                                else if (in.KeyPressed(VK_LBUTTON))
+                                {
+                                    gizmoConsumed = translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH);
+                                }
+                            }
+                            else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
+                            {
+                                if (rotateGizmo.IsDragging())
+                                {
+                                    if (in.KeyDown(VK_LBUTTON))
+                                    {
+                                        transformChanged = rotateGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH, in.shiftDown);
+                                        gizmoConsumed = true;
+                                    }
+                                    else
+                                    {
+                                        rotateGizmo.EndDrag(scene);
+                                        gizmoConsumed = true;
+                                    }
+                                }
+                                else if (in.KeyPressed(VK_LBUTTON))
+                                {
+                                    gizmoConsumed = rotateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseX, mouseY, viewportW, viewportH);
+                                }
+                            }
+
+                            if (transformChanged)
+                            {
+                                levelInstance.MarkTransformsDirty();
+                                levelInstance.SyncTransformsIfDirty(levelAsset, scene);
+                                if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
+                                {
+                                    translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+                                }
+                                else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
+                                {
+                                    rotateGizmo.SyncVisual(levelAsset, levelInstance, scene);
+                                }
+                            }
+
+                            if (!gizmoConsumed && in.KeyPressed(VK_LBUTTON))
                             {
                                 const rendern::PickResult pick = rendern::PickNodeUnderScreenPoint(
                                     scene,
                                     levelInstance,
-                                    static_cast<float>(mx),
-                                    static_cast<float>(my),
-                                    static_cast<float>(window.width),
-                                    static_cast<float>(window.height));
+                                    mouseX,
+                                    mouseY,
+                                    viewportW,
+                                    viewportH);
 
                                 scene.debugPickRay.enabled = true;
                                 scene.debugPickRay.origin = pick.rayOrigin;
@@ -951,15 +1024,22 @@ int main(int argc, char** argv)
                                     scene.editorSelectedNode = -1;
                                     scene.editorSelectedDrawItem = -1;
                                 }
-
-                                translateGizmo.SyncVisual(levelAsset, levelInstance, scene);
                             }
                         }
                         else
                         {
-                            translateGizmo.ClearHover(scene);
+                            if (!in.KeyDown(VK_LBUTTON))
+                            {
+                                translateGizmo.EndDrag(scene);
+                                rotateGizmo.EndDrag(scene);
+                            }
                         }
                     }
+                }
+                else if (!in.KeyDown(VK_LBUTTON))
+                {
+                    translateGizmo.EndDrag(scene);
+                    rotateGizmo.EndDrag(scene);
                 }
             }
 

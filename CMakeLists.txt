@@ -298,6 +298,7 @@ set(COMMON_MODULES
   Render/Scene/Scene.cppm
   Render/Scene/Level.cppm
   Render/Scene/EditorGizmo.cppm
+   Render/Scene/EditorRotateGizmo.cppm
 
   Render/Scene/Picking.cppm
   Render/Scene/Visibility.cppm

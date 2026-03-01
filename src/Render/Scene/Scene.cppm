@@ -102,6 +102,14 @@ export namespace rendern
 		YZ
 	};
 
+	enum class GizmoMode : std::uint8_t
+	{
+		None = 0,
+		Translate,
+		Rotate,
+		Scale
+	};
+
 	struct TranslateGizmoState
 	{
 		bool enabled{ true };
@@ -110,6 +118,19 @@ export namespace rendern
 		GizmoAxis activeAxis{ GizmoAxis::None };
 		mathUtils::Vec3 pivotWorld{ 0.0f, 0.0f, 0.0f };
 		float axisLengthWorld{ 1.0f };
+	};
+
+	struct RotateGizmoState
+	{
+		bool enabled{ true };
+		bool visible{ false };
+		GizmoAxis hoveredAxis{ GizmoAxis::None };
+		GizmoAxis activeAxis{ GizmoAxis::None };
+		mathUtils::Vec3 pivotWorld{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 axisXWorld{ 1.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 axisYWorld{ 0.0f, 1.0f, 0.0f };
+		mathUtils::Vec3 axisZWorld{ 0.0f, 0.0f, 1.0f };
+		float ringRadiusWorld{ 1.0f };
 	};
 
 	struct MaterialParams
@@ -150,12 +171,12 @@ export namespace rendern
 
 	enum class MaterialPerm : std::uint32_t
 	{
-		None			= 0,
-		UseTex			= 1u << 0,
-		UseShadow		= 1u << 1,
-		Skinning		= 1u << 2,
-		Transparent		= 1u << 3,
-		PlanarMirror	= 1u << 4
+		None = 0,
+		UseTex = 1u << 0,
+		UseShadow = 1u << 1,
+		Skinning = 1u << 2,
+		Transparent = 1u << 3,
+		PlanarMirror = 1u << 4
 	};
 
 	constexpr MaterialPerm operator|(MaterialPerm a, MaterialPerm b) noexcept
@@ -235,8 +256,14 @@ export namespace rendern
 		int editorReflectionCaptureOwnerNode{ -1 };
 		int editorReflectionCaptureOwnerDrawItem{ -1 };
 
+		// Active editor gizmo mode (runtime-only).
+		GizmoMode editorGizmoMode{ GizmoMode::Translate };
+
 		// Editor translate gizmo (runtime-only).
 		TranslateGizmoState editorTranslateGizmo{};
+
+		// Editor rotate gizmo (runtime-only).
+		RotateGizmoState editorRotateGizmo{};
 
 		void Clear()
 		{
@@ -248,7 +275,9 @@ export namespace rendern
 			editorSelectedDrawItem = -1;
 			editorReflectionCaptureOwnerNode = -1;
 			editorReflectionCaptureOwnerDrawItem = -1;
+			editorGizmoMode = GizmoMode::Translate;
 			editorTranslateGizmo = {};
+			editorRotateGizmo = {};
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)
