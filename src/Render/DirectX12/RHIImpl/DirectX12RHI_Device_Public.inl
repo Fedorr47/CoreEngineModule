@@ -1,0 +1,7 @@
+        #include "DirectX12RHI_Device_Public_Core.inl"
+        #include "DirectX12RHI_Device_Public_ShaderPipelineEx.inl"
+        #include "DirectX12RHI_Device_Public_Textures.inl"
+        #include "DirectX12RHI_Device_Public_Buffers.inl"
+        #include "DirectX12RHI_Device_Public_ShaderObjects.inl"
+        #include "DirectX12RHI_Device_Public_CommandSubmission.inl"
+        #include "DirectX12RHI_Device_Public_DescriptorsAndFences.inl"

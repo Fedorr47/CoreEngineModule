@@ -1,0 +1,5 @@
+#include "DirectX12RHI_Device_PrivateTypes.inl"
+#include "DirectX12RHI_Device_FrameUpload.inl"
+#include "DirectX12RHI_Device_RootSignature.inl"
+#include "DirectX12RHI_Device_Descriptors.inl"
+#include "DirectX12RHI_Device_CapabilitiesAndDxc.inl"
