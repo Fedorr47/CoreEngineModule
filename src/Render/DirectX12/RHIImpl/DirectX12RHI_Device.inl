@@ -2345,8 +2345,7 @@
                 cl.Get(),
                 dst.resource.Get(),
                 dst.state,
-                D3D12_RESOURCE_STATE_GENERIC_READ);
-
+                D3D12_RESOURCE_STATE_COPY_DEST);
 
             cl->CopyBufferRegion(
                 dst.resource.Get(),
@@ -2354,6 +2353,12 @@
                 upload.Get(),
                 0,
                 static_cast<UINT64>(data.size()));
+
+            TransitionResource(
+                cl.Get(),
+                dst.resource.Get(),
+                dst.state,
+                D3D12_RESOURCE_STATE_GENERIC_READ);
 
             ThrowIfFailed(cl->Close(), "DX12: ImmediateUploadBuffer - Close failed");
 
@@ -2394,7 +2399,7 @@
                     cmdList_.Get(),
                     dst.resource.Get(),
                     dst.state,
-                    D3D12_RESOURCE_STATE_GENERIC_READ);
+                    D3D12_RESOURCE_STATE_COPY_DEST);
 
                 cmdList_->CopyBufferRegion(
                     dst.resource.Get(),
@@ -2402,6 +2407,12 @@
                     fr.bufUpload.Get(),
                     static_cast<UINT64>(fr.bufCursor),
                     static_cast<UINT64>(size));
+
+                TransitionResource(
+                    cmdList_.Get(),
+                    dst.resource.Get(),
+                    dst.state,
+                    D3D12_RESOURCE_STATE_GENERIC_READ);
 
                 fr.bufCursor += aligned;
             }
