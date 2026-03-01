@@ -20,6 +20,7 @@ import :resource_manager;
 import :rhi;
 import :shader_files;
 import :file_system;
+import :hash_utils;
 
 export namespace rendern
 {
@@ -49,23 +50,18 @@ export namespace rendern
 
 	struct ShaderKeyHash
 	{
-		static void HashCombine(std::size_t& h, std::size_t v) noexcept
-		{
-			h ^= v + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
-		}
-
 		std::size_t operator()(const ShaderKey& key) const noexcept
 		{
 			std::size_t h = 0;
 
-			HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.stage)));
-			HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.shaderModel)));
-			HashCombine(h, std::hash<std::string>{}(key.name));
-			HashCombine(h, std::hash<std::string>{}(key.filePath));
+			hashUtils::HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.stage)));
+			hashUtils::HashCombine(h, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.shaderModel)));
+			hashUtils::HashCombine(h, std::hash<std::string>{}(key.name));
+			hashUtils::HashCombine(h, std::hash<std::string>{}(key.filePath));
 
 			for (const auto& def : key.defines)
 			{
-				HashCombine(h, std::hash<std::string>{}(def));
+				hashUtils::HashCombine(h, std::hash<std::string>{}(def));
 			}
 
 			return h;

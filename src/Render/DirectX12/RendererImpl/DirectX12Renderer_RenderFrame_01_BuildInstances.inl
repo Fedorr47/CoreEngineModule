@@ -130,7 +130,7 @@ if (buildLayeredPointShadow && !shadowBatches.empty())
 	}
 }
 
-std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> mainTmp;
+std::unordered_map<BatchKey, BatchTemp, hashUtils::BatchKeyHash, BatchKeyEq> mainTmp;
 mainTmp.reserve(scene.drawItems.size());
 
 std::vector<InstanceData> transparentInstances;
@@ -182,7 +182,7 @@ EnsureReflectionProbeResources(reflectiveOwnerDrawItems_.size());
 // NOTE: mainTmp is camera-culled (IsVisible), but reflection capture must NOT depend on the camera.
 // We therefore build an additional "no-cull" packing for reflection capture / cube atlas.
 const bool buildCaptureNoCull = settings_.enableReflectionCapture || settings_.ShowCubeAtlas || settings_.enablePlanarReflections;
-std::unordered_map<BatchKey, BatchTemp, BatchKeyHash, BatchKeyEq> captureTmp;
+std::unordered_map<BatchKey, BatchTemp, hashUtils::BatchKeyHash, BatchKeyEq> captureTmp;
 if (buildCaptureNoCull)
 {
 	captureTmp.reserve(scene.drawItems.size());
@@ -199,7 +199,7 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	const mathUtils::Mat4 model = item.transform.ToMatrix();
 	// Camera visibility is used only for MAIN/transparent lists.
 	// Reflection capture uses a separate no-cull packing (captureTmp).
-	const bool visibleInMain = IsVisible(item.mesh.get(), model);
+	const bool visibleInMain = IsVisible(item.mesh.get(), model, cameraFrustum, doFrustumCulling);
 
 	BatchKey key{};
 	key.mesh = mesh;

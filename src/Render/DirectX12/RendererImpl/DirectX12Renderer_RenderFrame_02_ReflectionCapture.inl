@@ -32,11 +32,6 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 		device_.SupportsShaderModel6() &&
 		device_.SupportsViewInstancing();
 
-	auto FaceView = [](const mathUtils::Vec3& pos, int face) noexcept -> mathUtils::Mat4
-	{
-		return CubeFaceViewRH(pos, face);
-	};
-
 	const float nearZ = std::max(0.001f, settings_.reflectionCaptureNearZ);
 	const float farZ = std::max(nearZ + 0.01f, settings_.reflectionCaptureFarZ);
 	const mathUtils::Mat4 proj90 = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(90.0f), 1.0f, nearZ, farZ);
@@ -155,7 +150,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 				att.depth = depthTmp;
 				att.clearDesc = clearColorDepth;
 
-				mathUtils::Mat4 view = FaceView(probe.capturePos, face);
+				mathUtils::Mat4 view = CubeFaceViewRH(probe.capturePos, face);
 				view[3] = mathUtils::Vec4(0, 0, 0, 1);
 
 				const mathUtils::Mat4 viewProjSkybox = proj90 * view;
@@ -199,7 +194,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 			ReflectionCaptureConstants base{};
 			for (int face = 0; face < 6; ++face)
 			{
-				const mathUtils::Mat4 vp = proj90 * FaceView(probe.capturePos, face);
+				const mathUtils::Mat4 vp = proj90 * CubeFaceViewRH(probe.capturePos, face);
 				const mathUtils::Mat4 vpT = mathUtils::Transpose(vp);
 				std::memcpy(base.uFaceViewProj.data() + face * 16, mathUtils::ValuePtr(vpT), sizeof(float) * 16);
 			}
@@ -258,7 +253,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 			ReflectionCaptureConstants base{};
 			for (int face = 0; face < 6; ++face)
 			{
-				const mathUtils::Mat4 vp = proj90 * FaceView(probe.capturePos, face);
+				const mathUtils::Mat4 vp = proj90 * CubeFaceViewRH(probe.capturePos, face);
 				const mathUtils::Mat4 vpT = mathUtils::Transpose(vp);
 				std::memcpy(base.uFaceViewProj.data() + face * 16, mathUtils::ValuePtr(vpT), sizeof(float) * 16);
 			}
@@ -316,7 +311,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 				att.depth = depthTmp;
 				att.clearDesc = meshClear;
 
-				const mathUtils::Mat4 view = FaceView(probe.capturePos, face);
+				const mathUtils::Mat4 view = CubeFaceViewRH(probe.capturePos, face);
 				const mathUtils::Mat4 vp = proj90 * view;
 				const mathUtils::Mat4 vpT = mathUtils::Transpose(vp);
 

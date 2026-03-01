@@ -78,7 +78,7 @@ export namespace rendern
 		MeshRHI outMeshRHI;
 		outMeshRHI.vertexStrideBytes = strideVDBytes;
 		outMeshRHI.indexCount = static_cast<std::uint32_t>(cpu.indices.size());
-		
+
 		outMeshRHI.layout = CreateVertexDescLayout(device, debugName);
 		if (device.GetBackend() == rhi::Backend::DirectX12)
 		{

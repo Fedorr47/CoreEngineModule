@@ -7,6 +7,7 @@ export import :render_bindless;
 export import :render_gpu_memory;
 export import :render_renderer;
 export import :scene;
+export import :visibility;
 export import :level;
 export import :picking;
 export import :camera_controller;

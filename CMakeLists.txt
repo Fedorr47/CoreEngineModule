@@ -268,6 +268,8 @@ set(COMMON_MODULES
   Core/Math/MathUtils.cppm
   Core/Math/Geometry.cppm
 
+  Core/Hash/HashUtils.cppm
+
   Input/Input.cppm
   Input/InputCore.cppm
   Input/ControllerBase.cppm
@@ -298,6 +300,7 @@ set(COMMON_MODULES
   Render/Scene/EditorGizmo.cppm
 
   Render/Scene/Picking.cppm
+  Render/Scene/Visibility.cppm
 
   Render/Scene/CameraController.cppm
 
@@ -328,6 +331,7 @@ set(DX12_MODULES
   Render/DirectX12/DirectX12Renderer.cppm
   Render/DirectX12/DebugDrawRendererDX12.cppm
   Render/DirectX12/DirectX12TextureUploader.cppm
+  Render/DirectX12/CommonDX12Structs.cppm
   Render/ImGui/ImGuiDebugUI.cppm
 )
 

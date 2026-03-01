@@ -173,11 +173,6 @@
 					rec.lightIndex = lightIndex;
 					pointShadows.push_back(rec);
 
-					auto FaceView = [](const mathUtils::Vec3& pos, int face) noexcept -> mathUtils::Mat4
-						{
-							return CubeFaceViewRH(pos, face);
-						};
-
 					const float pointNearZ = 0.01f;
 					const mathUtils::Mat4 proj90 = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(90.0f), 1.0f, pointNearZ, rec.range);
 
@@ -212,7 +207,7 @@
 
 						for (int face = 0; face < 6; ++face)
 						{
-							const mathUtils::Mat4 faceViewProj = proj90 * FaceView(rec.pos, face);
+							const mathUtils::Mat4 faceViewProj = proj90 * CubeFaceViewRH(rec.pos, face);
 							const mathUtils::Mat4 faceViewProjTranspose = mathUtils::Transpose(faceViewProj);
 							std::memcpy(pointShadowConstants.uFaceViewProj.data() + (face * 16),
 								mathUtils::ValuePtr(faceViewProjTranspose), sizeof(float) * 16);
@@ -264,7 +259,7 @@
 						PointShadowVIConstants pointShadowConstants{};
 						for (int face = 0; face < 6; ++face)
 						{
-							const mathUtils::Mat4 faceViewProj = proj90 * FaceView(rec.pos, face);
+							const mathUtils::Mat4 faceViewProj = proj90 * CubeFaceViewRH(rec.pos, face);
 							const mathUtils::Mat4 faceViewProjTranspose = mathUtils::Transpose(faceViewProj);
 							std::memcpy(pointShadowConstants.uFaceViewProj.data() + (face * 16),
 								mathUtils::ValuePtr(faceViewProjTranspose), sizeof(float) * 16);
@@ -293,7 +288,7 @@
 						// Fallback: 6 passes (one cubemap face per pass).
 						for (int face = 0; face < 6; ++face)
 						{
-							const mathUtils::Mat4 faceViewProj = proj90 * FaceView(rec.pos, face);
+							const mathUtils::Mat4 faceViewProj = proj90 * CubeFaceViewRH(rec.pos, face);
 
 							rhi::ClearDesc clear{};
 							clear.clearColor = true;

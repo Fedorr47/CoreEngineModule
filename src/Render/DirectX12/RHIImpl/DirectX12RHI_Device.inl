@@ -2949,13 +2949,6 @@
         using DxcCreateInstanceProc = HRESULT(WINAPI*)(REFCLSID, REFIID, LPVOID*);
 #endif
 
-        template <D3D12_PIPELINE_STATE_SUBOBJECT_TYPE Type, typename T>
-        struct alignas(void*) PSOSubobject
-        {
-            D3D12_PIPELINE_STATE_SUBOBJECT_TYPE type{ Type };
-            T data{};
-        };
-
         static std::wstring ToWide_(std::string_view s)
         {
             if (s.empty())

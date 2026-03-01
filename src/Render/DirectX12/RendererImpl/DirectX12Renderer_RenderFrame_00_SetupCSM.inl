@@ -52,33 +52,6 @@
 			const mathUtils::Frustum cameraFrustum = mathUtils::ExtractFrustumRH_ZO(cameraViewProj);
 			const bool doFrustumCulling = settings_.enableFrustumCulling;
 
-			auto IsVisible = [&](const rendern::MeshResource* meshRes, const mathUtils::Mat4& model) -> bool
-				{
-					if (!doFrustumCulling || !meshRes)
-					{
-						return true;
-					}
-					const auto& b = meshRes->GetBounds();
-					if (b.sphereRadius <= 0.0f)
-					{
-						return true;
-					}
-
-					const mathUtils::Vec4 wc4 = model * mathUtils::Vec4(b.sphereCenter, 1.0f);
-					const mathUtils::Vec3 worldCenter{ wc4.x, wc4.y, wc4.z };
-
-					const mathUtils::Vec3 c0{ model[0].x, model[0].y, model[0].z };
-					const mathUtils::Vec3 c1{ model[1].x, model[1].y, model[1].z };
-					const mathUtils::Vec3 c2{ model[2].x, model[2].y, model[2].z };
-					const float s0 = mathUtils::Length(c0);
-					const float s1 = mathUtils::Length(c1);
-					const float s2 = mathUtils::Length(c2);
-					const float maxScale = std::max(s0, std::max(s1, s2));
-					const float worldRadius = b.sphereRadius * maxScale;
-
-					return mathUtils::IntersectsSphere(cameraFrustum, worldCenter, worldRadius);
-				};
-
 			// Limit how far we render directional shadows to keep resolution usable.
 			const float shadowFar = std::min(scene.camera.farZ, settings_.dirShadowDistance);
 			const float shadowNear = std::max(scene.camera.nearZ, 0.05f);
