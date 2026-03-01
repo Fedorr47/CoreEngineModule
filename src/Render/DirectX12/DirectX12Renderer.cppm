@@ -46,9 +46,6 @@ import :common_DX12_Structs;
 
 export namespace rendern
 {
-
-	
-
 	// Cubemap capture face conventions.
 	// Face order is D3D cube array order: +X, -X, +Y, -Y, +Z, -Z (slices 0..5).
 	// This must stay consistent across point shadows and reflection captures.

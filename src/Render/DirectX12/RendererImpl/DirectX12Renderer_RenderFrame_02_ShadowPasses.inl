@@ -14,13 +14,8 @@
 				att.depth = shadowRG;
 				att.clearDesc = clear;
 
-				// Pre-pack constants once (per pass)
-				struct alignas(16) ShadowPassConstants
-				{
-					std::array<float, 16> uLightViewProj{};
-				};
+				SingleMatrixPassConstants shadowPassConstants{};
 
-				ShadowPassConstants shadowPassConstants{};
 				const mathUtils::Mat4 vpT = mathUtils::Transpose(dirCascadeVP[cascade]);
 				std::memcpy(shadowPassConstants.uLightViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
 
@@ -97,12 +92,7 @@
 
 					const std::string passName = "SpotShadowPass_" + std::to_string(static_cast<int>(spotShadows.size() - 1));
 
-					// Pre-pack constants once (per pass)
-					struct alignas(16) SpotPassConstants
-					{
-						std::array<float, 16> uLightViewProj{};
-					};
-					SpotPassConstants spotPassConstants{};
+					SingleMatrixPassConstants spotPassConstants{};
 					const mathUtils::Mat4 lightViewProjTranspose = mathUtils::Transpose(lightViewProj);
 					std::memcpy(spotPassConstants.uLightViewProj.data(), mathUtils::ValuePtr(lightViewProjTranspose), sizeof(float) * 16);
 
@@ -195,15 +185,7 @@
 						const std::string passName =
 							"PointShadowPassLayered_" + std::to_string(static_cast<int>(pointShadows.size() - 1));
 
-						struct alignas(16) PointShadowLayeredConstants
-						{
-							// 6 matrices as ROWS (transposed on CPU).
-							std::array<float, 16 * 6> uFaceViewProj{};
-							std::array<float, 4>      uLightPosRange{}; // xyz + range
-							std::array<float, 4>      uMisc{};          // unused (bias is texel-based in main shader)
-						};
-
-						PointShadowLayeredConstants pointShadowConstants{};
+						PointShadowCubeConstants pointShadowConstants{};
 
 						for (int face = 0; face < 6; ++face)
 						{
@@ -248,15 +230,8 @@
 						const std::string passName =
 							"PointShadowPassVI_" + std::to_string(static_cast<int>(pointShadows.size() - 1));
 
-						struct alignas(16) PointShadowVIConstants
-						{
-							// 6 matrices as ROWS (transposed on CPU).
-							std::array<float, 16 * 6> uFaceViewProj{};
-							std::array<float, 4>      uLightPosRange{}; // xyz + range
-							std::array<float, 4>      uMisc{};          // unused (bias is texel-based in main shader)
-						};
+						PointShadowCubeConstants pointShadowConstants{};
 
-						PointShadowVIConstants pointShadowConstants{};
 						for (int face = 0; face < 6; ++face)
 						{
 							const mathUtils::Mat4 faceViewProj = proj90 * CubeFaceViewRH(rec.pos, face);
@@ -308,14 +283,8 @@
 								"PointShadowPass_" + std::to_string(static_cast<int>(pointShadows.size() - 1)) +
 								"_F" + std::to_string(face);
 
-							struct alignas(16) PointShadowConstants
-							{
-								std::array<float, 16> uFaceViewProj{};
-								std::array<float, 4>  uLightPosRange{}; // xyz + range
-								std::array<float, 4>  uMisc{};          // unused (bias is texel-based in main shader)
-							};
+							PointShadowFaceConstants pointShadowConstants{};
 
-							PointShadowConstants pointShadowConstants{};
 							const mathUtils::Mat4 faceViewProjTranspose = mathUtils::Transpose(faceViewProj);
 							std::memcpy(pointShadowConstants.uFaceViewProj.data(), mathUtils::ValuePtr(faceViewProjTranspose), sizeof(float) * 16);
 							pointShadowConstants.uLightPosRange = { rec.pos.x, rec.pos.y, rec.pos.z, rec.range };

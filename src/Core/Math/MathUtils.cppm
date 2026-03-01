@@ -503,4 +503,59 @@ export namespace mathUtils
 	{
 		return { std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z) };
 	}
+
+	auto MakeReflectionMatrix = [](const mathUtils::Vec3& nIn, float d) noexcept -> mathUtils::Mat4
+		{
+			mathUtils::Vec3 n = nIn;
+			if (mathUtils::Length(n) < 1e-6f)
+			{
+				return mathUtils::Mat4(1.0f);
+			}
+			n = mathUtils::Normalize(n);
+			const float nx = n.x;
+			const float ny = n.y;
+			const float nz = n.z;
+
+			mathUtils::Mat4 R(1.0f);
+			R(0, 0) = 1.0f - 2.0f * nx * nx;
+			R(0, 1) = -2.0f * nx * ny;
+			R(0, 2) = -2.0f * nx * nz;
+			R(0, 3) = -2.0f * d * nx;
+
+			R(1, 0) = -2.0f * ny * nx;
+			R(1, 1) = 1.0f - 2.0f * ny * ny;
+			R(1, 2) = -2.0f * ny * nz;
+			R(1, 3) = -2.0f * d * ny;
+
+			R(2, 0) = -2.0f * nz * nx;
+			R(2, 1) = -2.0f * nz * ny;
+			R(2, 2) = 1.0f - 2.0f * nz * nz;
+			R(2, 3) = -2.0f * d * nz;
+
+			R(3, 0) = 0.0f;
+			R(3, 1) = 0.0f;
+			R(3, 2) = 0.0f;
+			R(3, 3) = 1.0f;
+			return R;
+		};
+
+	std::pair<Vec3, float> CanonicalizePlane(Vec3 n, const Vec3& point) noexcept
+	{
+		n = Normalize(n);
+		float d = -Dot(n, point);
+		return { n, d }; // n·x + d = 0
+	}
+
+	Vec3 ReflectPoint(const Vec3& p, const Vec3& n, float d) noexcept
+	{
+		// p' = p - 2 * (n·p + d) * n
+		const float dist = Dot(n, p) + d;
+		return p - n * (2.0f * dist);
+	}
+
+	Vec3 ReflectVector(const Vec3& v, const Vec3& n) noexcept
+	{
+		// v' = v - 2 * (n·v) * n
+		return v - n * (2.0f * Dot(n, v));
+	}
 }

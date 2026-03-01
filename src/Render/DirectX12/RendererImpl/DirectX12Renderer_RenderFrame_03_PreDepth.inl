@@ -33,11 +33,7 @@
 						const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
 						const mathUtils::Mat4 viewProj = proj * view;
 
-						struct alignas(16) PreDepthConstants
-						{
-							std::array<float, 16> uLightViewProj{};
-						};
-						PreDepthConstants c{};
+						SingleMatrixPassConstants c{};
 						const mathUtils::Mat4 vpT = mathUtils::Transpose(viewProj);
 						std::memcpy(c.uLightViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));

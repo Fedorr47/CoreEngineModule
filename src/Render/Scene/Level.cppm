@@ -402,6 +402,39 @@ namespace
 		return out;
 	}
 
+	std::string ToLowerAscii(std::string s)
+	{
+		for (char& c : s)
+		{
+			if (c >= 'A' && c <= 'Z')
+			{
+				c = static_cast<char>(c - 'A' + 'a');
+			}
+		}
+		return s;
+	}
+
+	rendern::EnvSource ParseEnvSourceOrThrow(const JsonValue& v, std::string_view materialId)
+	{
+		if (!v.IsString())
+		{
+			throw std::runtime_error("Level JSON: materials." + std::string(materialId) + ".envSource must be a string");
+		}
+
+		const std::string s = ToLowerAscii(v.AsString());
+		if (s == "skybox")
+		{
+			return rendern::EnvSource::Skybox;
+		}
+		if (s == "reflectioncapture" || s == "reflection_capture" || s == "capture")
+		{
+			return rendern::EnvSource::ReflectionCapture;
+		}
+
+		throw std::runtime_error(
+			"Level JSON: materials." + std::string(materialId) + ".envSource must be skybox|reflectionCapture");
+	}
+
 	rendern::MaterialPerm ParsePermFlags(const JsonValue& v)
 	{
 		if (!v.IsArray())
@@ -409,18 +442,6 @@ namespace
 			throw std::runtime_error("Level JSON: material.flags must be array");
 		}
 		rendern::MaterialPerm flags = rendern::MaterialPerm::None;
-
-		auto ToLowerAscii = [](std::string s)
-		{
-			for (char& c : s)
-			{
-				if (c >= 'A' && c <= 'Z')
-				{
-					c = static_cast<char>(c - 'A' + 'a');
-				}
-			}
-			return s;
-		};
 
 		for (const auto& it : v.AsArray())
 		{
@@ -456,6 +477,95 @@ namespace
 			}
 		}
 		return m;
+	}
+
+	void WriteJsonEscaped(std::ostream& os, std::string_view s)
+	{
+		os << '"';
+		for (char c : s)
+		{
+			switch (c)
+			{
+			case '"':  os << "\\\""; break;
+			case '\\': os << "\\\\"; break;
+			case '\b': os << "\\b";  break;
+			case '\f': os << "\\f";  break;
+			case '\n': os << "\\n";  break;
+			case '\r': os << "\\r";  break;
+			case '\t': os << "\\t";  break;
+			default:
+				if (static_cast<unsigned char>(c) < 0x20)
+				{
+					static const char* hex = "0123456789ABCDEF";
+					os << "\\u00" << hex[(c >> 4) & 0xF] << hex[c & 0xF];
+				}
+				else
+				{
+					os << c;
+				}
+				break;
+			}
+		}
+		os << '"';
+	}
+
+	void WriteJsonBool(std::ostream& os, bool v)
+	{
+		os << (v ? "true" : "false");
+	}
+
+	void WriteJsonFloat(std::ostream& os, float v)
+	{
+		os << (std::isfinite(v) ? v : 0.0f);
+	}
+
+	void WriteJsonVec3(std::ostream& os, const mathUtils::Vec3& v)
+	{
+		os << '[';
+		WriteJsonFloat(os, v.x); os << ',';
+		WriteJsonFloat(os, v.y); os << ',';
+		WriteJsonFloat(os, v.z);
+		os << ']';
+	}
+
+	void WriteJsonVec4(std::ostream& os, const mathUtils::Vec4& v)
+	{
+		os << '[';
+		WriteJsonFloat(os, v.x); os << ',';
+		WriteJsonFloat(os, v.y); os << ',';
+		WriteJsonFloat(os, v.z); os << ',';
+		WriteJsonFloat(os, v.w);
+		os << ']';
+	}
+
+	void WriteJsonMat4ColMajor16(std::ostream& os, const mathUtils::Mat4& m)
+	{
+		os << '[';
+		for (int col = 0; col < 4; ++col)
+		{
+			for (int row = 0; row < 4; ++row)
+			{
+				if (col != 0 || row != 0)
+				{
+					os << ',';
+				}
+				WriteJsonFloat(os, m[col][row]);
+			}
+		}
+		os << ']';
+	}
+
+	template <typename TMap>
+	std::vector<std::string> SortedStringKeys(const TMap& umap)
+	{
+		std::vector<std::string> keys;
+		keys.reserve(umap.size());
+		for (const auto& [k, _] : umap)
+		{
+			keys.push_back(k);
+		}
+		std::sort(keys.begin(), keys.end());
+		return keys;
 	}
 }
 
@@ -565,41 +675,11 @@ export namespace rendern
 		{
 			ResourceManager& rm = assets.GetResourceManager();
 
-			auto tryGetTextureHandle = [&rm](const std::string& id) -> rhi::TextureHandle
-			{
-				if (auto texRes = rm.Get<TextureResource>(id))
-				{
-					const auto& gpu = texRes->GetResource();
-					if (gpu.id != 0)
-					{
-						return rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
-					}
-				}
-				return {};
-			};
-
-			auto getOrCreateDesc = [&](const std::string& textureId) -> rhi::TextureDescIndex
-			{
-				if (auto it = textureDesc_.find(textureId); it != textureDesc_.end())
-				{
-					return it->second;
-				}
-
-				rhi::TextureHandle handle = tryGetTextureHandle(textureId);
-				if (!handle)
-				{
-					return 0;
-				}
-
-				rhi::TextureDescIndex index = bindless.RegisterTexture(handle);
-				textureDesc_.emplace(textureId, index);
-				return index;
-			};
 
 			// Materials
 			for (auto& pb : pendingBindings_)
 			{
-				rhi::TextureDescIndex idx = getOrCreateDesc(pb.textureId);
+				rhi::TextureDescIndex idx = GetOrCreateTextureDesc_(rm, bindless, pb.textureId);
 				if (idx == 0)
 				{
 					continue;
@@ -620,7 +700,7 @@ export namespace rendern
 			// Skybox
 			if (skyboxTextureId_)
 			{
-				rhi::TextureDescIndex idx = getOrCreateDesc(*skyboxTextureId_);
+				rhi::TextureDescIndex idx = GetOrCreateTextureDesc_(rm, bindless, *skyboxTextureId_);
 				if (idx != 0)
 				{
 					scene.skyboxDescIndex = idx;
@@ -925,6 +1005,42 @@ export namespace rendern
 
 	private:
 		friend LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable& bindless, const LevelAsset& asset, const mathUtils::Mat4& root);
+
+		rhi::TextureHandle TryGetTextureHandle_(ResourceManager& rm, std::string_view id) const noexcept
+		{
+			if (auto texRes = rm.Get<TextureResource>(id))
+			{
+				const auto& gpu = texRes->GetResource();
+				if (gpu.id != 0)
+				{
+					return rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
+				}
+			}
+			return {};
+		}
+
+		rhi::TextureDescIndex GetOrCreateTextureDesc_(
+			ResourceManager& rm,
+			BindlessTable& bindless,
+			std::string_view textureId)
+		{
+			const std::string key{ textureId };
+
+			if (auto it = textureDesc_.find(key); it != textureDesc_.end())
+			{
+				return it->second;
+			}
+
+			const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
+			if (!handle)
+			{
+				return 0;
+			}
+
+			const rhi::TextureDescIndex index = bindless.RegisterTexture(handle);
+			textureDesc_.emplace(key, index);
+			return index;
+		}
 
 		MaterialHandle GetMaterialHandle_(std::string_view materialId) const noexcept
 		{
@@ -1336,27 +1452,13 @@ export namespace rendern
 					def.material.permFlags = ParsePermFlags(*flagsV);
 				}
 
-				// Optional: which environment cubemap source the material wants.
-				auto parseEnvSource = [&](const JsonValue& v)
-				{
-					if (!v.IsString())
-					{
-						throw std::runtime_error("Level JSON: materials." + id + ".envSource must be a string");
-					}
-					std::string s = v.AsString();
-					for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-					if (s == "skybox") def.material.envSource = EnvSource::Skybox;
-					else if (s == "reflectioncapture" || s == "reflection_capture" || s == "capture") def.material.envSource = EnvSource::ReflectionCapture;
-					else throw std::runtime_error("Level JSON: materials." + id + ".envSource must be skybox|reflectionCapture");
-				};
-
 				if (auto* envV = TryGet(md, "envSource"))
 				{
-					parseEnvSource(*envV);
+					def.material.envSource = ParseEnvSourceOrThrow(*envV, id);
 				}
 				else if (auto* envV2 = TryGet(md, "env"))
 				{
-					parseEnvSource(*envV2);
+					def.material.envSource = ParseEnvSourceOrThrow(*envV2, id);
 				}
 
 				if (auto* texBindV = TryGet(md, "textures"))
@@ -1706,74 +1808,6 @@ export namespace rendern
 	{
 		namespace fs = std::filesystem;
 
-		auto writeEscaped = [](std::ostream& os, std::string_view s)
-		{
-			os << '"';
-			for (char c : s)
-			{
-				switch (c)
-				{
-				case '"': os << "\\\""; break;
-				case '\\': os << "\\\\"; break;
-				case '\b': os << "\\b"; break;
-				case '\f': os << "\\f"; break;
-				case '\n': os << "\\n"; break;
-				case '\r': os << "\\r"; break;
-				case '\t': os << "\\t"; break;
-				default:
-					if (static_cast<unsigned char>(c) < 0x20)
-					{
-						// Control chars -> \u00XX
-						static const char* hex = "0123456789ABCDEF";
-						os << "\\u00" << hex[(c >> 4) & 0xF] << hex[c & 0xF];
-					}
-					else
-					{
-						os << c;
-					}
-					break;
-				}
-			}
-			os << '"';
-		};
-
-		auto writeBool = [](std::ostream& os, bool v) { os << (v ? "true" : "false"); };
-		auto writeFloat = [](std::ostream& os, float v)
-		{
-			if (std::isfinite(v)) os << v; else os << 0.0f;
-		};
-
-		auto writeVec3 = [&](std::ostream& os, const mathUtils::Vec3& v)
-		{
-			os << '['; writeFloat(os, v.x); os << ','; writeFloat(os, v.y); os << ','; writeFloat(os, v.z); os << ']';
-		};
-		auto writeVec4 = [&](std::ostream& os, const mathUtils::Vec4& v)
-		{
-			os << '['; writeFloat(os, v.x); os << ','; writeFloat(os, v.y); os << ','; writeFloat(os, v.z); os << ','; writeFloat(os, v.w); os << ']';
-		};
-		auto writeMat4ColMajor16 = [&](std::ostream& os, const mathUtils::Mat4& m)
-		{
-			os << '[';
-			for (int col = 0; col < 4; ++col)
-			{
-				for (int row = 0; row < 4; ++row)
-				{
-					if (col != 0 || row != 0) os << ',';
-					writeFloat(os, m[col][row]);
-				}
-			}
-			os << ']';
-		};
-
-		auto sortedKeys = [](const auto& umap)
-		{
-			std::vector<std::string> keys;
-			keys.reserve(umap.size());
-			for (const auto& [k, _] : umap) keys.push_back(k);
-			std::sort(keys.begin(), keys.end());
-			return keys;
-		};
-
 		// --- alive-only node remap (indices in JSON are dense) ---
 		std::vector<int> oldToNew(level.nodes.size(), -1);
 		std::vector<int> newToOld;
@@ -1800,21 +1834,21 @@ export namespace rendern
 		ss << std::setprecision(6);
 
 		ss << "{\n";
-		ss << "  \"name\": "; writeEscaped(ss, level.name); ss << ",\n";
+		ss << "  \"name\": "; WriteJsonEscaped(ss, level.name); ss << ",\n";
 
 		// meshes
 		ss << "  \"meshes\": {";
 		{
-			auto keys = sortedKeys(level.meshes);
+			auto keys = SortedStringKeys(level.meshes);
 			for (std::size_t i = 0; i < keys.size(); ++i)
 			{
 				const auto& id = keys[i];
 				const LevelMeshDef& md = level.meshes.at(id);
 				if (i == 0) ss << "\n"; else ss << ",\n";
-				ss << "    "; writeEscaped(ss, id); ss << ": {\"path\": "; writeEscaped(ss, md.path);
+				ss << "    "; WriteJsonEscaped(ss, id); ss << ": {\"path\": "; WriteJsonEscaped(ss, md.path);
 				if (!md.debugName.empty())
 				{
-					ss << ", \"debugName\": "; writeEscaped(ss, md.debugName);
+					ss << ", \"debugName\": "; WriteJsonEscaped(ss, md.debugName);
 				}
 				ss << "}";
 			}
@@ -1825,49 +1859,49 @@ export namespace rendern
 		// textures
 		ss << "  \"textures\": {";
 		{
-			auto keys = sortedKeys(level.textures);
+			auto keys = SortedStringKeys(level.textures);
 			for (std::size_t i = 0; i < keys.size(); ++i)
 			{
 				const auto& id = keys[i];
 				const LevelTextureDef& td = level.textures.at(id);
 				if (i == 0) ss << "\n"; else ss << ",\n";
-				ss << "    "; writeEscaped(ss, id); ss << ": {";
+				ss << "    "; WriteJsonEscaped(ss, id); ss << ": {";
 				if (td.kind == LevelTextureKind::Tex2D)
 				{
-					ss << "\"kind\": \"tex2d\", \"path\": "; writeEscaped(ss, td.props.filePath);
-					ss << ", \"srgb\": "; writeBool(ss, td.props.srgb);
-					ss << ", \"mips\": "; writeBool(ss, td.props.generateMips);
-					ss << ", \"flipY\": "; writeBool(ss, td.props.flipY);
+					ss << "\"kind\": \"tex2d\", \"path\": "; WriteJsonEscaped(ss, td.props.filePath);
+					ss << ", \"srgb\": "; WriteJsonBool(ss, td.props.srgb);
+					ss << ", \"mips\": "; WriteJsonBool(ss, td.props.generateMips);
+					ss << ", \"flipY\": "; WriteJsonBool(ss, td.props.flipY);
 				}
 				else
 				{
 					ss << "\"kind\": \"cube\"";
 					if (td.cubeSource == LevelCubeSource::Cross)
 					{
-						ss << ", \"source\": \"cross\", \"cross\": "; writeEscaped(ss, td.props.filePath);
+						ss << ", \"source\": \"cross\", \"cross\": "; WriteJsonEscaped(ss, td.props.filePath);
 					}
 					else if (td.cubeSource == LevelCubeSource::AutoFaces)
 					{
-						ss << ", \"source\": \"auto\", \"baseOrDir\": "; writeEscaped(ss, td.baseOrDir);
+						ss << ", \"source\": \"auto\", \"baseOrDir\": "; WriteJsonEscaped(ss, td.baseOrDir);
 						if (!td.preferBase.empty())
 						{
-							ss << ", \"preferBase\": "; writeEscaped(ss, td.preferBase);
+							ss << ", \"preferBase\": "; WriteJsonEscaped(ss, td.preferBase);
 						}
 					}
 					else // Faces
 					{
 						ss << ", \"source\": \"faces\", \"faces\": {";
-						ss << "\"px\": "; writeEscaped(ss, td.facePaths[0]);
-						ss << ", \"nx\": "; writeEscaped(ss, td.facePaths[1]);
-						ss << ", \"py\": "; writeEscaped(ss, td.facePaths[2]);
-						ss << ", \"ny\": "; writeEscaped(ss, td.facePaths[3]);
-						ss << ", \"pz\": "; writeEscaped(ss, td.facePaths[4]);
-						ss << ", \"nz\": "; writeEscaped(ss, td.facePaths[5]);
+						ss << "\"px\": "; WriteJsonEscaped(ss, td.facePaths[0]);
+						ss << ", \"nx\": "; WriteJsonEscaped(ss, td.facePaths[1]);
+						ss << ", \"py\": "; WriteJsonEscaped(ss, td.facePaths[2]);
+						ss << ", \"ny\": "; WriteJsonEscaped(ss, td.facePaths[3]);
+						ss << ", \"pz\": "; WriteJsonEscaped(ss, td.facePaths[4]);
+						ss << ", \"nz\": "; WriteJsonEscaped(ss, td.facePaths[5]);
 						ss << "}";
 					}
-					ss << ", \"srgb\": "; writeBool(ss, td.props.srgb);
-					ss << ", \"mips\": "; writeBool(ss, td.props.generateMips);
-					ss << ", \"flipY\": "; writeBool(ss, td.props.flipY);
+					ss << ", \"srgb\": "; WriteJsonBool(ss, td.props.srgb);
+					ss << ", \"mips\": "; WriteJsonBool(ss, td.props.generateMips);
+					ss << ", \"flipY\": "; WriteJsonBool(ss, td.props.flipY);
 				}
 				ss << "}";
 			}
@@ -1878,7 +1912,7 @@ export namespace rendern
 		// materials
 		ss << "  \"materials\": {";
 		{
-			auto keys = sortedKeys(level.materials);
+			auto keys = SortedStringKeys(level.materials);
 			for (std::size_t i = 0; i < keys.size(); ++i)
 			{
 				const auto& id = keys[i];
@@ -1886,15 +1920,15 @@ export namespace rendern
 				const MaterialParams& p = md.material.params;
 
 				if (i == 0) ss << "\n"; else ss << ",\n";
-				ss << "    "; writeEscaped(ss, id); ss << ": {";
-				ss << "\"baseColor\": "; writeVec4(ss, p.baseColor);
-				ss << ", \"shininess\": "; writeFloat(ss, p.shininess);
-				ss << ", \"specStrength\": "; writeFloat(ss, p.specStrength);
-				ss << ", \"shadowBias\": "; writeFloat(ss, p.shadowBias);
-				ss << ", \"metallic\": "; writeFloat(ss, p.metallic);
-				ss << ", \"roughness\": "; writeFloat(ss, p.roughness);
-				ss << ", \"ao\": "; writeFloat(ss, p.ao);
-				ss << ", \"emissiveStrength\": "; writeFloat(ss, p.emissiveStrength);
+				ss << "    "; WriteJsonEscaped(ss, id); ss << ": {";
+				ss << "\"baseColor\": "; WriteJsonVec4(ss, p.baseColor);
+				ss << ", \"shininess\": "; WriteJsonFloat(ss, p.shininess);
+				ss << ", \"specStrength\": "; WriteJsonFloat(ss, p.specStrength);
+				ss << ", \"shadowBias\": "; WriteJsonFloat(ss, p.shadowBias);
+				ss << ", \"metallic\": "; WriteJsonFloat(ss, p.metallic);
+				ss << ", \"roughness\": "; WriteJsonFloat(ss, p.roughness);
+				ss << ", \"ao\": "; WriteJsonFloat(ss, p.ao);
+				ss << ", \"emissiveStrength\": "; WriteJsonFloat(ss, p.emissiveStrength);
 						if (md.material.envSource == EnvSource::ReflectionCapture)
 						{
 							ss << ", \"envSource\": \"reflectionCapture\"";
@@ -1906,7 +1940,7 @@ export namespace rendern
 				auto emitFlag = [&](std::string_view f)
 				{
 					if (!firstFlag) ss << ", ";
-					writeEscaped(ss, f);
+					WriteJsonEscaped(ss, f);
 					firstFlag = false;
 				};
 				if (HasFlag(md.material.permFlags, MaterialPerm::UseTex)) emitFlag("useTex");
@@ -1919,13 +1953,13 @@ export namespace rendern
 				// texture bindings
 				ss << ", \"textures\": {";
 				{
-					auto tkeys = sortedKeys(md.textureBindings);
+					auto tkeys = SortedStringKeys(md.textureBindings);
 					for (std::size_t ti = 0; ti < tkeys.size(); ++ti)
 					{
 						const auto& slot = tkeys[ti];
 						const std::string& texId = md.textureBindings.at(slot);
 						if (ti == 0) ss << "\n"; else ss << ",\n";
-						ss << "      "; writeEscaped(ss, slot); ss << ": "; writeEscaped(ss, texId);
+						ss << "      "; WriteJsonEscaped(ss, slot); ss << ": "; WriteJsonEscaped(ss, texId);
 					}
 					if (!tkeys.empty()) ss << "\n    ";
 				}
@@ -1941,12 +1975,12 @@ export namespace rendern
 		if (level.camera)
 		{
 			const Camera& cam = *level.camera;
-			ss << "  \"camera\": {\"position\": "; writeVec3(ss, cam.position);
-			ss << ", \"target\": "; writeVec3(ss, cam.target);
-			ss << ", \"up\": "; writeVec3(ss, cam.up);
-			ss << ", \"fovYDeg\": "; writeFloat(ss, cam.fovYDeg);
-			ss << ", \"nearZ\": "; writeFloat(ss, cam.nearZ);
-			ss << ", \"farZ\": "; writeFloat(ss, cam.farZ);
+			ss << "  \"camera\": {\"position\": "; WriteJsonVec3(ss, cam.position);
+			ss << ", \"target\": "; WriteJsonVec3(ss, cam.target);
+			ss << ", \"up\": "; WriteJsonVec3(ss, cam.up);
+			ss << ", \"fovYDeg\": "; WriteJsonFloat(ss, cam.fovYDeg);
+			ss << ", \"nearZ\": "; WriteJsonFloat(ss, cam.nearZ);
+			ss << ", \"farZ\": "; WriteJsonFloat(ss, cam.farZ);
 			ss << "},\n";
 		}
 
@@ -1960,17 +1994,17 @@ export namespace rendern
 			std::string_view type = "directional";
 			if (l.type == LightType::Point) type = "point";
 			else if (l.type == LightType::Spot) type = "spot";
-			ss << "\"type\": "; writeEscaped(ss, type);
-			ss << ", \"position\": "; writeVec3(ss, l.position);
-			ss << ", \"direction\": "; writeVec3(ss, l.direction);
-			ss << ", \"color\": "; writeVec3(ss, l.color);
-			ss << ", \"intensity\": "; writeFloat(ss, l.intensity);
-			ss << ", \"range\": "; writeFloat(ss, l.range);
-			ss << ", \"innerHalfAngleDeg\": "; writeFloat(ss, l.innerHalfAngleDeg);
-			ss << ", \"outerHalfAngleDeg\": "; writeFloat(ss, l.outerHalfAngleDeg);
-			ss << ", \"attConstant\": "; writeFloat(ss, l.attConstant);
-			ss << ", \"attLinear\": "; writeFloat(ss, l.attLinear);
-			ss << ", \"attQuadratic\": "; writeFloat(ss, l.attQuadratic);
+			ss << "\"type\": "; WriteJsonEscaped(ss, type);
+			ss << ", \"position\": "; WriteJsonVec3(ss, l.position);
+			ss << ", \"direction\": "; WriteJsonVec3(ss, l.direction);
+			ss << ", \"color\": "; WriteJsonVec3(ss, l.color);
+			ss << ", \"intensity\": "; WriteJsonFloat(ss, l.intensity);
+			ss << ", \"range\": "; WriteJsonFloat(ss, l.range);
+			ss << ", \"innerHalfAngleDeg\": "; WriteJsonFloat(ss, l.innerHalfAngleDeg);
+			ss << ", \"outerHalfAngleDeg\": "; WriteJsonFloat(ss, l.outerHalfAngleDeg);
+			ss << ", \"attConstant\": "; WriteJsonFloat(ss, l.attConstant);
+			ss << ", \"attLinear\": "; WriteJsonFloat(ss, l.attLinear);
+			ss << ", \"attQuadratic\": "; WriteJsonFloat(ss, l.attQuadratic);
 			ss << "}";
 		}
 		if (!level.lights.empty()) ss << "\n  ";
@@ -1980,7 +2014,7 @@ export namespace rendern
 		ss << "  \"skybox\": ";
 		if (level.skyboxTexture && !level.skyboxTexture->empty())
 		{
-			writeEscaped(ss, *level.skyboxTexture);
+			WriteJsonEscaped(ss, *level.skyboxTexture);
 		}
 		else
 		{
@@ -1995,7 +2029,7 @@ export namespace rendern
 			const LevelNode& n = level.nodes[static_cast<std::size_t>(newToOld[ni])];
 			if (ni == 0) ss << "\n"; else ss << ",\n";
 			ss << "    {";
-			ss << "\"name\": "; writeEscaped(ss, n.name);
+			ss << "\"name\": "; WriteJsonEscaped(ss, n.name);
 
 			int parent = -1;
 			if (n.parent >= 0)
@@ -2005,28 +2039,28 @@ export namespace rendern
 					parent = oldToNew[op];
 			}
 			ss << ", \"parent\": " << parent;
-			ss << ", \"visible\": "; writeBool(ss, n.visible);
+			ss << ", \"visible\": "; WriteJsonBool(ss, n.visible);
 
 			if (!n.mesh.empty())
 			{
-				ss << ", \"mesh\": "; writeEscaped(ss, n.mesh);
+				ss << ", \"mesh\": "; WriteJsonEscaped(ss, n.mesh);
 			}
 			if (!n.material.empty())
 			{
-				ss << ", \"material\": "; writeEscaped(ss, n.material);
+				ss << ", \"material\": "; WriteJsonEscaped(ss, n.material);
 			}
 
 			ss << ", \"transform\": {";
 			if (n.transform.useMatrix)
 			{
 				ss << "\"matrix\": ";
-				writeMat4ColMajor16(ss, n.transform.matrix);
+				WriteJsonMat4ColMajor16(ss, n.transform.matrix);
 			}
 			else
 			{
-				ss << "\"position\": "; writeVec3(ss, n.transform.position);
-				ss << ", \"rotationDegrees\": "; writeVec3(ss, n.transform.rotationDegrees);
-				ss << ", \"scale\": "; writeVec3(ss, n.transform.scale);
+				ss << "\"position\": "; WriteJsonVec3(ss, n.transform.position);
+				ss << ", \"rotationDegrees\": "; WriteJsonVec3(ss, n.transform.rotationDegrees);
+				ss << ", \"scale\": "; WriteJsonVec3(ss, n.transform.scale);
 			}
 			ss << "}";
 

@@ -89,32 +89,6 @@ export namespace rendern
 					return ext == ".vert" || ext == ".frag" || ext == ".glsl";
 				};
 
-			auto ApplyDefinesToHLSL = [](std::string_view source, const std::vector<std::string>& defines) -> std::string
-				{
-					if (defines.empty())
-					{
-						return std::string(source);
-					}
-
-					std::string out;
-					out.reserve(source.size() + defines.size() * 24);
-
-					for (std::string def : defines)
-					{
-						auto eq = def.find('=');
-						if (eq != std::string::npos)
-						{
-							def[eq] = ' ';
-						}
-						out += "#define ";
-						out += def;
-						out += "\n";
-					}
-
-					out.append(source);
-					return out;
-				};
-
 			FILE_UTILS::TextFile textSource;
 			std::string finalText;
 

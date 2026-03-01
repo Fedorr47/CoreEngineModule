@@ -43,6 +43,25 @@ export namespace rendern
 	};
 	static_assert(sizeof(ReflectionCaptureFaceConstants) <= 512);
 
+	struct alignas(16) SingleMatrixPassConstants
+	{
+		std::array<float, 16> uLightViewProj{};
+	};
+
+	struct alignas(16) PointShadowCubeConstants
+	{
+		std::array<float, 16 * 6> uFaceViewProj{};
+		std::array<float, 4> uLightPosRange{};
+		std::array<float, 4> uMisc{};
+	};
+
+	struct alignas(16) PointShadowFaceConstants
+	{
+		std::array<float, 16> uFaceViewProj{};
+		std::array<float, 4> uLightPosRange{};
+		std::array<float, 4> uMisc{};
+	};
+
 	struct InstanceData
 	{
 		mathUtils::Vec4 i0; // column 0 of model

@@ -94,6 +94,43 @@ export namespace rendern
 		return outputFile;
 	}
 
+	std::string MakeShaderDefineLine(std::string defineStr)
+	{
+		const auto equation = defineStr.find('=');
+		if (equation != std::string::npos)
+		{
+			defineStr[equation] = ' ';
+		}
+		return std::string("#define ") + defineStr + "\n";
+	}
+
+	std::string BuildShaderDefinesBlock(const std::vector<std::string>& defines)
+	{
+		std::string definesBlock;
+		definesBlock.reserve(defines.size() * 24);
+
+		for (const auto& defineStr : defines)
+		{
+			definesBlock += MakeShaderDefineLine(defineStr);
+		}
+
+		return definesBlock;
+	}
+
+	std::string ApplyDefinesToHLSL(
+		std::string_view source,
+		const std::vector<std::string>& defines)
+	{
+		if (defines.empty())
+		{
+			return std::string(source);
+		}
+
+		std::string output = BuildShaderDefinesBlock(defines);
+		output.append(source);
+		return output;
+	}
+
 	// Inserts `#define ...` lines after `#version` (if present), otherwise prepends them.
 	// Accepts entries like: "FOO", "USE_FOG=1" (the first '=' will be replaced by space).
 	std::string AppplyDefinesToGLSL(
@@ -104,22 +141,7 @@ export namespace rendern
 			return std::string(source);
 		}
 
-		auto makeDefineLine = [](std::string defineStr) -> std::string
-			{
-				auto equation = defineStr.find('=');
-				if (equation != std::string::npos)
-				{
-					defineStr[equation] = ' ';
-				}
-				return std::string("#define ") + defineStr + "\n";
-			};
-
-		std::string definesBlock;
-		definesBlock.reserve(defines.size() * 24);
-		for (const auto& defineStr : defines)
-		{
-			definesBlock += makeDefineLine(defineStr);
-		}
+		const std::string definesBlock = BuildShaderDefinesBlock(defines);
 
 		// Find a version line
 		const std::string_view verToken = "#version";

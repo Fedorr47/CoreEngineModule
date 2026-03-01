@@ -1140,45 +1140,33 @@
             bool curPassIsSwapChain = false;
             DX12SwapChain* curSwapChain = nullptr;
 
-            auto Barrier = [&](ID3D12Resource* res, D3D12_RESOURCE_STATES& curState, D3D12_RESOURCE_STATES desired)
-                {
-                    if (!res)
-                    {
-                        return;
-                    }
-                    if (curState == desired)
-                    {
-                        return;
-                    }
-
-                    D3D12_RESOURCE_BARRIER resBarrier{};
-                    resBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                    resBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-                    resBarrier.Transition.pResource = res;
-                    resBarrier.Transition.StateBefore = curState;
-                    resBarrier.Transition.StateAfter = desired;
-                    resBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                    cmdList_->ResourceBarrier(1, &resBarrier);
-                    curState = desired;
-                };
-
             auto TransitionTexture = [&](TextureHandle tex, D3D12_RESOURCE_STATES desired)
                 {
                     if (!tex)
                     {
                         return;
                     }
+
                     auto it = textures_.find(tex.id);
                     if (it == textures_.end())
                     {
                         return;
                     }
-                    Barrier(it->second.resource.Get(), it->second.state, desired);
+
+                    TransitionResource(
+                        cmdList_.Get(),
+                        it->second.resource.Get(),
+                        it->second.state,
+                        desired);
                 };
 
             auto TransitionBackBuffer = [&](DX12SwapChain& sc, D3D12_RESOURCE_STATES desired)
                 {
-                    Barrier(sc.CurrentBackBuffer(), sc.CurrentBackBufferState(), desired);
+                    TransitionResource(
+                        cmdList_.Get(),
+                        sc.CurrentBackBuffer(),
+                        sc.CurrentBackBufferState(),
+                        desired);
                 };
 
             auto EnsurePSO = [&](PipelineHandle pipelineHandle, InputLayoutHandle layout) -> ID3D12PipelineState*
@@ -1555,7 +1543,11 @@
                                             throw std::runtime_error("DX12: CommandBeginPass: cubemap color texture has no RTV (all faces)");
                                         }
                                     
-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+                                        TransitionResource(
+                                            cmdList_.Get(),
+                                            te.resource.Get(),
+                                            te.state,
+                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
                                     
                                         rtvs[0] = te.rtvAllFaces;
                                         numRT = 1;
@@ -1572,7 +1564,11 @@
                                             throw std::runtime_error("DX12: CommandBeginPass: cubemap face index out of range");
                                         }
                                     
-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+                                        TransitionResource(
+                                            cmdList_.Get(),
+                                            te.resource.Get(),
+                                            te.state,
+                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
                                     
                                         rtvs[0] = te.rtvFaces[fb.colorCubeFace];
                                         numRT = 1;
@@ -1585,7 +1581,11 @@
                                             throw std::runtime_error("DX12: CommandBeginPass: color texture has no RTV");
                                         }
                                     
-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_RENDER_TARGET);
+                                        TransitionResource(
+                                            cmdList_.Get(),
+                                            te.resource.Get(),
+                                            te.state,
+                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
                                     
                                         rtvs[0] = te.rtv;
                                         numRT = 1;
@@ -1605,7 +1605,11 @@
                                     
                                     if (fb.colorCubeAllFaces && te.hasDSVAllFaces)
                                     {
-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+                                        TransitionResource(
+                                            cmdList_.Get(),
+                                            te.resource.Get(),
+                                            te.state,
+                                            D3D12_RESOURCE_STATE_DEPTH_WRITE);
                                     
                                         dsv = te.dsvAllFaces;
                                         hasDSV = true;
@@ -1618,7 +1622,11 @@
                                             throw std::runtime_error("DX12: CommandBeginPass: depth texture has no DSV");
                                         }
                                     
-                                        Barrier(te.resource.Get(), te.state, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+                                        TransitionResource(
+                                            cmdList_.Get(),
+                                            te.resource.Get(),
+                                            te.state,
+                                            D3D12_RESOURCE_STATE_DEPTH_WRITE);
                                     
                                         dsv = te.dsv;
                                         hasDSV = true;
@@ -2027,7 +2035,7 @@
             freeTexDesc_.push_back(index);
         }
 
-        // ---------------- Fences (минимально) ----------------
+        // ---------------- Fences (minimal impl) ----------------
         FenceHandle CreateFence(bool signaled = false) override
         {
             const auto id = ++nextFenceId_;
@@ -2254,6 +2262,34 @@
             }
         }
 
+        void TransitionResource(
+            ID3D12GraphicsCommandList* cmdList,
+            ID3D12Resource* resource,
+            D3D12_RESOURCE_STATES& currentState,
+            D3D12_RESOURCE_STATES desired)
+        {
+            if (!cmdList || !resource)
+            {
+                return;
+            }
+
+            if (currentState == desired)
+            {
+                return;
+            }
+
+            D3D12_RESOURCE_BARRIER barrier{};
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            barrier.Transition.pResource = resource;
+            barrier.Transition.StateBefore = currentState;
+            barrier.Transition.StateAfter = desired;
+            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+            cmdList->ResourceBarrier(1, &barrier);
+            currentState = desired;
+        }
+
         void ImmediateUploadBuffer(BufferEntry& dst, std::span<const std::byte> data, std::size_t dstOffsetBytes)
         {
             if (!dst.resource || data.empty())
@@ -2305,20 +2341,12 @@
                 IID_PPV_ARGS(&cl)),
                 "DX12: ImmediateUploadBuffer - CreateCommandList failed");
 
-            auto Transition = [&](D3D12_RESOURCE_STATES desired)
-                {
-                    if (dst.state == desired) return;
-                    D3D12_RESOURCE_BARRIER b{};
-                    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                    b.Transition.pResource = dst.resource.Get();
-                    b.Transition.StateBefore = dst.state;
-                    b.Transition.StateAfter = desired;
-                    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                    cl->ResourceBarrier(1, &b);
-                    dst.state = desired;
-                };
+            TransitionResource(
+                cl.Get(),
+                dst.resource.Get(),
+                dst.state,
+                D3D12_RESOURCE_STATE_GENERIC_READ);
 
-            Transition(D3D12_RESOURCE_STATE_COPY_DEST);
 
             cl->CopyBufferRegion(
                 dst.resource.Get(),
@@ -2326,8 +2354,6 @@
                 upload.Get(),
                 0,
                 static_cast<UINT64>(data.size()));
-
-            Transition(D3D12_RESOURCE_STATE_GENERIC_READ);
 
             ThrowIfFailed(cl->Close(), "DX12: ImmediateUploadBuffer - Close failed");
 
@@ -2364,20 +2390,11 @@
 
                 std::memcpy(fr.bufMapped + fr.bufCursor, u.data.data(), size);
 
-                auto Transition = [&](D3D12_RESOURCE_STATES desired)
-                    {
-                        if (dst.state == desired) return;
-                        D3D12_RESOURCE_BARRIER b{};
-                        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                        b.Transition.pResource = dst.resource.Get();
-                        b.Transition.StateBefore = dst.state;
-                        b.Transition.StateAfter = desired;
-                        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                        cmdList_->ResourceBarrier(1, &b);
-                        dst.state = desired;
-                    };
-
-                Transition(D3D12_RESOURCE_STATE_COPY_DEST);
+                TransitionResource(
+                    cmdList_.Get(),
+                    dst.resource.Get(),
+                    dst.state,
+                    D3D12_RESOURCE_STATE_GENERIC_READ);
 
                 cmdList_->CopyBufferRegion(
                     dst.resource.Get(),
@@ -2385,8 +2402,6 @@
                     fr.bufUpload.Get(),
                     static_cast<UINT64>(fr.bufCursor),
                     static_cast<UINT64>(size));
-
-                Transition(D3D12_RESOURCE_STATE_GENERIC_READ);
 
                 fr.bufCursor += aligned;
             }

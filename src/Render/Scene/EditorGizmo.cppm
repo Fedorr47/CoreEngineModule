@@ -230,6 +230,34 @@ namespace
 		return rendern::GizmoAxis::None;
 	}
 
+	static void TestProjectedAxis(
+		const rendern::Scene& scene,
+		const mathUtils::Vec3& pivotWorld,
+		float axisLengthWorld,
+		const mathUtils::Vec2& mouse,
+		const mathUtils::Vec2& pivotScreen,
+		float viewportW,
+		float viewportH,
+		float thresholdSq,
+		rendern::GizmoAxis axis,
+		const mathUtils::Vec3& dir,
+		float& bestDistSq,
+		rendern::GizmoAxis& bestAxis) noexcept
+	{
+		mathUtils::Vec2 endScreen{};
+		if (!ProjectWorldToScreen(scene, pivotWorld + dir * axisLengthWorld, viewportW, viewportH, endScreen))
+		{
+			return;
+		}
+
+		const float distSq = DistancePointToSegmentSq(mouse, pivotScreen, endScreen);
+		if (distSq <= thresholdSq && distSq < bestDistSq)
+		{
+			bestDistSq = distSq;
+			bestAxis = axis;
+		}
+	}
+
 	static rendern::GizmoAxis HitTestAxis(const rendern::Scene& scene,
 		const mathUtils::Vec3& pivotWorld,
 		float axisLengthWorld,
@@ -249,25 +277,13 @@ namespace
 		float bestDistSq = std::numeric_limits<float>::infinity();
 		rendern::GizmoAxis bestAxis = rendern::GizmoAxis::None;
 
-		auto TestAxis = [&](rendern::GizmoAxis axis, const mathUtils::Vec3& dir) noexcept
-			{
-				mathUtils::Vec2 endScreen{};
-				if (!ProjectWorldToScreen(scene, pivotWorld + dir * axisLengthWorld, viewportW, viewportH, endScreen))
-				{
-					return;
-				}
+		TestProjectedAxis(scene, pivotWorld, axisLengthWorld, mouse, pivotScreen, viewportW, viewportH, thresholdSq,
+			rendern::GizmoAxis::X, mathUtils::Vec3(1.0f, 0.0f, 0.0f), bestDistSq, bestAxis);
+		TestProjectedAxis(scene, pivotWorld, axisLengthWorld, mouse, pivotScreen, viewportW, viewportH, thresholdSq,
+			rendern::GizmoAxis::Y, mathUtils::Vec3(0.0f, 1.0f, 0.0f), bestDistSq, bestAxis);
+		TestProjectedAxis(scene, pivotWorld, axisLengthWorld, mouse, pivotScreen, viewportW, viewportH, thresholdSq,
+			rendern::GizmoAxis::Z, mathUtils::Vec3(0.0f, 0.0f, 1.0f), bestDistSq, bestAxis);
 
-				const float distSq = DistancePointToSegmentSq(mouse, pivotScreen, endScreen);
-				if (distSq <= thresholdSq && distSq < bestDistSq)
-				{
-					bestDistSq = distSq;
-					bestAxis = axis;
-				}
-			};
-
-		TestAxis(rendern::GizmoAxis::X, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
-		TestAxis(rendern::GizmoAxis::Y, mathUtils::Vec3(0.0f, 1.0f, 0.0f));
-		TestAxis(rendern::GizmoAxis::Z, mathUtils::Vec3(0.0f, 0.0f, 1.0f));
 		return bestAxis;
 	}
 

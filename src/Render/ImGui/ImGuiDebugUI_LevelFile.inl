@@ -1,5 +1,29 @@
 namespace rendern::ui::level_ui_detail
 {
+    static void SaveLevelToPath(
+        rendern::LevelAsset& level,
+        rendern::Scene& scene,
+        LevelEditorUIState& st,
+        const std::string& path)
+    {
+        try
+        {
+            level.camera = scene.camera;
+            level.lights = scene.lights;
+
+            rendern::SaveLevelAssetToJson(path, level);
+            level.sourcePath = path;
+            st.cachedSourcePath = path;
+            std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Saved: %s", path.c_str());
+            st.saveStatusIsError = false;
+        }
+        catch (const std::exception& e)
+        {
+            std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Save failed: %s", e.what());
+            st.saveStatusIsError = true;
+        }
+    }
+
     static void DrawFilePanel(
         rendern::LevelAsset& level,
         rendern::Scene& scene,
@@ -9,27 +33,6 @@ namespace rendern::ui::level_ui_detail
             return;
 
         ImGui::InputText("Level path", st.savePathBuf, sizeof(st.savePathBuf));
-
-        auto doSaveToPath = [&](const std::string& path)
-        {
-            try
-            {
-                // Persist camera/lights from the current scene into the level asset.
-                level.camera = scene.camera;
-                level.lights = scene.lights;
-
-                rendern::SaveLevelAssetToJson(path, level);
-                level.sourcePath = path;
-                st.cachedSourcePath = path;
-                std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Saved: %s", path.c_str());
-                st.saveStatusIsError = false;
-            }
-            catch (const std::exception& e)
-            {
-                std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Save failed: %s", e.what());
-                st.saveStatusIsError = true;
-            }
-        };
 
         const bool canHotkey = !ImGui::GetIO().WantTextInput;
         const bool ctrlS = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_S);
@@ -44,7 +47,7 @@ namespace rendern::ui::level_ui_detail
             const std::string usePath = !level.sourcePath.empty() ? level.sourcePath : pathStr;
             if (!usePath.empty())
             {
-                doSaveToPath(usePath);
+                SaveLevelToPath(level, scene, st, usePath);
             }
             else
             {
@@ -56,7 +59,7 @@ namespace rendern::ui::level_ui_detail
         {
             if (!pathStr.empty())
             {
-                doSaveToPath(pathStr);
+                SaveLevelToPath(level, scene, st, pathStr);
             }
             else
             {

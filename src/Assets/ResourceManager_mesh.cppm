@@ -470,7 +470,7 @@ export template <>
 							return;
 						}
 
-						// Commit if still актуально.
+						// Commit if still needed.
 						std::scoped_lock lock(mutex_);
 						auto it = entries_.find(id);
 						if (it == entries_.end() || it->second.generation != generation)

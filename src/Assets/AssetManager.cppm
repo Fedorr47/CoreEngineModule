@@ -116,24 +116,43 @@ namespace
 			"with extension .tga/.png/.jpg/.jpeg (or explicit extension in the base path).");
 	}
 
+	struct CubemapFaceGroup
+	{
+		std::array<std::filesystem::path, 6> relOrAbs{};
+		std::array<bool, 6> has{};
+	};
+
+	std::optional<int> TryDetectFaceIndexByScheme(
+		std::string_view stem,
+		const std::array<std::string_view, 6>& scheme)
+	{
+		for (int i = 0; i < 6; ++i)
+		{
+			if (EndsWith(stem, scheme[static_cast<std::size_t>(i)]))
+			{
+				return i;
+			}
+		}
+		return std::nullopt;
+	}
+
+	bool IsCompleteCubemapFaceGroup(const CubemapFaceGroup& g) noexcept
+	{
+		for (bool b : g.has)
+		{
+			if (!b)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	std::optional<int> DetectFaceIndexFromStem(std::string_view stem)
 	{
-		// Return face index in [+X,-X,+Y,-Y,+Z,-Z] order.
-		auto tryScheme = [&](const std::array<std::string_view, 6>& scheme) -> std::optional<int>
-			{
-				for (int i = 0; i < 6; ++i)
-				{
-					if (EndsWith(stem, scheme[static_cast<std::size_t>(i)]))
-					{
-						return i;
-					}
-				}
-				return std::nullopt;
-			};
-
-		if (auto idx = tryScheme(kSuffix_rtlfupdnftbk)) return idx;
-		if (auto idx = tryScheme(kSuffix_pxnxpynypznz)) return idx;
-		if (auto idx = tryScheme(kSuffix_rightleftupdownfrontback)) return idx;
+		if (auto idx = TryDetectFaceIndexByScheme(stem, kSuffix_rtlfupdnftbk)) return idx;
+		if (auto idx = TryDetectFaceIndexByScheme(stem, kSuffix_pxnxpynypznz)) return idx;
+		if (auto idx = TryDetectFaceIndexByScheme(stem, kSuffix_rightleftupdownfrontback)) return idx;
 		return std::nullopt;
 	}
 
@@ -154,14 +173,7 @@ namespace
 			throw std::runtime_error("AssetManager: '" + absDir.string() + "' is not a directory");
 		}
 
-		// Group files by "base name", collect faces for each base.
-		struct Group
-		{
-			std::array<std::filesystem::path, 6> relOrAbs{};
-			std::array<bool, 6> has{};
-		};
-
-		std::unordered_map<std::string, Group> groups;
+		std::unordered_map<std::string, CubemapFaceGroup> groups;
 
 		for (const auto& it : std::filesystem::directory_iterator(absDir))
 		{
@@ -183,17 +195,11 @@ namespace
 			g.has[static_cast<std::size_t>(*faceIdx)] = true;
 		}
 
-		auto isComplete = [](const Group& g) -> bool
-			{
-				for (bool b : g.has) if (!b) return false;
-				return true;
-			};
-
 		// Preferred base
 		if (preferBase)
 		{
 			auto it = groups.find(std::string(*preferBase));
-			if (it != groups.end() && isComplete(it->second))
+			if (it != groups.end() && IsCompleteCubemapFaceGroup(it->second))
 			{
 				std::array<std::string, 6> out{};
 				for (int i = 0; i < 6; ++i)
@@ -207,7 +213,7 @@ namespace
 		// First complete group
 		for (auto& [base, g] : groups)
 		{
-			if (!isComplete(g))
+			if (!IsCompleteCubemapFaceGroup(g))
 				continue;
 
 			std::array<std::string, 6> out{};
@@ -248,90 +254,59 @@ public:
 
 	std::shared_ptr<TextureResource> LoadTextureAsync(std::string_view id, TextureProperties props)
 	{
-		return rm_.LoadAsync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, std::move(props), false);
 	}
 
 	std::shared_ptr<TextureResource> LoadTextureSync(std::string_view id, TextureProperties props)
 	{
-		return rm_.LoadSync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, std::move(props), true);
 	}
-
 
 	std::shared_ptr<TextureResource> LoadTextureCubeAsync(std::string_view id, std::string_view baseOrDir, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		if (props.filePath.empty())
-		{
-			props.filePath = std::string(baseOrDir);
-		}
-		props.cubeFacePaths = ResolveCubemapFaces(baseOrDir);
-		return rm_.LoadAsync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromBaseOrDir_(baseOrDir, std::move(props)), false);
 	}
 
 	std::shared_ptr<TextureResource> LoadTextureCubeSync(std::string_view id, std::string_view baseOrDir, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		if (props.filePath.empty())
-		{
-			props.filePath = std::string(baseOrDir);
-		}
-		props.cubeFacePaths = ResolveCubemapFaces(baseOrDir);
-		return rm_.LoadSync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromBaseOrDir_(baseOrDir, std::move(props)), true);
 	}
-
 
 	std::shared_ptr<TextureResource> LoadTextureCubeAsync(std::string_view id, std::string_view dir, std::string_view preferBase, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		if (props.filePath.empty())
-		{
-			props.filePath = std::string(dir);
-		}
-		props.cubeFacePaths = ResolveCubemapFacesFromDirectory(std::filesystem::path(std::string(dir)), preferBase);
-		return rm_.LoadAsync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromDirectory_(dir, preferBase, std::move(props)), false);
 	}
 
 	std::shared_ptr<TextureResource> LoadTextureCubeSync(std::string_view id, std::string_view dir, std::string_view preferBase, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		if (props.filePath.empty())
-		{
-			props.filePath = std::string(dir);
-		}
-		props.cubeFacePaths = ResolveCubemapFacesFromDirectory(std::filesystem::path(std::string(dir)), preferBase);
-		return rm_.LoadSync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromDirectory_(dir, preferBase, std::move(props)), true);
 	}
 
 	std::shared_ptr<TextureResource> LoadTextureCubeAsync(std::string_view id, const std::array<std::string, 6>& facePaths, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		props.cubeFacePaths = facePaths;
-		return rm_.LoadAsync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromFaces_(facePaths, std::move(props)), false);
 	}
 
 	std::shared_ptr<TextureResource> LoadTextureCubeSync(std::string_view id, const std::array<std::string, 6>& facePaths, TextureProperties props = {})
 	{
-		props.dimension = TextureDimension::Cube;
-		props.cubeFacePaths = facePaths;
-		return rm_.LoadSync<TextureResource>(id, *textureIO_, std::move(props));
+		return LoadTexture_(id, PrepareCubeTexturePropsFromFaces_(facePaths, std::move(props)), true);
 	}
-
 
 	std::shared_ptr<rendern::MeshResource> LoadMeshAsync(std::string_view path)
 	{
 		rendern::MeshProperties p{};
 		// Leave filePath empty: ResourceManager key will be treated as path.
-		return rm_.LoadAsync<rendern::MeshResource>(path, *meshIO_, std::move(p));
+		return LoadMesh_(path, std::move(p), false);
 	}
 
 	std::shared_ptr<rendern::MeshResource> LoadMeshAsync(std::string_view id, rendern::MeshProperties props)
 	{
-		return rm_.LoadAsync<rendern::MeshResource>(id, *meshIO_, std::move(props));
+		return LoadMesh_(id, std::move(props), false);
 	}
 
 	std::shared_ptr<rendern::MeshResource> LoadMeshSync(std::string_view id, rendern::MeshProperties props = {})
 	{
-		return rm_.LoadSync<rendern::MeshResource>(id, *meshIO_, std::move(props));
+		return LoadMesh_(id, std::move(props), true);
 	}
 
 	// Drive GPU upload + destruction queues for all managed resource types.
@@ -358,6 +333,69 @@ public:
 
 	ResourceManager& GetResourceManager() noexcept { return rm_; }
 	const ResourceManager& GetResourceManager() const noexcept { return rm_; }
+
+private:
+	std::shared_ptr<TextureResource> LoadTexture_(
+		std::string_view id,
+		TextureProperties props,
+		bool sync)
+	{
+		if (sync)
+		{
+			return rm_.LoadSync<TextureResource>(id, *textureIO_, std::move(props));
+		}
+		return rm_.LoadAsync<TextureResource>(id, *textureIO_, std::move(props));
+	}
+
+	std::shared_ptr<rendern::MeshResource> LoadMesh_(
+		std::string_view id,
+		rendern::MeshProperties props,
+		bool sync)
+	{
+		if (sync)
+		{
+			return rm_.LoadSync<rendern::MeshResource>(id, *meshIO_, std::move(props));
+		}
+		return rm_.LoadAsync<rendern::MeshResource>(id, *meshIO_, std::move(props));
+	}
+
+	static TextureProperties PrepareCubeTexturePropsFromBaseOrDir_(
+		std::string_view baseOrDir,
+		TextureProperties props)
+	{
+		props.dimension = TextureDimension::Cube;
+		if (props.filePath.empty())
+		{
+			props.filePath = std::string(baseOrDir);
+		}
+		props.cubeFacePaths = ResolveCubemapFaces(baseOrDir);
+		return props;
+	}
+
+	static TextureProperties PrepareCubeTexturePropsFromDirectory_(
+		std::string_view dir,
+		std::string_view preferBase,
+		TextureProperties props)
+	{
+		props.dimension = TextureDimension::Cube;
+		if (props.filePath.empty())
+		{
+			props.filePath = std::string(dir);
+		}
+		props.cubeFacePaths = ResolveCubemapFacesFromDirectory(
+			std::filesystem::path(std::string(dir)),
+			preferBase);
+		return props;
+	}
+
+	static TextureProperties PrepareCubeTexturePropsFromFaces_(
+		const std::array<std::string, 6>& facePaths,
+		TextureProperties props)
+	{
+		props.dimension = TextureDimension::Cube;
+		props.cubeFacePaths = facePaths;
+		return props;
+	}
 
 private:
 	TextureIO* textureIO_{};

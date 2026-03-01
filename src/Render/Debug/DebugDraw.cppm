@@ -153,6 +153,28 @@ export namespace rendern::debugDraw
 			}
 		}
 
+		void AddCircle3D(
+			const mathUtils::Vec3& center,
+			const mathUtils::Vec3& axisA,
+			const mathUtils::Vec3& axisB,
+			float radius,
+			std::uint32_t rgba,
+			std::uint32_t segments,
+			bool overlay = false)
+		{
+			mathUtils::Vec3 prev{};
+			for (std::uint32_t i = 0; i <= segments; ++i)
+			{
+				const float t = (static_cast<float>(i) / static_cast<float>(segments)) * (mathUtils::Pi * 2.0f);
+				const mathUtils::Vec3 p = center + axisA * (std::cos(t) * radius) + axisB * (std::sin(t) * radius);
+				if (i != 0)
+				{
+					AddLine(prev, p, rgba, overlay);
+				}
+				prev = p;
+			}
+		}
+
 		void AddWireSphere(const mathUtils::Vec3& center,
 			float radius,
 			std::uint32_t rgba,
@@ -164,24 +186,9 @@ export namespace rendern::debugDraw
 				return;
 			}
 
-			auto AddCircle = [&](const mathUtils::Vec3& axisA, const mathUtils::Vec3& axisB)
-				{
-					mathUtils::Vec3 prev{};
-					for (std::uint32_t i = 0; i <= segments; ++i)
-					{
-						const float t = (static_cast<float>(i) / static_cast<float>(segments)) * (mathUtils::Pi * 2.0f);
-						const mathUtils::Vec3 p = center + axisA * (std::cos(t) * radius) + axisB * (std::sin(t) * radius);
-						if (i != 0)
-						{
-							AddLine(prev, p, rgba, overlay);
-						}
-						prev = p;
-					}
-				};
-
-			AddCircle(mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
-			AddCircle(mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
-			AddCircle(mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
+			AddCircle3D(center, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), radius, rgba, segments, overlay);
+			AddCircle3D(center, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), radius, rgba, segments, overlay);
+			AddCircle3D(center, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), radius, rgba, segments, overlay);
 		}
 	};
 }

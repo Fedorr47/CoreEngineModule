@@ -1,66 +1,5 @@
 if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 {
-	// Planar mask uses the depth-only Shadow pipeline to avoid writing color.
-	struct PlanarMaskPassConstants
-	{
-		std::array<float, 16> uLightViewProj{};
-	};
-
-	auto MakeReflectionMatrix = [](const mathUtils::Vec3& nIn, float d) noexcept -> mathUtils::Mat4
-		{
-			mathUtils::Vec3 n = nIn;
-			if (mathUtils::Length(n) < 1e-6f)
-			{
-				return mathUtils::Mat4(1.0f);
-			}
-			n = mathUtils::Normalize(n);
-			const float nx = n.x;
-			const float ny = n.y;
-			const float nz = n.z;
-
-			mathUtils::Mat4 R(1.0f);
-			R(0, 0) = 1.0f - 2.0f * nx * nx;
-			R(0, 1) = -2.0f * nx * ny;
-			R(0, 2) = -2.0f * nx * nz;
-			R(0, 3) = -2.0f * d * nx;
-
-			R(1, 0) = -2.0f * ny * nx;
-			R(1, 1) = 1.0f - 2.0f * ny * ny;
-			R(1, 2) = -2.0f * ny * nz;
-			R(1, 3) = -2.0f * d * ny;
-
-			R(2, 0) = -2.0f * nz * nx;
-			R(2, 1) = -2.0f * nz * ny;
-			R(2, 2) = 1.0f - 2.0f * nz * nz;
-			R(2, 3) = -2.0f * d * nz;
-
-			R(3, 0) = 0.0f;
-			R(3, 1) = 0.0f;
-			R(3, 2) = 0.0f;
-			R(3, 3) = 1.0f;
-			return R;
-		};
-
-	auto CanonicalizePlane = [&](mathUtils::Vec3 n, const mathUtils::Vec3& point) noexcept -> std::pair<mathUtils::Vec3, float>
-		{
-			n = Normalize(n);
-			float d = -Dot(n, point);
-			return { n, d }; // n·x + d = 0
-		};
-	
-	auto ReflectPoint = [](const mathUtils::Vec3& p, const mathUtils::Vec3& n, float d) noexcept -> mathUtils::Vec3
-		{
-			// p' = p - 2 * (n·p + d) * n
-			const float dist = mathUtils::Dot(n, p) + d;
-			return p - n * (2.0f * dist);
-		};
-
-	auto ReflectVector = [](const mathUtils::Vec3& v, const mathUtils::Vec3& n) noexcept -> mathUtils::Vec3
-		{
-			// v' = v - 2 * (n·v) * n
-			return v - n * (2.0f * mathUtils::Dot(n, v));
-		};
-
 	const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
 
 	std::uint32_t mirrorIndex = 0u;
@@ -90,7 +29,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		ctx.commandList.SetStencilRef(1u + mirrorIndex);
 		ctx.commandList.BindPipeline(psoShadow_);
 
-		PlanarMaskPassConstants maskConstants{};
+		SingleMatrixPassConstants maskConstants{};
 		std::memcpy(maskConstants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
 		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &maskConstants, 1 }));
 
@@ -101,7 +40,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
 
 		// ---------------- (2) Reflected scene: reflected camera, stencil-gated ----------------
-		const mathUtils::Mat4 reflectW = MakeReflectionMatrix(planeN, planeD);
+		const mathUtils::Mat4 reflectW = mathUtils::MakeReflectionMatrix(planeN, planeD);
 		const mathUtils::Mat4 viewProjRefl = viewProj * reflectW;
 		const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(viewProjRefl);
 		
