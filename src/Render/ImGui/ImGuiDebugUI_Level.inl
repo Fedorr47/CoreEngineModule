@@ -35,14 +35,13 @@ namespace rendern::ui
 
         // Expose selection to the rest of the app (main viewport already writes here too).
         scene.editorSelectedNode = st.selectedNode;
-        scene.editorSelectedDrawItem = levelInst.GetNodeDrawIndex(st.selectedNode);
 
-        // Keep reflection-capture owner draw-item index in sync with the LevelInstance mapping.
-        // Owner node index is stored in Scene (stable). Draw-item index can change (e.g. visibility toggle).
-        scene.editorReflectionCaptureOwnerDrawItem = levelInst.GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode);
-
-        // Push transforms to Scene if needed.
+        // Push transforms to Scene if needed, then refresh derived editor draw bindings.
         levelInst.SyncTransformsIfDirty(level, scene);
+
+        levelInst.SyncEditorRuntimeBindings(level, scene);
+        levelInst.ValidateRuntimeMappingsDebug(level, scene);
+        st.selectedNode = scene.editorSelectedNode;
 
         ImGui::End();
     }

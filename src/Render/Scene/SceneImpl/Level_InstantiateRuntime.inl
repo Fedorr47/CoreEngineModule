@@ -179,5 +179,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		}
 	}
 
+	inst.SyncEditorRuntimeBindings(asset, scene);
+	inst.ValidateRuntimeMappingsDebug(asset, scene);
 	return inst;
 }

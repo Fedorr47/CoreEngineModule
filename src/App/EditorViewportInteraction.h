@@ -338,12 +338,10 @@ namespace appEditor
             if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
             {
                 scene.editorSelectedNode = pick.nodeIndex;
-                scene.editorSelectedDrawItem = levelInstance.GetNodeDrawIndex(pick.nodeIndex);
             }
             else
             {
                 scene.editorSelectedNode = -1;
-                scene.editorSelectedDrawItem = -1;
             }
         }
     }

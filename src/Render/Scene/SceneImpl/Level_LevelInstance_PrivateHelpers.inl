@@ -361,6 +361,102 @@
 			return out;
 		}
 
+		void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const noexcept
+		{
+#ifndef NDEBUG
+			auto MatricesNearlyEqual = [](const mathUtils::Mat4& a, const mathUtils::Mat4& b) noexcept
+				{
+					for (std::size_t row = 0; row < 4; ++row)
+					{
+						for (std::size_t col = 0; col < 4; ++col)
+						{
+							if (std::fabs(a(row, col) - b(row, col)) > 1e-4f)
+							{
+								return false;
+							}
+						}
+					}
+					return true;
+				};
+
+			assert(nodeToDraw_.size() >= asset.nodes.size());
+			assert(nodeToEntity_.size() >= asset.nodes.size());
+			assert(world_.size() >= asset.nodes.size());
+			assert(drawToNode_.size() == scene.drawItems.size());
+			assert(ecs_.GetRenderableCount() == scene.drawItems.size());
+			assert(scene.editorSelectedDrawItem == GetNodeDrawIndex(scene.editorSelectedNode));
+			assert(scene.editorReflectionCaptureOwnerDrawItem == GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode));
+
+			for (std::size_t drawIndex = 0; drawIndex < drawToNode_.size(); ++drawIndex)
+			{
+				const int nodeIndex = drawToNode_[drawIndex];
+				assert(nodeIndex >= 0);
+				assert(static_cast<std::size_t>(nodeIndex) < asset.nodes.size());
+				assert(nodeToDraw_[static_cast<std::size_t>(nodeIndex)] == static_cast<int>(drawIndex));
+
+				const EntityHandle entity = GetEntityForNode_(nodeIndex);
+				assert(entity != kNullEntity);
+				assert(ecs_.HasRenderable(entity));
+				Renderable renderable{};
+				assert(ecs_.TryGetRenderable(entity, renderable));
+				assert(renderable.drawIndex == static_cast<int>(drawIndex));
+				assert(renderable.mesh == scene.drawItems[drawIndex].mesh);
+				//assert(renderable.material == scene.drawItems[drawIndex].material);
+			}
+
+			for (std::size_t i = 0; i < asset.nodes.size(); ++i)
+			{
+				const LevelNode& node = asset.nodes[i];
+				const int drawIndex = nodeToDraw_[i];
+				const EntityHandle entity = nodeToEntity_[i];
+
+				if (!node.alive)
+				{
+					assert(drawIndex == -1);
+					assert(entity == kNullEntity || !ecs_.IsEntityValid(entity));
+					continue;
+				}
+
+				if (!node.alive || !node.visible || node.mesh.empty())
+					assert(entity != kNullEntity);
+				assert(ecs_.IsEntityValid(entity));
+
+				LevelNodeId nodeId{};
+				ParentIndex parent{};
+				WorldTransform worldTransform{};
+				Flags flags{};
+				assert(ecs_.TryGetLevelNodeId(entity, nodeId));
+				assert(ecs_.TryGetParentIndex(entity, parent));
+				assert(ecs_.TryGetWorldTransform(entity, worldTransform));
+				assert(ecs_.TryGetFlags(entity, flags));
+				assert(nodeId.index == static_cast<int>(i));
+				assert(parent.parent == node.parent);
+				assert(flags.alive == node.alive);
+				assert(flags.visible == node.visible);
+				assert(MatricesNearlyEqual(worldTransform.world, world_[i]));
+
+				if (!node.visible || node.mesh.empty())
+				{
+					assert(drawIndex == -1);
+					assert(!ecs_.HasRenderable(entity));
+					continue;
+				}
+
+				assert(drawIndex >= 0);
+				assert(static_cast<std::size_t>(drawIndex) < scene.drawItems.size());
+				assert(static_cast<std::size_t>(drawIndex) < drawToNode_.size());
+				assert(drawToNode_[static_cast<std::size_t>(drawIndex)] == static_cast<int>(i));
+				assert(ecs_.HasRenderable(entity));
+
+				Renderable renderable{};
+				assert(ecs_.TryGetRenderable(entity, renderable));
+				assert(renderable.drawIndex == drawIndex);
+				assert(renderable.mesh == scene.drawItems[static_cast<std::size_t>(drawIndex)].mesh);
+				//assert(renderable.material == scene.drawItems[static_cast<std::size_t>(drawIndex)].material);
+			}
+#endif
+		}
+
 		void RecomputeWorld_(const LevelAsset& asset)
 		{
 			const std::size_t n = asset.nodes.size();

@@ -17,6 +17,7 @@ module;
 #include <iomanip>
 #include <limits>
 #include <cmath>
+#include <cassert>
 
 export module core:level;
 import :scene; 

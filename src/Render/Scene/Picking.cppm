@@ -9,6 +9,7 @@ export module core:picking;
 
 import :scene;
 import :level;
+import :level_ecs;
 import :math_utils;
 import :geometry;
 
@@ -79,7 +80,7 @@ namespace
 
         outT = tmin;
         return true;
-    }    
+    }
 }
 
 export namespace rendern
@@ -136,34 +137,39 @@ export namespace rendern
         float bestT = std::numeric_limits<float>::infinity();
         int bestNode = -1;
 
-        for (int di = 0; di < static_cast<int>(scene.drawItems.size()); ++di)
-        {
-            const int nodeIndex = levelInst.GetNodeIndexFromDrawIndex(di);
-            if (nodeIndex < 0)
+        const LevelWorld& ecs = levelInst.GetLevelWorld();
+        ecs.ForEachRenderable([&](EntityHandle,
+            const LevelNodeId& nodeId,
+            const WorldTransform& world,
+            const Renderable& renderable,
+            const Flags& flags)
             {
-                continue;
-            }
+                if (!flags.alive || !flags.visible)
+                {
+                    return;
+                }
 
-            const rendern::DrawItem& item = scene.drawItems[static_cast<std::size_t>(di)];
-            if (!item.mesh)
-            {
-                continue;
-            }
+                if (!renderable.mesh)
+                {
+                    return;
+                }
 
-            const auto& meshBounds = item.mesh->GetBounds();
-            mathUtils::Vec3 wmin{}, wmax{};
-            TransformAABB(meshBounds.aabbMin, meshBounds.aabbMax, item.transform.ToMatrix(), wmin, wmax);
+                const auto& meshBounds = renderable.mesh->GetBounds();
+                mathUtils::Vec3 wmin{}, wmax{};
+                TransformAABB(meshBounds.aabbMin, meshBounds.aabbMax, world.world, wmin, wmax);
 
-            float t = 0.0f;
-            if (IntersectRayAABB(ray, wmin, wmax, t))
-            {
+                float t = 0.0f;
+                if (!IntersectRayAABB(ray, wmin, wmax, t))
+                {
+                    return;
+                }
+
                 if (t < bestT)
                 {
                     bestT = t;
-                    bestNode = nodeIndex;
+                    bestNode = nodeId.index;
                 }
-            }
-        }
+            });
 
         out.nodeIndex = bestNode;
         out.t = bestT;
