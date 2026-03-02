@@ -122,10 +122,16 @@
 			{	
 				world_.resize(asset.nodes.size(), mathUtils::Mat4(1.0f));
 			}
+			if (nodeToEntity_.size() < asset.nodes.size())
+			{
+				nodeToEntity_.resize(asset.nodes.size(), kNullEntity);
+			}
 
 			const int newIndex = static_cast<int>(asset.nodes.size() - 1);
 
 			EnsureDrawForNode_(asset, scene, assets, newIndex);
+			EnsureEntityForNode_(asset, newIndex);
+			SyncEntityRenderableForNode_(asset, scene, newIndex);
 			transformsDirty_ = true;
 			return newIndex;
 		}
@@ -149,6 +155,7 @@
 				n.alive = false;
 				n.visible = false;
 				DestroyDrawForNode_(scene, idx);
+				DestroyEntityForNode_(idx);
 			}
 
 			transformsDirty_ = true;
@@ -162,7 +169,9 @@
 			LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
 			n.visible = visible;
 
+			EnsureEntityForNode_(asset, nodeIndex);
 			EnsureDrawForNode_(asset, scene, assets, nodeIndex);
+			SyncEntityRenderableForNode_(asset, scene, nodeIndex);
 		}
 
 		void SetNodeMesh(LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex, std::string_view meshId)
@@ -175,7 +184,9 @@
 			LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
 			n.mesh = std::string(meshId);
 
+			EnsureEntityForNode_(asset, nodeIndex);
 			EnsureDrawForNode_(asset, scene, assets, nodeIndex);
+			SyncEntityRenderableForNode_(asset, scene, nodeIndex);
 		}
 
 		void SetNodeMaterial(LevelAsset& asset, Scene& scene, int nodeIndex, std::string_view materialId)
@@ -186,11 +197,15 @@
 			LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
 			n.material = std::string(materialId);
 
+			EnsureEntityForNode_(asset, nodeIndex);
+
 			const int di = GetNodeDrawIndex(nodeIndex);
 			if (di >= 0 && static_cast<std::size_t>(di) < scene.drawItems.size())
 			{
 				scene.drawItems[static_cast<std::size_t>(di)].material = GetMaterialHandle_(materialId);
 			}
+
+			SyncEntityRenderableForNode_(asset, scene, nodeIndex);
 		}
 
 		void MarkTransformsDirty() noexcept
@@ -206,10 +221,12 @@
 
 			RecomputeWorld_(asset);
 
-			// Push to Scene
+			// Push to Scene + ECS
 			const std::size_t ncount = asset.nodes.size();
 			if (nodeToDraw_.size() < ncount)
 				nodeToDraw_.resize(ncount, -1);
+			if (nodeToEntity_.size() < ncount)
+				nodeToEntity_.resize(ncount, kNullEntity);
 
 			for (std::size_t i = 0; i < ncount; ++i)
 			{
@@ -219,15 +236,24 @@
 					continue;
 				}
 
+				const EntityHandle e = EnsureEntityForNode_(asset, static_cast<int>(i));
+				if (e != kNullEntity)
+				{
+					ecs_.UpsertNodeData(e, static_cast<int>(i), n.parent, n.transform, world_[i], Flags{ .alive = n.alive, .visible = n.visible });
+				}
+
 				const int di = nodeToDraw_[i];
 				if (di < 0 || static_cast<std::size_t>(di) >= scene.drawItems.size())
 				{
+					SyncEntityRenderableForNode_(asset, scene, static_cast<int>(i));
 					continue;
 				}
 
 				DrawItem& item = scene.drawItems[static_cast<std::size_t>(di)];
 				item.transform.useMatrix = true;
 				item.transform.matrix = world_[i];
+
+				SyncEntityRenderableForNode_(asset, scene, static_cast<int>(i));
 			}
 
 			transformsDirty_ = false;

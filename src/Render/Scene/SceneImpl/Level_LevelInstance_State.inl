@@ -1,12 +1,16 @@
-		// Descriptor runtime
-		std::unordered_map<std::string, rhi::TextureDescIndex> textureDesc_;
-		std::vector<PendingMaterialBinding> pendingBindings_;
-		std::optional<std::string> skyboxTextureId_;
+// Descriptor runtime
+std::unordered_map<std::string, rhi::TextureDescIndex> textureDesc_;
+std::vector<PendingMaterialBinding> pendingBindings_;
+std::optional<std::string> skyboxTextureId_;
 
-		// Editor/runtime state
-		mathUtils::Mat4 root_{ 1.0f };
-		std::vector<mathUtils::Mat4> world_;
-		std::vector<int> nodeToDraw_;
-		std::vector<int> drawToNode_;
-		std::unordered_map<std::string, MaterialHandle> materialHandles_;
-		bool transformsDirty_{ true };
+// Editor/runtime state
+mathUtils::Mat4 root_{ 1.0f };
+std::vector<mathUtils::Mat4> world_;
+std::vector<int> nodeToDraw_;
+std::vector<int> drawToNode_;
+std::unordered_map<std::string, MaterialHandle> materialHandles_;
+bool transformsDirty_{ true };
+
+// ECS runtime (hybrid phase)
+LevelWorld ecs_{};
+std::vector<EntityHandle> nodeToEntity_{};

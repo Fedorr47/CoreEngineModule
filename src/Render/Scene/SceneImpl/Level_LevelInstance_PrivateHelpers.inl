@@ -63,6 +63,126 @@
 			return assets.LoadMeshAsync(meshId, std::move(p));
 		}
 
+		EntityHandle GetEntityForNode_(int nodeIndex) const noexcept
+		{
+			if (nodeIndex < 0)
+			{
+				return kNullEntity;
+			}
+
+			const std::size_t i = static_cast<std::size_t>(nodeIndex);
+			if (i >= nodeToEntity_.size())
+			{
+				return kNullEntity;
+			}
+
+			const EntityHandle e = nodeToEntity_[i];
+			if (e == kNullEntity)
+			{
+				return kNullEntity;
+			}
+
+			if (!ecs_.IsEntityValid(e))
+			{
+				return kNullEntity;
+			}
+
+			return e;
+		}
+
+		EntityHandle EnsureEntityForNode_(const LevelAsset& asset, int nodeIndex)
+		{
+			if (nodeIndex < 0)
+			{
+				return kNullEntity;
+			}
+
+			const std::size_t i = static_cast<std::size_t>(nodeIndex);
+			if (i >= asset.nodes.size())
+			{
+				return kNullEntity;
+			}
+
+			const LevelNode& node = asset.nodes[i];
+			if (!node.alive)
+			{
+				return kNullEntity;
+			}
+
+			if (nodeToEntity_.size() < asset.nodes.size())
+			{
+				nodeToEntity_.resize(asset.nodes.size(), kNullEntity);
+			}
+
+			EntityHandle e = nodeToEntity_[i];
+			if (e == kNullEntity || !ecs_.IsEntityValid(e))
+			{
+				e = ecs_.CreateEntity();
+				nodeToEntity_[i] = e;
+			}
+
+			if (world_.size() < asset.nodes.size())
+			{
+				world_.resize(asset.nodes.size(), mathUtils::Mat4(1.0f));
+			}
+
+			ecs_.UpsertNodeData(e, nodeIndex, node.parent, node.transform, world_[i], Flags{ .alive = node.alive, .visible = node.visible });
+			return e;
+		}
+
+		void DestroyEntityForNode_(int nodeIndex)
+		{
+			if (nodeIndex < 0)
+			{
+				return;
+			}
+
+			const std::size_t i = static_cast<std::size_t>(nodeIndex);
+			if (i >= nodeToEntity_.size())
+			{
+				return;
+			}
+
+			const EntityHandle e = nodeToEntity_[i];
+			if (e != kNullEntity)
+			{
+				ecs_.DestroyEntity(e);
+			}
+			nodeToEntity_[i] = kNullEntity;
+		}
+
+		void SyncEntityRenderableForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex)
+		{
+			const EntityHandle e = GetEntityForNode_(nodeIndex);
+			if (e == kNullEntity)
+			{
+				return;
+			}
+
+			const int drawIndex = GetNodeDrawIndex(nodeIndex);
+			if (drawIndex < 0 || static_cast<std::size_t>(drawIndex) >= scene.drawItems.size())
+			{
+				if (ecs_.HasRenderable(e))
+				{
+					ecs_.RemoveRenderable(e);
+				}
+				return;
+			}
+
+			const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawIndex)];
+			ecs_.UpsertRenderable(e, Renderable{ .mesh = di.mesh, .material = di.material, .drawIndex = drawIndex });
+
+			if (nodeIndex >= 0)
+			{
+				const std::size_t i = static_cast<std::size_t>(nodeIndex);
+				if (i < asset.nodes.size())
+				{
+					const LevelNode& node = asset.nodes[i];
+					ecs_.UpsertNodeData(e, nodeIndex, node.parent, node.transform, world_[i], Flags{ .alive = node.alive, .visible = node.visible });
+				}
+			}
+		}
+
 		void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex)
 		{
 			if (nodeIndex < 0) 
@@ -155,9 +275,23 @@
 				{
 					const int movedNode = drawToNode_[last];
 					if (drawIndex < drawToNode_.size())
+					{
 						drawToNode_[drawIndex] = movedNode;
+					}
 					if (movedNode >= 0 && static_cast<std::size_t>(movedNode) < nodeToDraw_.size())
+					{
 						nodeToDraw_[static_cast<std::size_t>(movedNode)] = static_cast<int>(drawIndex);
+					}
+
+					const EntityHandle movedEntity = GetEntityForNode_(movedNode);
+					if (movedEntity != kNullEntity)
+					{
+						ecs_.UpsertRenderable(movedEntity, Renderable{
+							.mesh = scene.drawItems[drawIndex].mesh,
+							.material = scene.drawItems[drawIndex].material,
+							.drawIndex = static_cast<int>(drawIndex)
+						});
+					}
 				}
 			}
 

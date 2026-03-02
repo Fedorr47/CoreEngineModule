@@ -9,6 +9,7 @@ export import :render_renderer;
 export import :scene;
 export import :visibility;
 export import :level;
+export import :level_ecs;
 export import :picking;
 export import :camera_controller;
 export import :scene_bridge;
@@ -21,4 +22,3 @@ export import :shader_files;
 export import :texture_decoder_stb;
 export import :file_system;
 export import :mesh;
-

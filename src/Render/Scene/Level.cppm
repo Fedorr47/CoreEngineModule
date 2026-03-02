@@ -19,12 +19,12 @@ module;
 #include <cmath>
 
 export module core:level;
-
-import :scene;
-import :asset_manager;
-import :resource_manager;
-import :render_bindless;
-import :file_system;
+import :scene; 
+import :level_ecs; 
+import :asset_manager; 
+import :resource_manager; 
+import :render_bindless; 
+import :file_system; 
 import :math_utils;
 
 // ------------------------------------------------------------

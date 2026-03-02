@@ -42,6 +42,19 @@ if (CORE_RENDER_BACKEND STREQUAL "DX12" AND NOT WIN32)
   message(FATAL_ERROR "DX12 backend is Windows-only")
 endif()
 
+# ------------------------------------------------------------
+# EnTT (header-only ECS)
+# ------------------------------------------------------------
+# We use EnTT only for Level runtime objects at first (hybrid approach).
+FetchContent_Declare(entt
+  GIT_REPOSITORY https://github.com/skypjack/entt.git
+  GIT_TAG v3.13.1
+)
+# Avoid building EnTT tests/docs when fetched as a subproject.
+set(ENTT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(ENTT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(entt)
+
 if (CORE_RENDER_BACKEND STREQUAL "GL")
 # ------------------------------------------------------------
 # GLFW
@@ -297,6 +310,8 @@ set(COMMON_MODULES
   Render/Scene/SceneBridge.cppm
   Render/Scene/Scene.cppm
   Render/Scene/Level.cppm
+  Render/Scene/LevelECS.cppm
+  Render/Scene/LevelECS_impl.cppm
   Render/Scene/EditorGizmo.cppm
   Render/Scene/EditorRotateGizmo.cppm
   Render/Scene/EditorScaleGizmo.cppm
@@ -416,6 +431,16 @@ endif()
 if (WIN32)
   find_library(D3DCOMPILER_LIB NAMES d3dcompiler_47 d3dcompiler REQUIRED)
   target_link_libraries(CoreEngineModuleLib PRIVATE ${D3DCOMPILER_LIB})
+endif()
+
+# EnTT (header-only) include propagation
+if (TARGET EnTT::EnTT)
+  target_link_libraries(CoreEngineModuleLib PUBLIC EnTT::EnTT)
+else()
+  # Fallback: just include directory if alias target is not present for some reason.
+  if (DEFINED entt_SOURCE_DIR)
+    target_include_directories(CoreEngineModuleLib PUBLIC "${entt_SOURCE_DIR}/src")
+  endif()
 endif()
 
 # ------------------------------------------------------------
