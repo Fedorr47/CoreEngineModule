@@ -168,8 +168,9 @@ export namespace rendern
 
 					bool drewAny = false;
 
-					for (const auto& item : scene.drawItems)
+					for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++drawItemIndex)
 					{
+						const auto& item = scene.drawItems[drawItemIndex];
 						if (!item.mesh)
 							continue;
 
@@ -195,6 +196,18 @@ export namespace rendern
 						}
 						const glm::mat4 model = ToGlmMat4(modelMu);
 						DrawOne(mesh, model, mat);
+
+						// Editor selection highlight: draw the selected object again as a translucent overlay.
+						if (scene.editorSelectedDrawItem >= 0
+							&& static_cast<std::size_t>(scene.editorSelectedDrawItem) == drawItemIndex)
+						{
+							MaterialParams hi = mat;
+							hi.baseColor = { 1.0f, 0.95f, 0.25f, 0.35f };
+							hi.albedoDescIndex = 0; // force solid color
+							ctx.commandList.SetState(highlightState_);
+							DrawOne(mesh, model, hi);
+							ctx.commandList.SetState(state_);
+						}
 						drewAny = true;
 					}
 
@@ -324,6 +337,9 @@ export namespace rendern
 			state_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
 
 			state_.blend.enable = false;
+			highlightState_ = state_;
+			highlightState_.blend.enable = true;
+			highlightState_.depth.writeEnable = false;
 		}
 
 		rhi::IRHIDevice& device_;
@@ -336,6 +352,7 @@ export namespace rendern
 		rhi::PipelineHandle psoNoTex_{};
 		rhi::PipelineHandle psoTex_{};
 		rhi::GraphicsState state_{};
+		rhi::GraphicsState highlightState_{};
 
 		MeshRHI skyboxMesh_{};
 		rhi::PipelineHandle psoSkybox_{};

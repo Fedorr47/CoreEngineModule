@@ -18,6 +18,8 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 	instStride,
 	transparentDraws,
 	planarMirrorDraws,
+	editorHighlightMesh,
+	editorHighlightIsTransparent,
 	doDepthPrepass,
 	imguiDrawData](renderGraph::PassContext& ctx)
 {
@@ -40,6 +42,51 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 
 	const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
 	const mathUtils::Mat4 viewProj = proj * view;
+
+	auto DrawEditorSelectionHighlight = [&]()
+	{
+		if (!editorHighlightMesh || !highlightInstanceBuffer_)
+		{
+			return;
+		}
+
+		ctx.commandList.SetState(highlightState_);
+		ctx.commandList.BindPipeline(psoHighlight_);
+
+		PerBatchConstants constants{};
+		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+		const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+		std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+		std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+		constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
+		constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+		// Slightly transparent yellow overlay.
+		constants.uBaseColor = { 1.0f, 0.95f, 0.25f, 0.35f };
+		constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
+		constants.uPbrParams = { 0.0f, 1.0f, 1.0f, 0.0f };
+		constants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
+		constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
+		constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+		constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+		ctx.commandList.BindInputLayout(editorHighlightMesh->layoutInstanced);
+		ctx.commandList.BindVertexBuffer(0, editorHighlightMesh->vertexBuffer, editorHighlightMesh->vertexStrideBytes, 0);
+		ctx.commandList.BindVertexBuffer(1, highlightInstanceBuffer_, instStride, 0);
+		ctx.commandList.BindIndexBuffer(editorHighlightMesh->indexBuffer, editorHighlightMesh->indexType, 0);
+
+		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+		ctx.commandList.DrawIndexed(
+			editorHighlightMesh->indexCount,
+			editorHighlightMesh->indexType,
+			0,
+			0,
+			1,
+			0);
+
+		// Restore the main pass state (keeps following draws unchanged).
+		ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+	};
 
 
 	// --- Skybox draw ---
@@ -288,6 +335,13 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 	// --- Planar reflections (stencil-gated overlay; coplanar mirrors are grouped to avoid seams) ---
 	#include "RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl"
 
+	// If the selected object is opaque, draw highlight BEFORE transparent objects
+	// so transparent surfaces still blend on top.
+	if (editorHighlightMesh && !editorHighlightIsTransparent)
+	{
+		DrawEditorSelectionHighlight();
+	}
+
 	if (!transparentDraws.empty())
 	{
 		ctx.commandList.SetState(transparentState_);
@@ -431,6 +485,12 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 		}
 	}
 
+	// If the selected object is itself transparent, render highlight AFTER the transparent pass
+	// so it stays visible on top of its own translucency.
+	if (editorHighlightMesh && editorHighlightIsTransparent)
+	{
+		DrawEditorSelectionHighlight();
+	}
 
 	// ImGui overlay (optional)
 	if (imguiDrawData)

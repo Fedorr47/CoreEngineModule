@@ -129,6 +129,12 @@ static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
 #define CORE_DEBUG_ENV_FIXED_DIR_MODE 0
 #endif
 
+// Editor: render an unlit highlight overlay (ignores lighting/env).
+// Used by the editor selection highlight pass.
+#ifndef CORE_HIGHLIGHT
+#define CORE_HIGHLIGHT 0
+#endif
+
 static const uint kMaxSpotShadows = 4;
 static const uint kMaxPointShadows = 4;
 
@@ -869,6 +875,12 @@ float3 ComputeReflectionDir(float3 V, float3 N)
 // Pixel Shader
 float4 PSMain(VSOut IN) : SV_Target0
 {
+	#if defined(CORE_HIGHLIGHT) && CORE_HIGHLIGHT
+		// Unlit overlay: color comes from uBaseColor (set by C++).
+		// Keep alpha for standard SRC_ALPHA blending.
+		return float4(uBaseColor.rgb, saturate(uBaseColor.a));
+	#endif
+
 	const uint flags = asuint(uMaterialFlags.w);
 
 	const bool useTex = (flags & FLAG_USE_TEX) != 0;

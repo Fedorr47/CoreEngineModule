@@ -64,6 +64,24 @@
 						psoPlanar_[idx] = psoCache_.GetOrCreate(psoName + "_Planar", vsPlanar, psPlanar);
 					}
 				}
+
+				// Editor selection highlight overlay (unlit).
+				{
+					const std::vector<std::string> hiDefs = { "CORE_HIGHLIGHT=1" };
+					const auto vsHi = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Vertex,
+						.name = "VSMain",
+						.filePath = shaderPath.string(),
+						.defines = hiDefs
+						});
+					const auto psHi = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Pixel,
+						.name = "PSMain",
+						.filePath = shaderPath.string(),
+						.defines = hiDefs
+						});
+					psoHighlight_ = psoCache_.GetOrCreate("PSO_Mesh_Highlight", vsHi, psHi);
+				}
 			
 				state_.depth.testEnable = true;
 				state_.depth.writeEnable = true;
@@ -82,6 +100,12 @@
 				// Main pass state when running after a depth pre-pass: keep depth read-only.
 				mainAfterPreDepthState_ = state_;
 				mainAfterPreDepthState_.depth.writeEnable = false;
+
+				// Highlight pass: translucent overlay, depth-tested but depth read-only.
+				highlightState_ = state_;
+				highlightState_.blend.enable = true;
+				highlightState_.depth.writeEnable = false;
+				highlightState_.rasterizer.cullMode = rhi::CullMode::None;
 
 				// Planar reflection stencil mask (writes stencil, keeps color untouched via depth-only PSO).
 				planarMaskState_ = preDepthState_;

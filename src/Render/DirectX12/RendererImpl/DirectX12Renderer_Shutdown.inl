@@ -2,6 +2,10 @@
 			{
 				device_.DestroyBuffer(instanceBuffer_);
 			}
+			if (highlightInstanceBuffer_)
+			{
+				device_.DestroyBuffer(highlightInstanceBuffer_);
+			}
 			if (lightsBuffer_)
 			{
 				device_.DestroyBuffer(lightsBuffer_);

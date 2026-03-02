@@ -338,8 +338,10 @@ private:
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
 		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
+		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
 		rhi::GraphicsState state_{};
 		rhi::GraphicsState transparentState_{};
+		rhi::GraphicsState highlightState_{};
 		rhi::GraphicsState preDepthState_{};
 		rhi::GraphicsState mainAfterPreDepthState_{};
 		rhi::GraphicsState planarMaskState_{};
@@ -347,6 +349,7 @@ private:
 
 		rhi::BufferHandle instanceBuffer_{};
 		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
+		rhi::BufferHandle highlightInstanceBuffer_{}; // single-instance VB for selection highlight
 
 
 		// Shadow pass

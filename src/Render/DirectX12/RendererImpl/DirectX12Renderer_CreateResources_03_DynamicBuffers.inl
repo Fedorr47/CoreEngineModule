@@ -34,6 +34,16 @@
 					instanceBuffer_ = device_.CreateBuffer(id);
 				}
 
+				// Editor selection highlight: single-instance model matrix VB (slot1).
+				{
+					rhi::BufferDesc id{};
+					id.bindFlag = rhi::BufferBindFlag::VertexBuffer;
+					id.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					id.sizeInBytes = sizeof(InstanceData);
+					id.debugName = "HighlightInstanceVB";
+					highlightInstanceBuffer_ = device_.CreateBuffer(id);
+				}
+
 				// Persistent reflection capture cubemap.
 				// The texture is (re)created based on current RendererSettings (resolution).
 				EnsureReflectionCaptureResources();
