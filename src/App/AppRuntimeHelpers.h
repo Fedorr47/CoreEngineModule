@@ -1,7 +1,7 @@
 #pragma once
 
-#include "App/Win32AppShell.h"
-#include "App/DebugUiHost.h"
+#include "Win32AppShell.h"
+#include "DebugUiHost.h"
 
 namespace appRuntime
 {

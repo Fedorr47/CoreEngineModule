@@ -1,10 +1,10 @@
 #pragma once
 
-#include "App/Win32AppShell.h"
-#include "App/DebugUiHost.h"
-#include "App/EditorViewportInteraction.h"
-#include "App/AppRuntimeHelpers.h"
-#include "App/AppBootstrap.h"
+#include "Win32AppShell.h"
+#include "DebugUiHost.h"
+#include "EditorViewportInteraction.h"
+#include "AppRuntimeHelpers.h"
+#include "AppBootstrap.h"
 
 namespace appLifecycle
 {
@@ -53,159 +53,7 @@ namespace appLifecycle
         bool initialized = false;
     };
 
-    inline void InitializeApp(AppState& app, int argc, char** argv)
-    {
-        app.requestedBackend = appBootstrap::ParseBackendFromArgs(argc, argv);
-        app.canUseDebugWindow = appBootstrap::CanUseDebugWindow(app.requestedBackend);
-
-        appBootstrap::CreatePrimaryWindowSet(
-            app.config.windowWidth,
-            app.config.windowHeight,
-            app.config.windowTitle,
-            app.canUseDebugWindow,
-            app.window
-#if defined(CORE_USE_DX12)
-            , &app.debugWindow
-#endif
-        );
-
-        appBootstrap::BindWin32Input(app.win32Input);
-        appBootstrap::CreateDeviceAndSwapChain(
-            app.requestedBackend,
-            app.window.hwnd,
-            app.config.windowWidth,
-            app.config.windowHeight,
-            app.device,
-            app.swapChain);
-
-#if defined(CORE_USE_DX12)
-        appBootstrap::CreateDebugSwapChainIfNeeded(app.requestedBackend, *app.device, app.debugWindow, app.debugSwapChain);
-#endif
-
-        app.textureUploader = appBootstrap::CreateTextureUploader(app.device->GetBackend(), *app.device);
-        app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, app.jobSystem, app.renderQueue);
-        app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, app.jobSystem, app.renderQueue);
-        app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
-
-        app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson("levels/demo.level.json"));
-
-        app.rendererSettings.drawLightGizmos = true;
-        app.renderer = std::make_unique<rendern::Renderer>(*app.device, app.rendererSettings);
-
-#if defined(CORE_USE_DX12)
-        if (app.requestedBackend == rhi::Backend::DirectX12 && app.debugSwapChain && app.debugWindow.hwnd)
-        {
-            appUi::InitializeImGui(app.debugWindow.hwnd, *app.device, app.debugSwapChain->GetDesc().backbufferFormat, /*backbufferCount=*/2);
-        }
-#endif
-
-        app.scene.Clear();
-        app.bindless = std::make_unique<rendern::BindlessTable>(*app.device);
-        app.levelInstance = std::make_unique<rendern::LevelInstance>(rendern::InstantiateLevel(
-            app.scene,
-            *app.assets,
-            *app.bindless,
-            *app.levelAsset,
-            mathUtils::Mat4(1.0f)));
-
-        app.cameraController = std::make_unique<rendern::CameraController>();
-        app.cameraController->ResetFromCamera(app.scene.camera);
-
-        app.frameTimer.SetMaxDelta(0.05);
-        app.frameTimer.Reset();
-        app.initialized = true;
-    }
-
-    inline bool TickApp(AppState& app)
-    {
-        appWin32::PumpMessages(app.window);
-        if (!app.window.running)
-        {
-            return false;
-        }
-
-        appRuntime::ApplyPendingResize(app.window, app.swapChain.get());
-#if defined(CORE_USE_DX12)
-        appRuntime::ApplyPendingResize(app.debugWindow, app.debugSwapChain.get());
-#endif
-
-        if (appRuntime::ShouldSkipMainViewportFrame(app.window))
-        {
-            appWin32::TinySleep();
-            return true;
-        }
-
-        appRuntime::DriveAssetStreaming(*app.assets, *app.levelInstance, *app.bindless, app.scene, app.config.uploadBudget);
-
-        app.frameTimer.Tick();
-        const float deltaSeconds = static_cast<float>(app.frameTimer.GetDeltaTime());
-
-        app.win32Input.SetCaptureMode(appUi::GetInputCaptureForImGui());
-        app.win32Input.NewFrame(app.window.hwnd);
-        app.cameraController->Update(deltaSeconds, app.win32Input.State(), app.scene.camera);
-
-        appEditor::ApplyGizmoModeHotkeys(app.editorViewportInteraction, app.scene, app.win32Input.State());
-        appEditor::SyncEditorGizmoVisuals(app.editorViewportInteraction, *app.levelAsset, *app.levelInstance, app.scene);
-        appEditor::UpdateViewportGizmoHover(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, app.scene, app.win32Input.State());
-        appEditor::HandleViewportMouseInteraction(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, *app.levelAsset, *app.levelInstance, app.scene, app.win32Input.State());
-
-            const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
-                *app.device,
-                app.rendererSettings,
-                app.scene,
-                *app.cameraController,
-                *app.levelAsset,
-                *app.levelInstance,
-                *app.assets);
-
-        app.renderer->SetSettings(app.rendererSettings);
-        app.renderer->RenderFrame(*app.swapChain, app.scene, /*imguiDrawData=*/nullptr);
-
-#if defined(CORE_USE_DX12)
-        if (appRuntime::CanRenderDebugSwapChain(app.debugWindow, app.debugSwapChain.get()))
-        {
-            appUi::RenderImGuiToSwapChainIfEnabled(*app.device, *app.debugSwapChain, imguiDrawData);
-        }
-#endif
-
-        appWin32::TinySleep();
-        return true;
-    }
-
-    inline void ShutdownApp(AppState& app)
-    {
-        if (!app.initialized)
-        {
-            return;
-        }
-
-        appRuntime::ShutdownRuntime(
-            *app.device,
-            *app.renderer,
-            *app.levelInstance,
-            *app.bindless,
-            app.jobSystem,
-            *app.assets,
-            app.window
-#if defined(CORE_USE_DX12)
-            , &app.debugWindow
-#endif
-        );
-
-#if defined(CORE_USE_DX12)
-        app.debugSwapChain.reset();
-#endif
-        app.swapChain.reset();
-        app.renderer.reset();
-        app.levelInstance.reset();
-        app.bindless.reset();
-        app.levelAsset.reset();
-        app.assets.reset();
-        app.meshIO.reset();
-        app.textureIO.reset();
-        app.textureUploader.reset();
-        app.device.reset();
-        app.cameraController.reset();
-        app.initialized = false;
-    }
+    void InitializeApp(AppState& app, int argc, char** argv);
+    bool TickApp(AppState& app);
+    void ShutdownApp(AppState& app);
 }
