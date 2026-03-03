@@ -133,6 +133,25 @@ namespace rendern::ui::level_ui_detail
         ImGui::Separator();
         ImGui::Text("Selection");
 
+        {
+            const int selectedCount = static_cast<int>(scene.editorSelectedNodes.size());
+            if (selectedCount > 1)
+            {
+                ImGui::Text("Multi-selection: %d nodes", selectedCount);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Clear"))
+                {
+                    scene.EditorClearSelection();
+                    st.selectedNode = -1;
+                }
+                ImGui::Text("Primary: #%d", scene.editorSelectedNode);
+
+                // Keep the inspector editing the primary node (for now).
+                st.selectedNode = scene.editorSelectedNode;
+                ImGui::Separator();
+            }
+        }
+
         if (st.selectedNode >= 0 && !NodeAlive(level, st.selectedNode))
             st.selectedNode = -1;
 

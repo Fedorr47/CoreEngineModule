@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 export module core:editor_gizmo;
 
@@ -324,6 +325,17 @@ export namespace rendern
 				return;
 			}
 
+			// Multi-selection pivot: centroid of all selected nodes.
+			mathUtils::Vec3 sum{ 0.0f, 0.0f, 0.0f };
+			int count = 0;
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					sum = sum + levelInst.GetNodeWorldPosition(nodeIndex);
+					++count;
+				}
+			}
 			const int selectedNode = scene.editorSelectedNode;
 			if (!levelInst.IsNodeAlive(asset, selectedNode))
 			{
@@ -332,9 +344,14 @@ export namespace rendern
 				gizmo.activeAxis = GizmoAxis::None;
 				return;
 			}
+			if (count == 0)
+			{
+				sum = levelInst.GetNodeWorldPosition(selectedNode);
+				count = 1;
+			}
 
 			gizmo.visible = true;
-			gizmo.pivotWorld = levelInst.GetNodeWorldPosition(selectedNode);
+			gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
 
 			if (scene.editorTranslateSpace == GizmoSpace::Local)
 			{
@@ -385,10 +402,14 @@ export namespace rendern
 				return false;
 			}
 
-			const int selectedNode = scene.editorSelectedNode;
-			if (!levelInst.IsNodeAlive(asset, selectedNode))
+			const int primaryNode = scene.editorSelectedNode;
+			if (!levelInst.IsNodeAlive(asset, primaryNode))
 			{
 				return false;
+			}
+			if (scene.editorSelectedNodes.empty())
+			{
+				scene.editorSelectedNodes.push_back(primaryNode);
 			}
 
 			const GizmoAxis axis = HitTestHandle(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
@@ -424,9 +445,31 @@ export namespace rendern
 			}
 
 			dragging_ = true;
-			dragNodeIndex_ = selectedNode;
+			dragNodeIndices_.clear();
+			dragStartLocalPositions_.clear();
+			dragInvParentWorld_.clear();
+			dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
+			dragStartLocalPositions_.reserve(scene.editorSelectedNodes.size());
+			dragInvParentWorld_.reserve(scene.editorSelectedNodes.size());
+
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
+				dragNodeIndices_.push_back(nodeIndex);
+				dragStartLocalPositions_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.position);
+				dragInvParentWorld_.push_back(mathUtils::Inverse(levelInst.GetParentWorldMatrix(asset, nodeIndex)));
+			}
+
+			if (dragNodeIndices_.empty())
+			{
+				dragging_ = false;
+				return false;
+			}
+
 			dragAxis_ = axis;
-			dragStartLocalPosition_ = asset.nodes[static_cast<std::size_t>(selectedNode)].transform.position;
 			dragStartWorldHit_ = startHit;
 			dragAxisWorld_ = axisWorld;
 			dragPlaneNormal_ = planeNormal;
@@ -446,7 +489,7 @@ export namespace rendern
 			float viewportH,
 			bool snapEnabled) noexcept
 		{
-			if (!dragging_ || dragNodeIndex_ < 0 || !levelInst.IsNodeAlive(asset, dragNodeIndex_))
+			if (!dragging_ || dragNodeIndices_.empty())
 			{
 				return false;
 			}
@@ -472,19 +515,27 @@ export namespace rendern
 				return false;
 			}
 
-			const mathUtils::Mat4 invParentWorld = mathUtils::Inverse(levelInst.GetParentWorldMatrix(asset, dragNodeIndex_));
-			const mathUtils::Vec3 localDelta = mathUtils::TransformVector(invParentWorld, worldDelta);
-
-			mathUtils::Vec3 newLocalPosition = dragStartLocalPosition_ + localDelta;
-			if (snapEnabled)
+			const std::size_t n = dragNodeIndices_.size();
+			for (std::size_t i = 0; i < n; ++i)
 			{
-				constexpr float kTranslateSnapStep = 0.5f;
-				newLocalPosition.x = std::round(newLocalPosition.x / kTranslateSnapStep) * kTranslateSnapStep;
-				newLocalPosition.y = std::round(newLocalPosition.y / kTranslateSnapStep) * kTranslateSnapStep;
-				newLocalPosition.z = std::round(newLocalPosition.z / kTranslateSnapStep) * kTranslateSnapStep;
-			}
+				const int nodeIndex = dragNodeIndices_[i];
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
 
-			asset.nodes[static_cast<std::size_t>(dragNodeIndex_)].transform.position = newLocalPosition;
+				const mathUtils::Vec3 localDelta = mathUtils::TransformVector(dragInvParentWorld_[i], worldDelta);
+				mathUtils::Vec3 newLocalPosition = dragStartLocalPositions_[i] + localDelta;
+				if (snapEnabled)
+				{
+					constexpr float kTranslateSnapStep = 0.5f;
+					newLocalPosition.x = std::round(newLocalPosition.x / kTranslateSnapStep) * kTranslateSnapStep;
+					newLocalPosition.y = std::round(newLocalPosition.y / kTranslateSnapStep) * kTranslateSnapStep;
+					newLocalPosition.z = std::round(newLocalPosition.z / kTranslateSnapStep) * kTranslateSnapStep;
+				}
+
+				asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.position = newLocalPosition;
+			}
 			scene.editorTranslateGizmo.hoveredAxis = dragAxis_;
 			return true;
 		}
@@ -492,9 +543,10 @@ export namespace rendern
 		void EndDrag(Scene& scene) noexcept
 		{
 			dragging_ = false;
-			dragNodeIndex_ = -1;
+			dragNodeIndices_.clear();
+			dragStartLocalPositions_.clear();
+			dragInvParentWorld_.clear();
 			dragAxis_ = GizmoAxis::None;
-			dragStartLocalPosition_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragStartWorldHit_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragPlaneNormal_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -510,9 +562,10 @@ export namespace rendern
 
 	private:
 		bool dragging_{ false };
-		int dragNodeIndex_{ -1 };
+		std::vector<int> dragNodeIndices_;
 		GizmoAxis dragAxis_{ GizmoAxis::None };
-		mathUtils::Vec3 dragStartLocalPosition_{ 0.0f, 0.0f, 0.0f };
+		std::vector<mathUtils::Vec3> dragStartLocalPositions_;
+		std::vector<mathUtils::Mat4> dragInvParentWorld_;
 		mathUtils::Vec3 dragStartWorldHit_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragPlaneNormal_{ 0.0f, 0.0f, 0.0f };

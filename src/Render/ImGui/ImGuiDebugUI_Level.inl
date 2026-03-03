@@ -20,6 +20,7 @@ namespace rendern::ui
         auto& st = level_ui_detail::GetState();
 
         // Selection is driven by the main viewport (mouse picking) or by this UI.
+        // In multi-selection mode the Scene keeps the full selection set; UI keeps the primary node.
         if (scene.editorSelectedNode != st.selectedNode)
             st.selectedNode = scene.editorSelectedNode;
 
@@ -29,12 +30,15 @@ namespace rendern::ui
         level_ui_detail::DerivedLists derived{};
         level_ui_detail::BuildDerivedLists(level, derived);
 
-        level_ui_detail::DrawHierarchyPanel(level, derived, st);
+        level_ui_detail::DrawHierarchyPanel(level, derived, scene, st);
         ImGui::SameLine();
         level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, st);
 
-        // Expose selection to the rest of the app (main viewport already writes here too).
-        scene.editorSelectedNode = st.selectedNode;
+        // If UI changed primary selection directly (e.g. via Inspector actions), treat it as single selection.
+        if (st.selectedNode != scene.editorSelectedNode)
+        {
+            scene.EditorSetSelectionSingle(st.selectedNode);
+        }
 
         // Push transforms to Scene if needed, then refresh derived editor draw bindings.
         levelInst.SyncTransformsIfDirty(level, scene);

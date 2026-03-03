@@ -318,6 +318,18 @@ export namespace rendern
 				return;
 			}
 
+			// Multi-selection pivot: centroid of all selected nodes.
+			mathUtils::Vec3 sum{ 0.0f, 0.0f, 0.0f };
+			int count = 0;
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					sum = sum + levelInst.GetNodeWorldPosition(nodeIndex);
+					++count;
+				}
+			}
+
 			const int selectedNode = scene.editorSelectedNode;
 			if (!levelInst.IsNodeAlive(asset, selectedNode))
 			{
@@ -326,10 +338,15 @@ export namespace rendern
 				gizmo.activeAxis = GizmoAxis::None;
 				return;
 			}
+			if (count == 0)
+			{
+				sum = levelInst.GetNodeWorldPosition(selectedNode);
+				count = 1;
+			}
 
 			const mathUtils::Mat4& nodeWorld = levelInst.GetNodeWorldMatrix(selectedNode);
 			gizmo.visible = true;
-			gizmo.pivotWorld = levelInst.GetNodeWorldPosition(selectedNode);
+			gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
 			gizmo.axisXWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
 			gizmo.axisYWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
 			gizmo.axisZWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
@@ -370,10 +387,14 @@ export namespace rendern
 				return false;
 			}
 
-			const int selectedNode = scene.editorSelectedNode;
-			if (!levelInst.IsNodeAlive(asset, selectedNode))
+			const int primaryNode = scene.editorSelectedNode;
+			if (!levelInst.IsNodeAlive(asset, primaryNode))
 			{
 				return false;
+			}
+			if (scene.editorSelectedNodes.empty())
+			{
+				scene.editorSelectedNodes.push_back(primaryNode);
 			}
 
 			const GizmoAxis axis = HitTestHandle(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
@@ -415,9 +436,25 @@ export namespace rendern
 			}
 
 			dragging_ = true;
-			dragNodeIndex_ = selectedNode;
+			dragNodeIndices_.clear();
+			dragStartLocalScales_.clear();
+			dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
+			dragStartLocalScales_.reserve(scene.editorSelectedNodes.size());
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
+				dragNodeIndices_.push_back(nodeIndex);
+				dragStartLocalScales_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.scale);
+			}
+			if (dragNodeIndices_.empty())
+			{
+				dragging_ = false;
+				return false;
+			}
 			dragAxis_ = axis;
-			dragStartLocalScale_ = asset.nodes[static_cast<std::size_t>(selectedNode)].transform.scale;
 			dragStartWorldHit_ = startHit;
 			dragPlaneNormal_ = planeNormal;
 			dragPivotWorld_ = gizmo.pivotWorld;
@@ -440,7 +477,7 @@ export namespace rendern
 			float viewportH,
 			bool snapEnabled) noexcept
 		{
-			if (!dragging_ || dragNodeIndex_ < 0 || !levelInst.IsNodeAlive(asset, dragNodeIndex_))
+			if (!dragging_ || dragNodeIndices_.empty())
 			{
 				return false;
 			}
@@ -451,102 +488,127 @@ export namespace rendern
 				return false;
 			}
 
-			auto scale = dragStartLocalScale_;
+			// Precompute factors from the drag motion (independent from per-node start scale).
+			float uniformFactor = 1.0f;
+			float axisFactor = 1.0f;
+			float factorA = 1.0f;
+			float factorB = 1.0f;
+
 			if (dragAxis_ == GizmoAxis::XYZ)
 			{
 				const float currentRadius = std::max(1e-4f, mathUtils::Length(currentHit - dragPivotWorld_));
-				float factor = currentRadius / dragStartRadius_;
-				factor = std::clamp(factor, 0.01f, 100.0f);
+				uniformFactor = currentRadius / dragStartRadius_;
+				uniformFactor = std::clamp(uniformFactor, 0.01f, 100.0f);
 				if (snapEnabled)
 				{
-					factor = std::max(0.1f, std::round(factor * 10.0f) / 10.0f);
+					uniformFactor = std::max(0.1f, std::round(uniformFactor * 10.0f) / 10.0f);
 				}
-				scale = mathUtils::MaxVec3(dragStartLocalScale_ * factor, mathUtils::Vec3(kMinScaleComponent, kMinScaleComponent, kMinScaleComponent));
 			}
 			else if (IsAxisHandle(dragAxis_))
 			{
 				const float axisDelta = mathUtils::Dot(currentHit - dragStartWorldHit_, dragAxisWorld_);
-				float factor = 1.0f + (axisDelta / dragReferenceLengthWorld_);
-				factor = std::max(factor, kMinScaleComponent);
-
-				switch (dragAxis_)
-				{
-				case GizmoAxis::X: scale.x = std::max(dragStartLocalScale_.x * factor, kMinScaleComponent); break;
-				case GizmoAxis::Y: scale.y = std::max(dragStartLocalScale_.y * factor, kMinScaleComponent); break;
-				case GizmoAxis::Z: scale.z = std::max(dragStartLocalScale_.z * factor, kMinScaleComponent); break;
-				default: return false;
-				}
+				axisFactor = 1.0f + (axisDelta / dragReferenceLengthWorld_);
+				axisFactor = std::max(axisFactor, kMinScaleComponent);
 			}
 			else if (IsPlaneHandle(dragAxis_))
 			{
 				const mathUtils::Vec3 worldDelta = currentHit - dragStartWorldHit_;
 				const float axisDeltaA = mathUtils::Dot(worldDelta, dragBasisAWorld_);
 				const float axisDeltaB = mathUtils::Dot(worldDelta, dragBasisBWorld_);
-				const float factorA = std::max(1.0f + (axisDeltaA / dragReferenceLengthWorld_), kMinScaleComponent);
-				const float factorB = std::max(1.0f + (axisDeltaB / dragReferenceLengthWorld_), kMinScaleComponent);
-
-				switch (dragAxis_)
-				{
-				case GizmoAxis::XY:
-					scale.x = std::max(dragStartLocalScale_.x * factorA, kMinScaleComponent);
-					scale.y = std::max(dragStartLocalScale_.y * factorB, kMinScaleComponent);
-					break;
-				case GizmoAxis::XZ:
-					scale.x = std::max(dragStartLocalScale_.x * factorA, kMinScaleComponent);
-					scale.z = std::max(dragStartLocalScale_.z * factorB, kMinScaleComponent);
-					break;
-				case GizmoAxis::YZ:
-					scale.y = std::max(dragStartLocalScale_.y * factorA, kMinScaleComponent);
-					scale.z = std::max(dragStartLocalScale_.z * factorB, kMinScaleComponent);
-					break;
-				default:
-					return false;
-				}
+				factorA = std::max(1.0f + (axisDeltaA / dragReferenceLengthWorld_), kMinScaleComponent);
+				factorB = std::max(1.0f + (axisDeltaB / dragReferenceLengthWorld_), kMinScaleComponent);
 			}
 			else
 			{
 				return false;
 			}
 
-			if (snapEnabled)
-			{
-				constexpr float kScaleSnapStep = 0.1f;
-				auto SnapPositive = [](float value) noexcept
-					{
-						return std::max(std::round(value / kScaleSnapStep) * kScaleSnapStep, kMinScaleComponent);
-					};
-
-				switch (dragAxis_)
+			constexpr float kScaleSnapStep = 0.1f;
+			auto SnapPositive = [](float value) noexcept
 				{
-				case GizmoAxis::X:
-					scale.x = SnapPositive(scale.x);
-					break;
-				case GizmoAxis::Y:
-					scale.y = SnapPositive(scale.y);
-					break;
-				case GizmoAxis::Z:
-					scale.z = SnapPositive(scale.z);
-					break;
-				case GizmoAxis::XY:
-					scale.x = SnapPositive(scale.x);
-					scale.y = SnapPositive(scale.y);
-					break;
-				case GizmoAxis::XZ:
-					scale.x = SnapPositive(scale.x);
-					scale.z = SnapPositive(scale.z);
-					break;
-				case GizmoAxis::YZ:
-					scale.y = SnapPositive(scale.y);
-					scale.z = SnapPositive(scale.z);
-					break;
-				case GizmoAxis::XYZ:
-				case GizmoAxis::None:
-				default:
-					break;
-				}
-			}
+					return std::max(std::round(value / kScaleSnapStep) * kScaleSnapStep, kMinScaleComponent);
+				};
 
-			asset.nodes[static_cast<std::size_t>(dragNodeIndex_)].transform.scale = scale;
+			const std::size_t n = dragNodeIndices_.size();
+			for (std::size_t i = 0; i < n; ++i)
+			{
+				const int nodeIndex = dragNodeIndices_[i];
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
+
+				const mathUtils::Vec3 startScale = dragStartLocalScales_[i];
+				auto scale = startScale;
+				if (dragAxis_ == GizmoAxis::XYZ)
+				{
+					scale = mathUtils::MaxVec3(startScale * uniformFactor, mathUtils::Vec3(kMinScaleComponent, kMinScaleComponent, kMinScaleComponent));
+				}
+				else if (IsAxisHandle(dragAxis_))
+				{
+					switch (dragAxis_)
+					{
+					case GizmoAxis::X: scale.x = std::max(startScale.x * axisFactor, kMinScaleComponent); break;
+					case GizmoAxis::Y: scale.y = std::max(startScale.y * axisFactor, kMinScaleComponent); break;
+					case GizmoAxis::Z: scale.z = std::max(startScale.z * axisFactor, kMinScaleComponent); break;
+					default: return false;
+					}
+				}
+				else if (IsPlaneHandle(dragAxis_))
+				{
+					switch (dragAxis_)
+					{
+					case GizmoAxis::XY:
+						scale.x = std::max(startScale.x * factorA, kMinScaleComponent);
+						scale.y = std::max(startScale.y * factorB, kMinScaleComponent);
+						break;
+					case GizmoAxis::XZ:
+						scale.x = std::max(startScale.x * factorA, kMinScaleComponent);
+						scale.z = std::max(startScale.z * factorB, kMinScaleComponent);
+						break;
+					case GizmoAxis::YZ:
+						scale.y = std::max(startScale.y * factorA, kMinScaleComponent);
+						scale.z = std::max(startScale.z * factorB, kMinScaleComponent);
+						break;
+					default:
+						return false;
+					}
+				}
+
+				if (snapEnabled)
+				{
+					switch (dragAxis_)
+					{
+					case GizmoAxis::X:
+						scale.x = SnapPositive(scale.x);
+						break;
+					case GizmoAxis::Y:
+						scale.y = SnapPositive(scale.y);
+						break;
+					case GizmoAxis::Z:
+						scale.z = SnapPositive(scale.z);
+						break;
+					case GizmoAxis::XY:
+						scale.x = SnapPositive(scale.x);
+						scale.y = SnapPositive(scale.y);
+						break;
+					case GizmoAxis::XZ:
+						scale.x = SnapPositive(scale.x);
+						scale.z = SnapPositive(scale.z);
+						break;
+					case GizmoAxis::YZ:
+						scale.y = SnapPositive(scale.y);
+						scale.z = SnapPositive(scale.z);
+						break;
+					case GizmoAxis::XYZ:
+					case GizmoAxis::None:
+					default:
+						break;
+					}
+				}
+
+				asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.scale = scale;
+			}
 			scene.editorScaleGizmo.hoveredAxis = dragAxis_;
 			return true;
 		}
@@ -554,9 +616,9 @@ export namespace rendern
 		void EndDrag(Scene& scene) noexcept
 		{
 			dragging_ = false;
-			dragNodeIndex_ = -1;
+			dragNodeIndices_.clear();
+			dragStartLocalScales_.clear();
 			dragAxis_ = GizmoAxis::None;
-			dragStartLocalScale_ = mathUtils::Vec3(1.0f, 1.0f, 1.0f);
 			dragStartWorldHit_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragPlaneNormal_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -574,18 +636,18 @@ export namespace rendern
 			return dragging_;
 		}
 
-		private:
-			bool dragging_{ false };
-			int dragNodeIndex_{ -1 };
-			GizmoAxis dragAxis_{ GizmoAxis::None };
-			mathUtils::Vec3 dragStartLocalScale_{ 1.0f, 1.0f, 1.0f };
-			mathUtils::Vec3 dragStartWorldHit_{ 0.0f, 0.0f, 0.0f };
-			mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };
-			mathUtils::Vec3 dragBasisAWorld_{ 0.0f, 0.0f, 0.0f };
-			mathUtils::Vec3 dragBasisBWorld_{ 0.0f, 0.0f, 0.0f };
-			mathUtils::Vec3 dragPlaneNormal_{ 0.0f, 0.0f, 0.0f };
-			mathUtils::Vec3 dragPivotWorld_{ 0.0f, 0.0f, 0.0f };
-			float dragReferenceLengthWorld_{ 1.0f };
-			float dragStartRadius_{ 1.0f };
+	private:
+		bool dragging_{ false };
+		std::vector<int> dragNodeIndices_;
+		GizmoAxis dragAxis_{ GizmoAxis::None };
+		std::vector<mathUtils::Vec3> dragStartLocalScales_;
+		mathUtils::Vec3 dragStartWorldHit_{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 dragBasisAWorld_{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 dragBasisBWorld_{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 dragPlaneNormal_{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 dragPivotWorld_{ 0.0f, 0.0f, 0.0f };
+		float dragReferenceLengthWorld_{ 1.0f };
+		float dragStartRadius_{ 1.0f };
 	};
 }

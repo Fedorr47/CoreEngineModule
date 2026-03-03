@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 export module core:editor_rotate_gizmo;
 
@@ -105,6 +106,18 @@ export namespace rendern
 				return;
 			}
 
+			// Multi-selection pivot: centroid of all selected nodes.
+			mathUtils::Vec3 sum{ 0.0f, 0.0f, 0.0f };
+			int count = 0;
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					sum = sum + levelInst.GetNodeWorldPosition(nodeIndex);
+					++count;
+				}
+			}
+
 			const int selectedNode = scene.editorSelectedNode;
 			if (!levelInst.IsNodeAlive(asset, selectedNode))
 			{
@@ -113,10 +126,15 @@ export namespace rendern
 				gizmo.activeAxis = GizmoAxis::None;
 				return;
 			}
+			if (count == 0)
+			{
+				sum = levelInst.GetNodeWorldPosition(selectedNode);
+				count = 1;
+			}
 
 			const mathUtils::Mat4& nodeWorld = levelInst.GetNodeWorldMatrix(selectedNode);
 			gizmo.visible = true;
-			gizmo.pivotWorld = levelInst.GetNodeWorldPosition(selectedNode);
+			gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
 			gizmo.axisXWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
 			gizmo.axisYWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
 			gizmo.axisZWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
@@ -156,10 +174,14 @@ export namespace rendern
 				return false;
 			}
 
-			const int selectedNode = scene.editorSelectedNode;
-			if (!levelInst.IsNodeAlive(asset, selectedNode))
+			const int primaryNode = scene.editorSelectedNode;
+			if (!levelInst.IsNodeAlive(asset, primaryNode))
 			{
 				return false;
+			}
+			if (scene.editorSelectedNodes.empty())
+			{
+				scene.editorSelectedNodes.push_back(primaryNode);
 			}
 
 			const GizmoAxis axis = HitTestRing(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
@@ -182,9 +204,25 @@ export namespace rendern
 			}
 
 			dragging_ = true;
-			dragNodeIndex_ = selectedNode;
+			dragNodeIndices_.clear();
+			dragStartLocalRotations_.clear();
+			dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
+			dragStartLocalRotations_.reserve(scene.editorSelectedNodes.size());
+			for (const int nodeIndex : scene.editorSelectedNodes)
+			{
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
+				dragNodeIndices_.push_back(nodeIndex);
+				dragStartLocalRotations_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.rotationDegrees);
+			}
+			if (dragNodeIndices_.empty())
+			{
+				dragging_ = false;
+				return false;
+			}
 			dragAxis_ = axis;
-			dragStartLocalRotation_ = asset.nodes[static_cast<std::size_t>(selectedNode)].transform.rotationDegrees;
 			dragStartHitDirWorld_ = mathUtils::Normalize(startDir);
 			dragAxisWorld_ = axisWorld;
 			dragPivotWorld_ = gizmo.pivotWorld;
@@ -203,7 +241,7 @@ export namespace rendern
 			float viewportH,
 			bool snapEnabled) noexcept
 		{
-			if (!dragging_ || dragNodeIndex_ < 0 || !levelInst.IsNodeAlive(asset, dragNodeIndex_))
+			if (!dragging_ || dragNodeIndices_.empty())
 			{
 				return false;
 			}
@@ -231,14 +269,23 @@ export namespace rendern
 				angleDeg = std::round(angleDeg / kRotateSnapStepDeg) * kRotateSnapStepDeg;
 			}
 
-			auto& rotation = asset.nodes[static_cast<std::size_t>(dragNodeIndex_)].transform.rotationDegrees;
-			rotation = dragStartLocalRotation_;
-			switch (dragAxis_)
+			const std::size_t n = dragNodeIndices_.size();
+			for (std::size_t i = 0; i < n; ++i)
 			{
-			case GizmoAxis::X: rotation.x += angleDeg; break;
-			case GizmoAxis::Y: rotation.y += angleDeg; break;
-			case GizmoAxis::Z: rotation.z += angleDeg; break;
-			default: return false;
+				const int nodeIndex = dragNodeIndices_[i];
+				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				{
+					continue;
+				}
+				auto& rotation = asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.rotationDegrees;
+				rotation = dragStartLocalRotations_[i];
+				switch (dragAxis_)
+				{
+				case GizmoAxis::X: rotation.x += angleDeg; break;
+				case GizmoAxis::Y: rotation.y += angleDeg; break;
+				case GizmoAxis::Z: rotation.z += angleDeg; break;
+				default: return false;
+				}
 			}
 
 			scene.editorRotateGizmo.hoveredAxis = dragAxis_;
@@ -248,9 +295,9 @@ export namespace rendern
 		void EndDrag(Scene& scene) noexcept
 		{
 			dragging_ = false;
-			dragNodeIndex_ = -1;
+			dragNodeIndices_.clear();
+			dragStartLocalRotations_.clear();
 			dragAxis_ = GizmoAxis::None;
-			dragStartLocalRotation_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragStartHitDirWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragPivotWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -265,9 +312,9 @@ export namespace rendern
 
 	private:
 		bool dragging_{ false };
-		int dragNodeIndex_{ -1 };
+		std::vector<int> dragNodeIndices_;
 		GizmoAxis dragAxis_{ GizmoAxis::None };
-		mathUtils::Vec3 dragStartLocalRotation_{ 0.0f, 0.0f, 0.0f };
+		std::vector<mathUtils::Vec3> dragStartLocalRotations_;
 		mathUtils::Vec3 dragStartHitDirWorld_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragPivotWorld_{ 0.0f, 0.0f, 0.0f };
