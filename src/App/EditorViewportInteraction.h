@@ -131,19 +131,20 @@ namespace appEditor
 
     inline bool TryGetViewportMouseClientPos(HWND hwnd, int viewportWidth, int viewportHeight, int& outMouseX, int& outMouseY)
     {
-        POINT point{};
-        if (!GetCursorPos(&point) || !ScreenToClient(hwnd, &point))
+        int x = 0;
+        int y = 0;
+        if (!appWin32::TryGetCursorPosClient(hwnd, x, y))
         {
             return false;
         }
 
-        if (point.x < 0 || point.y < 0 || point.x >= viewportWidth || point.y >= viewportHeight)
+        if (x < 0 || y < 0 || x >= viewportWidth || y >= viewportHeight)
         {
             return false;
         }
 
-        outMouseX = point.x;
-        outMouseY = point.y;
+        outMouseX = x;
+        outMouseY = y;
         return true;
     }
 
@@ -228,14 +229,12 @@ namespace appEditor
             return;
         }
 
-        POINT point{};
-        if (!GetCursorPos(&point) || !ScreenToClient(hwnd, &point))
+        int mouseX = 0;
+        int mouseY = 0;
+        if (!appWin32::TryGetCursorPosClient(hwnd, mouseX, mouseY))
         {
             return;
         }
-
-        const int mouseX = point.x;
-        const int mouseY = point.y;
         if (mouseX < 0 || mouseY < 0 || mouseX >= viewportWidth || mouseY >= viewportHeight)
         {
             if (!input.KeyDown(VK_LBUTTON))

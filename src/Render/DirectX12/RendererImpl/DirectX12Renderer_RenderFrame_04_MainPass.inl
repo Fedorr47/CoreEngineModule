@@ -171,6 +171,23 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 				1,
 				startInstance);
 
+			// 3) Clear the stencil mark for this object so outlines for multiple selected objects
+			// don't interfere with each other (otherwise the first object "occupies" the stencil
+			// and later outlines get clipped).
+			//
+			// We reuse the same pipeline/state as the mark pass, but set stencil ref to 0.
+			ctx.commandList.SetState(outlineMarkState_);
+			ctx.commandList.BindPipeline(psoHighlight_);
+			ctx.commandList.SetStencilRef(0u);
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &markConstants, 1 }));
+			ctx.commandList.DrawIndexed(
+				mesh.indexCount,
+				mesh.indexType,
+				0,
+				0,
+				1,
+				startInstance);
+
 			ctx.commandList.SetStencilRef(0u);
 			ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
 		};

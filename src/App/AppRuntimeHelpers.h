@@ -29,7 +29,7 @@ namespace appRuntime
         swapChain->Resize(rhi::Extent2D{
             static_cast<std::uint32_t>(window.pendingWidth),
             static_cast<std::uint32_t>(window.pendingHeight)
-        });
+            });
     }
 
     inline bool ShouldSkipMainViewportFrame(const appWin32::Win32Window& window)
@@ -88,14 +88,14 @@ namespace appRuntime
 
         if (mainWindow.hwnd)
         {
-            DestroyWindow(mainWindow.hwnd);
+            appWin32::DestroyWindowSafe(mainWindow.hwnd);
             mainWindow.hwnd = nullptr;
         }
 
 #if defined(CORE_USE_DX12)
         if (debugWindow && debugWindow->hwnd)
         {
-            DestroyWindow(debugWindow->hwnd);
+            appWin32::DestroyWindowSafe(debugWindow->hwnd);
             debugWindow->hwnd = nullptr;
         }
         appWin32::g_debugWindow = nullptr;

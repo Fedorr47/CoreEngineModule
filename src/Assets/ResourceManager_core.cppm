@@ -149,6 +149,8 @@ export class ITextureUploader
 {
 public:
 	virtual ~ITextureUploader() = default;
+	virtual void BeginUploadBatch() {}
+	virtual void EndUploadBatch() {}
 	virtual std::optional<GPUTexture> CreateAndUpload(const TextureCPUData& cpuData, const TextureProperties& properties) = 0;
 	virtual void Destroy(GPUTexture texture) noexcept = 0;
 };

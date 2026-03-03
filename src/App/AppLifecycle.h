@@ -8,6 +8,13 @@
 
 namespace appLifecycle
 {
+    struct LoadingOverlayState
+    {
+        bool visible = true;
+        float displayProgress01 = 0.0f;
+        float completedHoldSeconds = 0.0f;
+    };
+
     struct AppConfig
     {
         int windowWidth = 1280;
@@ -33,7 +40,7 @@ namespace appLifecycle
         std::unique_ptr<rhi::IRHISwapChain> swapChain;
 
         StbTextureDecoder textureDecoder{};
-        rendern::JobSystemThreadPool jobSystem{ 1 };
+        std::unique_ptr<rendern::JobSystemThreadPool> jobSystem;
         rendern::RenderQueueImmediate renderQueue{};
         std::unique_ptr<ITextureUploader> textureUploader;
         std::unique_ptr<TextureIO> textureIO;
@@ -49,6 +56,7 @@ namespace appLifecycle
         std::unique_ptr<rendern::CameraController> cameraController;
         appEditor::EditorViewportInteraction editorViewportInteraction{};
         GameTimer frameTimer{};
+        LoadingOverlayState loadingOverlay{};
 
         bool initialized = false;
     };

@@ -37,6 +37,11 @@ namespace appWin32
     void UpdateMainMenuDebugWindowCheck();
 #endif
 
+    // Header-safe helpers implemented in Win32AppShell.cpp (which includes <windows.h>).
+    // These exist so headers can avoid including <windows.h> when using `import std;`.
+    bool TryGetCursorPosClient(HWND hwnd, int& outX, int& outY) noexcept;
+    void DestroyWindowSafe(HWND hwnd) noexcept;
+
     HMENU CreateMainMenu(bool enableDebugItem, bool debugChecked);
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     Win32Window CreateWindowWin32(int width, int height, const std::wstring& title, bool show = true, HMENU menu = nullptr);

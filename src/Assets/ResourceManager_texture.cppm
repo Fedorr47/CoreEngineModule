@@ -9,6 +9,8 @@ module;
 #include <optional>
 #include <unordered_map>
 #include <mutex>
+#include <vector>
+#include <exception>
 #include <concepts>
 #include <type_traits>
 
@@ -285,8 +287,20 @@ public:
 
 	bool ProcessUploads(TextureIO& io, std::size_t maxPerCall = 8, std::size_t maxDestroyedPerCall = 32)
 	{
+		struct PendingUpload
+		{
+			std::string id{};
+			std::uint64_t generation{};
+			Handle handle{};
+			TextureProperties properties{};
+			std::shared_ptr<TextureCPUData> cpuPtr{};
+		};
+
 		std::size_t uploaded = 0;
 		std::size_t destroyed = 0;
+
+		std::vector<PendingUpload> readyUploads{};
+		readyUploads.reserve(maxPerCall);
 
 		while (destroyed < maxDestroyedPerCall)
 		{
@@ -358,62 +372,151 @@ public:
 				properties = handle->GetProperties();
 			}
 
-			auto cpuPtr = std::make_shared<TextureCPUData>(std::move(cpuData));
-			TextureIO ioCopy = io;
-			std::string idCopy = ticket.id;
-			auto props = std::move(properties);
-			const std::uint64_t genCopy = generation;
+			PendingUpload upload{};
+			upload.id = std::move(ticket.id);
+			upload.generation = generation;
+			upload.handle = handle;
+			upload.properties = std::move(properties);
+			upload.cpuPtr = std::make_shared<TextureCPUData>(std::move(cpuData));
+			readyUploads.push_back(std::move(upload));
+			++uploaded;
+		}
 
-			ioCopy.render.Enqueue([this, ioCopy, idCopy = std::move(idCopy), genCopy, cpuPtr, props = std::move(props), handle]() mutable
+		if (!readyUploads.empty())
+		{
+			TextureIO ioCopy = io;
+			ioCopy.render.Enqueue([this, ioCopy, uploads = std::move(readyUploads)]() mutable
 				{
-					auto gpuOpt = ioCopy.uploader.CreateAndUpload(*cpuPtr, props);
-					GPUTexture toDestroy{};
-					bool shouldDestroy = false;
+					struct UploadResult
+					{
+						std::optional<GPUTexture> gpuOpt{};
+						std::string error{};
+					};
+
+					std::vector<UploadResult> results(uploads.size());
+					bool batchBegun = false;
+					std::string batchError{};
+
+					try
+					{
+						ioCopy.uploader.BeginUploadBatch();
+						batchBegun = true;
+					}
+					catch (const std::exception& e)
+					{
+						batchError = e.what();
+					}
+					catch (...)
+					{
+						batchError = "GPU texture upload batch begin threw";
+					}
+
+					for (std::size_t i = 0; i < uploads.size(); ++i)
+					{
+						auto& result = results[i];
+						if (!batchBegun)
+						{
+							result.error = batchError.empty() ? "GPU texture upload batch begin failed" : batchError;
+							continue;
+						}
+
+						try
+						{
+							result.gpuOpt = ioCopy.uploader.CreateAndUpload(*uploads[i].cpuPtr, uploads[i].properties);
+							if (!result.gpuOpt)
+							{
+								result.error = "GPU texture upload failed";
+							}
+						}
+						catch (const std::exception& e)
+						{
+							result.error = e.what();
+						}
+						catch (...)
+						{
+							result.error = "GPU texture upload threw";
+						}
+					}
+
+					if (batchBegun)
+					{
+						try
+						{
+							ioCopy.uploader.EndUploadBatch();
+						}
+						catch (const std::exception& e)
+						{
+							batchError = e.what();
+						}
+						catch (...)
+						{
+							batchError = "GPU texture upload batch end threw";
+						}
+					}
+
+					if (!batchError.empty())
+					{
+						for (auto& result : results)
+						{
+							if (result.gpuOpt && result.gpuOpt->id != 0)
+							{
+								ioCopy.uploader.Destroy(*result.gpuOpt);
+								result.gpuOpt.reset();
+							}
+							if (result.error.empty())
+							{
+								result.error = batchError;
+							}
+						}
+					}
+
+					std::vector<GPUTexture> destroyList{};
+					destroyList.reserve(results.size());
 
 					{
 						std::scoped_lock lock(mutex_);
-
-						auto it = entries_.find(idCopy);
-						if (it == entries_.end())
+						for (std::size_t i = 0; i < uploads.size(); ++i)
 						{
-							shouldDestroy = (gpuOpt && gpuOpt->id != 0);
-							if (shouldDestroy)
+							auto& upload = uploads[i];
+							auto& result = results[i];
+							auto it = entries_.find(upload.id);
+							if (it == entries_.end())
 							{
-								toDestroy = *gpuOpt;
-							}
-						}
-						else
-						{
-							TextureEntry& entry = it->second;
-							if (entry.generation != genCopy || entry.textureHandle != handle || entry.state != ResourceState::Loading)
-							{
-								shouldDestroy = (gpuOpt && gpuOpt->id != 0);
-								if (shouldDestroy)
+								if (result.gpuOpt && result.gpuOpt->id != 0)
 								{
-									toDestroy = *gpuOpt;
+									destroyList.push_back(*result.gpuOpt);
 								}
+								continue;
 							}
-							else if (!gpuOpt)
+
+							TextureEntry& entry = it->second;
+							if (entry.generation != upload.generation || entry.textureHandle != upload.handle || entry.state != ResourceState::Loading)
+							{
+								if (result.gpuOpt && result.gpuOpt->id != 0)
+								{
+									destroyList.push_back(*result.gpuOpt);
+								}
+								continue;
+							}
+
+							if (!result.gpuOpt)
 							{
 								entry.state = ResourceState::Failed;
-								entry.error = "GPU texture upload failed";
+								entry.error = result.error.empty() ? "GPU texture upload failed" : result.error;
+								continue;
 							}
-							else
-							{
-								entry.textureHandle->SetResource(*gpuOpt);
-								entry.state = ResourceState::Loaded;
-								entry.error.clear();
-							}
+
+							entry.textureHandle->SetResource(*result.gpuOpt);
+							entry.state = ResourceState::Loaded;
+							entry.error.clear();
 						}
 					}
 
-					if (shouldDestroy)
+					for (const GPUTexture texture : destroyList)
 					{
-						ioCopy.uploader.Destroy(toDestroy);
+						ioCopy.uploader.Destroy(texture);
 					}
 				});
-
-			++uploaded;
 		}
 
 		return (uploaded + destroyed) > 0;

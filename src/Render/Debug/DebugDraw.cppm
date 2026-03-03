@@ -30,11 +30,13 @@ export namespace rendern::debugDraw
 	{
 		std::vector<DebugVertex> lineVertices;
 		std::vector<DebugVertex> overlayLineVertices;
+		std::vector<DebugVertex> screenOverlayLineVertices;
 
 		void Clear()
 		{
 			lineVertices.clear();
 			overlayLineVertices.clear();
+			screenOverlayLineVertices.clear();
 		}
 
 		void ReserveLines(std::size_t lineCount)
@@ -47,9 +49,14 @@ export namespace rendern::debugDraw
 			overlayLineVertices.reserve(lineCount * 2);
 		}
 
+		void ReserveScreenOverlayLines(std::size_t lineCount)
+		{
+			screenOverlayLineVertices.reserve(lineCount * 2);
+		}
+
 		std::size_t VertexCount() const noexcept
 		{
-			return lineVertices.size() + overlayLineVertices.size();
+			return lineVertices.size() + overlayLineVertices.size() + screenOverlayLineVertices.size();
 		}
 
 		std::size_t DepthVertexCount() const noexcept
@@ -62,11 +69,64 @@ export namespace rendern::debugDraw
 			return overlayLineVertices.size();
 		}
 
+		std::size_t ScreenOverlayVertexCount() const noexcept
+		{
+			return screenOverlayLineVertices.size();
+		}
+
 		void AddLine(const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t rgba, bool overlay = false)
 		{
 			auto& dst = overlay ? overlayLineVertices : lineVertices;
 			dst.push_back(DebugVertex{ a, rgba });
 			dst.push_back(DebugVertex{ b, rgba });
+		}
+
+		void AddScreenSpaceLineNdc(const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t rgba)
+		{
+			screenOverlayLineVertices.push_back(DebugVertex{ a, rgba });
+			screenOverlayLineVertices.push_back(DebugVertex{ b, rgba });
+		}
+
+		void AddScreenSpaceRectNdc(float x0, float y0, float x1, float y1, std::uint32_t rgba)
+		{
+			const mathUtils::Vec3 p00(x0, y0, 0.0f);
+			const mathUtils::Vec3 p10(x1, y0, 0.0f);
+			const mathUtils::Vec3 p11(x1, y1, 0.0f);
+			const mathUtils::Vec3 p01(x0, y1, 0.0f);
+			AddScreenSpaceLineNdc(p00, p10, rgba);
+			AddScreenSpaceLineNdc(p10, p11, rgba);
+			AddScreenSpaceLineNdc(p11, p01, rgba);
+			AddScreenSpaceLineNdc(p01, p00, rgba);
+		}
+
+		void AddScreenSpaceFilledRectNdc(float x0, float y0, float x1, float y1, std::uint32_t rgba, std::uint32_t columns = 64)
+		{
+			if (x1 < x0)
+			{
+				std::swap(x0, x1);
+			}
+			if (y1 < y0)
+			{
+				std::swap(y0, y1);
+			}
+			if (columns == 0u || x1 <= x0 || y1 <= y0)
+			{
+				return;
+			}
+
+			if (columns == 1u)
+			{
+				const float xc = (x0 + x1) * 0.5f;
+				AddScreenSpaceLineNdc(mathUtils::Vec3(xc, y0, 0.0f), mathUtils::Vec3(xc, y1, 0.0f), rgba);
+				return;
+			}
+
+			for (std::uint32_t i = 0; i < columns; ++i)
+			{
+				const float t = static_cast<float>(i) / static_cast<float>(columns - 1u);
+				const float x = std::lerp(x0, x1, t);
+				AddScreenSpaceLineNdc(mathUtils::Vec3(x, y0, 0.0f), mathUtils::Vec3(x, y1, 0.0f), rgba);
+			}
 		}
 
 		void AddAxesCross(const mathUtils::Vec3& origin, float halfSize, std::uint32_t rgba, bool overlay = false)

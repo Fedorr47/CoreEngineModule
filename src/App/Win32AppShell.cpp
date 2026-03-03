@@ -264,6 +264,33 @@ namespace appWin32
         return window;
     }
 
+    bool TryGetCursorPosClient(HWND hwnd, int& outX, int& outY) noexcept
+    {
+        if (!hwnd)
+        {
+            return false;
+        }
+
+        POINT p{};
+        if (!GetCursorPos(&p) || !ScreenToClient(hwnd, &p))
+        {
+            return false;
+        }
+
+        outX = static_cast<int>(p.x);
+        outY = static_cast<int>(p.y);
+        return true;
+    }
+
+    void DestroyWindowSafe(HWND hwnd) noexcept
+    {
+        if (!hwnd)
+        {
+            return;
+        }
+        ::DestroyWindow(hwnd);
+    }
+
     void PumpMessages(Win32Window& window)
     {
         MSG msg{};

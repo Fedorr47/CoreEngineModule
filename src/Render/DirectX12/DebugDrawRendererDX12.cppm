@@ -31,7 +31,8 @@ export namespace rendern::debugDraw
 
 			lastDepthVertexCount_ = static_cast<std::uint32_t>(list.DepthVertexCount());
 			lastOverlayVertexCount_ = static_cast<std::uint32_t>(list.OverlayVertexCount());
-			lastVertexCount_ = lastDepthVertexCount_ + lastOverlayVertexCount_;
+			lastScreenOverlayVertexCount_ = static_cast<std::uint32_t>(list.ScreenOverlayVertexCount());
+			lastVertexCount_ = lastDepthVertexCount_ + lastOverlayVertexCount_ + lastScreenOverlayVertexCount_;
 			if (lastVertexCount_ == 0)
 			{
 				return;
@@ -40,9 +41,10 @@ export namespace rendern::debugDraw
 			EnsureVertexBufferCapacity(lastVertexCount_);
 
 			uploadScratch_.clear();
-			uploadScratch_.reserve(list.lineVertices.size() + list.overlayLineVertices.size());
+			uploadScratch_.reserve(list.lineVertices.size() + list.overlayLineVertices.size() + list.screenOverlayLineVertices.size());
 			uploadScratch_.insert(uploadScratch_.end(), list.lineVertices.begin(), list.lineVertices.end());
 			uploadScratch_.insert(uploadScratch_.end(), list.overlayLineVertices.begin(), list.overlayLineVertices.end());
+			uploadScratch_.insert(uploadScratch_.end(), list.screenOverlayLineVertices.begin(), list.screenOverlayLineVertices.end());
 
 			const std::span<const DebugVertex> verts{ uploadScratch_.data(), uploadScratch_.size() };
 			device_.UpdateBuffer(vertexBuffer_, std::as_bytes(verts), 0);
@@ -85,6 +87,7 @@ export namespace rendern::debugDraw
 				cmd.Draw(lastDepthVertexCount_, 0);
 			}
 
+			const std::uint32_t overlayStartVertex = lastDepthVertexCount_;
 			if (lastOverlayVertexCount_ > 0)
 			{
 				rhi::GraphicsState overlayState{};
@@ -95,7 +98,26 @@ export namespace rendern::debugDraw
 				overlayState.blend.enable = false;
 
 				cmd.SetState(overlayState);
-				cmd.Draw(lastOverlayVertexCount_, lastDepthVertexCount_);
+				cmd.Draw(lastOverlayVertexCount_, overlayStartVertex);
+			}
+
+			if (lastScreenOverlayVertexCount_ > 0)
+			{
+				rhi::GraphicsState overlayState{};
+				overlayState.depth.testEnable = false;
+				overlayState.depth.writeEnable = false;
+				overlayState.depth.depthCompareOp = rhi::CompareOp::Always;
+				overlayState.rasterizer.cullMode = rhi::CullMode::None;
+				overlayState.blend.enable = false;
+
+				cmd.SetState(overlayState);
+
+				Constants screenC{};
+				const mathUtils::Mat4 identityT = mathUtils::Transpose(mathUtils::Mat4(1.0f));
+				std::memcpy(screenC.uViewProj.data(), mathUtils::ValuePtr(identityT), sizeof(float) * 16);
+				cmd.SetConstants(0, std::as_bytes(std::span{ &screenC, 1 }));
+
+				cmd.Draw(lastScreenOverlayVertexCount_, overlayStartVertex + lastOverlayVertexCount_);
 			}
 		}
 
@@ -110,6 +132,7 @@ export namespace rendern::debugDraw
 			lastVertexCount_ = 0;
 			lastDepthVertexCount_ = 0;
 			lastOverlayVertexCount_ = 0;
+			lastScreenOverlayVertexCount_ = 0;
 			uploadScratch_.clear();
 
 			if (inputLayout_)
@@ -216,6 +239,7 @@ export namespace rendern::debugDraw
 		std::uint32_t lastVertexCount_{ 0 };
 		std::uint32_t lastDepthVertexCount_{ 0 };
 		std::uint32_t lastOverlayVertexCount_{ 0 };
+		std::uint32_t lastScreenOverlayVertexCount_{ 0 };
 		bool initialized_{ false };
 	};
 }

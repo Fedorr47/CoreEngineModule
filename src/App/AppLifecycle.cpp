@@ -13,6 +13,25 @@ import std;
 
 namespace appLifecycle
 {
+    static std::uint32_t ComputeStreamingWorkerCount() noexcept
+    {
+        // NOTE: Avoid including <thread>/<algorithm> in headers when using MSVC `import std;`.
+        // Keep the computation in this TU.
+        const unsigned int hc = std::thread::hardware_concurrency();
+        if (hc <= 1u)
+        {
+            return 1u;
+        }
+
+        unsigned int wc = hc - 1u;
+        if (wc < 1u)
+            wc = 1u;
+        if (wc > 8u)
+            wc = 8u;
+
+        return static_cast<std::uint32_t>(wc);
+    }
+
     void InitializeApp(AppState& app, int argc, char** argv)
     {
         app.requestedBackend = appBootstrap::ParseBackendFromArgs(argc, argv);
@@ -41,15 +60,21 @@ namespace appLifecycle
 #if defined(CORE_USE_DX12)
         appBootstrap::CreateDebugSwapChainIfNeeded(app.requestedBackend, *app.device, app.debugWindow, app.debugSwapChain);
 #endif
+        
+        // Create async CPU job system (texture/mesh decoding etc.).
+        // Must exist before TextureIO/MeshIO are constructed.
+        app.jobSystem = std::make_unique<rendern::JobSystemThreadPool>(ComputeStreamingWorkerCount());
 
         app.textureUploader = appBootstrap::CreateTextureUploader(app.device->GetBackend(), *app.device);
-        app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, app.jobSystem, app.renderQueue);
-        app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, app.jobSystem, app.renderQueue);
+        app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, *app.jobSystem, app.renderQueue);
+        app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, *app.jobSystem, app.renderQueue);
         app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
 
         app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson("levels/demo.level.json"));
 
         app.rendererSettings.drawLightGizmos = true;
+        app.rendererSettings.loadingOverlayVisible = true;
+        app.rendererSettings.loadingOverlayProgress01 = 0.0f;
         app.renderer = std::make_unique<rendern::Renderer>(*app.device, app.rendererSettings);
 
 #if defined(CORE_USE_DX12)
@@ -100,6 +125,34 @@ namespace appLifecycle
         app.frameTimer.Tick();
         const float deltaSeconds = static_cast<float>(app.frameTimer.GetDeltaTime());
 
+        const AssetStreamingStats streamingStats = app.assets->GetStreamingStats();
+        const bool hasPendingStreaming = streamingStats.HasPendingWork();
+        const float targetProgress01 = streamingStats.Completion01();
+
+        auto& overlay = app.loadingOverlay;
+        const float lerpAlpha = std::clamp(deltaSeconds * (hasPendingStreaming ? 4.0f : 10.0f), 0.0f, 1.0f);
+        overlay.displayProgress01 = std::lerp(overlay.displayProgress01, targetProgress01, lerpAlpha);
+
+        if (hasPendingStreaming)
+        {
+            overlay.visible = true;
+            overlay.completedHoldSeconds = 0.0f;
+        }
+        else
+        {
+            overlay.displayProgress01 = std::max(overlay.displayProgress01, 1.0f);
+            overlay.completedHoldSeconds += deltaSeconds;
+            if (overlay.completedHoldSeconds >= 0.35f)
+            {
+                overlay.visible = false;
+            }
+        }
+
+        app.rendererSettings.loadingOverlayVisible = overlay.visible;
+        app.rendererSettings.loadingOverlayProgress01 = overlay.visible
+            ? std::clamp(overlay.displayProgress01, hasPendingStreaming ? 0.02f : 1.0f, 1.0f)
+            : 0.0f;
+
         app.win32Input.SetCaptureMode(appUi::GetInputCaptureForImGui());
         app.win32Input.NewFrame(app.window.hwnd);
         app.cameraController->Update(deltaSeconds, app.win32Input.State(), app.scene.camera);
@@ -144,7 +197,7 @@ namespace appLifecycle
             *app.renderer,
             *app.levelInstance,
             *app.bindless,
-            app.jobSystem,
+            *app.jobSystem,
             *app.assets,
             app.window
 #if defined(CORE_USE_DX12)
@@ -164,6 +217,7 @@ namespace appLifecycle
         app.meshIO.reset();
         app.textureIO.reset();
         app.textureUploader.reset();
+        app.jobSystem.reset();
         app.device.reset();
         app.cameraController.reset();
         app.initialized = false;
