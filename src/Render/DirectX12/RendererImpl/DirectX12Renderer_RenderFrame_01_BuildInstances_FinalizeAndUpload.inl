@@ -100,14 +100,6 @@ assert(combinedInstances.size() == finalCount);
 
 const std::uint32_t instStride = static_cast<std::uint32_t>(sizeof(InstanceData));
 
-// ---- Editor selection highlight (unlit overlay) ----
-// We draw the selected object once more in the main pass with a dedicated PSO
-// and a tiny 1-instance VB, so we don't need to track per-drawItem instance offsets
-// inside the batched instance buffer.
-const rendern::MeshRHI* editorHighlightMesh = nullptr;
-bool editorHighlightIsTransparent = false;
-float editorOutlineWorldOffset = 0.025f;
-
 if (!combinedInstances.empty())
 {
 	const std::size_t bytes = combinedInstances.size() * sizeof(InstanceData);
@@ -116,43 +108,6 @@ if (!combinedInstances.empty())
 		throw std::runtime_error("DX12Renderer: instance buffer overflow (increase instanceBufferSizeBytes_)");
 	}
 	device_.UpdateBuffer(instanceBuffer_, std::as_bytes(std::span{ combinedInstances }));
-}
-
-// Upload highlight instance (if any) to a tiny 1-instance VB.
-if (highlightInstanceBuffer_ && scene.editorSelectedDrawItem >= 0
-	&& static_cast<std::size_t>(scene.editorSelectedDrawItem) < scene.drawItems.size())
-{
-	const DrawItem& di = scene.drawItems[static_cast<std::size_t>(scene.editorSelectedDrawItem)];
-	const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
-	if (mesh && mesh->indexCount != 0 && mesh->vertexBuffer && mesh->indexBuffer)
-	{
-		const mathUtils::Mat4 model = di.transform.ToMatrix();
-		InstanceData inst{};
-		inst.i0 = model[0];
-		inst.i1 = model[1];
-		inst.i2 = model[2];
-		inst.i3 = model[3];
-		device_.UpdateBuffer(highlightInstanceBuffer_, std::as_bytes(std::span{ &inst, 1 }));
-
-		editorHighlightMesh = mesh;
-		const auto& bounds = di.mesh->GetBounds();
-		if (bounds.sphereRadius > 0.0f)
-		{
-			editorOutlineWorldOffset = std::max(0.01f, bounds.sphereRadius * 0.03f);
-		}
-		// If the selected object is transparent, we render highlight AFTER the transparent pass
-		// so it stays visible on top of its own transparency.
-		if (di.material.id != 0)
-		{
-			const auto& mat = scene.GetMaterial(di.material);
-			const MaterialPerm perm = EffectivePerm(mat);
-			editorHighlightIsTransparent = HasFlag(perm, MaterialPerm::Transparent);
-		}
-		else
-		{
-			editorHighlightIsTransparent = false;
-		}
-	}
 }
 
 if (settings_.debugPrintDrawCalls)

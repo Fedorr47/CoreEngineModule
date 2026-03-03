@@ -273,4 +273,12 @@ export namespace rendern
 		std::array<float, 4> uEnvProbeBoxMax{};
 	};
 	static_assert(sizeof(PerBatchConstants) == 272);
+
+	struct EditorSelectionDraw
+	{
+		const rendern::MeshRHI* mesh{};
+		InstanceData instance{};
+		float outlineWorldOffset = 0.025f;
+		bool isTransparent = false;
+	};
 }

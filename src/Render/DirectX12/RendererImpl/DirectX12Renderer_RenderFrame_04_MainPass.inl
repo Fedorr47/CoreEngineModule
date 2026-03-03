@@ -18,9 +18,6 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 	instStride,
 	transparentDraws,
 	planarMirrorDraws,
-	editorHighlightMesh,
-	editorHighlightIsTransparent,
-	editorOutlineWorldOffset,
 	doDepthPrepass,
 	imguiDrawData](renderGraph::PassContext& ctx)
 {
@@ -46,131 +43,156 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 
 	constexpr std::uint32_t kEditorOutlineStencilRef = 0x80u;
 
-	auto BindEditorSelectionGeometry = [&]()
-	{
-		ctx.commandList.BindInputLayout(editorHighlightMesh->layoutInstanced);
-		ctx.commandList.BindVertexBuffer(0, editorHighlightMesh->vertexBuffer, editorHighlightMesh->vertexStrideBytes, 0);
-		ctx.commandList.BindVertexBuffer(1, highlightInstanceBuffer_, instStride, 0);
-		ctx.commandList.BindIndexBuffer(editorHighlightMesh->indexBuffer, editorHighlightMesh->indexType, 0);
-	};
+	std::vector<EditorSelectionDraw> selectionOpaque;
+	std::vector<EditorSelectionDraw> selectionTransparent;
 
-	auto DrawEditorSelectionHighlight = [&]()
-	{
-		if (!editorHighlightMesh || !highlightInstanceBuffer_)
+	auto BindEditorSelectionGeometry = [&](const rendern::MeshRHI& mesh)
 		{
-			return;
-		}
-
-		ctx.commandList.SetState(highlightState_);
-		ctx.commandList.BindPipeline(psoHighlight_);
-
-		PerBatchConstants constants{};
-		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
-		const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-		std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-		std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-
-		constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
-		constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-		// Slightly transparent yellow overlay.
-		constants.uBaseColor = { 1.0f, 0.95f, 0.25f, 0.35f };
-		constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
-		constants.uPbrParams = { 0.0f, 1.0f, 1.0f, 0.0f };
-		constants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
-		constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
-		constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-		constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-		BindEditorSelectionGeometry();
-
-		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-		ctx.commandList.DrawIndexed(
-			editorHighlightMesh->indexCount,
-			editorHighlightMesh->indexType,
-			0,
-			0,
-			1,
-			0);
-
-		// Restore the main pass state (keeps following draws unchanged).
-		ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
-	};
-
-	auto DrawEditorSelectionOutline = [&]()
-	{
-		if (!editorHighlightMesh || !highlightInstanceBuffer_ || !psoOutline_)
-		{
-			return;
-		}
-
-		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
-		const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-
-		BindEditorSelectionGeometry();
-
-		// 1) Mark visible selected-object pixels in stencil.
-		ctx.commandList.SetStencilRef(kEditorOutlineStencilRef);
-		ctx.commandList.SetState(outlineMarkState_);
-		ctx.commandList.BindPipeline(psoHighlight_);
-
-		PerBatchConstants markConstants{};
-		std::memcpy(markConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-		std::memcpy(markConstants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-		markConstants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
-		markConstants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-		markConstants.uBaseColor = { 1.0f, 1.0f, 1.0f, 0.0f };
-		markConstants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
-		markConstants.uPbrParams = { 0.0f, 1.0f, 1.0f, 0.0f };
-		markConstants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
-		markConstants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
-		markConstants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-		markConstants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
-		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &markConstants, 1 }));
-		ctx.commandList.DrawIndexed(
-			editorHighlightMesh->indexCount,
-			editorHighlightMesh->indexType,
-			0,
-			0,
-			1,
-			0);
-
-		// 2) Draw inflated mesh only outside the marked silhouette.
-		ctx.commandList.SetState(outlineState_);
-		ctx.commandList.BindPipeline(psoOutline_);
-
-		PerBatchConstants outlineConstants{};
-		std::memcpy(outlineConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-		std::memcpy(outlineConstants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-		outlineConstants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
-		outlineConstants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-		outlineConstants.uBaseColor = { 1.0f, 0.72f, 0.10f, 0.95f };
-		outlineConstants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
-		// x = small world-space normal probe distance used to derive a screen-space silhouette direction.
-		outlineConstants.uPbrParams = { editorOutlineWorldOffset, 0.0f, 0.0f, 0.0f };
-		// w = desired outline thickness in pixels.
-		outlineConstants.uCounts = { 0.0f, 0.0f, 0.0f, 3.0f };
-		// x/y = inverse viewport size (used only by CORE_OUTLINE path).
-		outlineConstants.uShadowBias = {
-			extent.width ? (1.0f / static_cast<float>(extent.width)) : 0.0f,
-			extent.height ? (1.0f / static_cast<float>(extent.height)) : 0.0f,
-			0.0f,
-			0.0f
+			ctx.commandList.BindInputLayout(mesh.layoutInstanced);
+			ctx.commandList.BindVertexBuffer(0, mesh.vertexBuffer, mesh.vertexStrideBytes, 0);
+			ctx.commandList.BindVertexBuffer(1, highlightInstanceBuffer_, instStride, 0);
+			ctx.commandList.BindIndexBuffer(mesh.indexBuffer, mesh.indexType, 0);
 		};
-		outlineConstants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-		outlineConstants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
-		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &outlineConstants, 1 }));
-		ctx.commandList.DrawIndexed(
-			editorHighlightMesh->indexCount,
-			editorHighlightMesh->indexType,
-			0,
-			0,
-			1,
-			0);
 
-		ctx.commandList.SetStencilRef(0u);
-		ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
-	};
+	auto DrawEditorSelectionHighlight = [&](const rendern::MeshRHI& mesh)
+		{
+			if (!highlightInstanceBuffer_)
+			{
+				return;
+			}
 
+			ctx.commandList.SetState(highlightState_);
+			ctx.commandList.BindPipeline(psoHighlight_);
+
+			PerBatchConstants constants{};
+			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+			std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+			constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
+			constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+			// Slightly transparent yellow overlay.
+			constants.uBaseColor = { 1.0f, 0.95f, 0.25f, 0.35f };
+			constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
+			constants.uPbrParams = { 0.0f, 1.0f, 1.0f, 0.0f };
+			constants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
+			constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
+			constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+			constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+			BindEditorSelectionGeometry(mesh);
+
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+			ctx.commandList.DrawIndexed(
+				mesh.indexCount,
+				mesh.indexType,
+				0,
+				0,
+				1,
+				0);
+
+			// Restore the main pass state (keeps following draws unchanged).
+			ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+		};
+
+	auto DrawEditorSelectionOutline = [&](const rendern::MeshRHI& mesh, float editorOutlineWorldOffset)
+		{
+			if (!highlightInstanceBuffer_ || !psoOutline_)
+			{
+				return;
+			}
+
+			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+
+			BindEditorSelectionGeometry(mesh);
+
+			// 1) Mark visible selected-object pixels in stencil.
+			ctx.commandList.SetStencilRef(kEditorOutlineStencilRef);
+			ctx.commandList.SetState(outlineMarkState_);
+			ctx.commandList.BindPipeline(psoHighlight_);
+
+			PerBatchConstants markConstants{};
+			std::memcpy(markConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+			std::memcpy(markConstants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+			markConstants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
+			markConstants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+			markConstants.uBaseColor = { 1.0f, 1.0f, 1.0f, 0.0f };
+			markConstants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
+			markConstants.uPbrParams = { 0.0f, 1.0f, 1.0f, 0.0f };
+			markConstants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
+			markConstants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
+			markConstants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+			markConstants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &markConstants, 1 }));
+			ctx.commandList.DrawIndexed(
+				mesh.indexCount,
+				mesh.indexType,
+				0,
+				0,
+				1,
+				0);
+
+			// 2) Draw inflated mesh only outside the marked silhouette.
+			ctx.commandList.SetState(outlineState_);
+			ctx.commandList.BindPipeline(psoOutline_);
+
+			PerBatchConstants outlineConstants{};
+			std::memcpy(outlineConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+			std::memcpy(outlineConstants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+			outlineConstants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
+			outlineConstants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+			outlineConstants.uBaseColor = { 1.0f, 0.72f, 0.10f, 0.95f };
+			outlineConstants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
+			// x = small world-space normal probe distance used to derive a screen-space silhouette direction.
+			outlineConstants.uPbrParams = { editorOutlineWorldOffset, 0.0f, 0.0f, 0.0f };
+			// w = desired outline thickness in pixels.
+			outlineConstants.uCounts = { 0.0f, 0.0f, 0.0f, 3.0f };
+			// x/y = inverse viewport size (used only by CORE_OUTLINE path).
+			outlineConstants.uShadowBias = {
+				extent.width ? (1.0f / static_cast<float>(extent.width)) : 0.0f,
+				extent.height ? (1.0f / static_cast<float>(extent.height)) : 0.0f,
+				0.0f,
+				0.0f
+			};
+			outlineConstants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+			outlineConstants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+			ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &outlineConstants, 1 }));
+			ctx.commandList.DrawIndexed(
+				mesh.indexCount,
+				mesh.indexType,
+				0,
+				0,
+				1,
+				0);
+
+			ctx.commandList.SetStencilRef(0u);
+			ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
+		};
+
+	auto UploadSelectionInstance = [&](const InstanceData& inst)
+		{
+			if (!highlightInstanceBuffer_)
+			{
+				return;
+			}
+			device_.UpdateBuffer(highlightInstanceBuffer_, std::as_bytes(std::span{ &inst, 1 }));
+		};
+
+	auto DrawSelectionGroup = [&](const std::vector<EditorSelectionDraw>& group)
+		{
+			for (const EditorSelectionDraw& s : group)
+			{
+				if (!s.mesh)
+				{
+					continue;
+				}
+				UploadSelectionInstance(s.instance);
+				DrawEditorSelectionOutline(*s.mesh, s.outlineWorldOffset);
+				DrawEditorSelectionHighlight(*s.mesh);
+			}
+		};
 
 	// --- Skybox draw ---
 	{
@@ -374,6 +396,70 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 			0.0f
 		};
 
+		// Gather selection list for this frame. We split into opaque/transparent selections
+		// to preserve the old behavior:
+		// - opaque selection outline/highlight is drawn BEFORE transparent objects,
+		// - transparent selection outline/highlight is drawn AFTER the transparent pass.
+		selectionOpaque.reserve(scene.editorSelectedDrawItems.size());
+		selectionTransparent.reserve(scene.editorSelectedDrawItems.size());
+
+		for (const int diIndex : scene.editorSelectedDrawItems)
+		{
+			if (diIndex < 0)
+			{
+				continue;
+			}
+			const std::size_t idx = static_cast<std::size_t>(diIndex);
+			if (idx >= scene.drawItems.size())
+			{
+				continue;
+			}
+
+			const DrawItem& di = scene.drawItems[idx];
+			const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
+			if (!mesh || mesh->indexCount == 0 || !mesh->vertexBuffer || !mesh->indexBuffer)
+			{
+				continue;
+			}
+
+			EditorSelectionDraw sel{};
+			sel.mesh = mesh;
+			const mathUtils::Mat4 model = di.transform.ToMatrix();
+			sel.instance.i0 = model[0];
+			sel.instance.i1 = model[1];
+			sel.instance.i2 = model[2];
+			sel.instance.i3 = model[3];
+
+			if (di.mesh)
+			{
+				const auto& bounds = di.mesh->GetBounds();
+				if (bounds.sphereRadius > 0.0f)
+				{
+					sel.outlineWorldOffset = std::max(0.01f, bounds.sphereRadius * 0.03f);
+				}
+			}
+
+			if (di.material.id != 0)
+			{
+				const auto& mat = scene.GetMaterial(di.material);
+				const MaterialPerm perm = EffectivePerm(mat);
+				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
+			}
+			else
+			{
+				sel.isTransparent = false;
+			}
+
+			if (sel.isTransparent)
+			{
+				selectionTransparent.push_back(sel);
+			}
+			else
+			{
+				selectionOpaque.push_back(sel);
+			}
+		}
+
 		constants.uShadowBias = {
 			settings_.dirShadowBaseBiasTexels,
 			settings_.spotShadowBaseBiasTexels,
@@ -416,14 +502,13 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 
 
 	// --- Planar reflections (stencil-gated overlay; coplanar mirrors are grouped to avoid seams) ---
-	#include "RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl"
+#include "RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl"
 
-	// If the selected object is opaque, draw outline/highlight BEFORE transparent objects
+	// If selected objects are opaque, draw outline/highlight BEFORE transparent objects
 	// so transparent surfaces still blend on top.
-	if (editorHighlightMesh && !editorHighlightIsTransparent)
+	if (!selectionOpaque.empty())
 	{
-		DrawEditorSelectionOutline();
-		DrawEditorSelectionHighlight();
+		DrawSelectionGroup(selectionOpaque);
 	}
 
 	if (!transparentDraws.empty())
@@ -569,12 +654,11 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 		}
 	}
 
-	// If the selected object is itself transparent, render outline/highlight AFTER the transparent pass
-	// so it stays visible on top of its own translucency.
-	if (editorHighlightMesh && editorHighlightIsTransparent)
+	// If selected objects are transparent, render outline/highlight AFTER the transparent pass
+	// so it stays visible on top of their own translucency.
+	if (!selectionTransparent.empty())
 	{
-		DrawEditorSelectionOutline();
-		DrawEditorSelectionHighlight();
+		DrawSelectionGroup(selectionTransparent);
 	}
 
 	// ImGui overlay (optional)
