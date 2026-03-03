@@ -243,10 +243,81 @@ void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noex
 			}
 		};
 
+	auto SanitizeSelectedNodes = [&]() noexcept
+		{
+			// Remove dead/out-of-range nodes.
+			auto& sel = scene.editorSelectedNodes;
+			std::size_t write = 0;
+			for (std::size_t i = 0; i < sel.size(); ++i)
+			{
+				const int nodeIndex = sel[i];
+				if (IsNodeAlive(asset, nodeIndex))
+				{
+					sel[write++] = nodeIndex;
+				}
+			}
+			sel.resize(write);
+
+			// Deduplicate (keep order stable).
+			for (std::size_t i = 0; i < sel.size(); ++i)
+			{
+				for (std::size_t j = i + 1; j < sel.size();)
+				{
+					if (sel[j] == sel[i])
+					{
+						sel.erase(sel.begin() + static_cast<std::vector<int>::difference_type>(j));
+						continue;
+					}
+					++j;
+				}
+			}
+		};
+
 	SanitizeNodeIndex(scene.editorSelectedNode);
 	SanitizeNodeIndex(scene.editorReflectionCaptureOwnerNode);
+	SanitizeSelectedNodes();
+
+	// Keep primary selection consistent with the selection set.
+	if (scene.editorSelectedNode >= 0)
+	{
+		bool found = false;
+		for (const int v : scene.editorSelectedNodes)
+		{
+			if (v == scene.editorSelectedNode)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			// Someone set primary directly (e.g. via UI). Treat it as single selection.
+			scene.editorSelectedNodes.clear();
+			scene.editorSelectedNodes.push_back(scene.editorSelectedNode);
+		}
+	}
+	else
+	{
+		// If primary is invalid but we still have a set, pick a new primary.
+		if (!scene.editorSelectedNodes.empty())
+		{
+			scene.editorSelectedNode = scene.editorSelectedNodes.back();
+		}
+	}
 
 	scene.editorSelectedDrawItem = GetNodeDrawIndex(scene.editorSelectedNode);
+
+	// Build selected draw item list.
+	scene.editorSelectedDrawItems.clear();
+	scene.editorSelectedDrawItems.reserve(scene.editorSelectedNodes.size());
+	for (const int nodeIndex : scene.editorSelectedNodes)
+	{
+		const int di = GetNodeDrawIndex(nodeIndex);
+		if (di >= 0)
+		{
+			scene.editorSelectedDrawItems.push_back(di);
+		}
+	}
 	scene.editorReflectionCaptureOwnerDrawItem = GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode);
 }
 

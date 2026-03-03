@@ -5,6 +5,7 @@ module;
 #include <span>
 #include <stdexcept>
 #include <memory>
+#include <algorithm>
 
 export module core:scene;
 
@@ -185,6 +186,8 @@ export namespace rendern
 		rhi::TextureDescIndex roughnessDescIndex{ 0 };
 		rhi::TextureDescIndex aoDescIndex{ 0 };
 		rhi::TextureDescIndex emissiveDescIndex{ 0 };
+		rhi::TextureDescIndex specularDescIndex{ 0 };
+		rhi::TextureDescIndex glossDescIndex{ 0 };
 	};
 
 	enum class EnvSource : std::uint8_t
@@ -272,8 +275,17 @@ export namespace rendern
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };
 
+		// Multi-selection (runtime-only). Indices into LevelAsset::nodes.
+		// Convention:
+		//  - editorSelectedNodes holds the full set (no duplicates).
+		//  - editorSelectedNode is the "primary" selection (usually last clicked).
+		std::vector<int> editorSelectedNodes;
+
 		// Editor selection (runtime-only). Index into Scene::drawItems (or -1).
 		int editorSelectedDrawItem{ -1 };
+
+		// Multi-selection (runtime-only). Indices into Scene::drawItems.
+		std::vector<int> editorSelectedDrawItems;
 
 		// Reflection capture owner (runtime-only).
 		// Node index is stable (LevelAsset::nodes). DrawItem index is derived from LevelInstance mapping.
@@ -300,7 +312,9 @@ export namespace rendern
 			skyboxDescIndex = 0;
 			debugPickRay = {};
 			editorSelectedNode = -1;
+			editorSelectedNodes.clear();
 			editorSelectedDrawItem = -1;
+			editorSelectedDrawItems.clear();
 			editorReflectionCaptureOwnerNode = -1;
 			editorReflectionCaptureOwnerDrawItem = -1;
 			editorGizmoMode = GizmoMode::Translate;
@@ -308,6 +322,62 @@ export namespace rendern
 			editorTranslateGizmo = {};
 			editorRotateGizmo = {};
 			editorScaleGizmo = {};
+		}
+
+		void EditorClearSelection() noexcept
+		{
+			editorSelectedNode = -1;
+			editorSelectedNodes.clear();
+			editorSelectedDrawItem = -1;
+			editorSelectedDrawItems.clear();
+		}
+
+		bool EditorIsNodeSelected(int nodeIndex) const noexcept
+		{
+			for (const int v : editorSelectedNodes)
+			{
+				if (v == nodeIndex)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		// Sets selection to a single node (or clears when nodeIndex < 0).
+		void EditorSetSelectionSingle(int nodeIndex) noexcept
+		{
+			EditorClearSelection();
+			if (nodeIndex >= 0)
+			{
+				editorSelectedNode = nodeIndex;
+				editorSelectedNodes.push_back(nodeIndex);
+			}
+		}
+
+		// Toggle node in the selection set. Updates primary selection.
+		void EditorToggleSelectionNode(int nodeIndex) noexcept
+		{
+			if (nodeIndex < 0)
+			{
+				return;
+			}
+
+			for (std::size_t i = 0; i < editorSelectedNodes.size(); ++i)
+			{
+				if (editorSelectedNodes[i] == nodeIndex)
+				{
+					editorSelectedNodes.erase(editorSelectedNodes.begin() + static_cast<std::vector<int>::difference_type>(i));
+					if (editorSelectedNode == nodeIndex)
+					{
+						editorSelectedNode = editorSelectedNodes.empty() ? -1 : editorSelectedNodes.back();
+					}
+					return;
+				}
+			}
+
+			editorSelectedNodes.push_back(nodeIndex);
+			editorSelectedNode = nodeIndex;
 		}
 
 		MaterialHandle CreateMaterial(const Material& m)

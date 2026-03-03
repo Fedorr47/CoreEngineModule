@@ -130,46 +130,118 @@ export namespace rendern
 
 					constexpr std::uint32_t kEditorOutlineStencilRef = 0x80u;
 
-					auto DrawOne = [&](const MeshRHI& mesh, const glm::mat4& model, const MaterialParams& mat)
+					// ---------------- Lighting v1 (world-space) ----------------
+					// Pick one directional light (first in the list), and up to N point lights.
+					std::array<float, 4> uCameraPos{ scene.camera.position.x, scene.camera.position.y, scene.camera.position.z, 1.0f };
+
+					std::array<float, 4> uDirLightDirI{ 0.30f, -1.00f, 0.20f, 1.0f };
+					std::array<float, 4> uDirLightColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+					constexpr int kMaxPointLights = 8;
+					int pointCount = 0;
+					std::array<std::array<float, 4>, kMaxPointLights> uPointPosI{};
+					std::array<std::array<float, 4>, kMaxPointLights> uPointColR{};
+					std::array<std::array<float, 4>, kMaxPointLights> uPointAtt{};
+
+					for (const auto& light : scene.lights)
 					{
-						ctx.commandList.BindInputLayout(mesh.layout);
-						ctx.commandList.BindVertexBuffer(0, mesh.vertexBuffer, mesh.vertexStrideBytes, 0);
-
-						const bool hasIndices = (mesh.indexBuffer.id != 0) && (mesh.indexCount != 0);
-						if (hasIndices)
-							ctx.commandList.BindIndexBuffer(mesh.indexBuffer, mesh.indexType, 0);
-
-						const bool useTex = (mat.albedoDescIndex != 0);
-
-						// Pipeline permutation (compile-time flags). We still keep uUseTex uniform
-						// as a runtime fallback if the shader uses it.
-						ctx.commandList.BindPipeline(useTex ? psoTex_ : psoNoTex_);
-
-						// Uniforms (name-based path; typical for GL)
-						ctx.commandList.SetUniformInt("uTex", 0);
-						ctx.commandList.SetUniformFloat4("uColor", { mat.baseColor.x, mat.baseColor.y, mat.baseColor.z, mat.baseColor.w });
-
-						const glm::mat4 mvp = proj * view * model;
-
-						std::array<float, 16> mvpArr{};
-						std::memcpy(mvpArr.data(), glm::value_ptr(mvp), sizeof(float) * 16);
-						ctx.commandList.SetUniformMat4("uMVP", mvpArr);
-
-						if (useTex)
+						if (light.type == rendern::LightType::Directional)
 						{
-							ctx.commandList.BindTextureDesc(0, mat.albedoDescIndex);
-							ctx.commandList.SetUniformInt("uUseTex", 1);
+							// direction is "FROM light towards the scene" (Scene convention).
+							mathUtils::Vec3 d = light.direction;
+							const float len = mathUtils::Length(d);
+							if (len > 1e-6f)
+							{
+								d = d / len;
+							}
+							uDirLightDirI = { d.x, d.y, d.z, light.intensity };
+							uDirLightColor = { light.color.x, light.color.y, light.color.z, 1.0f };
+							break;
 						}
-						else
-						{
-							ctx.commandList.SetUniformInt("uUseTex", 0);
-						}
+					}
 
-						if (hasIndices)
-							ctx.commandList.DrawIndexed(mesh.indexCount, mesh.indexType, 0, 0);
-						else
-							ctx.commandList.Draw(static_cast<std::uint32_t>(cpuFallbackVertexCount_), 0);
-					};
+					for (const auto& light : scene.lights)
+					{
+						if (light.type != rendern::LightType::Point)
+							continue;
+						if (pointCount >= kMaxPointLights)
+							break;
+
+						uPointPosI[pointCount] = { light.position.x, light.position.y, light.position.z, light.intensity };
+						uPointColR[pointCount] = { light.color.x, light.color.y, light.color.z, light.range };
+						uPointAtt[pointCount] = { light.attConstant, light.attLinear, light.attQuadratic, 0.0f };
+						++pointCount;
+					}
+
+					auto DrawOne = [&](const MeshRHI& mesh, const glm::mat4& model, const MaterialParams& mat)
+						{
+							ctx.commandList.BindInputLayout(mesh.layout);
+							ctx.commandList.BindVertexBuffer(0, mesh.vertexBuffer, mesh.vertexStrideBytes, 0);
+
+							const bool hasIndices = (mesh.indexBuffer.id != 0) && (mesh.indexCount != 0);
+							if (hasIndices)
+								ctx.commandList.BindIndexBuffer(mesh.indexBuffer, mesh.indexType, 0);
+
+							const bool useTex = (mat.albedoDescIndex != 0);
+
+							const bool useNormalTex = (mat.normalDescIndex != 0);
+							const bool useSpecTex = (mat.specularDescIndex != 0);
+							const bool useGlossTex = (mat.glossDescIndex != 0);
+
+							// Pipeline permutation (compile-time flags). We still keep uUseTex uniform
+							// as a runtime fallback if the shader uses it.
+							ctx.commandList.BindPipeline(useTex ? psoTex_ : psoNoTex_);
+
+							// Uniforms (name-based path; typical for GL)
+							ctx.commandList.SetUniformInt("uTex", 0);
+							ctx.commandList.SetUniformInt("uNormalTex", 1);
+							ctx.commandList.SetUniformInt("uSpecTex", 2);
+							ctx.commandList.SetUniformInt("uGlossTex", 3);
+							ctx.commandList.SetUniformFloat4("uColor", { mat.baseColor.x, mat.baseColor.y, mat.baseColor.z, mat.baseColor.w });
+
+							// Lighting uniforms
+							ctx.commandList.SetUniformFloat4("uCameraPos", uCameraPos);
+							ctx.commandList.SetUniformFloat4("uDirLightDirI", uDirLightDirI);
+							ctx.commandList.SetUniformFloat4("uDirLightColor", uDirLightColor);
+							ctx.commandList.SetUniformInt("uPointLightCount", pointCount);
+							for (int i = 0; i < pointCount; ++i)
+							{
+								const std::string idx = std::to_string(i);
+								ctx.commandList.SetUniformFloat4("uPointPosI[" + idx + "]", uPointPosI[i]);
+								ctx.commandList.SetUniformFloat4("uPointColR[" + idx + "]", uPointColR[i]);
+								ctx.commandList.SetUniformFloat4("uPointAtt[" + idx + "]", uPointAtt[i]);
+							}
+
+							const glm::mat4 mvp = proj * view * model;
+
+							std::array<float, 16> mvpArr{};
+							std::memcpy(mvpArr.data(), glm::value_ptr(mvp), sizeof(float) * 16);
+							ctx.commandList.SetUniformMat4("uMVP", mvpArr);
+
+							if (useTex)
+							{
+								ctx.commandList.BindTextureDesc(0, mat.albedoDescIndex);
+								if (useNormalTex) ctx.commandList.BindTextureDesc(1, mat.normalDescIndex);
+								if (useSpecTex) ctx.commandList.BindTextureDesc(2, mat.specularDescIndex);
+								if (useGlossTex) ctx.commandList.BindTextureDesc(3, mat.glossDescIndex);
+								ctx.commandList.SetUniformInt("uUseTex", 1);
+								ctx.commandList.SetUniformInt("uUseNormalTex", useNormalTex ? 1 : 0);
+								ctx.commandList.SetUniformInt("uUseSpecTex", useSpecTex ? 1 : 0);
+								ctx.commandList.SetUniformInt("uUseGlossTex", useGlossTex ? 1 : 0);
+							}
+							else
+							{
+								ctx.commandList.SetUniformInt("uUseTex", 0);
+								ctx.commandList.SetUniformInt("uUseNormalTex", 0);
+								ctx.commandList.SetUniformInt("uUseSpecTex", 0);
+								ctx.commandList.SetUniformInt("uUseGlossTex", 0);
+							}
+
+							if (hasIndices)
+								ctx.commandList.DrawIndexed(mesh.indexCount, mesh.indexType, 0, 0);
+							else
+								ctx.commandList.Draw(static_cast<std::uint32_t>(cpuFallbackVertexCount_), 0);
+						};
 
 					bool drewAny = false;
 
@@ -285,10 +357,11 @@ export namespace rendern
 			cpuFallbackVertexCount_ = cpu.vertices.size();
 			mesh_ = UploadMesh(device_, cpu, "FallbackMesh_GL");
 
-			// Use existing shader names in assets/shaders/
-			std::filesystem::path vertexShaderPath = corefs::ResolveAsset("shaders\\VS.vert");
-			std::filesystem::path pixelShaderPath = corefs::ResolveAsset("shaders\\FS.frag");
-
+			// Phong-style mesh shaders (with optional albedo/normal/spec/gloss maps).
+			// Keep the older VS.vert/FS.frag intact for fallback/experiments.
+			std::filesystem::path vertexShaderPath = corefs::ResolveAsset("shaders\\VS_Phong.vert");
+			std::filesystem::path pixelShaderPath = corefs::ResolveAsset("shaders\\FS_Phong.frag");
+			
 			const auto vertexShader = shaderLibrary_.GetOrCreateShader(ShaderKey{
 				.stage = rhi::ShaderStage::Vertex,
 				.name = "VS_Mesh",

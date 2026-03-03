@@ -181,6 +181,8 @@ export namespace rendern
 		rhi::TextureDescIndex roughnessDescIndex{};
 		rhi::TextureDescIndex aoDescIndex{};
 		rhi::TextureDescIndex emissiveDescIndex{};
+		rhi::TextureDescIndex specularDescIndex{};
+		rhi::TextureDescIndex glossDescIndex{};
 
 		mathUtils::Vec4 baseColor{};
 		float shadowBias{}; // texels
@@ -214,6 +216,8 @@ export namespace rendern
 				lhs.roughnessDescIndex == rhs.roughnessDescIndex &&
 				lhs.aoDescIndex == rhs.aoDescIndex &&
 				lhs.emissiveDescIndex == rhs.emissiveDescIndex &&
+				lhs.specularDescIndex == rhs.specularDescIndex &&
+				lhs.glossDescIndex == rhs.glossDescIndex &&
 				lhs.baseColor == rhs.baseColor &&
 				lhs.shadowBias == rhs.shadowBias &&
 				lhs.metallic == rhs.metallic &&

@@ -321,6 +321,8 @@ namespace appEditor
 
         if (!gizmoConsumed && input.KeyPressed(VK_LBUTTON))
         {
+            const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
+
             const rendern::PickResult pick = rendern::PickNodeUnderScreenPoint(
                 scene,
                 levelInstance,
@@ -337,11 +339,22 @@ namespace appEditor
 
             if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
             {
-                scene.editorSelectedNode = pick.nodeIndex;
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionNode(pick.nodeIndex);
+                }
+                else
+                {
+                    scene.EditorSetSelectionSingle(pick.nodeIndex);
+                }
             }
             else
             {
-                scene.editorSelectedNode = -1;
+                // Click on empty space: clear selection only when Ctrl is not pressed.
+                if (!ctrlDown)
+                {
+                    scene.EditorClearSelection();
+                }
             }
         }
     }

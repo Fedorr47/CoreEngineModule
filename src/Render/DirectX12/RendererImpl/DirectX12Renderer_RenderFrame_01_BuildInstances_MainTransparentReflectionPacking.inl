@@ -107,6 +107,8 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	key.roughnessDescIndex = params.roughnessDescIndex;
 	key.aoDescIndex = params.aoDescIndex;
 	key.emissiveDescIndex = params.emissiveDescIndex;
+	key.specularDescIndex = params.specularDescIndex;
+	key.glossDescIndex = params.glossDescIndex;
 
 	key.baseColor = params.baseColor;
 	key.shadowBias = params.shadowBias; // texels

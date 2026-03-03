@@ -261,10 +261,12 @@ export namespace rendern
 					}
 
 					const auto& mips = cpuData.mips;
-					const std::uint32_t width = mips[0].width ? mips[0].width : (cpuData.width ? cpuData.width : properties.width);
-					const std::uint32_t height = mips[0].height ? mips[0].height : (cpuData.height ? cpuData.height : properties.height);
+					const std::uint32_t baseWidth =
+						(mips[0].width != 0u) ? mips[0].width : ((cpuData.width != 0u) ? cpuData.width : properties.width);
+					const std::uint32_t baseHeight =
+						(mips[0].height != 0u) ? mips[0].height : ((cpuData.height != 0u) ? cpuData.height : properties.height);
 
-					if (width == 0 || height == 0 || mips[0].width != width || mips[0].height != height)
+					if (baseWidth == 0 || baseHeight == 0)
 					{
 						return std::nullopt;
 					}
@@ -273,11 +275,17 @@ export namespace rendern
 					for (UINT mip = 0; mip < mipLevels; ++mip)
 					{
 						const auto& ml = mips[mip];
-						if (ml.width == 0 || ml.height == 0)
+
+						const std::uint32_t mw = (ml.width != 0u) ? ml.width : std::max(1u, baseWidth >> mip);
+						const std::uint32_t mh = (ml.height != 0u) ? ml.height : std::max(1u, baseHeight >> mip);
+						
+						if (mw == 0u || mh == 0u)
 						{
 							return std::nullopt;
 						}
-						const std::size_t expectedSize = static_cast<std::size_t>(ml.width) * static_cast<std::size_t>(ml.height) * 4u;
+
+						const std::size_t expectedSize =
+							static_cast<std::size_t>(mw) * static_cast<std::size_t>(mh) * 4u;
 						if (ml.pixels.empty() || ml.pixels.size() != expectedSize)
 						{
 							return std::nullopt;
@@ -290,8 +298,8 @@ export namespace rendern
 			D3D12_RESOURCE_DESC texDesc{};
 			texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 			texDesc.Alignment = 0;
-			texDesc.Width = width;
-			texDesc.Height = height;
+			texDesc.Width = baseWidth;
+			texDesc.Height = baseHeight;
 			texDesc.DepthOrArraySize = 1;
 			texDesc.MipLevels = static_cast<UINT16>(mipLevels);
 			texDesc.Format = fmt;
@@ -344,10 +352,15 @@ export namespace rendern
 			for (UINT i = 0; i < mipLevels; ++i)
 			{
 				const auto& mipInst = mips[i];
+
+				// Some sources may omit per-mip dimensions; derive them from the base level.
+				const std::uint32_t mw = (mipInst.width != 0u) ? mipInst.width : std::max(1u, baseWidth >> i);
+				const std::uint32_t mh = (mipInst.height != 0u) ? mipInst.height : std::max(1u, baseHeight >> i);
+
 				D3D12_SUBRESOURCE_DATA subResData{};
 				subResData.pData = mipInst.pixels.data();
-				subResData.RowPitch = static_cast<LONG_PTR>(mipInst.width) * 4;
-				subResData.SlicePitch = subResData.RowPitch * static_cast<LONG_PTR>(mipInst.height);
+				subResData.RowPitch = static_cast<LONG_PTR>(mw) * 4;
+				subResData.SlicePitch = subResData.RowPitch * static_cast<LONG_PTR>(mh);
 				subs.push_back(subResData);
 			}
 
