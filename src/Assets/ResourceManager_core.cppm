@@ -66,6 +66,10 @@ export struct TextureProperties
 	bool srgb{ true };
 	bool generateMips{ true };
 
+	// Treat the texture as a tangent-space normal map (linear). When true, mip generation
+	// will average normals in [-1..1] space and renormalize. (Alpha, if present, is averaged.)
+	bool isNormalMap{ false };
+
 	// Optional: flip Y when decoding (useful for 2D textures; for cubemaps usually false).
 	bool flipY{ false };
 
@@ -73,20 +77,31 @@ export struct TextureProperties
 };
 
 
+export struct TextureMipLevel
+{
+	std::uint32_t width{};
+	std::uint32_t height{};
+
+	// Tightly packed pixel data (width * height * channels).
+	std::vector<unsigned char> pixels{};
+};
+
+
 export struct TextureCPUData
 {
 	TextureDimension dimension{ TextureDimension::Tex2D };
 
+	// Base level size.
 	std::uint32_t width{};
 	std::uint32_t height{};
 	int channels{};
 	TextureFormat format{ TextureFormat::RGBA };
 
-	// Tex2D payload
-	std::vector<unsigned char> pixels;
+	// Tex2D mip chain. mips[0] is the base level.
+	std::vector<TextureMipLevel> mips{};
 
-	// Cube payload (6 faces, each is width*height*channels)
-	std::array<std::vector<unsigned char>, 6> cubePixels{};
+	// Cubemap mip chains (cubeMips[face][mip]).
+	std::array<std::vector<TextureMipLevel>, 6> cubeMips{};
 };
 
 

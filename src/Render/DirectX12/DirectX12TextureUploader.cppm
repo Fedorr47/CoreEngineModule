@@ -31,135 +31,6 @@ import :rhi_dx12;
 using Microsoft::WRL::ComPtr;
 #endif
 
-struct MipLevelRGBA8
-{
-	std::uint32_t width{};
-	std::uint32_t height{};
-	std::vector<std::uint8_t> rgba; // width*height*4
-};
-
-std::vector<std::uint8_t> ConvertToRGBA8(const TextureCPUData& cpu, std::uint32_t width, std::uint32_t height)
-{
-	if (cpu.pixels.empty())
-	{
-		return {};
-	}
-	const int channel = cpu.channels > 0 ? cpu.channels : 4;
-	const std::size_t pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
-
-	std::vector<std::uint8_t> out;
-	out.resize(pixelCount * 4u);
-
-	const std::uint8_t* src = reinterpret_cast<const std::uint8_t*>(cpu.pixels.data());
-
-	// NOTE: stb usually gives back 3 (RGB), or 4 (RGBA), or 1 (gray)
-	for (std::size_t i = 0; i < pixelCount; ++i)
-	{
-		std::uint8_t r = 255, g = 255, b = 255, a = 255;
-
-		if (cpu.format == TextureFormat::GRAYSCALE || channel == 1)
-		{
-			const std::uint8_t v = src[i * static_cast<std::size_t>(channel) + 0];
-			r = g = b = v;
-			a = 255;
-		}
-		else if (channel >= 3)
-		{
-			r = src[i * static_cast<std::size_t>(channel) + 0];
-			g = src[i * static_cast<std::size_t>(channel) + 1];
-			b = src[i * static_cast<std::size_t>(channel) + 2];
-			a = (channel >= 4) ? src[i * static_cast<std::size_t>(channel) + 3] : 255;
-		}
-		else
-		{
-			// fallback
-			const std::uint8_t v = src[i * static_cast<std::size_t>(channel) + 0];
-			r = g = b = v;
-			a = 255;
-		}
-
-		out[i * 4u + 0] = r;
-		out[i * 4u + 1] = g;
-		out[i * 4u + 2] = b;
-		out[i * 4u + 3] = a;
-	}
-
-	return out;
-}
-
-std::vector<MipLevelRGBA8> MakeMipChain_Box2x2_RGBA8(
-	const std::vector<std::uint8_t>& mip0,
-	std::uint32_t width0,
-	std::uint32_t height0,
-	bool genMips)
-{
-	std::vector<MipLevelRGBA8> chain;
-
-	MipLevelRGBA8 base{};
-	base.width = width0;
-	base.height = height0;
-	base.rgba = mip0;
-	chain.push_back(std::move(base));
-
-	if (!genMips)
-	{
-		return chain;
-	}
-
-	std::uint32_t curW = width0;
-	std::uint32_t curH = height0;
-
-	while (curW > 1 || curH > 1)
-	{
-		const std::uint32_t nextW = std::max(1u, curW / 2u);
-		const std::uint32_t nextH = std::max(1u, curH / 2u);
-
-		const auto& prev = chain.back();
-
-		MipLevelRGBA8 next{};
-		next.width = nextW;
-		next.height = nextH;
-		next.rgba.resize(static_cast<std::size_t>(nextW) * static_cast<std::size_t>(nextH) * 4u);
-
-		for (std::uint32_t y = 0; y < nextH; ++y)
-		{
-			for (std::uint32_t x = 0; x < nextW; ++x)
-			{
-				std::uint32_t acc[4] = { 0,0,0,0 };
-				std::uint32_t cnt = 0;
-
-				for (std::uint32_t ky = 0; ky < 2; ++ky)
-				{
-					for (std::uint32_t kx = 0; kx < 2; ++kx)
-					{
-						const std::uint32_t sx = std::min(curW - 1, x * 2 + kx);
-						const std::uint32_t sy = std::min(curH - 1, y * 2 + ky);
-
-						const std::size_t si = (static_cast<std::size_t>(sy) * static_cast<std::size_t>(curW) + static_cast<std::size_t>(sx)) * 4u;
-						acc[0] += prev.rgba[si + 0];
-						acc[1] += prev.rgba[si + 1];
-						acc[2] += prev.rgba[si + 2];
-						acc[3] += prev.rgba[si + 3];
-						++cnt;
-					}
-				}
-
-				const std::size_t di = (static_cast<std::size_t>(y) * static_cast<std::size_t>(nextW) + static_cast<std::size_t>(x)) * 4u;
-				next.rgba[di + 0] = static_cast<std::uint8_t>((acc[0] / cnt));
-				next.rgba[di + 1] = static_cast<std::uint8_t>((acc[1] / cnt));
-				next.rgba[di + 2] = static_cast<std::uint8_t>((acc[2] / cnt));
-				next.rgba[di + 3] = static_cast<std::uint8_t>((acc[3] / cnt));
-			}
-		}
-
-		chain.push_back(std::move(next));
-		curW = nextW;
-		curH = nextH;
-	}
-
-	return chain;
-}
-
 DXGI_FORMAT DxgiRGBA8(bool srgb)
 {
 	return srgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -204,32 +75,42 @@ export namespace rendern
 					return std::nullopt;
 				}
 
-				// Validate faces
-				const std::size_t expectedSize = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u;
+				// Validate mip chains (expect RGBA8)
+				if (cpuData.format != TextureFormat::RGBA || cpuData.channels != 4)
+				{
+					return std::nullopt;
+				}
+
+				const auto& face0 = cpuData.cubeMips[0];
+				if (face0.empty())
+				{
+					return std::nullopt;
+				}
+
+				const UINT mipLevels = static_cast<UINT>(face0.size());
 				for (int face = 0; face < 6; ++face)
 				{
-					const auto& fp = cpuData.cubePixels[static_cast<std::size_t>(face)];
-					if (fp.empty() || fp.size() != expectedSize)
+					const auto& fm = cpuData.cubeMips[static_cast<std::size_t>(face)];
+					if (fm.size() != mipLevels)
 					{
 						return std::nullopt;
 					}
-				}
-
-				// Build mip chains per face (RGBA8)
-				std::array<std::vector<MipLevelRGBA8>, 6> faceMips{};
-				for (int face = 0; face < 6; ++face)
-				{
-					const auto& fp = cpuData.cubePixels[static_cast<std::size_t>(face)];
-					std::vector<std::uint8_t> rgba0(fp.begin(), fp.end());
-					faceMips[static_cast<std::size_t>(face)] = MakeMipChain_Box2x2_RGBA8(rgba0, width, height, properties.generateMips);
-				}
-
-				const UINT mipLevels = static_cast<UINT>(faceMips[0].size());
-				for (int face = 1; face < 6; ++face)
-				{
-					if (faceMips[static_cast<std::size_t>(face)].size() != faceMips[0].size())
+					if (fm.empty() || fm[0].width != width || fm[0].height != height)
 					{
 						return std::nullopt;
+					}
+					for (UINT mip = 0; mip < mipLevels; ++mip)
+					{
+						const auto& ml = fm[mip];
+						if (ml.width == 0 || ml.height == 0)
+						{
+							return std::nullopt;
+						}
+						const std::size_t expectedSize = static_cast<std::size_t>(ml.width) * static_cast<std::size_t>(ml.height) * 4u;
+						if (ml.pixels.empty() || ml.pixels.size() != expectedSize)
+						{
+							return std::nullopt;
+						}
 					}
 				}
 
@@ -295,12 +176,12 @@ export namespace rendern
 
 				for (UINT slice = 0; slice < 6u; ++slice)
 				{
-					const auto& mips = faceMips[static_cast<std::size_t>(slice)];
+					const auto& mips = cpuData.cubeMips[static_cast<std::size_t>(slice)];
 					for (UINT mip = 0; mip < mipLevels; ++mip)
 					{
 						const auto& mipInst = mips[mip];
 						D3D12_SUBRESOURCE_DATA subResData{};
-						subResData.pData = mipInst.rgba.data();
+						subResData.pData = mipInst.pixels.data();
 						subResData.RowPitch = static_cast<LONG_PTR>(mipInst.width) * 4;
 						subResData.SlicePitch = subResData.RowPitch * static_cast<LONG_PTR>(mipInst.height);
 						subs.push_back(subResData);
@@ -369,25 +250,41 @@ export namespace rendern
 
 			// ---------------------- Tex2D ----------------------
 			// Validate
-			const std::uint32_t width = cpuData.width ? cpuData.width : properties.width;
-			const std::uint32_t height = cpuData.height ? cpuData.height : properties.height;
+					if (cpuData.format != TextureFormat::RGBA || cpuData.channels != 4)
+					{
+						return std::nullopt;
+					}
 
-			if (width == 0 || height == 0 || cpuData.pixels.empty())
-			{
-				return std::nullopt;
-			}
+					if (cpuData.mips.empty())
+					{
+						return std::nullopt;
+					}
 
-			// Convert to RGBA8 and build mip chain
-			auto rgba0 = ConvertToRGBA8(cpuData, width, height);
-			if (rgba0.empty())
-			{
-				return std::nullopt;
-			}
+					const auto& mips = cpuData.mips;
+					const std::uint32_t width = mips[0].width ? mips[0].width : (cpuData.width ? cpuData.width : properties.width);
+					const std::uint32_t height = mips[0].height ? mips[0].height : (cpuData.height ? cpuData.height : properties.height);
 
-			auto mips = MakeMipChain_Box2x2_RGBA8(rgba0, width, height, properties.generateMips);
+					if (width == 0 || height == 0 || mips[0].width != width || mips[0].height != height)
+					{
+						return std::nullopt;
+					}
+
+					const UINT mipLevels = static_cast<UINT>(mips.size());
+					for (UINT mip = 0; mip < mipLevels; ++mip)
+					{
+						const auto& ml = mips[mip];
+						if (ml.width == 0 || ml.height == 0)
+						{
+							return std::nullopt;
+						}
+						const std::size_t expectedSize = static_cast<std::size_t>(ml.width) * static_cast<std::size_t>(ml.height) * 4u;
+						if (ml.pixels.empty() || ml.pixels.size() != expectedSize)
+						{
+							return std::nullopt;
+						}
+					}
 
 			const DXGI_FORMAT fmt = DxgiRGBA8(properties.srgb);
-			const UINT mipLevels = static_cast<UINT>(mips.size());
 
 			// Create default texture with mip levels
 			D3D12_RESOURCE_DESC texDesc{};
@@ -448,7 +345,7 @@ export namespace rendern
 			{
 				const auto& mipInst = mips[i];
 				D3D12_SUBRESOURCE_DATA subResData{};
-				subResData.pData = mipInst.rgba.data();
+				subResData.pData = mipInst.pixels.data();
 				subResData.RowPitch = static_cast<LONG_PTR>(mipInst.width) * 4;
 				subResData.SlicePitch = subResData.RowPitch * static_cast<LONG_PTR>(mipInst.height);
 				subs.push_back(subResData);

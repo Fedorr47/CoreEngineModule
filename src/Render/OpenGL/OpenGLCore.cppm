@@ -93,7 +93,6 @@ export namespace rendern
 			// ---------------------- Cubemap ----------------------
 			if (properties.dimension == TextureDimension::Cube)
 			{
-				// We expect cpuData.cubePixels[0..5] to be filled.
 				const GLsizei width = static_cast<GLsizei>(cpuData.width ? cpuData.width : properties.width);
 				const GLsizei height = static_cast<GLsizei>(cpuData.height ? cpuData.height : properties.height);
 
@@ -102,9 +101,26 @@ export namespace rendern
 					return std::nullopt;
 				}
 
-				for (int i = 0; i < 6; ++i)
+				if (cpuData.format != TextureFormat::RGBA || cpuData.channels != 4)
 				{
-					if (cpuData.cubePixels[static_cast<std::size_t>(i)].empty())
+					return std::nullopt;
+				}
+
+				const auto& face0 = cpuData.cubeMips[0];
+				if (face0.empty())
+				{
+					return std::nullopt;
+				}
+
+				const std::size_t mipLevels = face0.size();
+				for (int face = 0; face < 6; ++face)
+				{
+					const auto& fm = cpuData.cubeMips[static_cast<std::size_t>(face)];
+					if (fm.size() != mipLevels)
+					{
+						return std::nullopt;
+					}
+					if (fm.empty() || static_cast<GLsizei>(fm[0].width) != width || static_cast<GLsizei>(fm[0].height) != height)
 					{
 						return std::nullopt;
 					}
@@ -118,35 +134,31 @@ export namespace rendern
 				}
 
 				glBindTexture(GL_TEXTURE_CUBE_MAP, textureId);
-				SetDefaultCubemapParameters(properties.generateMips);
+				SetDefaultCubemapParameters(mipLevels > 1);
+				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipLevels > 0 ? (mipLevels - 1) : 0));
 
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-				const TextureFormat fmt = (cpuData.format == TextureFormat::RGB || cpuData.format == TextureFormat::GRAYSCALE)
-					? TextureFormat::RGBA
-					: cpuData.format;
-
-				const GLenum externalFormat = ToGLExternalFormat(fmt);
-				const GLenum internalFormat = ToGLInternalFormat(fmt, properties.srgb);
+				const GLenum externalFormat = ToGLExternalFormat(TextureFormat::RGBA);
+				const GLenum internalFormat = ToGLInternalFormat(TextureFormat::RGBA, properties.srgb);
 
 				for (GLuint face = 0; face < 6; ++face)
 				{
-					const auto& facePixels = cpuData.cubePixels[face];
-					glTexImage2D(
-						GL_TEXTURE_CUBE_MAP_POSITIVE_X + face,
-						0,
-						internalFormat,
-						width,
-						height,
-						0,
-						externalFormat,
-						GL_UNSIGNED_BYTE,
-						facePixels.data());
-				}
-
-				if (properties.generateMips)
-				{
-					glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+					const auto& fm = cpuData.cubeMips[face];
+					for (std::size_t mip = 0; mip < mipLevels; ++mip)
+					{
+						const auto& ml = fm[mip];
+						glTexImage2D(
+							GL_TEXTURE_CUBE_MAP_POSITIVE_X + face,
+							static_cast<GLint>(mip),
+							internalFormat,
+							static_cast<GLsizei>(ml.width),
+							static_cast<GLsizei>(ml.height),
+							0,
+							externalFormat,
+							GL_UNSIGNED_BYTE,
+							ml.pixels.data());
+					}
 				}
 
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
@@ -162,10 +174,17 @@ export namespace rendern
 			}
 
 			// ---------------------- Tex2D ----------------------
-			if (cpuData.pixels.empty())
+			if (cpuData.mips.empty())
 			{
 				return std::nullopt;
 			}
+
+			if (cpuData.format != TextureFormat::RGBA || cpuData.channels != 4)
+			{
+				return std::nullopt;
+			}
+
+			const std::size_t mipLevels = cpuData.mips.size();
 
 			GLuint textureId = 0;
 			glGenTextures(1, &textureId);
@@ -175,30 +194,27 @@ export namespace rendern
 			}
 
 			glBindTexture(GL_TEXTURE_2D, textureId);
-			SetDefaultTextureParameters(properties.generateMips);
+			SetDefaultTextureParameters(mipLevels > 1);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipLevels > 0 ? (mipLevels - 1) : 0));
 
 			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-			const GLenum externalFormat = ToGLExternalFormat(cpuData.format);
-			const GLenum internalFormat = ToGLInternalFormat(cpuData.format, properties.srgb);
+			const GLenum externalFormat = ToGLExternalFormat(TextureFormat::RGBA);
+			const GLenum internalFormat = ToGLInternalFormat(TextureFormat::RGBA, properties.srgb);
 
-			const GLsizei width = static_cast<GLsizei>(cpuData.width ? cpuData.width : properties.width);
-			const GLsizei height = static_cast<GLsizei>(cpuData.height ? cpuData.height : properties.height);
-
-			glTexImage2D(
-				GL_TEXTURE_2D,
-				0,
-				internalFormat,
-				width,
-				height,
-				0,
-				externalFormat,
-				GL_UNSIGNED_BYTE,
-				cpuData.pixels.data());
-
-			if (properties.generateMips)
+			for (std::size_t mip = 0; mip < mipLevels; ++mip)
 			{
-				glGenerateMipmap(GL_TEXTURE_2D);
+				const auto& ml = cpuData.mips[mip];
+				glTexImage2D(
+					GL_TEXTURE_2D,
+					static_cast<GLint>(mip),
+					internalFormat,
+					static_cast<GLsizei>(ml.width),
+					static_cast<GLsizei>(ml.height),
+					0,
+					externalFormat,
+					GL_UNSIGNED_BYTE,
+					ml.pixels.data());
 			}
 
 			glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
