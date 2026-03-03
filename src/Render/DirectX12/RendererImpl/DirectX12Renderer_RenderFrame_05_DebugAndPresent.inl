@@ -2,6 +2,118 @@
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
+
+auto ProjectWorldToScreenPx = [&](const mathUtils::Vec3& worldPos, mathUtils::Vec2& outPx) -> bool
+	{
+		const mathUtils::Vec4 clip = cameraViewProj * mathUtils::Vec4(worldPos, 1.0f);
+		if (clip.w <= 1e-5f)
+		{
+			return false;
+		}
+		const float invW = 1.0f / clip.w;
+		const float ndcX = clip.x * invW;
+		const float ndcY = clip.y * invW;
+		const float ndcZ = clip.z * invW;
+
+		// RH + ZO: z is in [0..1] when visible
+		if (ndcZ < 0.0f || ndcZ > 1.0f)
+		{
+			return false;
+		}
+
+		const float w = static_cast<float>(std::max(1u, scDesc.extent.width));
+		const float h = static_cast<float>(std::max(1u, scDesc.extent.height));
+
+		outPx.x = (ndcX * 0.5f + 0.5f) * w;
+		outPx.y = (1.0f - (ndcY * 0.5f + 0.5f)) * h;
+
+		// Drop very off-screen points (keeps things clean when gizmo is out of view)
+		if (outPx.x < -200.0f || outPx.x >(w + 200.0f) || outPx.y < -200.0f || outPx.y >(h + 200.0f))
+		{
+			return false;
+		}
+		return true;
+	};
+
+auto AddAxisLabel = [&](const mathUtils::Vec3& startW, const mathUtils::Vec3& endW,
+	std::string_view label, std::uint32_t rgba, float scale = 2.0f)
+	{
+		mathUtils::Vec2 startPx{};
+		mathUtils::Vec2 endPx{};
+		if (!ProjectWorldToScreenPx(startW, startPx) || !ProjectWorldToScreenPx(endW, endPx))
+		{
+			return;
+		}
+
+		mathUtils::Vec2 d = endPx - startPx;
+		const float len = std::sqrt(d.x * d.x + d.y * d.y);
+		if (len <= 1e-3f)
+		{
+			return;
+		}
+		d = d / len;
+
+		// Smart offset:
+		// - push further when axis projection is short (strong perspective / far away)
+		// - add a perpendicular component so letters do not sit exactly on the line
+		const float extraPad = std::clamp(120.0f / len, 0.0f, 24.0f);
+		const float pad = 10.0f + extraPad;
+		const float side = 6.0f + std::clamp(60.0f / len, 0.0f, 14.0f);
+		const mathUtils::Vec2 perp{ -d.y, d.x };
+
+		float sideSign = 1.0f;
+		if (!label.empty())
+		{
+			// Stable separation between X/Y/Z without camera-dependent branching.
+			// (Y tends to overlap in common camera angles, so give it the opposite side.)
+			switch (label.front())
+			{
+			case 'Y':
+			case 'y':
+				sideSign = -1.0f;
+				break;
+			default:
+				break;
+			}
+		}
+
+		const float x = endPx.x + d.x * pad + perp.x * side * sideSign;
+		const float y = endPx.y + d.y * pad + perp.y * side * sideSign;
+
+		const float outlinePx = std::clamp(scale * 0.6f, 1.0f, 3.0f);
+		textList.AddOutlinedTextAlignedPx(
+			x, y, label,
+			debugText::TextAlignH::Center, debugText::TextAlignV::Middle,
+			rgba,
+			debugText::PackRGBA8(0, 0, 0, 210),
+			scale,
+			outlinePx);
+	};
+
+
+auto AddPlaneLabel = [&](const mathUtils::Vec3& centerW, std::string_view label,
+	std::uint32_t rgba, float scale = 1.75f)
+	{
+		mathUtils::Vec2 p{};
+		if (!ProjectWorldToScreenPx(centerW, p))
+		{
+			return;
+		}
+
+		// For plane handles, keep the label close to the center but not exactly on it.
+		const float x = p.x + 8.0f;
+		const float y = p.y + 8.0f;
+
+		const float outlinePx = std::clamp(scale * 0.6f, 1.0f, 3.0f);
+		textList.AddOutlinedTextAlignedPx(
+			x, y, label,
+			debugText::TextAlignH::Left, debugText::TextAlignV::Top,
+			rgba,
+			debugText::PackRGBA8(0, 0, 0, 210),
+			scale,
+			outlinePx);
+	};
+
 if (settings_.drawLightGizmos)
 {
 	const float scale = settings_.debugLightGizmoScale;
@@ -86,6 +198,23 @@ if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.
 	AddPlaneHandle(GizmoAxis::XY, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), debugDraw::PackRGBA8(255, 220, 80, 255));
 	AddPlaneHandle(GizmoAxis::XZ, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(255, 80, 255, 255));
 	AddPlaneHandle(GizmoAxis::YZ, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(80, 255, 255, 255));
+
+
+	// Axis/plane labels (screen-space text anchored to projected gizmo geometry)
+	{
+		const mathUtils::Vec3 xEnd = pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f);
+		const mathUtils::Vec3 yEnd = pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f);
+		const mathUtils::Vec3 zEnd = pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen);
+
+		AddAxisLabel(pivot, xEnd, "X", AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
+		AddAxisLabel(pivot, yEnd, "Y", AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
+		AddAxisLabel(pivot, zEnd, "Z", AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
+
+		const float planeMid = (planeInner + planeOuter) * 0.5f;
+		AddPlaneLabel(pivot + mathUtils::Vec3(planeMid, planeMid, 0.0f), "XY", AxisColor(GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
+		AddPlaneLabel(pivot + mathUtils::Vec3(planeMid, 0.0f, planeMid), "XZ", AxisColor(GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
+		AddPlaneLabel(pivot + mathUtils::Vec3(0.0f, planeMid, planeMid), "YZ", AxisColor(GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
+	}
 }
 
 if (settings_.drawPlanarMirrorNormals)
@@ -194,6 +323,22 @@ if (scene.editorGizmoMode == GizmoMode::Scale && scene.editorScaleGizmo.enabled 
 		AxisColor(GizmoAxis::XYZ, debugDraw::PackRGBA8(230, 230, 230, 255)),
 		16,
 		true);
+
+	// Axis/plane labels (screen-space text anchored to projected gizmo geometry)
+	{
+		const mathUtils::Vec3 xEnd = pivot + scene.editorScaleGizmo.axisXWorld * axisLen;
+		const mathUtils::Vec3 yEnd = pivot + scene.editorScaleGizmo.axisYWorld * axisLen;
+		const mathUtils::Vec3 zEnd = pivot + scene.editorScaleGizmo.axisZWorld * axisLen;
+
+		AddAxisLabel(pivot, xEnd, "X", AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
+		AddAxisLabel(pivot, yEnd, "Y", AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
+		AddAxisLabel(pivot, zEnd, "Z", AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
+
+		const float planeMid = (planeInner + planeOuter) * 0.5f;
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisYWorld * planeMid, "XY", AxisColor(GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "XZ", AxisColor(GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisYWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "YZ", AxisColor(GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
+	}
 }
 
 // Pick ray (from the editor UI) visualized in the main view via DebugDraw.
@@ -423,6 +568,11 @@ if (settings_.loadingOverlayVisible)
 	}
 }
 
+if (!textList.Empty())
+{
+	debugTextRenderer_.Upload(textList);
+}
+
 debugDrawRenderer_.Upload(debugList);
 if (debugList.VertexCount() > 0)
 {
@@ -440,20 +590,17 @@ if (debugList.VertexCount() > 0)
 		});
 }
 
-// Debug text (no ImGui dependency) - rendered in screen space over the swapchain.
-debugTextRenderer_.Upload(textList);
+
+
 if (!textList.Empty())
 {
-	const std::uint32_t backbufferW = std::max(1u, scDesc.extent.width);
-	const std::uint32_t backbufferH = std::max(1u, scDesc.extent.height);
-
 	rhi::ClearDesc clear{};
 	clear.clearColor = false;
 	clear.clearDepth = false;
 
-	graph.AddSwapChainPass("DebugTextPass", clear, [this, backbufferW, backbufferH](renderGraph::PassContext& ctx)
+	graph.AddSwapChainPass("DebugTextPass", clear, [this](renderGraph::PassContext& ctx)
 		{
-			debugTextRenderer_.Draw(ctx.commandList, backbufferW, backbufferH);
+			debugTextRenderer_.Draw(ctx.commandList, ctx.passExtent.width, ctx.passExtent.height);
 		});
 }
 

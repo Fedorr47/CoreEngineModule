@@ -1,5 +1,6 @@
 module;
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 
@@ -30,81 +31,71 @@ export namespace rendern::debugText
 	};
 
 	constexpr Glyph5x7 kGlyph_Space{ { 0,0,0,0,0,0,0 } };
-	constexpr Glyph5x7 kGlyph_Question{
-		{ 0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100 }
-	};
-	 constexpr Glyph5x7 kGlyph_Dot{
-		{ 0,0,0,0,0,0b00100,0b00100 }
-	};
-	 constexpr Glyph5x7 kGlyph_Dash{
-		{ 0,0,0,0b11111,0,0,0 }
-	};
-	 constexpr Glyph5x7 kGlyph_Colon{
-		{ 0,0b00100,0b00100,0,0b00100,0b00100,0 }
-	};
-	 constexpr Glyph5x7 kGlyph_Slash{
-		{ 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0, 0 }
-	};
-	 constexpr Glyph5x7 kGlyph_Plus{
+	constexpr Glyph5x7 kGlyph_Question{ { 0b01110,0b10001,0b00001,0b00010,0b00100,0b00000,0b00100 } };
+	constexpr Glyph5x7 kGlyph_Dot{ { 0,0,0,0,0,0b00100,0b00100 } };
+	constexpr Glyph5x7 kGlyph_Dash{ { 0,0,0,0b11111,0,0,0 } };
+	constexpr Glyph5x7 kGlyph_Colon{ { 0,0b00100,0b00100,0,0b00100,0b00100,0 } };
+	constexpr Glyph5x7 kGlyph_Slash{ { 0b00001,0b00010,0b00100,0b01000,0b10000,0,0 } };
+	constexpr Glyph5x7 kGlyph_Plus{
 		{ 0,0b00100,0b00100,0b11111,0b00100,0b00100,0 }
 	};
-	 constexpr Glyph5x7 kGlyph_LParen{
-		{ 0b00010,0b00100,0b01000,0b01000,0b01000,0b00100,0b00010 }
+	constexpr Glyph5x7 kGlyph_LParen{
+	   { 0b00010,0b00100,0b01000,0b01000,0b01000,0b00100,0b00010 }
 	};
-	 constexpr Glyph5x7 kGlyph_RParen{
-		{ 0b01000,0b00100,0b00010,0b00010,0b00010,0b00100,0b01000 }
+	constexpr Glyph5x7 kGlyph_RParen{
+	   { 0b01000,0b00100,0b00010,0b00010,0b00010,0b00100,0b01000 }
 	};
-	 constexpr Glyph5x7 kGlyph_LBrack{
-		{ 0b01110,0b01000,0b01000,0b01000,0b01000,0b01000,0b01110 }
+	constexpr Glyph5x7 kGlyph_LBrack{
+	   { 0b01110,0b01000,0b01000,0b01000,0b01000,0b01000,0b01110 }
 	};
-	 constexpr Glyph5x7 kGlyph_RBrack{
-		{ 0b01110,0b00010,0b00010,0b00010,0b00010,0b00010,0b01110 }
+	constexpr Glyph5x7 kGlyph_RBrack{
+	   { 0b01110,0b00010,0b00010,0b00010,0b00010,0b00010,0b01110 }
 	};
-	 constexpr Glyph5x7 kGlyph_Percent{
-		{ 0b11001,0b11010,0b00100,0b01000,0b10110,0b00110,0 }
+	constexpr Glyph5x7 kGlyph_Percent{
+	   { 0b11001,0b11010,0b00100,0b01000,0b10110,0b00110,0 }
 	};
 
 	// Digits 0..9
-	 constexpr Glyph5x7 kGlyph_0{ { 0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_1{ { 0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_2{ { 0b01110,0b10001,0b00001,0b00010,0b00100,0b01000,0b11111 } };
-	 constexpr Glyph5x7 kGlyph_3{ { 0b11110,0b00001,0b00001,0b01110,0b00001,0b00001,0b11110 } };
-	 constexpr Glyph5x7 kGlyph_4{ { 0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010 } };
-	 constexpr Glyph5x7 kGlyph_5{ { 0b11111,0b10000,0b10000,0b11110,0b00001,0b00001,0b11110 } };
-	 constexpr Glyph5x7 kGlyph_6{ { 0b00110,0b01000,0b10000,0b11110,0b10001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_7{ { 0b11111,0b00001,0b00010,0b00100,0b01000,0b01000,0b01000 } };
-	 constexpr Glyph5x7 kGlyph_8{ { 0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_9{ { 0b01110,0b10001,0b10001,0b01111,0b00001,0b00010,0b01100 } };
+	constexpr Glyph5x7 kGlyph_0{ { 0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_1{ { 0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110 } };
+	constexpr Glyph5x7 kGlyph_2{ { 0b01110,0b10001,0b00001,0b00010,0b00100,0b01000,0b11111 } };
+	constexpr Glyph5x7 kGlyph_3{ { 0b11110,0b00001,0b00001,0b01110,0b00001,0b00001,0b11110 } };
+	constexpr Glyph5x7 kGlyph_4{ { 0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010 } };
+	constexpr Glyph5x7 kGlyph_5{ { 0b11111,0b10000,0b10000,0b11110,0b00001,0b00001,0b11110 } };
+	constexpr Glyph5x7 kGlyph_6{ { 0b00110,0b01000,0b10000,0b11110,0b10001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_7{ { 0b11111,0b00001,0b00010,0b00100,0b01000,0b01000,0b01000 } };
+	constexpr Glyph5x7 kGlyph_8{ { 0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_9{ { 0b01110,0b10001,0b10001,0b01111,0b00001,0b00010,0b01100 } };
 
 	// Letters A..Z
-	 constexpr Glyph5x7 kGlyph_A{ { 0b01110,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_B{ { 0b11110,0b10001,0b10001,0b11110,0b10001,0b10001,0b11110 } };
-	 constexpr Glyph5x7 kGlyph_C{ { 0b01110,0b10001,0b10000,0b10000,0b10000,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_D{ { 0b11110,0b10001,0b10001,0b10001,0b10001,0b10001,0b11110 } };
-	 constexpr Glyph5x7 kGlyph_E{ { 0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b11111 } };
-	 constexpr Glyph5x7 kGlyph_F{ { 0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b10000 } };
-	 constexpr Glyph5x7 kGlyph_G{ { 0b01110,0b10001,0b10000,0b10111,0b10001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_H{ { 0b10001,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_I{ { 0b01110,0b00100,0b00100,0b00100,0b00100,0b00100,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_J{ { 0b00111,0b00010,0b00010,0b00010,0b00010,0b10010,0b01100 } };
-	 constexpr Glyph5x7 kGlyph_K{ { 0b10001,0b10010,0b10100,0b11000,0b10100,0b10010,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_L{ { 0b10000,0b10000,0b10000,0b10000,0b10000,0b10000,0b11111 } };
-	 constexpr Glyph5x7 kGlyph_M{ { 0b10001,0b11011,0b10101,0b10101,0b10001,0b10001,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_N{ { 0b10001,0b11001,0b10101,0b10011,0b10001,0b10001,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_O{ { 0b01110,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_P{ { 0b11110,0b10001,0b10001,0b11110,0b10000,0b10000,0b10000 } };
-	 constexpr Glyph5x7 kGlyph_Q{ { 0b01110,0b10001,0b10001,0b10001,0b10101,0b10010,0b01101 } };
-	 constexpr Glyph5x7 kGlyph_R{ { 0b11110,0b10001,0b10001,0b11110,0b10100,0b10010,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_S{ { 0b01111,0b10000,0b10000,0b01110,0b00001,0b00001,0b11110 } };
-	 constexpr Glyph5x7 kGlyph_T{ { 0b11111,0b00100,0b00100,0b00100,0b00100,0b00100,0b00100 } };
-	 constexpr Glyph5x7 kGlyph_U{ { 0b10001,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110 } };
-	 constexpr Glyph5x7 kGlyph_V{ { 0b10001,0b10001,0b10001,0b10001,0b10001,0b01010,0b00100 } };
-	 constexpr Glyph5x7 kGlyph_W{ { 0b10001,0b10001,0b10001,0b10101,0b10101,0b10101,0b01010 } };
-	 constexpr Glyph5x7 kGlyph_X{ { 0b10001,0b10001,0b01010,0b00100,0b01010,0b10001,0b10001 } };
-	 constexpr Glyph5x7 kGlyph_Y{ { 0b10001,0b10001,0b01010,0b00100,0b00100,0b00100,0b00100 } };
-	 constexpr Glyph5x7 kGlyph_Z{ { 0b11111,0b00001,0b00010,0b00100,0b01000,0b10000,0b11111 } };
+	constexpr Glyph5x7 kGlyph_A{ { 0b01110,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001 } };
+	constexpr Glyph5x7 kGlyph_B{ { 0b11110,0b10001,0b10001,0b11110,0b10001,0b10001,0b11110 } };
+	constexpr Glyph5x7 kGlyph_C{ { 0b01110,0b10001,0b10000,0b10000,0b10000,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_D{ { 0b11110,0b10001,0b10001,0b10001,0b10001,0b10001,0b11110 } };
+	constexpr Glyph5x7 kGlyph_E{ { 0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b11111 } };
+	constexpr Glyph5x7 kGlyph_F{ { 0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b10000 } };
+	constexpr Glyph5x7 kGlyph_G{ { 0b01110,0b10001,0b10000,0b10111,0b10001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_H{ { 0b10001,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001 } };
+	constexpr Glyph5x7 kGlyph_I{ { 0b01110,0b00100,0b00100,0b00100,0b00100,0b00100,0b01110 } };
+	constexpr Glyph5x7 kGlyph_J{ { 0b00111,0b00010,0b00010,0b00010,0b00010,0b10010,0b01100 } };
+	constexpr Glyph5x7 kGlyph_K{ { 0b10001,0b10010,0b10100,0b11000,0b10100,0b10010,0b10001 } };
+	constexpr Glyph5x7 kGlyph_L{ { 0b10000,0b10000,0b10000,0b10000,0b10000,0b10000,0b11111 } };
+	constexpr Glyph5x7 kGlyph_M{ { 0b10001,0b11011,0b10101,0b10101,0b10001,0b10001,0b10001 } };
+	constexpr Glyph5x7 kGlyph_N{ { 0b10001,0b11001,0b10101,0b10011,0b10001,0b10001,0b10001 } };
+	constexpr Glyph5x7 kGlyph_O{ { 0b01110,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_P{ { 0b11110,0b10001,0b10001,0b11110,0b10000,0b10000,0b10000 } };
+	constexpr Glyph5x7 kGlyph_Q{ { 0b01110,0b10001,0b10001,0b10001,0b10101,0b10010,0b01101 } };
+	constexpr Glyph5x7 kGlyph_R{ { 0b11110,0b10001,0b10001,0b11110,0b10100,0b10010,0b10001 } };
+	constexpr Glyph5x7 kGlyph_S{ { 0b01111,0b10000,0b10000,0b01110,0b00001,0b00001,0b11110 } };
+	constexpr Glyph5x7 kGlyph_T{ { 0b11111,0b00100,0b00100,0b00100,0b00100,0b00100,0b00100 } };
+	constexpr Glyph5x7 kGlyph_U{ { 0b10001,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110 } };
+	constexpr Glyph5x7 kGlyph_V{ { 0b10001,0b10001,0b10001,0b10001,0b10001,0b01010,0b00100 } };
+	constexpr Glyph5x7 kGlyph_W{ { 0b10001,0b10001,0b10001,0b10101,0b10101,0b10101,0b01010 } };
+	constexpr Glyph5x7 kGlyph_X{ { 0b10001,0b10001,0b01010,0b00100,0b01010,0b10001,0b10001 } };
+	constexpr Glyph5x7 kGlyph_Y{ { 0b10001,0b10001,0b01010,0b00100,0b00100,0b00100,0b00100 } };
+	constexpr Glyph5x7 kGlyph_Z{ { 0b11111,0b00001,0b00010,0b00100,0b01000,0b10000,0b11111 } };
 
-	 const Glyph5x7& GetGlyph(char c) noexcept
+	const Glyph5x7& GetGlyph(char c) noexcept
 	{
 		// Normalize to upper-case for latin letters.
 		if (c >= 'a' && c <= 'z')
@@ -170,8 +161,8 @@ export namespace rendern::debugText
 		}
 	}
 
-	 inline void EmitQuad(std::vector<DebugTextVertex>& out,
-		float x0, float y0, float x1, float y1,
+	inline void EmitQuad(std::vector<DebugTextVertex>& out, 
+		float x0, float y0, float x1, float y1, 
 		std::uint32_t rgba)
 	{
 		// Two triangles:
@@ -244,7 +235,7 @@ export namespace rendern::debugText
 
 						for (int col = 0; col < 5; ++col)
 						{
-							const std::uint8_t mask = static_cast<std::uint8_t>(1u << col);
+							const std::uint8_t mask = static_cast<std::uint8_t>(1u << (4 - col));
 							if ((bits & mask) == 0)
 							{
 								continue;
@@ -378,7 +369,6 @@ export namespace rendern::debugText
 			psoText_ = psoCache_.GetOrCreate("PSO_DebugText", vs, ps, rhi::PrimitiveTopologyType::Triangle);
 
 			EnsureVertexBufferCapacity(4096);
-
 			initialized_ = true;
 		}
 
