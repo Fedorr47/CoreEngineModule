@@ -140,6 +140,7 @@ namespace rendern::ui
         ImGui::Begin("Renderer / Shadows");
 
         ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
+        ImGui::Checkbox("Deferred (experimental)", &rs.enableDeferred);
         ImGui::Checkbox("Frustum culling", &rs.enableFrustumCulling);
         ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
 

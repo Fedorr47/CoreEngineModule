@@ -1,5 +1,5 @@
 			// ---------------- Optional depth pre-pass (swapchain depth) ----------------
-			const bool doDepthPrepass = settings_.enableDepthPrepass;
+			const bool doDepthPrepass = settings_.enableDepthPrepass && !settings_.enableDeferred;
 			if (doDepthPrepass && psoShadow_)
 			{
 				// We use the existing depth-only shadow shader (writes SV_Depth, no color outputs).

@@ -1,3 +1,249 @@
+// ---------------- Deferred path (DX12) ----------------
+const bool canDeferred =
+settings_.enableDeferred &&
+device_.GetBackend() == rhi::Backend::DirectX12 &&
+psoDeferredGBuffer_ &&
+psoDeferredLighting_ &&
+fullscreenLayout_ &&
+swapChain.GetDepthTexture();
+
+if (canDeferred)
+{
+	// Import swapchain depth as an external RenderGraph texture so offscreen passes can use it.
+	const auto depthRG = graph.ImportTexture(
+		swapChain.GetDepthTexture(),
+		renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::D24_UNORM_S8_UINT,
+			.usage = renderGraph::ResourceUsage::DepthStencil,
+			.debugName = "SwapChainDepth_Imported"
+		});
+
+	const auto gbuf0 = graph.CreateTexture(renderGraph::RGTextureDesc{
+		.extent = scDesc.extent,
+		.format = rhi::Format::RGBA8_UNORM,
+		.usage = renderGraph::ResourceUsage::RenderTarget,
+		.debugName = "GBuffer0_AlbedoRough"
+		});
+	const auto gbuf1 = graph.CreateTexture(renderGraph::RGTextureDesc{
+		.extent = scDesc.extent,
+		.format = rhi::Format::RGBA8_UNORM,
+		.usage = renderGraph::ResourceUsage::RenderTarget,
+		.debugName = "GBuffer1_NormalMetal"
+		});
+	const auto gbuf2 = graph.CreateTexture(renderGraph::RGTextureDesc{
+		.extent = scDesc.extent,
+		.format = rhi::Format::RGBA8_UNORM,
+		.usage = renderGraph::ResourceUsage::RenderTarget,
+		.debugName = "GBuffer2_EmissiveAO"
+		});
+
+	// --- GBuffer pass (opaque) ---
+	{
+		renderGraph::PassAttachments att{};
+		att.useSwapChainBackbuffer = false;
+		att.colors = { gbuf0, gbuf1, gbuf2 };
+		att.depth = depthRG;
+
+		att.clearDesc.clearColor = true;
+		att.clearDesc.clearDepth = true;
+		att.clearDesc.clearStencil = true;
+		att.clearDesc.color = { 0.0f, 0.0f, 0.0f, 0.0f };
+		att.clearDesc.depth = 1.0f;
+		att.clearDesc.stencil = 0;
+
+		graph.AddPass("GBufferPass", std::move(att),
+			[this, &scene, dirLightViewProj, lightCount, mainBatches, instStride, gbuf0, gbuf1, gbuf2](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+
+				ctx.commandList.SetViewport(0, 0,
+					static_cast<int>(extent.width),
+					static_cast<int>(extent.height));
+
+				ctx.commandList.SetState(state_);
+				ctx.commandList.BindPipeline(psoDeferredGBuffer_);
+
+				const float aspect = extent.height
+					? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+					: 1.0f;
+
+				const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+				const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+				const mathUtils::Mat4 viewProj = proj * view;
+
+				const mathUtils::Vec3 camPosLocal = scene.camera.position;
+				const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+
+				// Flags must match shader.
+				constexpr std::uint32_t kFlagUseTex = 1u << 0;
+				constexpr std::uint32_t kFlagUseNormal = 1u << 2;
+				constexpr std::uint32_t kFlagUseMetalTex = 1u << 3;
+				constexpr std::uint32_t kFlagUseRoughTex = 1u << 4;
+				constexpr std::uint32_t kFlagUseAOTex = 1u << 5;
+				constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
+
+				for (const Batch& batch : mainBatches)
+				{
+					if (!batch.mesh || batch.instanceCount == 0)
+					{
+						continue;
+					}
+
+					MaterialPerm perm = MaterialPerm::None;
+					if (batch.materialHandle.id != 0)
+					{
+						perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
+					}
+					else
+					{
+						if (batch.material.albedoDescIndex != 0)
+						{
+							perm = perm | MaterialPerm::UseTex;
+						}
+					}
+
+					std::uint32_t flags = 0u;
+					if (HasFlag(perm, MaterialPerm::UseTex) && batch.material.albedoDescIndex != 0)
+					{
+						flags |= kFlagUseTex;
+					}
+					if (batch.material.normalDescIndex != 0)
+					{
+						flags |= kFlagUseNormal;
+					}
+					if (batch.material.metalnessDescIndex != 0)
+					{
+						flags |= kFlagUseMetalTex;
+					}
+					if (batch.material.roughnessDescIndex != 0)
+					{
+						flags |= kFlagUseRoughTex;
+					}
+					if (batch.material.aoDescIndex != 0)
+					{
+						flags |= kFlagUseAOTex;
+					}
+					if (batch.material.emissiveDescIndex != 0)
+					{
+						flags |= kFlagUseEmissiveTex;
+					}
+
+					// Material textures via descriptors (same slots as forward).
+					ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
+					ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
+					ctx.commandList.BindTextureDesc(13, batch.material.metalnessDescIndex);
+					ctx.commandList.BindTextureDesc(14, batch.material.roughnessDescIndex);
+					ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
+					ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
+
+					PerBatchConstants constants{};
+					const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+					const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+					std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+					constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.0f };
+					constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+					constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
+
+					constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(flags) };
+					constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+					constants.uCounts = { static_cast<float>(lightCount), 0.0f, 0.0f, 0.0f };
+					constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+					// IA (instanced)
+					ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
+					ctx.commandList.BindVertexBuffer(0, batch.mesh->vertexBuffer, batch.mesh->vertexStrideBytes, 0);
+					ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, batch.instanceOffset * instStride);
+					ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
+
+					ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+					ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
+				}
+			});
+	}
+
+	// --- Fullscreen resolve into swapchain (bindDepthStencil=false so depth can be sampled as SRV) ---
+	{
+		rhi::ClearDesc clear{};
+		clear.clearColor = true;
+		clear.clearDepth = false;
+		clear.clearStencil = false;
+		clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+		graph.AddSwapChainPass("DeferredLighting", clear,
+			[this, gbuf0, gbuf1, gbuf2, depthRG](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+
+				ctx.commandList.SetViewport(0, 0,
+					static_cast<int>(extent.width),
+					static_cast<int>(extent.height));
+
+				ctx.commandList.SetState(deferredLightingState_);
+				ctx.commandList.BindPipeline(psoDeferredLighting_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(gbuf0)); // t0
+				ctx.commandList.BindTexture2D(1, ctx.resources.GetTexture(gbuf1)); // t1
+				ctx.commandList.BindTexture2D(2, ctx.resources.GetTexture(gbuf2)); // t2
+				ctx.commandList.BindTexture2D(3, ctx.resources.GetTexture(depthRG)); // t3 (depth SRV)
+
+				ctx.commandList.Draw(3);
+			},
+			false);
+	}
+
+	// --- Skybox after resolve: fills background where depth==1 ---
+	{
+		rhi::ClearDesc clear{};
+		clear.clearColor = false;
+		clear.clearDepth = false;
+		clear.clearStencil = false;
+
+		graph.AddSwapChainPass("DeferredSkybox", clear,
+			[this, &scene, instStride](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+
+				const float aspect = extent.height
+					? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+					: 1.0f;
+
+				const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+				const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+
+				if (scene.skyboxDescIndex != 0)
+				{
+					mathUtils::Mat4 viewNoTranslation = view;
+					viewNoTranslation[3] = mathUtils::Vec4(0, 0, 0, 1);
+
+					const mathUtils::Mat4 viewProjSkybox = proj * viewNoTranslation;
+					const mathUtils::Mat4 viewProjSkyboxTranspose = mathUtils::Transpose(viewProjSkybox);
+
+					SkyboxConstants skyboxConstants{};
+					std::memcpy(skyboxConstants.uViewProj.data(), mathUtils::ValuePtr(viewProjSkyboxTranspose), sizeof(float) * 16);
+
+					ctx.commandList.SetState(skyboxState_);
+					ctx.commandList.BindPipeline(psoSkybox_);
+					ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+
+					ctx.commandList.BindInputLayout(skyboxMesh_.layout);
+					ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
+					ctx.commandList.BindIndexBuffer(skyboxMesh_.indexBuffer, skyboxMesh_.indexType, 0);
+
+					ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &skyboxConstants, 1 }));
+					ctx.commandList.DrawIndexed(skyboxMesh_.indexCount, skyboxMesh_.indexType, 0, 0);
+				}
+			});
+	}
+}
+else
+{
 // ---------------- Main pass (swapchain) ----------------
 rhi::ClearDesc clearDesc{};
 clearDesc.clearColor = true;
@@ -720,3 +966,4 @@ graph.AddSwapChainPass("MainPass", clearDesc,
 		ctx.commandList.DX12ImGuiRender(imguiDrawData);
 	}
 });
+}

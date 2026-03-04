@@ -49,6 +49,8 @@ struct RGTextureDesc
 	struct PassAttachments
 	{
 		bool useSwapChainBackbuffer{ false };
+		// If false, depth-stencil is not bound in BeginPass.
+		bool bindDepthStencil{ true };
 
 		std::vector<RGTexture> colors;
 		std::optional<RGTexture> depth;
@@ -121,10 +123,11 @@ struct RGTextureDesc
 			passes_.emplace_back(PassNode{.name = std::string(name), .attachments = std::move(attachments), .execute = std::move(callback) });
 		}
 
-		void AddSwapChainPass(std::string_view name, rhi::ClearDesc clearDesc, PassCallback callback)
+		void AddSwapChainPass(std::string_view name, rhi::ClearDesc clearDesc, PassCallback callback, bool bindDepthStencil = true)
 		{
 			PassAttachments attachments{};
 			attachments.useSwapChainBackbuffer = true;
+			attachments.bindDepthStencil = bindDepthStencil;
 			attachments.clearDesc = clearDesc;
 			passes_.emplace_back(PassNode{ .name = std::string(name), .attachments = std::move(attachments), .execute = std::move(callback) });
 		}
@@ -215,6 +218,7 @@ struct RGTextureDesc
 				begin.extent = passExtent;
 				begin.clearDesc = pass.attachments.clearDesc;
 				begin.swapChain = pass.attachments.useSwapChainBackbuffer ? &swapChain : nullptr;
+				begin.bindDepthStencil = pass.attachments.bindDepthStencil;
 
 				commandList.BeginPass(begin);
 

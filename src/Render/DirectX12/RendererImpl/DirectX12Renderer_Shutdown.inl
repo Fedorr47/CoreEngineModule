@@ -1,3 +1,8 @@
+if (fullscreenLayout_.id != 0)
+{
+	device_.DestroyInputLayout(fullscreenLayout_);
+	fullscreenLayout_ = {};
+}
 if (instanceBuffer_)
 {
 	device_.DestroyBuffer(instanceBuffer_);

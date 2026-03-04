@@ -20,6 +20,7 @@ export namespace rendern
 		std::uint32_t dirShadowCascadeCount{ 3 };
 		float dirShadowSplitLambda{ 0.7f };
 		bool enableDepthPrepass{ false };
+		bool enableDeferred{ false }; // DX12-only (currently): GBuffer + fullscreen resolve
 		bool enableFrustumCulling{ true };
 		bool debugPrintDrawCalls{ false }; // prints MainPass draw-call count (DX12) once per ~60 frames
 

@@ -244,4 +244,51 @@
 					device_.UpdateBuffer(debugCubeAtlasVB_, std::as_bytes(std::span{ tri, 3 }));
 					debugCubeAtlasVBStrideBytes_ = 16;
 				}
+				// Deferred rendering (DX12): GBuffer writer + fullscreen resolve.
+				{
+					const auto gbufPath = corefs::ResolveAsset("shaders\\DeferredGBuffer_dx12.hlsl");
+					const auto lightPath = corefs::ResolveAsset("shaders\\DeferredLighting_dx12.hlsl");
+
+					const auto vsG = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Vertex,
+						.name = "VS_GBuffer",
+						.filePath = gbufPath.string(),
+						.defines = {}
+						});
+					const auto psG = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Pixel,
+						.name = "PS_GBuffer",
+						.filePath = gbufPath.string(),
+						.defines = {}
+						});
+					psoDeferredGBuffer_ = psoCache_.GetOrCreate("PSO_Deferred_GBuffer", vsG, psG);
+
+					const auto vsFS = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Vertex,
+						.name = "VS_Fullscreen",
+						.filePath = lightPath.string(),
+						.defines = {}
+						});
+					const auto psFS = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Pixel,
+						.name = "PS_DeferredLighting",
+						.filePath = lightPath.string(),
+						.defines = {}
+						});
+					psoDeferredLighting_ = psoCache_.GetOrCreate("PSO_Deferred_Lighting", vsFS, psFS);
+
+					// Empty input layout for fullscreen triangle (SV_VertexID only).
+					rhi::InputLayoutDesc il{};
+					il.strideBytes = 0;
+					il.attributes = {};
+					il.debugName = "Fullscreen_NoInput";
+					fullscreenLayout_ = device_.CreateInputLayout(il);
+
+					deferredLightingState_ = {};
+					deferredLightingState_.depth.testEnable = false;
+					deferredLightingState_.depth.writeEnable = false;
+					deferredLightingState_.blend.enable = false;
+					deferredLightingState_.rasterizer.cullMode = rhi::CullMode::None;
+					deferredLightingState_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
+				}
 			}

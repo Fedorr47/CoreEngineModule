@@ -344,6 +344,10 @@ export namespace rendern
 		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
 		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
 		rhi::PipelineHandle psoOutline_{}; // editor selection outline shell
+		rhi::PipelineHandle psoDeferredGBuffer_{}; // MRT G-Buffer writer
+		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen resolve (debug: shows albedo)
+		rhi::InputLayoutHandle fullscreenLayout_{}; // empty input layout for fullscreen VS (SV_VertexID)
+		rhi::GraphicsState deferredLightingState_{};
 		rhi::GraphicsState state_{};
 		rhi::GraphicsState transparentState_{};
 		rhi::GraphicsState highlightState_{};
