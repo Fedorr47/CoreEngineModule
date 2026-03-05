@@ -189,7 +189,7 @@
 	planarReflectedState_.depth.stencil.front.passOp = rhi::StencilOp::Keep;
 	planarReflectedState_.depth.stencil.front.compareOp = rhi::CompareOp::Equal;
 	planarReflectedState_.depth.stencil.back = planarReflectedState_.depth.stencil.front;
-							}
+			}
 
 // Debug cubemap atlas pipeline (fullscreen triangle with a tiny VB).
 {
@@ -248,6 +248,8 @@
 	{
 		const auto gbufPath = corefs::ResolveAsset("shaders\\DeferredGBuffer_dx12.hlsl");
 		const auto lightPath = corefs::ResolveAsset("shaders\\DeferredLighting_dx12.hlsl");
+		const auto copyPath = corefs::ResolveAsset("shaders\\CopyToSwapChain_dx12.hlsl");
+		const auto planarCompPath = corefs::ResolveAsset("shaders\\PlanarComposite_dx12.hlsl");
 
 		const auto vsG = shaderLibrary_.GetOrCreateShader(ShaderKey{
 			.stage = rhi::ShaderStage::Vertex,
@@ -281,6 +283,26 @@
 			});
 		psoDeferredLighting_ = psoCache_.GetOrCreate("PSO_Deferred_Lighting", vsFS, psFS);
 
+		// Copy scene color to swapchain (fullscreen blit).
+		{
+			const auto copyPath = corefs::ResolveAsset("shaders\\CopyToSwapChain_dx12.hlsl");
+			const auto vsCopy = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = copyPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			const auto psCopy = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_CopyToSwapChain",
+				.filePath = copyPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			psoCopyToSwapChain_ = psoCache_.GetOrCreate("PSO_CopyToSwapChain", vsCopy, psCopy);
+		}
+
 		// Empty input layout for fullscreen triangle (SV_VertexID only).
 		rhi::InputLayoutDesc il{};
 		il.strideBytes = 0;
@@ -294,5 +316,42 @@
 		deferredLightingState_.blend.enable = false;
 		deferredLightingState_.rasterizer.cullMode = rhi::CullMode::None;
 		deferredLightingState_.rasterizer.frontFace = rhi::FrontFace::CounterClockwise;
+
+		// Copy SceneColor -> swapchain (fullscreen)
+		{
+			const auto vsCopy = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = copyPath.string(),
+				.defines = {}
+				});
+			const auto psCopy = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_CopyToSwapChain",
+				.filePath = copyPath.string(),
+				.defines = {}
+				});
+			psoCopyToSwapChain_ = psoCache_.GetOrCreate("PSO_CopyToSwapChain", vsCopy, psCopy);
+			copyToSwapChainState_ = deferredLightingState_;
+		}
+
+		// Planar composite (mask+color -> SceneColor), fullscreen alpha blend.
+		{
+			const auto vsPC = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = planarCompPath.string(),
+				.defines = {}
+				});
+			const auto psPC = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_PlanarComposite",
+				.filePath = planarCompPath.string(),
+				.defines = {}
+				});
+			psoPlanarComposite_ = psoCache_.GetOrCreate("PSO_PlanarComposite", vsPC, psPC);
+			planarCompositeState_ = deferredLightingState_;
+			planarCompositeState_.blend.enable = true;
+		}
 	}
-}
+	}

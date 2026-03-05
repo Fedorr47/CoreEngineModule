@@ -11,6 +11,9 @@ Texture2D gGBuffer1 : register(t1); // normal.xyz (encoded), metalness
 Texture2D gGBuffer2 : register(t2); // emissive.rgb, ao
 Texture2D gDepth : register(t3); // depth SRV (0..1)
 
+// Directional CSM atlas (D32 atlas; cascades packed horizontally)
+Texture2D<float> gDirShadow : register(t5);
+
 struct GPULight
 {
 	float4 p0; // pos.xyz, type
@@ -21,10 +24,25 @@ struct GPULight
 
 StructuredBuffer<GPULight> gLights : register(t4);
 
+struct ShadowDataSB
+{
+	float4 dirVPRows[12];
+	float4 dirSplits; // { split1, split2, split3(max), fadeFrac }
+	float4 dirInfo; // { invAtlasW, invAtlasH, invTileRes, cascadeCount }
+	float4 spotVPRows[16];
+	float4 spotInfo[4];
+	float4 pointPosRange[4];
+	float4 pointInfo[4];
+};
+
+StructuredBuffer<ShadowDataSB> gShadowData : register(t6);
+
 cbuffer Deferred : register(b0)
 {
 	float4x4 uInvViewProj;
 	float4 uCameraPosAmbient; // xyz + ambientStrength
+	float4 uCameraForward; // xyz + pad
+	float4 uShadowBias; // x=dirBaseBiasTexels, y=slopeScaleTexels
 	float4 uCounts; // x = lightCount
 };
 
@@ -95,6 +113,133 @@ float3 BRDF_CookTorrance(float3 N, float3 V, float3 L, float3 albedo, float meta
 	return diff + spec;
 }
 
+float4 MulRows(float4 r0, float4 r1, float4 r2, float4 r3, float4 v)
+{
+	return float4(dot(r0, v), dot(r1, v), dot(r2, v), dot(r3, v));
+}
+
+uint SelectDirCascade(float viewDist, float4 splits, uint cascadeCount)
+{
+    // splits = { split1, split2, split3(max), fadeFrac }
+	if (cascadeCount <= 1u)
+	{
+		return 0u;
+	}
+	if (cascadeCount == 2u)
+	{
+		return (viewDist < splits.x) ? 0u : 1u;
+	}
+    // 3 cascades
+	return (viewDist < splits.x) ? 0u : (viewDist < splits.y) ? 1u : 2u;
+}
+
+float SampleDirShadowPCF3x3(ShadowDataSB sd, float3 worldPos, float NdotL, float viewDist)
+{
+	const uint cascadeCount = (uint) sd.dirInfo.w;
+	if (cascadeCount == 0u)
+	{
+		return 1.0f;
+	}
+
+    // If beyond shadow distance, skip.
+	const float shadowMax = sd.dirSplits.z;
+	if (viewDist >= shadowMax)
+	{
+		return 1.0f;
+	}
+
+	const uint c = SelectDirCascade(viewDist, sd.dirSplits, cascadeCount);
+
+	const uint base = c * 4u;
+	const float4 r0 = sd.dirVPRows[base + 0u];
+	const float4 r1 = sd.dirVPRows[base + 1u];
+	const float4 r2 = sd.dirVPRows[base + 2u];
+	const float4 r3 = sd.dirVPRows[base + 3u];
+
+	const float4 p = float4(worldPos, 1.0f);
+	const float4 clip = MulRows(r0, r1, r2, r3, p);
+
+	if (abs(clip.w) <= 1e-6f)
+	{
+		return 1.0f;
+	}
+
+	const float3 ndc = clip.xyz / clip.w; // RH_ZO -> z in [0..1]
+    // Outside depth range: consider unshadowed.
+	if (ndc.z <= 0.0f || ndc.z >= 1.0f)
+	{
+		return 1.0f;
+	}
+
+    // Tile UV (flip Y for texture space).
+	float2 tileUV = ndc.xy * float2(0.5f, -0.5f) + 0.5f;
+
+    // If outside tile, treat as unshadowed.
+	if (tileUV.x <= 0.0f || tileUV.x >= 1.0f || tileUV.y <= 0.0f || tileUV.y >= 1.0f)
+	{
+		return 1.0f;
+	}
+
+    // Fade shadows near max distance to reduce popping.
+	const float fadeFrac = saturate(sd.dirSplits.w);
+	if (fadeFrac > 0.0f)
+	{
+		const float fadeStart = shadowMax * (1.0f - fadeFrac);
+		if (viewDist > fadeStart)
+		{
+			const float t = saturate((viewDist - fadeStart) / max(shadowMax - fadeStart, 1e-6f));
+            // fade to fully lit
+            // We'll apply after PCF.
+		}
+	}
+
+    // Bias in "texel-ish" units converted by invTileRes.
+	const float baseBiasTexels = uShadowBias.x;
+	const float slopeScaleTexels = uShadowBias.y;
+	const float invTileRes = sd.dirInfo.z;
+
+	const float bias = (baseBiasTexels + slopeScaleTexels * (1.0f - saturate(NdotL))) * invTileRes;
+	const float cmpDepth = ndc.z - bias;
+
+    // Prevent PCF bleeding between cascades by clamping inside the tile.
+	const float margin = 1.5f * invTileRes;
+	tileUV = clamp(tileUV, margin, 1.0f - margin);
+
+	const float invCascadeCount = 1.0f / (float) cascadeCount;
+
+	float sum = 0.0f;
+    [unroll]
+	for (int dy = -1; dy <= 1; ++dy)
+	{
+        [unroll]
+		for (int dx = -1; dx <= 1; ++dx)
+		{
+			float2 tuv = tileUV + float2((float) dx, (float) dy) * invTileRes;
+			tuv = clamp(tuv, margin, 1.0f - margin);
+
+			float2 atlasUV;
+			atlasUV.x = (tuv.x + (float) c) * invCascadeCount;
+			atlasUV.y = tuv.y;
+
+			sum += gDirShadow.SampleCmpLevelZero(gShadowCmp, atlasUV, cmpDepth);
+		}
+	}
+
+	float shadow = sum / 9.0f;
+
+	if (fadeFrac > 0.0f)
+	{
+		const float fadeStart = shadowMax * (1.0f - fadeFrac);
+		if (viewDist > fadeStart)
+		{
+			const float t = saturate((viewDist - fadeStart) / max(shadowMax - fadeStart, 1e-6f));
+			shadow = lerp(shadow, 1.0f, t);
+		}
+	}
+
+	return shadow;
+}
+
 float3 ReconstructWorldPos(float2 uv, float depth)
 {
     // uv in [0..1], depth in [0..1] (RH_ZO)
@@ -134,6 +279,10 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 	float ambientStrength = uCameraPosAmbient.w;
 
 	float3 V = normalize(camPos - worldPos);
+	
+	// Shadow metadata (CSM atlas) is in element 0.
+	ShadowDataSB sd = gShadowData[0];
+	const float viewDist = max(0.0f, dot(worldPos - camPos, uCameraForward.xyz));
 
 	const uint lightCount = (uint) uCounts.x;
 	float3 Lo = 0.0f;
@@ -147,6 +296,8 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 		float3 radiance = l.p2.rgb * l.p1.w;
 		float3 L;
 		float att = 1.0f;
+		
+		float shadow = 1.0f;
 
 		if (type == 0u) // Directional
 		{
@@ -192,8 +343,13 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 		float NdotL = saturate(dot(N, L));
 		if (NdotL > 0.0f)
 		{
+			if (type == 0u)
+			{
+				shadow = SampleDirShadowPCF3x3(sd, worldPos, NdotL, viewDist);
+			}
+		
 			float3 brdf = BRDF_CookTorrance(N, V, L, albedo, metallic, roughness);
-			Lo += brdf * radiance * (NdotL * att);
+			Lo += brdf * radiance * (NdotL * att * shadow);
 		}
 	}
 

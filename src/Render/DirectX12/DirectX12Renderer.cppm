@@ -342,12 +342,16 @@ export namespace rendern
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
 		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
+		rhi::PipelineHandle psoPlanarComposite_{}; // fullscreen planar composite (mask+color -> SceneColor)
 		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
 		rhi::PipelineHandle psoOutline_{}; // editor selection outline shell
 		rhi::PipelineHandle psoDeferredGBuffer_{}; // MRT G-Buffer writer
-		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen resolve (debug: shows albedo)
+		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen deferred lighting
+		rhi::PipelineHandle psoCopyToSwapChain_{}; // fullscreen copy SceneColor -> swapchain
 		rhi::InputLayoutHandle fullscreenLayout_{}; // empty input layout for fullscreen VS (SV_VertexID)
 		rhi::GraphicsState deferredLightingState_{};
+		rhi::GraphicsState planarCompositeState_{};
+		rhi::GraphicsState copyToSwapChainState_{};
 		rhi::GraphicsState state_{};
 		rhi::GraphicsState transparentState_{};
 		rhi::GraphicsState highlightState_{};
@@ -410,4 +414,4 @@ export namespace rendern
 		std::uint32_t debugCubeAtlasVBStrideBytes_{ 0 };
 		rhi::GraphicsState skyboxState_{};
 	};
-} // namespace rendern
+	} // namespace rendern

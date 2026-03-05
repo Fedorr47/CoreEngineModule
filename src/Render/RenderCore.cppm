@@ -35,7 +35,7 @@ export namespace rendern
 		std::string name;
 		std::string filePath;
 		std::vector<std::string> defines;
-		rhi::ShaderModel shaderModel{ rhi::ShaderModel::SM5_1 };
+		rhi::ShaderModel shaderModel{ rhi::ShaderModel::SM6_1 };
 
 		friend bool operator==(const ShaderKey& lhs, const ShaderKey& rhs)
 		{
