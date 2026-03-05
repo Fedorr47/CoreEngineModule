@@ -248,6 +248,8 @@
 	{
 		const auto gbufPath = corefs::ResolveAsset("shaders\\DeferredGBuffer_dx12.hlsl");
 		const auto lightPath = corefs::ResolveAsset("shaders\\DeferredLighting_dx12.hlsl");
+		const auto ssaoPath = corefs::ResolveAsset("shaders\\SSAO_dx12.hlsl");
+		const auto ssaoBlurPath = corefs::ResolveAsset("shaders\\SSAOBlur_dx12.hlsl");
 		const auto copyPath = corefs::ResolveAsset("shaders\\CopyToSwapChain_dx12.hlsl");
 		const auto planarCompPath = corefs::ResolveAsset("shaders\\PlanarComposite_dx12.hlsl");
 
@@ -282,6 +284,42 @@
 			.shaderModel = rhi::ShaderModel::SM6_1
 			});
 		psoDeferredLighting_ = psoCache_.GetOrCreate("PSO_Deferred_Lighting", vsFS, psFS);
+
+		// SSAO (R32_FLOAT) + depth-aware blur (R32_FLOAT), fullscreen passes.
+		{
+			const auto vsSSAO = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = ssaoPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			const auto psSSAO = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_SSAO",
+				.filePath = ssaoPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			psoSSAO_ = psoCache_.GetOrCreate("PSO_SSAO", vsSSAO, psSSAO);
+		}
+		{
+			const auto vsB = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = ssaoBlurPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			const auto psB = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_SSAOBlur",
+				.filePath = ssaoBlurPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			psoSSAOBlur_ = psoCache_.GetOrCreate("PSO_SSAO_Blur", vsB, psB);
+		}
 
 		// Copy scene color to swapchain (fullscreen blit).
 		{

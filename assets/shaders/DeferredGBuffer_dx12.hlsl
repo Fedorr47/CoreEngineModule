@@ -29,6 +29,13 @@ cbuffer PerBatch : register(b0)
 	float4 uTexIndices1;
 };
 
+// we output a tiny "env selector" target so deferred lighting can choose between
+// skybox IBL and reflection-capture IBL per material.
+// Encoding (RGBA8_UNORM):
+//   r = envSource (0.0 = Skybox, 1.0 = ReflectionCapture)
+//   g = probeIndexNormalized (optional, reserved for later multi-probe work)
+//   b/a reserved
+
 struct VSIn
 {
 	float3 pos : POSITION;
@@ -87,6 +94,7 @@ struct PSOut
 	float4 rt0 : SV_Target0; // albedo.rgb, roughness
 	float4 rt1 : SV_Target1; // normal.xyz (encoded), metalness
 	float4 rt2 : SV_Target2; // emissive.rgb, ao
+	float4 rt3 : SV_Target3; // env selector
 };
 
 // Flags must match C++ (DirectX12Renderer_RenderFrame_04_MainPass.inl)
@@ -157,5 +165,12 @@ PSOut PS_GBuffer(VSOut IN)
 	OUT.rt0 = float4(albedo, roughness);
 	OUT.rt1 = float4(N * 0.5f + 0.5f, metallic);
 	OUT.rt2 = float4(emissive, ao);
+	
+	// envSource is packed into uEnvProbeBoxMin.w by the CPU:
+	// 0.0f = Skybox, 1.0f = ReflectionCapture
+	const float envSource = saturate(uEnvProbeBoxMin.w);
+	const float probeIdxN = saturate(uEnvProbeBoxMax.w); // reserved for future (multi-probe)
+	OUT.rt3 = float4(envSource, probeIdxN, 0.0f, 0.0f);
+	
 	return OUT;
 }

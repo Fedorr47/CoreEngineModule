@@ -24,6 +24,14 @@ export namespace rendern
 		bool enableFrustumCulling{ true };
 		bool debugPrintDrawCalls{ false }; // prints MainPass draw-call count (DX12) once per ~60 frames
 
+		// SSAO (DX12 deferred path). Applied as a multiplicative factor to AO/ambient.
+		bool enableSSAO{ true };
+		float ssaoRadius{ 1.0f };               // world units (meters in your convention)
+		float ssaoBias{ 0.02f };                // world units
+		float ssaoStrength{ 1.25f };            // intensity multiplier
+		float ssaoPower{ 1.5f };                // contrast curve
+		float ssaoBlurDepthThreshold{ 0.0025f };// depth compare threshold in 0..1 depth space
+
 		// Reflection capture (cubemap). Currently used by DX12 backend.
 		bool enableReflectionCapture{ true };
 		bool reflectionCaptureUpdateEveryFrame{ true };

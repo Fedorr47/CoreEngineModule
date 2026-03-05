@@ -1,5 +1,35 @@
 namespace rendern::ui
 {
+    static void DrawSSAOSection(rendern::RendererSettings& rs)
+    {
+        if (!rs.enableDeferred)
+            return;
+
+        if (!ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+
+        ImGui::Checkbox("Enable SSAO", &rs.enableSSAO);
+        ImGui::BeginDisabled(!rs.enableSSAO);
+
+        ImGui::SliderFloat("Radius", &rs.ssaoRadius, 0.05f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SliderFloat("Bias", &rs.ssaoBias, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SliderFloat("Strength", &rs.ssaoStrength, 0.0f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SliderFloat("Power", &rs.ssaoPower, 0.5f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SliderFloat("Blur depth threshold", &rs.ssaoBlurDepthThreshold, 0.0f, 0.02f, "%.5f", ImGuiSliderFlags_AlwaysClamp);
+
+        if (ImGui::Button("SSAO defaults"))
+        {
+            rs.ssaoRadius = 1.0f;
+            rs.ssaoBias = 0.02f;
+            rs.ssaoStrength = 1.25f;
+            rs.ssaoPower = 1.5f;
+            rs.ssaoBlurDepthThreshold = 0.0025f;
+        }
+
+        ImGui::EndDisabled();
+        ImGui::Separator();
+    }
+
     static void DrawCameraDebugSection(rendern::Scene& scene, rendern::CameraController& camCtl)
     {
         if (!ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
