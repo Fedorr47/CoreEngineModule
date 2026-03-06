@@ -29,12 +29,16 @@ cbuffer PerBatch : register(b0)
 	float4 uTexIndices1;
 };
 
-// we output a tiny "env selector" target so deferred lighting can choose between
+// we output a tiny "env selector" target so deferred lighting can choose betwee
 // skybox IBL and reflection-capture IBL per material.
 // Encoding (RGBA8_UNORM):
 //   r = envSource (0.0 = Skybox, 1.0 = ReflectionCapture)
-//   g = probeIndexNormalized (optional, reserved for later multi-probe work)
-//   b/a reserved
+//   g = reflection cubemap descriptor byte 0 (LSB)
+//   b = reflection cubemap descriptor byte 1
+//   a = reflection cubemap descriptor byte 2
+// Encoding (RGBA8_UNORM):
+// r = envSource (0.0 = Skybox, 1.0 = ReflectionCapture)
+// g/b/a = packed 24-bit reflection cubemap descriptor index
 
 struct VSIn
 {
@@ -167,11 +171,13 @@ PSOut PS_GBuffer(VSOut IN)
 	OUT.rt2 = float4(emissive, ao);
 	
 	// CPU packs:
-	//   uEnvProbeBoxMin.w = envSource   (0 = Skybox, 1 = ReflectionCapture)
-	//   uEnvProbeBoxMax.w = probeIdxN   (normalized probe index in [0..1])
+	// uEnvProbeBoxMin.w = envSource (0 = Skybox, 1 = ReflectionCapture)
+	// uEnvProbeBoxMax.xyz = packed reflection cubemap descriptor bytes / 255
 	const float envSource = saturate(uEnvProbeBoxMin.w);
-	const float probeIdxN = saturate(uEnvProbeBoxMax.w);
-	OUT.rt3 = float4(envSource, probeIdxN, 0.0f, 0.0f);
+	OUT.rt3 = float4(envSource,
+	                 saturate(uEnvProbeBoxMax.x),
+	                 saturate(uEnvProbeBoxMax.y),
+	                 saturate(uEnvProbeBoxMax.z));
 	
 	return OUT;
 }

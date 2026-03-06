@@ -53,11 +53,7 @@ Texture2DArray<float> gPointShadow3 : register(t14);
 // Environment + SSAO
 // -----------------------------------------------------------------------------
 TextureCube gSkyboxEnv : register(t15); // global skybox cubemap
-TextureCube gReflEnv : register(t17); // single-probe fallback / compatibility path
 Texture2D gSSAO : register(t18); // SSAO (0..1)
-// Full reflection-capture cube array bound as a 2D-array SRV:
-// layers = probeCount * 6, slices ordered as (+X,-X,+Y,-Y,+Z,-Z) per probe.
-Texture2DArray<float4> gReflEnvArray : register(t19);
 
 // -----------------------------------------------------------------------------
 // Lights
@@ -71,6 +67,9 @@ struct GPULight
 };
 
 StructuredBuffer<GPULight> gLights : register(t16);
+
+// Bindless SRV heap view (space1) for reflection cubemaps.
+TextureCube gBindlessCube[] : register(t0, space1);
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -318,16 +317,34 @@ float3 SampleEnvDiffuseIrradiance(TextureCube env, float3 dir)
 	return env.SampleLevel(gLinearClamp, dir, lod).rgb;
 }
 
-float3 SampleEnvPrefilteredSel(bool useRefl, float3 dir, float roughness)
+uint DecodePackedDescriptorIndex(float3 packed)
 {
-	return useRefl ? SampleEnvPrefiltered(gReflEnv, dir, roughness)
-                   : SampleEnvPrefiltered(gSkyboxEnv, dir, roughness);
+	const uint b0 = (uint) round(saturate(packed.x) * 255.0f);
+	const uint b1 = (uint) round(saturate(packed.y) * 255.0f);
+	const uint b2 = (uint) round(saturate(packed.z) * 255.0f);
+	return b0 | (b1 << 8u) | (b2 << 16u);
 }
 
-float3 SampleEnvDiffuseSel(bool useRefl, float3 dir)
+float3 SampleBindlessEnvPrefiltered(uint descIndex, float3 dir, float roughness)
 {
-	return useRefl ? SampleEnvDiffuseIrradiance(gReflEnv, dir)
-                   : SampleEnvDiffuseIrradiance(gSkyboxEnv, dir);
+	if (descIndex == 0u)
+		return 0.0f;
+
+	uint w = 0u, h = 0u, mips = 1u;
+	gBindlessCube[NonUniformResourceIndex(descIndex)].GetDimensions(0, w, h, mips);
+	const float lod = saturate(roughness) * max(0.0f, (float) (mips - 1u));
+	return gBindlessCube[NonUniformResourceIndex(descIndex)].SampleLevel(gLinearClamp, dir, lod).rgb;
+}
+
+float3 SampleBindlessEnvDiffuse(uint descIndex, float3 dir)
+{
+	if (descIndex == 0u)
+		return 0.0f;
+
+	uint w = 0u, h = 0u, mips = 1u;
+	gBindlessCube[NonUniformResourceIndex(descIndex)].GetDimensions(0, w, h, mips);
+	const float lod = max(0.0f, (float) (mips - 1u));
+	return gBindlessCube[NonUniformResourceIndex(descIndex)].SampleLevel(gLinearClamp, dir, lod).rgb;
 }
 
 // -----------------------------------------------------------------------------
@@ -501,67 +518,6 @@ CubeFaceUV CubeDirToFaceUV(float3 dir)
 	return o;
 }
 
-uint DecodeReflectionProbeIndex(float probeIdxN, uint probeCount)
-{
-	if (probeCount == 0u)
-		return 0u;
-
-	const float n = saturate(probeIdxN);
-	return min((uint) (n * (float) probeCount), probeCount - 1u);
-}
-
-uint GetReflectionProbeCountFromArray()
-{
-	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
-	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
-
-	// 6 slices per cubemap.
-	return layers / 6u;
-}
-
-uint GetSafeReflectionProbeCount(uint cpuProbeCount)
-{
-	return min(cpuProbeCount, GetReflectionProbeCountFromArray());
-}
-
-float3 SampleEnvArrayProbeMip(uint probeIdx, float3 dir, float lod)
-{
-	CubeFaceUV fu = CubeDirToFaceUV(dir);
-
-	if (fu.uv.x < 0.0f || fu.uv.x > 1.0f || fu.uv.y < 0.0f || fu.uv.y > 1.0f)
-		return 0.0f;
-
-	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
-	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
-	if (layers == 0u)
-		return 0.0f;
-
-    // 6 array slices per cubemap.
-	const uint maxBaseSlice = (layers > 6u) ? (layers - 6u) : 0u;
-	const uint baseSlice = min(probeIdx * 6u, maxBaseSlice);
-	const uint slice = min(baseSlice + fu.face, layers - 1u);
-	const float clampedLod = clamp(lod, 0.0f, max(0.0f, (float) (mips - 1u)));
-
-    // Manual face sampling: linear within face, no cubemap hardware cross-face filtering.
-	return gReflEnvArray.SampleLevel(gLinearClamp, float3(fu.uv, (float) slice), clampedLod).rgb;
-}
-
-float3 SampleEnvPrefilteredProbe(uint probeIdx, float3 dir, float roughness)
-{
-	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
-	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
-	const float lod = saturate(roughness) * max(0.0f, (float) (mips - 1u));
-	return SampleEnvArrayProbeMip(probeIdx, dir, lod);
-}
-
-float3 SampleEnvDiffuseProbe(uint probeIdx, float3 dir)
-{
-	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
-	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
-	const float lod = max(0.0f, (float) (mips - 1u));
-	return SampleEnvArrayProbeMip(probeIdx, dir, lod);
-}
-
 float SamplePointShadow(Texture2DArray<float> distArr, float3 dir)
 {
 	CubeFaceUV fu = CubeDirToFaceUV(dir);
@@ -641,7 +597,7 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 	ao *= saturate(gSSAO.Sample(gPointClamp, IN.uv).r);
 
     // Env selector from GBuffer3
-	const float2 envSel = gGBuffer3.SampleLevel(gPointClamp, IN.uv, 0).rg; // r=envSource
+	const float4 envSel = gGBuffer3.SampleLevel(gPointClamp, IN.uv, 0); // r=envSource, gba=descriptor index bytes
 
 	float depth = gDepth.Sample(gPointClamp, IN.uv).r;
 
@@ -758,8 +714,7 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
     // Indirect lighting (IBL v1)
     // -------------------------------------------------------------------------
 	const bool useRefl = (envSel.x > 0.5f);
-	const uint reflProbeCount = GetSafeReflectionProbeCount((uint) max(uCounts.w, 0.0f));
-	const uint reflProbeIdx = DecodeReflectionProbeIndex(envSel.y, reflProbeCount);
+	const uint reflDescIndex = DecodePackedDescriptorIndex(envSel.yzw);
 
 	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
 
@@ -771,15 +726,13 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 
 	float3 R = normalize(reflect(-V, N));
 
-	float3 envDiffuse = useRefl
-	  ? ((reflProbeCount > 0u) ? SampleEnvDiffuseProbe(reflProbeIdx, N)
-	  : SampleEnvDiffuseIrradiance(gReflEnv, N))
-	  : SampleEnvDiffuseIrradiance(gSkyboxEnv, N);
-	  
-	float3 envSpec = useRefl
-	  ? ((reflProbeCount > 0u) ? SampleEnvPrefilteredProbe(reflProbeIdx, R, roughness)
-	  : SampleEnvPrefiltered(gReflEnv, R, roughness))
-	  : SampleEnvPrefiltered(gSkyboxEnv, R, roughness);
+	float3 envDiffuse = (useRefl && reflDescIndex != 0u)
+	    ? SampleBindlessEnvDiffuse(reflDescIndex, N)
+	    : SampleEnvDiffuseIrradiance(gSkyboxEnv, N);
+	
+	float3 envSpec = (useRefl && reflDescIndex != 0u)
+	    ? SampleBindlessEnvPrefiltered(reflDescIndex, R, roughness)
+	    : SampleEnvPrefiltered(gSkyboxEnv, R, roughness);
 
     // AO modulates only the diffuse/ambient part.
 	float3 indirect = (kD * (envDiffuse * albedo) * ao + envSpec * F) * ambientStrength;
