@@ -162,7 +162,16 @@ float3 BRDF_CookTorrance(float3 N, float3 V, float3 L, float3 albedo, float meta
 // -----------------------------------------------------------------------------
 float4 MulRows(float4 r0, float4 r1, float4 r2, float4 r3, float4 v)
 {
-	return float4(dot(r0, v), dot(r1, v), dot(r2, v), dot(r3, v));
+	// IMPORTANT:
+	// Shadow matrices are provided as ROWS (row-major).
+	 // Our shader convention (and the forward path) uses: clip = mul(v, M).
+	 // So we must compute v * M, not M * v.
+	
+	const float4 c0 = float4(r0.x, r1.x, r2.x, r3.x);
+	const float4 c1 = float4(r0.y, r1.y, r2.y, r3.y);
+	const float4 c2 = float4(r0.z, r1.z, r2.z, r3.z);
+	const float4 c3 = float4(r0.w, r1.w, r2.w, r3.w);
+	return float4(dot(v, c0), dot(v, c1), dot(v, c2), dot(v, c3));
 }
 
 // -----------------------------------------------------------------------------

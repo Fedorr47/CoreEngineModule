@@ -163,8 +163,8 @@
 	planarMaskState_.blend.enable = false;
 	planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
 	planarMaskState_.depth.stencil.enable = true;
-	planarMaskState_.depth.stencil.readMask = 0xFFu;
-	planarMaskState_.depth.stencil.writeMask = 0xFFu;
+	planarMaskState_.depth.stencil.readMask = 0x01u;
+	planarMaskState_.depth.stencil.writeMask = 0x01u;
 	planarMaskState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 	planarMaskState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
 	planarMaskState_.depth.stencil.front.passOp = rhi::StencilOp::Replace;
@@ -182,7 +182,7 @@
 	planarReflectedState_.rasterizer.frontFace = rhi::FrontFace::Clockwise;
 	planarReflectedState_.blend.enable = false;
 	planarReflectedState_.depth.stencil.enable = true;
-	planarReflectedState_.depth.stencil.readMask = 0xFFu;
+	planarReflectedState_.depth.stencil.readMask = 0x01u;
 	planarReflectedState_.depth.stencil.writeMask = 0x00u;
 	planarReflectedState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 	planarReflectedState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
@@ -409,6 +409,16 @@
 			psoPlanarComposite_ = psoCache_.GetOrCreate("PSO_PlanarComposite", vsPC, psPC);
 			planarCompositeState_ = deferredLightingState_;
 			planarCompositeState_.blend.enable = true;
+
+			// Stencil-gate the composite to only the mirror pixels written by planarMaskState_.
+			planarCompositeState_.depth.stencil.enable = true;
+			planarCompositeState_.depth.stencil.readMask = 0x01u;
+			planarCompositeState_.depth.stencil.writeMask = 0x00u;
+			planarCompositeState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
+			planarCompositeState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
+			planarCompositeState_.depth.stencil.front.passOp = rhi::StencilOp::Keep;
+			planarCompositeState_.depth.stencil.front.compareOp = rhi::CompareOp::Equal;
+			planarCompositeState_.depth.stencil.back = planarCompositeState_.depth.stencil.front;
 		}
 	}
 	}

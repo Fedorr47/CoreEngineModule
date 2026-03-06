@@ -68,14 +68,8 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
 
-					rhi::GraphicsState maskState = state_;
-					maskState.depth.testEnable = true;
-					maskState.depth.writeEnable = false;
-					maskState.depth.depthCompareOp = rhi::CompareOp::LessEqual;
-					maskState.blend.enable = false;
-					maskState.rasterizer.cullMode = rhi::CullMode::None;
-					maskState.depth.stencil.enable = false;
-					ctx.commandList.SetState(maskState);
+					ctx.commandList.SetState(planarMaskState_);
+					ctx.commandList.SetStencilRef(0x01u);
 
 					ctx.commandList.BindPipeline(psoHighlight_);
 
@@ -136,6 +130,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					const mathUtils::Mat4 reflectW = mathUtils::MakeReflectionMatrix(planeN, planeD);
 					const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(viewProj * reflectW);
 
+					ctx.commandList.SetStencilRef(0u);
 					ctx.commandList.SetState(planarReflectedState_);
 
 					// Bind shadows + lights like in the forward main pass.
@@ -288,6 +283,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			renderGraph::PassAttachments att{};
 			att.useSwapChainBackbuffer = false;
 			att.colors = { sceneColor };
+			att.depth = depthRG;
 			att.clearDesc.clearColor = false;
 			att.clearDesc.clearDepth = false;
 			att.clearDesc.clearStencil = false;
@@ -297,6 +293,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
+					ctx.commandList.SetStencilRef(0x01u);
 
 					ctx.commandList.SetState(planarCompositeState_);
 					ctx.commandList.BindPipeline(psoPlanarComposite_);
@@ -305,6 +302,53 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(maskTex));
 					ctx.commandList.BindTexture2D(1, ctx.resources.GetTexture(reflColor));
 					ctx.commandList.Draw(3);
+				});
+		}
+
+		// (3b) Clear the planar stencil bit so later stencil users (outline, etc.) see a clean buffer.
+		{
+			renderGraph::PassAttachments att{};
+			att.useSwapChainBackbuffer = false;
+			att.colors = { maskTex }; // dummy RT (we only care about stencil writes)
+			att.depth = depthRG;
+			att.clearDesc.clearColor = false;
+			att.clearDesc.clearDepth = false;
+			att.clearDesc.clearStencil = false;
+
+			graph.AddPass(std::string("PlanarStencilClear_") + std::to_string(mirrorIndex), std::move(att),
+				[this, &scene, mirror, instStride](renderGraph::PassContext& ctx)
+				{
+					const auto e = ctx.passExtent;
+					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
+					ctx.commandList.SetState(planarMaskState_);
+					ctx.commandList.SetStencilRef(0u);
+
+					ctx.commandList.BindPipeline(psoHighlight_);
+
+					const float aspect = e.height ? (static_cast<float>(e.width) / static_cast<float>(e.height)) : 1.0f;
+					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+					const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Mat4 viewProjT = mathUtils::Transpose(proj * view);
+
+					PerBatchConstants constants{};
+					std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+					constants.uCameraAmbient = { scene.camera.position.x, scene.camera.position.y, scene.camera.position.z, 0.0f };
+					constants.uCameraForward = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uBaseColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
+					constants.uPbrParams = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uCounts = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+					ctx.commandList.BindInputLayout(mirror.mesh->layoutInstanced);
+					ctx.commandList.BindVertexBuffer(0, mirror.mesh->vertexBuffer, mirror.mesh->vertexStrideBytes, 0);
+					ctx.commandList.BindVertexBuffer(1, instanceBuffer_, instStride, mirror.instanceOffset * instStride);
+					ctx.commandList.BindIndexBuffer(mirror.mesh->indexBuffer, mirror.mesh->indexType, 0);
+					ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+					ctx.commandList.DrawIndexed(mirror.mesh->indexCount, mirror.mesh->indexType, 0, 0, 1, 0);
 				});
 		}
 

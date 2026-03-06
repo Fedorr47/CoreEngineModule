@@ -20,7 +20,9 @@ VSOut VS_Fullscreen(uint vid : SV_VertexID)
 
 	VSOut o;
 	o.pos = float4(p, 0.0, 1.0);
-	o.uv = p * 0.5f + 0.5f;
+	// IMPORTANT: produce texture-space UV where (0,0) is TOP-left for Texture2D sampling
+	// This matches DeferredLighting_dx12.hlsl and CopyToSwapChain_dx12.hlsl.
+	o.uv = float2((p.x + 1.0f) * 0.5f, 1.0f - (p.y + 1.0f) * 0.5f);
 	return o;
 }
 
