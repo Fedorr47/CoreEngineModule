@@ -250,6 +250,7 @@
 		const auto lightPath = corefs::ResolveAsset("shaders\\DeferredLighting_dx12.hlsl");
 		const auto ssaoPath = corefs::ResolveAsset("shaders\\SSAO_dx12.hlsl");
 		const auto ssaoBlurPath = corefs::ResolveAsset("shaders\\SSAOBlur_dx12.hlsl");
+		const auto ssaoCompositePath = corefs::ResolveAsset("shaders\\SSAOComposite_dx12.hlsl");
 		const auto fogPath = corefs::ResolveAsset("shaders\\FogPost_dx12.hlsl");
 		const auto copyPath = corefs::ResolveAsset("shaders\\CopyToSwapChain_dx12.hlsl");
 		const auto planarCompPath = corefs::ResolveAsset("shaders\\PlanarComposite_dx12.hlsl");
@@ -305,6 +306,27 @@
 			psoSSAO_ = psoCache_.GetOrCreate("PSO_SSAO", vsSSAO, psSSAO);
 		}
 		{
+			const std::vector<std::string> defs = { "FORWARD_SSAO_FROM_DEPTH=1" };
+
+			const auto vsSSAOForward = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = ssaoPath.string(),
+				.defines = defs,
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+
+			const auto psSSAOForward = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_SSAO",
+				.filePath = ssaoPath.string(),
+				.defines = defs,
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+
+			psoSSAOForward_ = psoCache_.GetOrCreate("PSO_SSAO_Forward", vsSSAOForward, psSSAOForward);
+		}
+		{
 			const auto vsB = shaderLibrary_.GetOrCreateShader(ShaderKey{
 				.stage = rhi::ShaderStage::Vertex,
 				.name = "VS_Fullscreen",
@@ -320,6 +342,25 @@
 				.shaderModel = rhi::ShaderModel::SM6_1
 				});
 			psoSSAOBlur_ = psoCache_.GetOrCreate("PSO_SSAO_Blur", vsB, psB);
+		}
+		{
+			const auto vsC = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_Fullscreen",
+				.filePath = ssaoCompositePath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+
+			const auto psC = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_SSAOComposite",
+				.filePath = ssaoCompositePath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+
+			psoSSAOComposite_ = psoCache_.GetOrCreate("PSO_SSAO_Composite", vsC, psC);
 		}
 		// Fog (post effect): fullscreen pass using SceneColor + depth.
 		{

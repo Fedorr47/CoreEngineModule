@@ -4,8 +4,12 @@
 SamplerState gLinear : register(s0);
 SamplerState gPointClamp : register(s2);
 
+#if FORWARD_SSAO_FROM_DEPTH
+Texture2D gDepth : register(t0); // depth (0..1)
+#else
 Texture2D gGBuffer1 : register(t0); // normal.xyz (encoded), metalness
 Texture2D gDepth : register(t1); // depth (0..1)
+#endif
 
 cbuffer SSAO : register(b0)
 {
@@ -53,6 +57,26 @@ float3 ReconstructWorldPos(float2 uv, float depth)
 	return wp.xyz / max(wp.w, 1e-6f);
 }
 
+float3 ReconstructNormalFromDepth(float2 uv, float depthC)
+{
+	const float2 dx = float2(uInvSize.x, 0.0f);
+	const float2 dy = float2(0.0f, uInvSize.y);
+
+	const float dR = gDepth.Sample(gPointClamp, uv + dx).r;
+	const float dU = gDepth.Sample(gPointClamp, uv + dy).r;
+
+	const float3 P = ReconstructWorldPos(uv, depthC);
+	const float3 Px = ReconstructWorldPos(uv + dx, (dR >= 0.999999f) ? depthC : dR);
+	const float3 Py = ReconstructWorldPos(uv + dy, (dU >= 0.999999f) ? depthC : dU);
+
+	float3 N = normalize(cross(Px - P, Py - P));
+	if (!all(isfinite(N)))
+	{
+		N = float3(0.0f, 1.0f, 0.0f);
+	}
+	return N;
+}
+
 float PS_SSAO(VSOut IN) : SV_Target0
 {
 	// If depth is 1.0 (background), AO=1
@@ -62,7 +86,11 @@ float PS_SSAO(VSOut IN) : SV_Target0
 		return 1.0f;
 	}
 
+#if FORWARD_SSAO_FROM_DEPTH
+	    float3 N = ReconstructNormalFromDepth(IN.uv, depthC);
+#else
 	float3 N = normalize(gGBuffer1.Sample(gPointClamp, IN.uv).rgb * 2.0f - 1.0f);
+	#endif
 	float3 P = ReconstructWorldPos(IN.uv, depthC);
 
 	const float radius = max(uParams.x, 1e-3f);

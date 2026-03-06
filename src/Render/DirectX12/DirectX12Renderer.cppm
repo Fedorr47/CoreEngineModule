@@ -347,9 +347,11 @@ export namespace rendern
 		rhi::PipelineHandle psoOutline_{}; // editor selection outline shell
 		rhi::PipelineHandle psoDeferredGBuffer_{}; // MRT G-Buffer writer
 		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen deferred lighting
-		rhi::PipelineHandle psoSSAO_{}; // fullscreen SSAO (R32_FLOAT)
-		rhi::PipelineHandle psoSSAOBlur_{}; // fullscreen SSAO blur (R32_FLOAT)
-		rhi::PipelineHandle psoFog_{}; // fullscreen fog post effect
+		rhi::PipelineHandle psoSSAO_{};          // deferred SSAO (normal+depth -> R32_FLOAT)
+		rhi::PipelineHandle psoSSAOForward_{};   // forward SSAO (depth-only reconstruction -> R32_FLOAT)
+		rhi::PipelineHandle psoSSAOBlur_{};      // fullscreen SSAO blur (R32_FLOAT)
+		rhi::PipelineHandle psoSSAOComposite_{}; // fullscreen SceneColor * AO
+		rhi::PipelineHandle psoFog_{};           // fullscreen fog post effect
 		rhi::PipelineHandle psoCopyToSwapChain_{}; // fullscreen copy SceneColor -> swapchain
 		rhi::InputLayoutHandle fullscreenLayout_{}; // empty input layout for fullscreen VS (SV_VertexID)
 		rhi::GraphicsState deferredLightingState_{};

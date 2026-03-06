@@ -77,7 +77,7 @@ cbuffer Deferred : register(b0)
 	float4x4 uInvViewProj;
 	float4 uCameraPosAmbient; // xyz + ambientStrength
 	float4 uCameraForward; // xyz + pad
-	float4 uShadowBias; // x=dirBaseBiasTexels, y=slopeScaleTexels, z/w unused here
+	float4 uShadowBias; // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
 	float4 uCounts; // x = lightCount, y = spotShadowCount, z = pointShadowCount, w unused
 };
 
@@ -207,8 +207,9 @@ float SampleDirShadowPCF3x3(ShadowDataSB sd, float3 worldPos, float NdotL, float
 	const float4 r2 = sd.dirVPRows[base + 2u];
 	const float4 r3 = sd.dirVPRows[base + 3u];
 
-	const float4 p = float4(worldPos, 1.0f);
-	const float4 clip = MulRows(r0, r1, r2, r3, p);
+	// Match forward path convention: matrices are stored as ROWS, and we use clip = mul(v, VP).
+	const float4x4 VP = float4x4(r0, r1, r2, r3);
+	const float4 clip = mul(float4(worldPos, 1.0f), VP);
 
 	if (abs(clip.w) <= 1e-6f)
 		return 1.0f;
@@ -226,7 +227,7 @@ float SampleDirShadowPCF3x3(ShadowDataSB sd, float3 worldPos, float NdotL, float
 
     // Bias in "texel-ish" units converted by invTileRes.
 	const float baseBiasTexels = uShadowBias.x;
-	const float slopeScaleTexels = uShadowBias.y;
+	const float slopeScaleTexels = uShadowBias.w;
 	const float invTileRes = sd.dirInfo.z;
 
 	const float bias = (baseBiasTexels + slopeScaleTexels * (1.0f - saturate(NdotL))) * invTileRes;
@@ -424,7 +425,9 @@ float SpotShadowFactor(uint slot, ShadowDataSB sd, float3 worldPos, float biasTe
 	float4 r1 = sd.spotVPRows[slot * 4u + 1u];
 	float4 r2 = sd.spotVPRows[slot * 4u + 2u];
 	float4 r3 = sd.spotVPRows[slot * 4u + 3u];
-	float4 clip = MulRows(r0, r1, r2, r3, float4(worldPos, 1.0f));
+	// Match forward path convention.
+	float4x4 VP = float4x4(r0, r1, r2, r3);
+	float4 clip = mul(float4(worldPos, 1.0f), VP);
 
 	if (slot == 0u)
 		return Shadow2D(gSpotShadow0, clip, biasTexels);
@@ -657,8 +660,9 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 				const int slot = FindSpotShadowSlot(i, spotCount);
 				if (slot >= 0)
 				{
-					const float extraBias = sd.spotInfo[(uint) slot].y;
-					const float biasTexels = ComputeBiasTexels(NdotL, uShadowBias.x, uShadowBias.y, 0.0f, extraBias);
+					// spotInfo = { lightIndexBits, 0, extraBiasTexels, 0 }  (same as forward)
+					const float extraBias = sd.spotInfo[(uint) slot].z;
+					const float biasTexels = ComputeBiasTexels(NdotL, uShadowBias.y, uShadowBias.w, 0.0f, extraBias);
 					shadow = SpotShadowFactor((uint) slot, sd, worldPos, biasTexels);
 				}
 			}
@@ -668,8 +672,9 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 				const int slot = FindPointShadowSlot(i, pointCount);
 				if (slot >= 0)
 				{
-					const float extraBias = sd.pointInfo[(uint) slot].y;
-					const float biasTexels = ComputeBiasTexels(NdotL, uShadowBias.x, uShadowBias.y, 0.0f, extraBias);
+					// pointInfo = { lightIndexBits, 0, extraBiasTexels, 0 } (same as forward)
+					const float extraBias = sd.pointInfo[(uint) slot].z;
+					const float biasTexels = ComputeBiasTexels(NdotL, uShadowBias.z, uShadowBias.w, 0.0f, extraBias);
 					shadow = PointShadowFactor((uint) slot, sd, worldPos, biasTexels);
 				}
 			}

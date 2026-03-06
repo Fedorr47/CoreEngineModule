@@ -26,7 +26,7 @@ if (canDeferred)
 		std::array<float, 16> uInvViewProj{};
 		std::array<float, 4> uCameraPosAmbient{}; // xyz + ambientStrength
 		std::array<float, 4> uCameraForward{}; // xyz + pad
-		std::array<float, 4> uShadowBias{}; // x=dirBaseBiasTexels, y=slopeScaleTexels
+		std::array<float, 4> uShadowBias{}; // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
 		std::array<float, 4> uCounts{}; // x = lightCount, y = spotShadowCount, z = pointShadowCount
 	};
 	static_assert(sizeof(DeferredLightingConstants) == 128);
@@ -35,7 +35,12 @@ if (canDeferred)
 	std::memcpy(deferredConstants.uInvViewProj.data(), mathUtils::ValuePtr(invViewProjT), sizeof(float) * 16);
 	deferredConstants.uCameraPosAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
 	deferredConstants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
-	deferredConstants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels, 0.0f, 0.0f };
+	deferredConstants.uShadowBias = {
+		settings_.dirShadowBaseBiasTexels,
+		settings_.spotShadowBaseBiasTexels,
+		settings_.pointShadowBaseBiasTexels,
+		settings_.shadowSlopeScaleTexels
+	};
 	deferredConstants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
 
 	// Import swapchain depth as an external RenderGraph texture so offscreen passes can use it.
@@ -1163,6 +1168,149 @@ if (canDeferred)
 }
 else
 {
+	// ---------------- Forward path via offscreen SceneColor ----------------
+	const auto depthRG = graph.ImportTexture(
+		swapChain.GetDepthTexture(),
+		renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::D24_UNORM_S8_UINT,
+			.usage = renderGraph::ResourceUsage::DepthStencil,
+			.debugName = "SwapChainDepth_Imported_Forward"
+		});
+
+	const auto forwardSceneColor = graph.CreateTexture(renderGraph::RGTextureDesc{
+		.extent = scDesc.extent,
+		.format = rhi::Format::RGBA8_UNORM,
+		.usage = renderGraph::ResourceUsage::RenderTarget,
+		.debugName = "ForwardSceneColor"
+		});
+
+	auto forwardSceneColorAfterPost = forwardSceneColor;
+
+	const bool canForwardSSAO =
+		device_.GetBackend() == rhi::Backend::DirectX12 &&
+		psoSSAOForward_ &&
+		psoSSAOBlur_ &&
+		psoSSAOComposite_ &&
+		fullscreenLayout_ &&
+		swapChain.GetDepthTexture();
+
+	renderGraph::RGTextureHandle forwardSSAOBlur{};
+
+	if (canForwardSSAO)
+	{
+		const auto ssaoRaw = graph.CreateTexture(renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::R32_FLOAT,
+			.usage = renderGraph::ResourceUsage::RenderTarget,
+			.debugName = "ForwardSSAO_Raw"
+			});
+
+		forwardSSAOBlur = graph.CreateTexture(renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::R32_FLOAT,
+			.usage = renderGraph::ResourceUsage::RenderTarget,
+			.debugName = "ForwardSSAO_Blur"
+			});
+
+		struct SSAOConstants
+		{
+			std::array<float, 16> uInvViewProj{};
+			mathUtils::Vec4 uParams{};
+			mathUtils::Vec4 uInvSize{};
+		};
+		static_assert(sizeof(SSAOConstants) % 16 == 0);
+
+		struct SSAOBlurConstants
+		{
+			mathUtils::Vec4 uInvSize{};
+			mathUtils::Vec4 uParams{};
+		};
+		static_assert(sizeof(SSAOBlurConstants) % 16 == 0);
+
+		renderGraph::PassAttachments att{};
+		att.useSwapChainBackbuffer = false;
+		att.colors = { ssaoRaw };
+		att.clearDesc.clearColor = true;
+		att.clearDesc.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		graph.AddPass("ForwardSSAO", std::move(att),
+			[this, &scene, depthRG](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+				ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+
+				const float aspect = extent.height
+					? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+					: 1.0f;
+
+				const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(
+					mathUtils::DegToRad(scene.camera.fovYDeg),
+					aspect,
+					scene.camera.nearZ,
+					scene.camera.farZ);
+				const mathUtils::Mat4 view = mathUtils::LookAt(
+					scene.camera.position,
+					scene.camera.target,
+					scene.camera.up);
+				const mathUtils::Mat4 viewProj = proj * view;
+				const mathUtils::Mat4 invViewProj = mathUtils::Inverse(viewProj);
+				const mathUtils::Mat4 invViewProjT = mathUtils::Transpose(invViewProj);
+
+				SSAOConstants c{};
+				std::memcpy(c.uInvViewProj.data(), mathUtils::ValuePtr(invViewProjT), sizeof(float) * 16);
+				c.uParams = {
+					settings_.enableSSAO ? settings_.ssaoRadius : 0.0f,
+					settings_.ssaoBias,
+					settings_.ssaoStrength,
+					settings_.ssaoPower
+				};
+				c.uInvSize = {
+					extent.width ? (1.0f / static_cast<float>(extent.width)) : 0.0f,
+					extent.height ? (1.0f / static_cast<float>(extent.height)) : 0.0f,
+					0.0f, 0.0f
+				};
+
+				ctx.commandList.SetState(deferredLightingState_);
+				ctx.commandList.BindPipeline(psoSSAOForward_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(depthRG));
+				ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+				ctx.commandList.Draw(3);
+			});
+
+		renderGraph::PassAttachments blurAtt{};
+		blurAtt.useSwapChainBackbuffer = false;
+		blurAtt.colors = { forwardSSAOBlur };
+		blurAtt.clearDesc.clearColor = true;
+		blurAtt.clearDesc.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		graph.AddPass("ForwardSSAOBlur", std::move(blurAtt),
+			[this, depthRG, ssaoRaw, forwardSSAOBlur](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+				ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+
+				SSAOBlurConstants c{};
+				c.uInvSize = {
+					extent.width ? (1.0f / static_cast<float>(extent.width)) : 0.0f,
+					extent.height ? (1.0f / static_cast<float>(extent.height)) : 0.0f,
+					0.0f, 0.0f
+				};
+				c.uParams = { settings_.ssaoBlurDepthThreshold, 0.0f, 0.0f, 0.0f };
+
+				ctx.commandList.SetState(deferredLightingState_);
+				ctx.commandList.BindPipeline(psoSSAOBlur_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(ssaoRaw));
+				ctx.commandList.BindTexture2D(1, ctx.resources.GetTexture(depthRG));
+				ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+				ctx.commandList.Draw(3);
+			});
+	}
+
 	// ---------------- Main pass (swapchain) ----------------
 	rhi::ClearDesc clearDesc{};
 	clearDesc.clearColor = true;
@@ -1171,8 +1319,15 @@ else
 	clearDesc.stencil = 0;
 	clearDesc.color = { 0.1f, 0.1f, 0.1f, 1.0f };
 
-	graph.AddSwapChainPass("MainPass", clearDesc,
-		[this, &scene,
+	renderGraph::PassAttachments mainAtt{};
+	mainAtt.useSwapChainBackbuffer = false;
+	mainAtt.colors = { forwardSceneColor };
+	mainAtt.depth = depthRG;
+	mainAtt.clearDesc = clearDesc;
+
+	graph.AddPass("ForwardMainPass", std::move(mainAtt), [
+		this,
+		&scene,
 		shadowRG,
 		dirLightViewProj,
 		lightCount,
@@ -1183,8 +1338,7 @@ else
 		instStride,
 		transparentDraws,
 		planarMirrorDraws,
-		doDepthPrepass,
-		imguiDrawData](renderGraph::PassContext& ctx)
+		doDepthPrepass](renderGraph::PassContext& ctx)
 	{
 		const auto extent = ctx.passExtent;
 
@@ -1879,10 +2033,136 @@ else
 			DrawSelectionGroup(selectionTransparent, selectionTransparentStart);
 		}
 
-		// ImGui overlay (optional)
-		if (imguiDrawData)
-		{
-			ctx.commandList.DX12ImGuiRender(imguiDrawData);
-		}
 	});
+
+	if (canForwardSSAO)
+	{
+		const auto sceneColorAO = graph.CreateTexture(renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::RGBA8_UNORM,
+			.usage = renderGraph::ResourceUsage::RenderTarget,
+			.debugName = "ForwardSceneColor_AO"
+			});
+
+		renderGraph::PassAttachments aoAtt{};
+		aoAtt.useSwapChainBackbuffer = false;
+		aoAtt.colors = { sceneColorAO };
+		aoAtt.clearDesc.clearColor = false;
+		aoAtt.clearDesc.clearDepth = false;
+		aoAtt.clearDesc.clearStencil = false;
+
+		const auto sceneColorIn = forwardSceneColorAfterPost;
+		graph.AddPass("ForwardSSAOComposite", std::move(aoAtt),
+			[this, sceneColorIn, forwardSSAOBlur](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+				ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+				ctx.commandList.SetState(deferredLightingState_);
+				ctx.commandList.BindPipeline(psoSSAOComposite_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(sceneColorIn));
+				ctx.commandList.BindTexture2D(1, ctx.resources.GetTexture(forwardSSAOBlur));
+				ctx.commandList.Draw(3);
+			});
+
+		forwardSceneColorAfterPost = sceneColorAO;
 	}
+
+	if (settings_.enableFog && psoFog_)
+	{
+		const float aspect = scDesc.extent.height
+			? (static_cast<float>(scDesc.extent.width) / static_cast<float>(scDesc.extent.height))
+			: 1.0f;
+		const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(
+			mathUtils::DegToRad(scene.camera.fovYDeg),
+			aspect,
+			scene.camera.nearZ,
+			scene.camera.farZ);
+		const mathUtils::Mat4 view = mathUtils::LookAt(
+			scene.camera.position,
+			scene.camera.target,
+			scene.camera.up);
+		const mathUtils::Mat4 viewProj = proj * view;
+		const mathUtils::Mat4 invViewProj = mathUtils::Inverse(viewProj);
+		const mathUtils::Mat4 invViewProjT = mathUtils::Transpose(invViewProj);
+
+		struct alignas(16) FogConstants
+		{
+			std::array<float, 16> uInvViewProj{};
+			std::array<float, 4> uCameraPos{};
+			std::array<float, 4> uFogParams{};
+			std::array<float, 4> uFogColor{};
+		};
+		static_assert(sizeof(FogConstants) % 16 == 0);
+
+		FogConstants c{};
+		std::memcpy(c.uInvViewProj.data(), mathUtils::ValuePtr(invViewProjT), sizeof(float) * 16);
+		c.uCameraPos = { scene.camera.position.x, scene.camera.position.y, scene.camera.position.z, 0.0f };
+		c.uFogParams = { settings_.fogStart, settings_.fogEnd, settings_.fogDensity, static_cast<float>(settings_.fogMode) };
+		c.uFogColor = { settings_.fogColor[0], settings_.fogColor[1], settings_.fogColor[2], settings_.enableFog ? 1.0f : 0.0f };
+
+		const auto sceneColorFog = graph.CreateTexture(renderGraph::RGTextureDesc{
+			.extent = scDesc.extent,
+			.format = rhi::Format::RGBA8_UNORM,
+			.usage = renderGraph::ResourceUsage::RenderTarget,
+			.debugName = "ForwardSceneColor_Fog"
+			});
+
+		renderGraph::PassAttachments fogAtt{};
+		fogAtt.useSwapChainBackbuffer = false;
+		fogAtt.colors = { sceneColorFog };
+		fogAtt.clearDesc.clearColor = false;
+		fogAtt.clearDesc.clearDepth = false;
+		fogAtt.clearDesc.clearStencil = false;
+
+		const auto sceneColorIn = forwardSceneColorAfterPost;
+		graph.AddPass("ForwardFog", std::move(fogAtt),
+			[this, depthRG, sceneColorIn, c](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+				ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+				ctx.commandList.SetState(deferredLightingState_);
+				ctx.commandList.BindPipeline(psoFog_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(sceneColorIn));
+				ctx.commandList.BindTexture2D(1, ctx.resources.GetTexture(depthRG));
+				ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+				ctx.commandList.Draw(3);
+			});
+
+		forwardSceneColorAfterPost = sceneColorFog;
+	}
+
+	{
+		rhi::ClearDesc clear{};
+		clear.clearColor = false;
+		clear.clearDepth = false;
+		clear.clearStencil = false;
+
+		graph.AddSwapChainPass("ForwardPresent", clear, [this, forwardSceneColorAfterPost](renderGraph::PassContext& ctx)
+			{
+				const auto extent = ctx.passExtent;
+				ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
+				ctx.commandList.SetState(copyToSwapChainState_);
+				ctx.commandList.BindInputLayout(fullscreenLayout_);
+				ctx.commandList.BindPipeline(psoCopyToSwapChain_);
+				ctx.commandList.BindTexture2D(0, ctx.resources.GetTexture(forwardSceneColorAfterPost));
+				ctx.commandList.Draw(3, 0);
+			});
+	}
+
+	if (imguiDrawData)
+	{
+		rhi::ClearDesc clear{};
+		clear.clearColor = false;
+		clear.clearDepth = false;
+		clear.clearStencil = false;
+
+		graph.AddSwapChainPass("ForwardImGui", clear, [this, imguiDrawData](renderGraph::PassContext& ctx)
+			{
+				ctx.commandList.DX12ImGuiRender(imguiDrawData);
+			});
+	}
+}
