@@ -51,7 +51,7 @@ export namespace rendern
 
 		// Parallax-corrected (box-projected) reflection probes: box half-extent in world units.
 		// 0 disables box projection (falls back to direction-only env sampling).
-		float reflectionProbeBoxHalfExtent{ 10.0f };
+		float reflectionProbeBoxHalfExtent{ 1.5f };
 
 		// Planar reflections (DX12 MVP): mark mirror materials with MaterialPerm::PlanarMirror.
 		bool enablePlanarReflections{ true };

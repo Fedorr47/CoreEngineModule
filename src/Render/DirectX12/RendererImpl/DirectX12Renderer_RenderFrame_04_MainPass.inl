@@ -590,12 +590,6 @@ if (canDeferred)
 
 				// Env cubemaps for IBL (t15 skybox, t17 reflection capture)
 				ctx.commandList.BindTextureDesc(15, scene.skyboxDescIndex);
-				ctx.commandList.BindTextureDesc(17, reflectionCubeDescIndex_);
-
-				if (reflectionCube_)
-				{
-					ctx.commandList.BindTexture2DArray(19, reflectionCube_);
-				}
 
 				// Lights (t16) and SSAO (t18); t19 = full reflection cube-array
 				ctx.commandList.BindStructuredBufferSRV(16, lightsBuffer_);
@@ -1863,15 +1857,9 @@ else
 								usingReflectionProbeEnv = true;
 							}
 						}
-						else if (reflectionCubeDescIndex_ != 0 && reflectionCube_)
-						{
-							envDescIndex = reflectionCubeDescIndex_;
-							envArrayTexture = reflectionCube_;
-							usingReflectionProbeEnv = true;
-						}
 					}
 				}
-				else // EnvSource::Skybox
+				else
 				{
 					envDescIndex = scene.skyboxDescIndex;
 				}
@@ -1943,6 +1931,7 @@ else
 			constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
 
 			float envSourceForGBuffer = 0.0f; // 0 = Skybox, 1 = ReflectionCapture
+			
 			float probeIdxNForGBuffer = 0.0f; // normalized probe index in [0..1]
 			if (settings_.enableReflectionCapture &&
 				batch.materialHandle.id != 0)
@@ -1950,7 +1939,8 @@ else
 				const auto& mat = scene.GetMaterial(batch.materialHandle);
 				if (mat.envSource == EnvSource::ReflectionCapture &&
 					batch.reflectionProbeIndex >= 0 &&
-					static_cast<std::uint32_t>(batch.reflectionProbeIndex) < activeReflectionProbeCount)
+					static_cast<std::uint32_t>(batch.reflectionProbeIndex) < activeReflectionProbeCount &&
+					activeReflectionProbeCount > 0u)
 				{
 					envSourceForGBuffer = 1.0f;
 					probeIdxNForGBuffer =

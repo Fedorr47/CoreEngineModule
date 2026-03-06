@@ -24,6 +24,17 @@
 					shadowDataBuffer_ = device_.CreateBuffer(sd);
 				}
 
+				// Deferred reflection-probe metadata (t19) for multi-probe cubemap sampling.
+				{
+					rhi::BufferDesc pd{};
+					pd.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
+					pd.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					pd.sizeInBytes = sizeof(DeferredReflectionProbeGpu) * static_cast<std::uint32_t>(kMaxReflectionProbes);
+					pd.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(DeferredReflectionProbeGpu));
+					pd.debugName = "DeferredReflectionProbeMetaSB";
+					reflectionProbeMetaBuffer_ = device_.CreateBuffer(pd);
+				}
+
 				// Per-instance model matrices VB (slot1)
 				{
 					rhi::BufferDesc id{};

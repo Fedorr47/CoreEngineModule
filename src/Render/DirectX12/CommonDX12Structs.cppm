@@ -21,6 +21,7 @@ export namespace rendern
 		std::array<float, 4> boxMax;
 		std::array<float, 4> capturePosDesc;
 	};
+	static_assert(sizeof(DeferredReflectionProbeGpu) == 48);
 
 	struct alignas(16) GPULight
 	{

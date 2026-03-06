@@ -114,6 +114,83 @@ auto AddPlaneLabel = [&](const mathUtils::Vec3& centerW, std::string_view label,
 			outlinePx);
 	};
 
+auto AddAabbLines = [&](const mathUtils::Vec3& bmin,
+	const mathUtils::Vec3& bmax,
+	std::uint32_t rgba)
+	{
+		const mathUtils::Vec3 p000(bmin.x, bmin.y, bmin.z);
+		const mathUtils::Vec3 p100(bmax.x, bmin.y, bmin.z);
+		const mathUtils::Vec3 p110(bmax.x, bmax.y, bmin.z);
+		const mathUtils::Vec3 p010(bmin.x, bmax.y, bmin.z);
+
+		const mathUtils::Vec3 p001(bmin.x, bmin.y, bmax.z);
+		const mathUtils::Vec3 p101(bmax.x, bmin.y, bmax.z);
+		const mathUtils::Vec3 p111(bmax.x, bmax.y, bmax.z);
+		const mathUtils::Vec3 p011(bmin.x, bmax.y, bmax.z);
+
+		debugList.AddLine(p000, p100, rgba);
+		debugList.AddLine(p100, p110, rgba);
+		debugList.AddLine(p110, p010, rgba);
+		debugList.AddLine(p010, p000, rgba);
+
+		debugList.AddLine(p001, p101, rgba);
+		debugList.AddLine(p101, p111, rgba);
+		debugList.AddLine(p111, p011, rgba);
+		debugList.AddLine(p011, p001, rgba);
+
+		debugList.AddLine(p000, p001, rgba);
+		debugList.AddLine(p100, p101, rgba);
+		debugList.AddLine(p110, p111, rgba);
+		debugList.AddLine(p010, p011, rgba);
+	};
+
+auto AddProbeCenterMarker = [&](const mathUtils::Vec3& p, float s, std::uint32_t rgba)
+	{
+		debugList.AddLine(
+			mathUtils::Vec3(p.x - s, p.y, p.z),
+			mathUtils::Vec3(p.x + s, p.y, p.z),
+			rgba);
+
+		debugList.AddLine(
+			mathUtils::Vec3(p.x, p.y - s, p.z),
+			mathUtils::Vec3(p.x, p.y + s, p.z),
+			rgba);
+
+		debugList.AddLine(
+			mathUtils::Vec3(p.x, p.y, p.z - s),
+			mathUtils::Vec3(p.x, p.y, p.z + s),
+			rgba);
+	};
+
+if (settings_.enableReflectionCapture)
+{
+	const float h = settings_.reflectionProbeBoxHalfExtent;
+	const float markerSize = std::max(0.1f, h * 0.08f);
+
+	for (std::size_t i = 0; i < reflectionProbes_.size(); ++i)
+	{
+		const auto& probe = reflectionProbes_[i];
+
+		const mathUtils::Vec3 bmin(
+			probe.capturePos.x - h,
+			probe.capturePos.y - h,
+			probe.capturePos.z - h);
+
+		const mathUtils::Vec3 bmax(
+			probe.capturePos.x + h,
+			probe.capturePos.y + h,
+			probe.capturePos.z + h);
+
+		const bool validProbe = (probe.cube && probe.cubeDescIndex != 0);
+
+		const std::uint32_t boxColor = validProbe ? 0xFF00FFFFu : 0xFF0000FFu;   // cyan / red
+		const std::uint32_t centerColor = 0xFFFFFF00u;                            // yellow
+
+		AddAabbLines(bmin, bmax, boxColor);
+		AddProbeCenterMarker(probe.capturePos, markerSize, centerColor);
+	}
+}
+
 if (settings_.drawLightGizmos)
 {
 	const float scale = settings_.debugLightGizmoScale;

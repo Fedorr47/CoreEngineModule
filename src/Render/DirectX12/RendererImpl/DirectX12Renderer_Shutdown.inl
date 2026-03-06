@@ -35,6 +35,10 @@ if (reflectionDepthCube_)
 	device_.DestroyTexture(reflectionDepthCube_);
 	reflectionDepthCube_ = {};
 }
+if (reflectionProbeMetaBuffer_) 
+{ 
+	device_.DestroyBuffer(reflectionProbeMetaBuffer_); 
+}
 reflectionCubeExtent_ = {};
 DestroyMesh(device_, skyboxMesh_);
 debugDrawRenderer_.Shutdown();

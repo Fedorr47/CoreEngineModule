@@ -330,6 +330,7 @@ export namespace rendern
 	private:
 		static constexpr std::uint32_t kMaxLights = 64;
 		static constexpr std::uint32_t kDefaultInstanceBufferSizeBytes = 8u * 1024u * 1024u; // 8 MB (combined shadow+main instances)
+		static constexpr std::uint32_t kMaxDeferredReflectionProbes = 255u;
 
 		rhi::IRHIDevice& device_;
 		RendererSettings settings_{};
@@ -371,14 +372,14 @@ export namespace rendern
 		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
 		rhi::BufferHandle highlightInstanceBuffer_{}; // single-instance VB for selection highlight
 
-		rhi::BufferHandle reflectionProbeMetaBuffer_{};
-
 		// Shadow pass
 		rhi::PipelineHandle psoShadow_{};
 		rhi::GraphicsState shadowState_{};
 
 		rhi::BufferHandle lightsBuffer_{};
 		rhi::BufferHandle shadowDataBuffer_{};
+
+		rhi::BufferHandle reflectionProbeMetaBuffer_{};
 
 		// Point shadow pass (R32_FLOAT distance cubemap)
 		rhi::PipelineHandle psoPointShadow_{};
