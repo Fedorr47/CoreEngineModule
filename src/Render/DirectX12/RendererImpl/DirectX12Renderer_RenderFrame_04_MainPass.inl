@@ -9,6 +9,106 @@ swapChain.GetDepthTexture();
 
 std::uint32_t activeReflectionProbeCount = 0u;
 
+struct EditorSelectionLists
+{
+	std::vector<EditorSelectionDraw> opaque{};
+	std::vector<EditorSelectionDraw> transparent{};
+	std::vector<InstanceData> instances{};
+	std::vector<std::uint32_t> opaqueStarts{};
+	std::vector<std::uint32_t> transparentStarts{};
+};
+
+constexpr std::uint32_t kEditorOutlineStencilRef = 0x80u;
+auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
+{
+	EditorSelectionLists result{};
+	constexpr std::size_t kMaxSelectionInstances = 4096;
+
+	result.opaque.reserve(scene.editorSelectedDrawItems.size());
+	result.transparent.reserve(scene.editorSelectedDrawItems.size());
+	result.instances.reserve(std::min(scene.editorSelectedDrawItems.size(), kMaxSelectionInstances));
+	result.opaqueStarts.reserve(scene.editorSelectedDrawItems.size());
+	result.transparentStarts.reserve(scene.editorSelectedDrawItems.size());
+
+	for (const int diIndex : scene.editorSelectedDrawItems)
+	{
+		if (diIndex < 0)
+		{
+			continue;
+		}
+		if (result.instances.size() >= kMaxSelectionInstances)
+		{
+			break;
+		}
+
+		const std::size_t idx = static_cast<std::size_t>(diIndex);
+		if (idx >= scene.drawItems.size())
+		{
+			continue;
+		}
+
+		const DrawItem& di = scene.drawItems[idx];
+		const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
+		if (!mesh || mesh->indexCount == 0 || !mesh->vertexBuffer || !mesh->indexBuffer)
+		{
+			continue;
+		}
+
+		EditorSelectionDraw sel{};
+		sel.mesh = mesh;
+
+		const mathUtils::Mat4 model = di.transform.ToMatrix();
+		sel.instance.i0 = model[0];
+		sel.instance.i1 = model[1];
+		sel.instance.i2 = model[2];
+		sel.instance.i3 = model[3];
+
+		sel.outlineWorldOffset = 0.01f;
+		if (di.mesh)
+		{
+			const auto& bounds = di.mesh->GetBounds();
+			if (bounds.sphereRadius > 0.0f)
+			{
+				sel.outlineWorldOffset = std::max(0.01f, bounds.sphereRadius * 0.03f);
+			}
+		}
+
+		if (di.material.id != 0)
+		{
+			const auto& mat = scene.GetMaterial(di.material);
+			const MaterialPerm perm = EffectivePerm(mat);
+			sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
+		}
+		else
+		{
+			sel.isTransparent = false;
+		}
+
+		const std::uint32_t startInstance = static_cast<std::uint32_t>(result.instances.size());
+		result.instances.push_back(sel.instance);
+
+		if (sel.isTransparent)
+		{
+			result.transparent.push_back(sel);
+			result.transparentStarts.push_back(startInstance);
+		}
+		else
+		{
+			result.opaque.push_back(sel);
+			result.opaqueStarts.push_back(startInstance);
+		}
+	}
+
+	return result;
+};
+
+const EditorSelectionLists editorSelection = BuildEditorSelectionLists();
+const auto& selectionOpaque = editorSelection.opaque;
+const auto& selectionTransparent = editorSelection.transparent;
+const auto& selectionInstances = editorSelection.instances;
+const auto& selectionOpaqueStart = editorSelection.opaqueStarts;
+const auto& selectionTransparentStart = editorSelection.transparentStarts;
+
 if (canDeferred)
 {
 	// Precompute camera matrices once for deferred passes.
@@ -141,94 +241,7 @@ if (canDeferred)
 
 	auto sceneColorAfterFog = sceneColor;
 
-	// --- Editor selection (shared for deferred passes) ---
-	// We keep the exact same selection logic as the forward path:
-	// - Opaque selection outline/highlight is drawn BEFORE transparent objects.
-	// - Transparent selection outline/highlight is drawn AFTER the transparent pass.
-	constexpr std::uint32_t kEditorOutlineStencilRef = 0x80u;
-	std::vector<EditorSelectionDraw> selectionOpaque;
-	std::vector<EditorSelectionDraw> selectionTransparent;
-	std::vector<InstanceData> selectionInstances;
-	std::vector<std::uint32_t> selectionOpaqueStart;
-	std::vector<std::uint32_t> selectionTransparentStart;
-	{
-		constexpr std::size_t kMaxSelectionInstances = 4096;
-		selectionOpaque.reserve(scene.editorSelectedDrawItems.size());
-		selectionTransparent.reserve(scene.editorSelectedDrawItems.size());
-		selectionInstances.reserve(std::min(scene.editorSelectedDrawItems.size(), kMaxSelectionInstances));
-		selectionOpaqueStart.reserve(scene.editorSelectedDrawItems.size());
-		selectionTransparentStart.reserve(scene.editorSelectedDrawItems.size());
-
-		for (const int diIndex : scene.editorSelectedDrawItems)
-		{
-			if (diIndex < 0)
-			{
-				continue;
-			}
-			if (selectionInstances.size() >= kMaxSelectionInstances)
-			{
-				break;
-			}
-			const std::size_t idx = static_cast<std::size_t>(diIndex);
-			if (idx >= scene.drawItems.size())
-			{
-				continue;
-			}
-
-			const DrawItem& di = scene.drawItems[idx];
-			const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
-			if (!mesh || mesh->indexCount == 0 || !mesh->vertexBuffer || !mesh->indexBuffer)
-			{
-				continue;
-			}
-
-			EditorSelectionDraw sel{};
-			sel.mesh = mesh;
-
-			const mathUtils::Mat4 model = di.transform.ToMatrix();
-			sel.instance.i0 = model[0];
-			sel.instance.i1 = model[1];
-			sel.instance.i2 = model[2];
-			sel.instance.i3 = model[3];
-
-			sel.outlineWorldOffset = 0.01f;
-			if (di.mesh)
-			{
-				const auto& bounds = di.mesh->GetBounds();
-				if (bounds.sphereRadius > 0.0f)
-				{
-					sel.outlineWorldOffset = std::max(0.01f, bounds.sphereRadius * 0.03f);
-				}
-			}
-
-			if (di.material.id != 0)
-			{
-				const auto& mat = scene.GetMaterial(di.material);
-				const MaterialPerm perm = EffectivePerm(mat);
-				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
-			}
-			else
-			{
-				sel.isTransparent = false;
-			}
-
-			const std::uint32_t startInstance = static_cast<std::uint32_t>(selectionInstances.size());
-			selectionInstances.push_back(sel.instance);
-
-			if (sel.isTransparent)
-			{
-				selectionTransparent.push_back(sel);
-				selectionTransparentStart.push_back(startInstance);
-			}
-			else
-			{
-				selectionOpaque.push_back(sel);
-				selectionOpaqueStart.push_back(startInstance);
-			}
-		}
-	}
-
-	// --- GBuffer pass (opaque) ---
+// --- GBuffer pass (opaque) ---
 	{
 		renderGraph::PassAttachments att{};
 		att.useSwapChainBackbuffer = false;
@@ -254,6 +267,9 @@ if (canDeferred)
 			gbuf2,
 			gbuf3,
 			activeReflectionProbeCount,
+			selectionOpaque,
+			selectionTransparent,
+			selectionInstances,
 			deferredReflectionProbeRemap](renderGraph::PassContext& ctx)
 		{
 			const auto extent = ctx.passExtent;
@@ -1405,6 +1421,11 @@ else
 		instStride,
 		transparentDraws,
 		planarMirrorDraws,
+		selectionOpaque,
+		selectionOpaqueStart,
+		selectionTransparent,
+		selectionTransparentStart,
+		selectionInstances,
 		activeReflectionProbeCount,
 		doDepthPrepass](renderGraph::PassContext& ctx)
 	{
@@ -1427,15 +1448,6 @@ else
 
 		const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
 		const mathUtils::Mat4 viewProj = proj * view;
-
-		constexpr std::uint32_t kEditorOutlineStencilRef = 0x80u;
-
-		std::vector<EditorSelectionDraw> selectionOpaque;
-		std::vector<EditorSelectionDraw> selectionTransparent;
-
-		std::vector<InstanceData> selectionInstances;
-		std::vector<std::uint32_t> selectionOpaqueStart;
-		std::vector<std::uint32_t> selectionTransparentStart;
 
 		auto BindEditorSelectionGeometry = [&](const rendern::MeshRHI& mesh)
 			{
@@ -1604,94 +1616,7 @@ else
 				}
 			};
 
-		// Build editor selection draw lists once per frame. We split into opaque/transparent selections
-		// to preserve the old behavior:
-		// - opaque selection outline/highlight is drawn BEFORE transparent objects,
-		// - transparent selection outline/highlight is drawn AFTER the transparent pass.
-		selectionOpaque.clear();
-		selectionTransparent.clear();
-		selectionInstances.clear();
-		selectionOpaqueStart.clear();
-		selectionTransparentStart.clear();
-
-		constexpr std::size_t kMaxSelectionInstances = 4096;
-		selectionOpaque.reserve(scene.editorSelectedDrawItems.size());
-		selectionTransparent.reserve(scene.editorSelectedDrawItems.size());
-		selectionInstances.reserve(std::min(scene.editorSelectedDrawItems.size(), kMaxSelectionInstances));
-		selectionOpaqueStart.reserve(scene.editorSelectedDrawItems.size());
-		selectionTransparentStart.reserve(scene.editorSelectedDrawItems.size());
-
-		for (const int diIndex : scene.editorSelectedDrawItems)
-		{
-			if (diIndex < 0)
-			{
-				continue;
-			}
-
-			if (selectionInstances.size() >= kMaxSelectionInstances)
-			{
-				break;
-			}
-
-			const std::size_t idx = static_cast<std::size_t>(diIndex);
-			if (idx >= scene.drawItems.size())
-			{
-				continue;
-			}
-
-			const DrawItem& di = scene.drawItems[idx];
-			const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
-			if (!mesh || mesh->indexCount == 0 || !mesh->vertexBuffer || !mesh->indexBuffer)
-			{
-				continue;
-			}
-
-			EditorSelectionDraw sel{};
-			sel.mesh = mesh;
-
-			const mathUtils::Mat4 model = di.transform.ToMatrix();
-			sel.instance.i0 = model[0];
-			sel.instance.i1 = model[1];
-			sel.instance.i2 = model[2];
-			sel.instance.i3 = model[3];
-
-			sel.outlineWorldOffset = 0.01f;
-			if (di.mesh)
-			{
-				const auto& bounds = di.mesh->GetBounds();
-				if (bounds.sphereRadius > 0.0f)
-				{
-					sel.outlineWorldOffset = std::max(0.01f, bounds.sphereRadius * 0.03f);
-				}
-			}
-
-			if (di.material.id != 0)
-			{
-				const auto& mat = scene.GetMaterial(di.material);
-				const MaterialPerm perm = EffectivePerm(mat);
-				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
-			}
-			else
-			{
-				sel.isTransparent = false;
-			}
-
-			const std::uint32_t startInstance = static_cast<std::uint32_t>(selectionInstances.size());
-			selectionInstances.push_back(sel.instance);
-
-			if (sel.isTransparent)
-			{
-				selectionTransparent.push_back(sel);
-				selectionTransparentStart.push_back(startInstance);
-			}
-			else
-			{
-				selectionOpaque.push_back(sel);
-				selectionOpaqueStart.push_back(startInstance);
-			}
-		}
-
-		// Upload all selection instances at once. Note: rhi::Device::UpdateBuffer is deferred on DX12,
+// Upload all selection instances at once. Note: rhi::Device::UpdateBuffer is deferred on DX12,
 		// so per-draw updates would not interleave correctly with draw calls.
 		if (!selectionInstances.empty() && highlightInstanceBuffer_)
 		{
