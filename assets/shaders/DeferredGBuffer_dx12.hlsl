@@ -166,10 +166,11 @@ PSOut PS_GBuffer(VSOut IN)
 	OUT.rt1 = float4(N * 0.5f + 0.5f, metallic);
 	OUT.rt2 = float4(emissive, ao);
 	
-	// envSource is packed into uEnvProbeBoxMin.w by the CPU:
-	// 0.0f = Skybox, 1.0f = ReflectionCapture
+	// CPU packs:
+	//   uEnvProbeBoxMin.w = envSource   (0 = Skybox, 1 = ReflectionCapture)
+	//   uEnvProbeBoxMax.w = probeIdxN   (normalized probe index in [0..1])
 	const float envSource = saturate(uEnvProbeBoxMin.w);
-	const float probeIdxN = saturate(uEnvProbeBoxMax.w); // reserved for future (multi-probe)
+	const float probeIdxN = saturate(uEnvProbeBoxMax.w);
 	OUT.rt3 = float4(envSource, probeIdxN, 0.0f, 0.0f);
 	
 	return OUT;

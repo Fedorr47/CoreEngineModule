@@ -53,8 +53,11 @@ Texture2DArray<float> gPointShadow3 : register(t14);
 // Environment + SSAO
 // -----------------------------------------------------------------------------
 TextureCube gSkyboxEnv : register(t15); // global skybox cubemap
-TextureCube gReflEnv : register(t17); // selected reflection capture cubemap (renderer-owned)
-Texture2D<float> gSSAO : register(t18); // SSAO (0..1)
+TextureCube gReflEnv : register(t17); // single-probe fallback / compatibility path
+Texture2D gSSAO : register(t18); // SSAO (0..1)
+// Full reflection-capture cube array bound as a 2D-array SRV:
+// layers = probeCount * 6, slices ordered as (+X,-X,+Y,-Y,+Z,-Z) per probe.
+Texture2DArray<float4> gReflEnvArray : register(t19);
 
 // -----------------------------------------------------------------------------
 // Lights
@@ -78,7 +81,7 @@ cbuffer Deferred : register(b0)
 	float4 uCameraPosAmbient; // xyz + ambientStrength
 	float4 uCameraForward; // xyz + pad
 	float4 uShadowBias; // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
-	float4 uCounts; // x = lightCount, y = spotShadowCount, z = pointShadowCount, w unused
+	float4 uCounts; // x = lightCount, y = spotShadowCount, z = pointShadowCount, w = activeReflectionProbeCount
 };
 
 // -----------------------------------------------------------------------------
@@ -498,6 +501,53 @@ CubeFaceUV CubeDirToFaceUV(float3 dir)
 	return o;
 }
 
+uint DecodeReflectionProbeIndex(float probeIdxN, uint probeCount)
+{
+	if (probeCount == 0u)
+		return 0u;
+
+	const float n = saturate(probeIdxN);
+	return min((uint) (n * (float) probeCount), probeCount - 1u);
+}
+
+float3 SampleEnvArrayProbeMip(uint probeIdx, float3 dir, float lod)
+{
+	CubeFaceUV fu = CubeDirToFaceUV(dir);
+
+	if (fu.uv.x < 0.0f || fu.uv.x > 1.0f || fu.uv.y < 0.0f || fu.uv.y > 1.0f)
+		return 0.0f;
+
+	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
+	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
+	if (layers == 0u)
+		return 0.0f;
+
+    // 6 array slices per cubemap.
+	const uint maxBaseSlice = (layers > 6u) ? (layers - 6u) : 0u;
+	const uint baseSlice = min(probeIdx * 6u, maxBaseSlice);
+	const uint slice = min(baseSlice + fu.face, layers - 1u);
+	const float clampedLod = clamp(lod, 0.0f, max(0.0f, (float) (mips - 1u)));
+
+    // Manual face sampling: linear within face, no cubemap hardware cross-face filtering.
+	return gReflEnvArray.SampleLevel(gLinearClamp, float3(fu.uv, (float) slice), clampedLod).rgb;
+}
+
+float3 SampleEnvPrefilteredProbe(uint probeIdx, float3 dir, float roughness)
+{
+	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
+	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
+	const float lod = saturate(roughness) * max(0.0f, (float) (mips - 1u));
+	return SampleEnvArrayProbeMip(probeIdx, dir, lod);
+}
+
+float3 SampleEnvDiffuseProbe(uint probeIdx, float3 dir)
+{
+	uint w = 0u, h = 0u, layers = 0u, mips = 1u;
+	gReflEnvArray.GetDimensions(0, w, h, layers, mips);
+	const float lod = max(0.0f, (float) (mips - 1u));
+	return SampleEnvArrayProbeMip(probeIdx, dir, lod);
+}
+
 float SamplePointShadow(Texture2DArray<float> distArr, float3 dir)
 {
 	CubeFaceUV fu = CubeDirToFaceUV(dir);
@@ -694,6 +744,8 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
     // Indirect lighting (IBL v1)
     // -------------------------------------------------------------------------
 	const bool useRefl = (envSel.x > 0.5f);
+	const uint reflProbeCount = (uint) max(uCounts.w, 0.0f);
+	const uint reflProbeIdx = DecodeReflectionProbeIndex(envSel.y, reflProbeCount);
 
 	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
 
@@ -705,8 +757,15 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
 
 	float3 R = normalize(reflect(-V, N));
 
-	float3 envDiffuse = SampleEnvDiffuseSel(useRefl, N);
-	float3 envSpec = SampleEnvPrefilteredSel(useRefl, R, roughness);
+	float3 envDiffuse = useRefl
+	  ? ((reflProbeCount > 0u) ? SampleEnvDiffuseProbe(reflProbeIdx, N)
+	  : SampleEnvDiffuseIrradiance(gReflEnv, N))
+	  : SampleEnvDiffuseIrradiance(gSkyboxEnv, N);
+	  
+	float3 envSpec = useRefl
+	  ? ((reflProbeCount > 0u) ? SampleEnvPrefilteredProbe(reflProbeIdx, R, roughness)
+	  : SampleEnvPrefiltered(gReflEnv, R, roughness))
+	  : SampleEnvPrefiltered(gSkyboxEnv, R, roughness);
 
     // AO modulates only the diffuse/ambient part.
 	float3 indirect = (kD * (envDiffuse * albedo) * ao + envSpec * F) * ambientStrength;

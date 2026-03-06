@@ -100,7 +100,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			skyState.depth.testEnable = false;
 			skyState.depth.writeEnable = false;
 
-			ctx.commandList.SetState(skyState);for
+			ctx.commandList.SetState(skyState);
 			ctx.commandList.SetStencilRef(1u + mirrorIndex);
 
 			ctx.commandList.BindPipeline(psoSkybox_);

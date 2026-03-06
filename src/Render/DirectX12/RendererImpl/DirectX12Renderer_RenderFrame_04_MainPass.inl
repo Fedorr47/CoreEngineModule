@@ -27,9 +27,23 @@ if (canDeferred)
 		std::array<float, 4> uCameraPosAmbient{}; // xyz + ambientStrength
 		std::array<float, 4> uCameraForward{}; // xyz + pad
 		std::array<float, 4> uShadowBias{}; // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
-		std::array<float, 4> uCounts{}; // x = lightCount, y = spotShadowCount, z = pointShadowCount
+		std::array<float, 4> uCounts{}; // x = lightCount, y = spotShadowCount, z = pointShadowCount, w = activeReflectionProbeCount
 	};
 	static_assert(sizeof(DeferredLightingConstants) == 128);
+
+	std::uint32_t activeReflectionProbeCount = 0u;
+	if (settings_.enableReflectionCapture)
+	{
+		for (const Batch& batch : mainBatches)
+		{
+			if (batch.reflectionProbeIndex >= 0)
+			{
+				activeReflectionProbeCount = std::max(
+					activeReflectionProbeCount,
+					static_cast<std::uint32_t>(batch.reflectionProbeIndex + 1));
+			}
+		}
+	}
 
 	DeferredLightingConstants deferredConstants{};
 	std::memcpy(deferredConstants.uInvViewProj.data(), mathUtils::ValuePtr(invViewProjT), sizeof(float) * 16);
@@ -41,7 +55,12 @@ if (canDeferred)
 		settings_.pointShadowBaseBiasTexels,
 		settings_.shadowSlopeScaleTexels
 	};
-	deferredConstants.uCounts = { static_cast<float>(lightCount), static_cast<float>(spotShadows.size()), static_cast<float>(pointShadows.size()), 0.0f };
+	deferredConstants.uCounts = {
+		static_cast<float>(lightCount),
+		static_cast<float>(spotShadows.size()),
+		static_cast<float>(pointShadows.size()),
+		static_cast<float>(activeReflectionProbeCount)
+	};
 
 	// Import swapchain depth as an external RenderGraph texture so offscreen passes can use it.
 	const auto depthRG = graph.ImportTexture(
@@ -188,7 +207,7 @@ if (canDeferred)
 		att.clearDesc.stencil = 0;
 
 		graph.AddPass("GBufferPass", std::move(att),
-			[this, &scene, dirLightViewProj, lightCount, mainBatches, instStride, gbuf0, gbuf1, gbuf2, gbuf3](renderGraph::PassContext& ctx)
+			[this, &scene, dirLightViewProj, lightCount, mainBatches, instStride, gbuf0, gbuf1, gbuf2, gbuf3, activeReflectionProbeCount](renderGraph::PassContext& ctx)
 			{
 				const auto extent = ctx.passExtent;
 
@@ -264,6 +283,26 @@ if (canDeferred)
 						flags |= kFlagUseEmissiveTex;
 					}
 
+					float envSourceForGBuffer = 0.0f; // 0 = Skybox, 1 = ReflectionCapture
+					float probeIdxNForGBuffer = 0.0f; // normalized probe index in [0..1]
+					if (settings_.enableReflectionCapture &&
+						reflectionCube_ &&
+						reflectionCubeDescIndex_ != 0 &&
+						activeReflectionProbeCount > 0u &&
+						batch.materialHandle.id != 0)
+					{
+						const auto& mat = scene.GetMaterial(batch.materialHandle);
+						if (mat.envSource == EnvSource::ReflectionCapture &&
+							batch.reflectionProbeIndex >= 0 &&
+							static_cast<std::uint32_t>(batch.reflectionProbeIndex) < activeReflectionProbeCount)
+						{
+							envSourceForGBuffer = 1.0f;
+							probeIdxNForGBuffer =
+								(static_cast<float>(batch.reflectionProbeIndex) + 0.5f) /
+								static_cast<float>(activeReflectionProbeCount);
+						}
+					}
+
 					// Material textures via descriptors (same slots as forward).
 					ctx.commandList.BindTextureDesc(0, batch.material.albedoDescIndex);
 					ctx.commandList.BindTextureDesc(12, batch.material.normalDescIndex);
@@ -284,10 +323,15 @@ if (canDeferred)
 
 					constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(flags) };
 					constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
-					constants.uCounts = { static_cast<float>(lightCount), 0.0f, 0.0f, 0.0f };
+					constants.uCounts = {
+						static_cast<float>(lightCount),
+						0.0f,
+						0.0f,
+						static_cast<float>(activeReflectionProbeCount)
+					};
 					constants.uShadowBias = { 0.0f, 0.0f, 0.0f, 0.0f };
-					constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-					constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+					constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, envSourceForGBuffer };
+					constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, probeIdxNForGBuffer };
 
 					// Bindless indices for DeferredGBuffer_dx12.hlsl (space1 SRV heap).
 					constants.uTexIndices0 = {
@@ -489,7 +533,12 @@ if (canDeferred)
 				ctx.commandList.BindTextureDesc(15, scene.skyboxDescIndex);
 				ctx.commandList.BindTextureDesc(17, reflectionCubeDescIndex_);
 
-				// Lights (t16) and SSAO (t18)
+				if (reflectionCube_)
+				{
+					ctx.commandList.BindTexture2DArray(19, reflectionCube_);
+				}
+
+				// Lights (t16) and SSAO (t18); t19 = full reflection cube-array
 				ctx.commandList.BindStructuredBufferSRV(16, lightsBuffer_);
 				ctx.commandList.BindTexture2D(18, ctx.resources.GetTexture(ssaoBlur));
 
