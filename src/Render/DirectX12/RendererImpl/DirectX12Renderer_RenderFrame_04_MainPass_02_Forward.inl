@@ -156,6 +156,9 @@ graph.AddPass("ForwardMainPass", std::move(mainAtt), [
 	ResolveTransparentEnvBinding,
 	ComputeDeferredGBufferReflectionMeta,
 	ComputeForwardGBufferReflectionMeta,
+	FillPerBatchViewLightingConstants,
+	ResetPerBatchEnvProbeBox,
+	ApplyPerBatchReflectionProbeBox,
 	doDepthPrepass](renderGraph::PassContext& ctx)
 {
 	const auto extent = ctx.passExtent;
@@ -346,14 +349,7 @@ graph.AddPass("ForwardMainPass", std::move(mainAtt), [
 				env);
 
 			PerBatchConstants constants{};
-			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
-			const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-
-			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-			std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-
-			constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
-			constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+			FillPerBatchViewLightingConstants(constants, viewProj, dirLightViewProj, camPosLocal, camFLocal);
 			constants.uBaseColor = { batchTransparent.material.baseColor.x, batchTransparent.material.baseColor.y, batchTransparent.material.baseColor.z, batchTransparent.material.baseColor.w };
 
 			const float materialBiasTexels = batchTransparent.material.shadowBias;
@@ -374,8 +370,7 @@ graph.AddPass("ForwardMainPass", std::move(mainAtt), [
 				settings_.pointShadowBaseBiasTexels,
 				settings_.shadowSlopeScaleTexels
 			};
-			constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-			constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+			ResetPerBatchEnvProbeBox(constants);
 
 			ctx.commandList.BindInputLayout(batchTransparent.mesh->layoutInstanced);
 			ctx.commandList.BindVertexBuffer(0, batchTransparent.mesh->vertexBuffer, batchTransparent.mesh->vertexStrideBytes, 0);

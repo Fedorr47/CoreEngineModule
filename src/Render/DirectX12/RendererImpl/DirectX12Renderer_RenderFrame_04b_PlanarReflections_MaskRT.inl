@@ -129,7 +129,10 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 				ResolveMainPassMaterialPerm,
 				ResolveOpaqueEnvBinding,
 				BindMainPassMaterialTextures,
-				BuildMainPassMaterialFlags
+				BuildMainPassMaterialFlags,
+				FillPerBatchViewLightingConstants,
+				ResetPerBatchEnvProbeBox,
+				ApplyPerBatchReflectionProbeBox
 				](renderGraph::PassContext& ctx)
 			{
 				const auto e = ctx.passExtent;
@@ -224,14 +227,10 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					const std::uint32_t flags = BuildMainPassMaterialFlags(batch.material, useTex, useShadow, env);
 
 					PerBatchConstants constants{};
-					const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
-					std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjReflT), sizeof(float) * 16);
-					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
-
+					
 					const mathUtils::Vec3 camPosRefl = ReflectPoint(camPosLocal, planeN, planeD);
-					constants.uCameraAmbient = { camPosRefl.x, camPosRefl.y, camPosRefl.z, 0.22f };
 					const mathUtils::Vec3 camFwdRefl = ReflectVector(camFLocal, planeN);
-					constants.uCameraForward = { camFwdRefl.x, camFwdRefl.y, camFwdRefl.z, planeN.z };
+					FillPerBatchViewLightingConstants(constants, mathUtils::Transpose(viewProjReflT), dirLightViewProj, camPosRefl, camFwdRefl, 0.22f, planeN.z);
 					constants.uBaseColor = { batch.material.baseColor.x, batch.material.baseColor.y, batch.material.baseColor.z, batch.material.baseColor.w };
 
 					const float materialBiasTexels = batch.material.shadowBias;
@@ -240,15 +239,11 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
 					constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), (planeD - 0.05f) };
 					constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
-					constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
-					constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+					ResetPerBatchEnvProbeBox(constants);
 
-					if (env.usingReflectionProbeEnv && batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
+					if (env.usingReflectionProbeEnv)
 					{
-						const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-						const float h = settings_.reflectionProbeBoxHalfExtent;
-						constants.uEnvProbeBoxMin = { probe.capturePos.x - h, probe.capturePos.y - h, probe.capturePos.z - h, 0.0f };
-						constants.uEnvProbeBoxMax = { probe.capturePos.x + h, probe.capturePos.y + h, probe.capturePos.z + h, 0.0f };
+						ApplyPerBatchReflectionProbeBox(constants, batch.reflectionProbeIndex);
 					}
 
 					ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);

@@ -109,6 +109,17 @@ const auto& selectionInstances = editorSelection.instances;
 const auto& selectionOpaqueStart = editorSelection.opaqueStarts;
 const auto& selectionTransparentStart = editorSelection.transparentStarts;
 
+auto UploadEditorSelectionInstances = [&]()
+	{
+		if (!highlightInstanceBuffer_ || selectionInstances.empty())
+		{
+			return;
+		}
+
+	};
+
+UploadEditorSelectionInstances();
+
 auto ComputeForwardGBufferReflectionMeta = [&](MaterialHandle materialHandle, int reflectionProbeIndex, std::uint32_t activeProbeCount)
 	{
 		std::pair<float, float> result{ 0.0f, 0.0f };
@@ -271,5 +282,5 @@ auto DrawEditorSelectionGroup = [&](renderGraph::PassContext& ctx,
 			ctx.commandList.SetState(restoreState);
 		}
 	};
-
 #include "DirectX12Renderer_RenderFrame_04_SharedMaterialEnvHelpers.inl"
+#include "DirectX12Renderer_RenderFrame_04_SharedPerBatchConstantsHelpers.inl"
