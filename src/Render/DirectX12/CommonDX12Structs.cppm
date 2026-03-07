@@ -321,6 +321,17 @@ export namespace rendern
 	};
 	static_assert(sizeof(FogConstants) % 16 == 0);
 
+	struct FrameCameraData
+	{
+		mathUtils::Mat4 proj{ 1.0f };
+		mathUtils::Mat4 view{ 1.0f };
+		mathUtils::Mat4 viewProj{ 1.0f };
+		mathUtils::Mat4 invViewProj{ 1.0f };
+		mathUtils::Mat4 invViewProjT{ 1.0f };
+		mathUtils::Vec3 camPos{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 camForward{ 0.0f, 0.0f, -1.0f };
+	};
+
 	struct ResolvedMaterialEnvBinding
 	{
 		rhi::TextureDescIndex descIndex{};

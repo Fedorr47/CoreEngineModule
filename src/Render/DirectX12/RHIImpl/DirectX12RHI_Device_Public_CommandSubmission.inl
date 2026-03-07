@@ -4,8 +4,6 @@ void SubmitCommandList(CommandList&& commandList) override
     BeginFrame();
     hasSubmitted_ = true;
 
-    hasSubmitted_ = true;
-
     // Set descriptor heaps (SRV)
     ID3D12DescriptorHeap* heaps[] = { NativeSRVHeap() };
     cmdList_->SetDescriptorHeaps(1, heaps);
@@ -27,7 +25,7 @@ void SubmitCommandList(CommandList&& commandList) override
     IndexType ibType = IndexType::UINT16;
     std::uint32_t ibOffset = 0;
 
-    // Bound textures by slot (we actuallu use only slot 0)
+    // Bound textures by slot (we currently use only slot 0)
     std::array<D3D12_GPU_DESCRIPTOR_HANDLE, kMaxSRVSlots> boundTex{};
     for (auto& t : boundTex)
     {

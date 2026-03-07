@@ -172,19 +172,14 @@ export namespace rendern
 						};
 
 					bool drewAny = false;
-
-					auto IsSelectedDrawItem = [&](std::size_t drawItemIndex) -> bool
+					std::vector<bool> selectedDrawItemMask(scene.drawItems.size(), false);
+					for (const int di : scene.editorSelectedDrawItems)
+					{
+						if (di >= 0 && static_cast<std::size_t>(di) < selectedDrawItemMask.size())
 						{
-							const int di = static_cast<int>(drawItemIndex);
-							for (const int v : scene.editorSelectedDrawItems)
-							{
-								if (v == di)
-								{
-									return true;
-								}
-							}
-							return false;
-						};
+							selectedDrawItemMask[static_cast<std::size_t>(di)] = true;
+						}
+					}
 
 					for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++drawItemIndex)
 					{
@@ -216,7 +211,7 @@ export namespace rendern
 						DrawOne(mesh, model, mat);
 
 						// Editor selection outline + highlight.
-						if (IsSelectedDrawItem(drawItemIndex))
+						if (selectedDrawItemMask[drawItemIndex])
 						{
 							MaterialParams mark = mat;
 							mark.baseColor = { 1.0f, 1.0f, 1.0f, 0.0f };

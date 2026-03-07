@@ -164,6 +164,23 @@ export namespace rendern
 			return floatValue;
 		}
 
+		FrameCameraData BuildFrameCameraData(const Scene& scene, const rhi::Extent2D& extent) const
+		{
+			const float aspect = extent.height
+				? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
+				: 1.0f;
+
+			FrameCameraData data{};
+			data.proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
+			data.view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+			data.viewProj = data.proj * data.view;
+			data.invViewProj = mathUtils::Inverse(data.viewProj);
+			data.invViewProjT = mathUtils::Transpose(data.invViewProj);
+			data.camPos = scene.camera.position;
+			data.camForward = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+			return data;
+		}
+
 		std::uint32_t UploadLights(const Scene& scene, const mathUtils::Vec3& camPos)
 		{
 #include "RendererImpl/DirectX12Renderer_UploadLights.inl"
@@ -421,4 +438,4 @@ export namespace rendern
 		std::uint32_t debugCubeAtlasVBStrideBytes_{ 0 };
 		rhi::GraphicsState skyboxState_{};
 	};
-	} // namespace rendern
+} // namespace rendern

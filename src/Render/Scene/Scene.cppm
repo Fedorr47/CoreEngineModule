@@ -238,17 +238,17 @@ export namespace rendern
 
 	inline MaterialPerm EffectivePerm(const Material& material) noexcept
 	{
-		MaterialPerm maetrialPerm = material.permFlags;
+		MaterialPerm materialPerm = material.permFlags;
 		// a < 1 => transparent even if flag isn't set.
 		if (material.params.baseColor.w < 0.999f)
 		{
-			maetrialPerm |= MaterialPerm::Transparent;
+			materialPerm |= MaterialPerm::Transparent;
 		}
 		if (material.params.albedoDescIndex != 0)
 		{
-			maetrialPerm |= MaterialPerm::UseTex;
+			materialPerm |= MaterialPerm::UseTex;
 		}
-		return maetrialPerm;
+		return materialPerm;
 	}
 
 	struct DrawItem

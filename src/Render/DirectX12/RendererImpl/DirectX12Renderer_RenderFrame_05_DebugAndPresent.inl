@@ -1,4 +1,3 @@
-
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
@@ -236,46 +235,81 @@ if (settings_.drawLightGizmos)
 	}
 }
 
+auto ResolveGizmoAxisColor = [&](GizmoAxis activeAxis, GizmoAxis hoveredAxis, GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
+	{
+		if (activeAxis == axis)
+		{
+			return debugDraw::PackRGBA8(255, 255, 255, 255);
+		}
+		if (hoveredAxis == axis)
+		{
+			return debugDraw::PackRGBA8(255, 255, 0, 255);
+		}
+		return baseColor;
+	};
+
+auto AddGizmoPlaneHandle = [&](const mathUtils::Vec3& pivot,
+	float planeInner,
+	float planeOuter,
+	const mathUtils::Vec3& a,
+	const mathUtils::Vec3& b,
+	std::uint32_t color)
+	{
+		const mathUtils::Vec3 p00 = pivot + a * planeInner + b * planeInner;
+		const mathUtils::Vec3 p10 = pivot + a * planeOuter + b * planeInner;
+		const mathUtils::Vec3 p11 = pivot + a * planeOuter + b * planeOuter;
+		const mathUtils::Vec3 p01 = pivot + a * planeInner + b * planeOuter;
+		debugList.AddLine(p00, p10, color, true);
+		debugList.AddLine(p10, p11, color, true);
+		debugList.AddLine(p11, p01, color, true);
+		debugList.AddLine(p01, p00, color, true);
+	};
+
 if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
 {
 	const mathUtils::Vec3 pivot = scene.editorTranslateGizmo.pivotWorld;
 	const float axisLen = scene.editorTranslateGizmo.axisLengthWorld;
 	const float planeInner = axisLen * 0.28f;
 	const float planeOuter = axisLen * 0.46f;
-
-	auto AxisColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
-		{
-			if (scene.editorTranslateGizmo.activeAxis == axis)
-			{
-				return debugDraw::PackRGBA8(255, 255, 255, 255);
-			}
-			if (scene.editorTranslateGizmo.hoveredAxis == axis)
-			{
-				return debugDraw::PackRGBA8(255, 255, 0, 255);
-			}
-			return baseColor;
-		};
-
-	auto AddPlaneHandle = [&](GizmoAxis axis, const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t baseColor)
-		{
-			const std::uint32_t color = AxisColor(axis, baseColor);
-			const mathUtils::Vec3 p00 = pivot + a * planeInner + b * planeInner;
-			const mathUtils::Vec3 p10 = pivot + a * planeOuter + b * planeInner;
-			const mathUtils::Vec3 p11 = pivot + a * planeOuter + b * planeOuter;
-			const mathUtils::Vec3 p01 = pivot + a * planeInner + b * planeOuter;
-			debugList.AddLine(p00, p10, color, true);
-			debugList.AddLine(p10, p11, color, true);
-			debugList.AddLine(p11, p01, color, true);
-			debugList.AddLine(p01, p00, color, true);
-		};
-
-	debugList.AddArrow(pivot, pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
-	debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
-	debugList.AddArrow(pivot, pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
-	AddPlaneHandle(GizmoAxis::XY, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 1.0f, 0.0f), debugDraw::PackRGBA8(255, 220, 80, 255));
-	AddPlaneHandle(GizmoAxis::XZ, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(255, 80, 255, 255));
-	AddPlaneHandle(GizmoAxis::YZ, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), debugDraw::PackRGBA8(80, 255, 255, 255));
-
+	
+	debugList.AddArrow(
+		pivot, 
+		pivot + mathUtils::Vec3(axisLen, 0.0f, 0.0f), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, 
+			scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
+	debugList.AddArrow(
+		pivot, 
+		pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, 
+			scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
+	debugList.AddArrow(
+		pivot, 
+		pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Z, 
+			debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		mathUtils::Vec3(1.0f, 0.0f, 0.0f), 
+		mathUtils::Vec3(0.0f, 1.0f, 0.0f), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XY, 
+			debugDraw::PackRGBA8(255, 220, 80, 255)));
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		mathUtils::Vec3(1.0f, 0.0f, 0.0f), 
+		mathUtils::Vec3(0.0f, 0.0f, 1.0f), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XZ, 
+			debugDraw::PackRGBA8(255, 80, 255, 255)));
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		mathUtils::Vec3(0.0f, 1.0f, 0.0f), 
+		mathUtils::Vec3(0.0f, 0.0f, 1.0f), 
+		ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
 
 	// Axis/plane labels (screen-space text anchored to projected gizmo geometry)
 	{
@@ -283,14 +317,38 @@ if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.
 		const mathUtils::Vec3 yEnd = pivot + mathUtils::Vec3(0.0f, axisLen, 0.0f);
 		const mathUtils::Vec3 zEnd = pivot + mathUtils::Vec3(0.0f, 0.0f, axisLen);
 
-		AddAxisLabel(pivot, xEnd, "X", AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
-		AddAxisLabel(pivot, yEnd, "Y", AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
-		AddAxisLabel(pivot, zEnd, "Z", AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
+		AddAxisLabel(
+			pivot, 
+			xEnd, 
+			"X", 
+			ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::X, 
+				debugDraw::PackRGBA8(255, 80, 80, 255)));
+		AddAxisLabel(
+			pivot, 
+			yEnd, 
+			"Y", 
+			ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Y, 
+				debugDraw::PackRGBA8(80, 255, 80, 255)));
+		AddAxisLabel(
+			pivot, 
+			zEnd, 
+			"Z",
+			ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Z, 
+				debugDraw::PackRGBA8(80, 160, 255, 255)));
 
 		const float planeMid = (planeInner + planeOuter) * 0.5f;
-		AddPlaneLabel(pivot + mathUtils::Vec3(planeMid, planeMid, 0.0f), "XY", AxisColor(GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
-		AddPlaneLabel(pivot + mathUtils::Vec3(planeMid, 0.0f, planeMid), "XZ", AxisColor(GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
-		AddPlaneLabel(pivot + mathUtils::Vec3(0.0f, planeMid, planeMid), "YZ", AxisColor(GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
+		AddPlaneLabel(
+			pivot + mathUtils::Vec3(planeMid, planeMid, 0.0f), 
+			"XY", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, 
+				scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
+		AddPlaneLabel(
+			pivot + mathUtils::Vec3(planeMid, 0.0f, planeMid), 
+			"XZ", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, 
+				scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
+		AddPlaneLabel(
+			pivot + mathUtils::Vec3(0.0f, planeMid, planeMid), 
+			"YZ", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, 
+				scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
 	}
 }
 
@@ -341,9 +399,18 @@ if (scene.editorGizmoMode == GizmoMode::Rotate && scene.editorRotateGizmo.enable
 			return baseColor;
 		};
 
-	debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisYWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 64, true);
-	debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 64, true);
-	debugList.AddWireCircle(pivot, scene.editorRotateGizmo.axisXWorld, scene.editorRotateGizmo.axisYWorld, ringRadius, RingColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 64, true);
+	debugList.AddWireCircle(
+		pivot, 
+		scene.editorRotateGizmo.axisYWorld, 
+		scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 64, true);
+	debugList.AddWireCircle(
+		pivot, 
+		scene.editorRotateGizmo.axisXWorld, 
+		scene.editorRotateGizmo.axisZWorld, ringRadius, RingColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 64, true);
+	debugList.AddWireCircle(
+		pivot, 
+		scene.editorRotateGizmo.axisXWorld, 
+		scene.editorRotateGizmo.axisYWorld, ringRadius, RingColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)), 64, true);
 
 	// Axis labels (screen-space text anchored to a projected point on each ring)
 	{
@@ -431,51 +498,43 @@ if (scene.editorGizmoMode == GizmoMode::Scale && scene.editorScaleGizmo.enabled 
 	const float planeInner = axisLen * 0.24f;
 	const float planeOuter = axisLen * 0.40f;
 
-	auto AxisColor = [&](GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
-		{
-			if (scene.editorScaleGizmo.activeAxis == axis)
-			{
-				return debugDraw::PackRGBA8(255, 255, 255, 255);
-			}
-			if (scene.editorScaleGizmo.hoveredAxis == axis)
-			{
-				return debugDraw::PackRGBA8(255, 255, 0, 255);
-			}
-			return baseColor;
-		};
-
-	auto AddPlaneHandle = [&](GizmoAxis axis, const mathUtils::Vec3& a, const mathUtils::Vec3& b, std::uint32_t baseColor)
-		{
-			const std::uint32_t color = AxisColor(axis, baseColor);
-			const mathUtils::Vec3 p00 = pivot + a * planeInner + b * planeInner;
-			const mathUtils::Vec3 p10 = pivot + a * planeOuter + b * planeInner;
-			const mathUtils::Vec3 p11 = pivot + a * planeOuter + b * planeOuter;
-			const mathUtils::Vec3 p01 = pivot + a * planeInner + b * planeOuter;
-			debugList.AddLine(p00, p10, color, true);
-			debugList.AddLine(p10, p11, color, true);
-			debugList.AddLine(p11, p01, color, true);
-			debugList.AddLine(p01, p00, color, true);
-		};
-
 	auto AddScaleHandle = [&](GizmoAxis axis, const mathUtils::Vec3& dir, std::uint32_t baseColor)
 		{
-			const std::uint32_t color = AxisColor(axis, baseColor);
+			const std::uint32_t color = ResolveGizmoAxisColor(scene.editorScaleGizmo.activeAxis, scene.editorScaleGizmo.hoveredAxis, axis, baseColor);
 			const mathUtils::Vec3 end = pivot + dir * axisLen;
 
 			debugList.AddLine(pivot, end, color, true);
 			debugList.AddAxesCross(end, handleHalf, color, true);
 		};
 
-	AddPlaneHandle(GizmoAxis::XY, scene.editorScaleGizmo.axisXWorld, scene.editorScaleGizmo.axisYWorld, debugDraw::PackRGBA8(255, 220, 80, 255));
-	AddPlaneHandle(GizmoAxis::XZ, scene.editorScaleGizmo.axisXWorld, scene.editorScaleGizmo.axisZWorld, debugDraw::PackRGBA8(255, 80, 255, 255));
-	AddPlaneHandle(GizmoAxis::YZ, scene.editorScaleGizmo.axisYWorld, scene.editorScaleGizmo.axisZWorld, debugDraw::PackRGBA8(80, 255, 255, 255));
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		scene.editorScaleGizmo.axisXWorld, scene.editorScaleGizmo.axisYWorld, 
+		ResolveGizmoAxisColor(scene.editorScaleGizmo.activeAxis, scene.editorScaleGizmo.hoveredAxis, GizmoAxis::XY, 
+			debugDraw::PackRGBA8(255, 220, 80, 255)));
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		scene.editorScaleGizmo.axisXWorld, scene.editorScaleGizmo.axisZWorld, 
+		ResolveGizmoAxisColor(scene.editorScaleGizmo.activeAxis, scene.editorScaleGizmo.hoveredAxis, GizmoAxis::XZ, 
+			debugDraw::PackRGBA8(255, 80, 255, 255)));
+	AddGizmoPlaneHandle(
+		pivot, 
+		planeInner, 
+		planeOuter, 
+		scene.editorScaleGizmo.axisYWorld, scene.editorScaleGizmo.axisZWorld, 
+		ResolveGizmoAxisColor(scene.editorScaleGizmo.activeAxis, scene.editorScaleGizmo.hoveredAxis, GizmoAxis::YZ, 
+			debugDraw::PackRGBA8(80, 255, 255, 255)));
 	AddScaleHandle(GizmoAxis::X, scene.editorScaleGizmo.axisXWorld, debugDraw::PackRGBA8(255, 80, 80, 255));
 	AddScaleHandle(GizmoAxis::Y, scene.editorScaleGizmo.axisYWorld, debugDraw::PackRGBA8(80, 255, 80, 255));
 	AddScaleHandle(GizmoAxis::Z, scene.editorScaleGizmo.axisZWorld, debugDraw::PackRGBA8(80, 160, 255, 255));
 	debugList.AddWireSphere(
 		pivot,
 		scene.editorScaleGizmo.uniformHandleRadiusWorld,
-		AxisColor(GizmoAxis::XYZ, debugDraw::PackRGBA8(230, 230, 230, 255)),
+		ResolveGizmoAxisColor(scene.editorScaleGizmo.activeAxis, scene.editorScaleGizmo.hoveredAxis, GizmoAxis::XYZ, debugDraw::PackRGBA8(230, 230, 230, 255)),
 		16,
 		true);
 
@@ -485,14 +544,14 @@ if (scene.editorGizmoMode == GizmoMode::Scale && scene.editorScaleGizmo.enabled 
 		const mathUtils::Vec3 yEnd = pivot + scene.editorScaleGizmo.axisYWorld * axisLen;
 		const mathUtils::Vec3 zEnd = pivot + scene.editorScaleGizmo.axisZWorld * axisLen;
 
-		AddAxisLabel(pivot, xEnd, "X", AxisColor(GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
-		AddAxisLabel(pivot, yEnd, "Y", AxisColor(GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
-		AddAxisLabel(pivot, zEnd, "Z", AxisColor(GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
+		AddAxisLabel(pivot, xEnd, "X", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)));
+		AddAxisLabel(pivot, yEnd, "Y", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)));
+		AddAxisLabel(pivot, zEnd, "Z", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Z, debugDraw::PackRGBA8(80, 160, 255, 255)));
 
 		const float planeMid = (planeInner + planeOuter) * 0.5f;
-		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisYWorld * planeMid, "XY", AxisColor(GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
-		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "XZ", AxisColor(GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
-		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisYWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "YZ", AxisColor(GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisYWorld * planeMid, "XY", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XY, debugDraw::PackRGBA8(255, 220, 80, 255)));
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisXWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "XZ", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::XZ, debugDraw::PackRGBA8(255, 80, 255, 255)));
+		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisYWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "YZ", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
 	}
 }
 
@@ -744,8 +803,6 @@ if (debugList.VertexCount() > 0)
 			debugDrawRenderer_.Draw(ctx.commandList, viewProj, settings_.debugDrawDepthTest);
 		});
 }
-
-
 
 if (!textList.Empty())
 {
