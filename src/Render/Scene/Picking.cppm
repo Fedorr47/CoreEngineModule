@@ -81,6 +81,32 @@ namespace
         outT = tmin;
         return true;
     }
+
+    static bool IntersectRaySphere(const geometry::Ray& ray, const mathUtils::Vec3& center, float radius, float& outT) noexcept
+    {
+        const mathUtils::Vec3 oc = ray.origin - center;
+        const float b = mathUtils::Dot(oc, ray.dir);
+        const float c = mathUtils::Dot(oc, oc) - radius * radius;
+        const float h = b * b - c;
+        if (h < 0.0f)
+        {
+            return false;
+        }
+
+        const float sqrtH = std::sqrt(h);
+        float t = -b - sqrtH;
+        if (t < 0.0f)
+        {
+            t = -b + sqrtH;
+        }
+        if (t < 0.0f)
+        {
+            return false;
+        }
+
+        outT = t;
+        return true;
+    }
 }
 
 export namespace rendern
@@ -88,6 +114,7 @@ export namespace rendern
     struct PickResult
     {
         int nodeIndex{ -1 };
+        int particleEmitterIndex{ -1 };
         float t{ std::numeric_limits<float>::infinity() };
         mathUtils::Vec3 rayOrigin{ 0.0f, 0.0f, 0.0f };
         mathUtils::Vec3 rayDir{ 0.0f, 0.0f, 1.0f }; // normalized
@@ -120,7 +147,7 @@ export namespace rendern
         return ray;
     }
 
-    PickResult PickNodeUnderScreenPoint(
+    PickResult PickEditorObjectUnderScreenPoint(
         const rendern::Scene& scene,
         const rendern::LevelInstance& levelInst,
         float mouseX,
@@ -136,6 +163,7 @@ export namespace rendern
 
         float bestT = std::numeric_limits<float>::infinity();
         int bestNode = -1;
+        int bestEmitter = -1;
 
         const LevelWorld& ecs = levelInst.GetLevelWorld();
         ecs.ForEachRenderable([&](EntityHandle,
@@ -168,10 +196,42 @@ export namespace rendern
                 {
                     bestT = t;
                     bestNode = nodeId.index;
+                    bestEmitter = -1;
                 }
             });
 
+        for (std::size_t emitterIndex = 0; emitterIndex < levelInst.GetParticleEmitterCount(); ++emitterIndex)
+        {
+            const ParticleEmitter* emitter = levelInst.GetRuntimeParticleEmitter(scene, static_cast<int>(emitterIndex));
+            if (!emitter || !emitter->enabled)
+            {
+                continue;
+            }
+
+            const float jitterRadius = std::max(std::max(std::abs(emitter->positionJitter.x), std::abs(emitter->positionJitter.y)), std::abs(emitter->positionJitter.z));
+            const float velocityExtent = std::max(std::max(
+                std::max(std::abs(emitter->velocityMin.x), std::abs(emitter->velocityMax.x)),
+                std::max(std::abs(emitter->velocityMin.y), std::abs(emitter->velocityMax.y))),
+                std::max(std::abs(emitter->velocityMin.z), std::abs(emitter->velocityMax.z)));
+            const float maxLifetime = std::max(emitter->lifetimeMin, emitter->lifetimeMax);
+            const float radius = std::max(0.35f, jitterRadius + velocityExtent * std::max(0.25f, maxLifetime) + std::max(emitter->sizeMin, emitter->sizeMax));
+
+            float t = 0.0f;
+            if (!IntersectRaySphere(ray, emitter->position, radius, t))
+            {
+                continue;
+            }
+
+            if (t < bestT)
+            {
+                bestT = t;
+                bestNode = -1;
+                bestEmitter = static_cast<int>(emitterIndex);
+            }
+        }
+
         out.nodeIndex = bestNode;
+        out.particleEmitterIndex = bestEmitter;
         out.t = bestT;
         return out;
     }

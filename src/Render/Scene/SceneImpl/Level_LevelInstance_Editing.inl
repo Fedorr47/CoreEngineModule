@@ -102,6 +102,157 @@ mathUtils::Vec3 GetNodeWorldPosition(int nodeIndex) const noexcept
 	return GetNodeWorldMatrix(nodeIndex)[3].xyz();
 }
 
+
+bool IsValidParticleEmitterIndex(const LevelAsset& asset, int emitterIndex) const noexcept
+{
+	return emitterIndex >= 0 && static_cast<std::size_t>(emitterIndex) < asset.particleEmitters.size();
+}
+
+ParticleEmitter* GetRuntimeParticleEmitter(Scene& scene, int emitterIndex) noexcept
+{
+	if (emitterIndex < 0 || static_cast<std::size_t>(emitterIndex) >= particleEmitterToSceneEmitter_.size())
+	{
+		return nullptr;
+	}
+	const int sceneEmitterIndex = particleEmitterToSceneEmitter_[static_cast<std::size_t>(emitterIndex)];
+	if (sceneEmitterIndex < 0 || static_cast<std::size_t>(sceneEmitterIndex) >= scene.particleEmitters.size())
+	{
+		return nullptr;
+	}
+	return &scene.particleEmitters[static_cast<std::size_t>(sceneEmitterIndex)];
+}
+
+const ParticleEmitter* GetRuntimeParticleEmitter(const Scene& scene, int emitterIndex) const noexcept
+{
+	if (emitterIndex < 0 || static_cast<std::size_t>(emitterIndex) >= particleEmitterToSceneEmitter_.size())
+	{
+		return nullptr;
+	}
+	const int sceneEmitterIndex = particleEmitterToSceneEmitter_[static_cast<std::size_t>(emitterIndex)];
+	if (sceneEmitterIndex < 0 || static_cast<std::size_t>(sceneEmitterIndex) >= scene.particleEmitters.size())
+	{
+		return nullptr;
+	}
+	return &scene.particleEmitters[static_cast<std::size_t>(sceneEmitterIndex)];
+}
+
+void RebuildParticleEmitters(Scene& scene, const LevelAsset& asset)
+{
+	scene.particles.clear();
+	scene.particleEmitters.clear();
+	particleEmitterToSceneEmitter_.clear();
+	particleEmitterToSceneEmitter_.reserve(asset.particleEmitters.size());
+
+	for (const ParticleEmitter& authoringEmitter : asset.particleEmitters)
+	{
+		ParticleEmitter runtimeEmitter = authoringEmitter;
+		runtimeEmitter.elapsed = 0.0f;
+		runtimeEmitter.spawnAccumulator = 0.0f;
+		runtimeEmitter.spawnSequence = 0u;
+		runtimeEmitter.burstDone = false;
+		scene.AddParticleEmitter(runtimeEmitter);
+		particleEmitterToSceneEmitter_.push_back(static_cast<int>(scene.particleEmitters.size() - 1));
+	}
+}
+
+void RestartParticleEmitter(LevelAsset& asset, Scene& scene, int emitterIndex)
+{
+	if (!IsValidParticleEmitterIndex(asset, emitterIndex))
+	{
+		return;
+	}
+
+	ParticleEmitter* runtimeEmitter = GetRuntimeParticleEmitter(scene, emitterIndex);
+	if (!runtimeEmitter)
+	{
+		RebuildParticleEmitters(scene, asset);
+		return;
+	}
+
+	const int sceneEmitterIndex = particleEmitterToSceneEmitter_[static_cast<std::size_t>(emitterIndex)];
+	scene.particles.erase(
+		std::remove_if(scene.particles.begin(), scene.particles.end(), [sceneEmitterIndex](const Particle& particle)
+			{
+				return particle.ownerEmitter == sceneEmitterIndex;
+			}),
+		scene.particles.end());
+
+	*runtimeEmitter = asset.particleEmitters[static_cast<std::size_t>(emitterIndex)];
+	runtimeEmitter->elapsed = 0.0f;
+	runtimeEmitter->spawnAccumulator = 0.0f;
+	runtimeEmitter->spawnSequence = 0u;
+	runtimeEmitter->burstDone = false;
+}
+
+void RestartAllParticleEmitters(LevelAsset& asset, Scene& scene)
+{
+	RebuildParticleEmitters(scene, asset);
+}
+
+int AddParticleEmitter(LevelAsset& asset, Scene& scene, const ParticleEmitter& emitter)
+{
+	asset.particleEmitters.push_back(emitter);
+	RebuildParticleEmitters(scene, asset);
+	return static_cast<int>(asset.particleEmitters.size() - 1);
+}
+
+void DeleteParticleEmitter(LevelAsset& asset, Scene& scene, int emitterIndex)
+{
+	if (!IsValidParticleEmitterIndex(asset, emitterIndex))
+	{
+		return;
+	}
+
+	asset.particleEmitters.erase(asset.particleEmitters.begin() + static_cast<std::vector<ParticleEmitter>::difference_type>(emitterIndex));
+	RebuildParticleEmitters(scene, asset);
+}
+
+void TriggerParticleEmitterBurst(LevelAsset& asset, Scene& scene, int emitterIndex)
+{
+	if (!IsValidParticleEmitterIndex(asset, emitterIndex))
+	{
+		return;
+	}
+
+	ParticleEmitter* runtimeEmitter = GetRuntimeParticleEmitter(scene, emitterIndex);
+	if (!runtimeEmitter)
+	{
+		RebuildParticleEmitters(scene, asset);
+		runtimeEmitter = GetRuntimeParticleEmitter(scene, emitterIndex);
+		if (!runtimeEmitter)
+		{
+			return;
+		}
+	}
+
+	const int sceneEmitterIndex = particleEmitterToSceneEmitter_[static_cast<std::size_t>(emitterIndex)];
+	std::uint32_t aliveCount = 0u;
+	for (const Particle& particle : scene.particles)
+	{
+		if (particle.alive && particle.ownerEmitter == sceneEmitterIndex)
+		{
+			++aliveCount;
+		}
+	}
+
+	std::uint32_t spawnCount = std::max(1u, runtimeEmitter->burstCount);
+	if (runtimeEmitter->maxParticles > 0u && aliveCount + spawnCount > runtimeEmitter->maxParticles)
+	{
+		spawnCount = runtimeEmitter->maxParticles > aliveCount ? (runtimeEmitter->maxParticles - aliveCount) : 0u;
+	}
+
+	for (std::uint32_t i = 0; i < spawnCount; ++i)
+	{
+		scene.EmitParticleFromEmitter(sceneEmitterIndex, *runtimeEmitter);
+	}
+	runtimeEmitter->burstDone = true;
+}
+
+std::size_t GetParticleEmitterCount() const noexcept
+{
+	return particleEmitterToSceneEmitter_.size();
+}
+
 // Create a new node and (optionally) spawn a DrawItem.
 // Returns the new node index.
 int AddNode(LevelAsset& asset,
@@ -276,6 +427,10 @@ void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noex
 	SanitizeNodeIndex(scene.editorSelectedNode);
 	SanitizeNodeIndex(scene.editorReflectionCaptureOwnerNode);
 	SanitizeSelectedNodes();
+	if (!IsValidParticleEmitterIndex(asset, scene.editorSelectedParticleEmitter))
+	{
+		scene.editorSelectedParticleEmitter = -1;
+	}
 
 	// Keep primary selection consistent with the selection set.
 	if (scene.editorSelectedNode >= 0)

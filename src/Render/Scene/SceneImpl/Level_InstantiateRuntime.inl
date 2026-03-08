@@ -16,10 +16,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 	}
 
 	// Particle emitters
-	for (const auto& e : asset.particleEmitters)
-	{
-		scene.AddParticleEmitter(e);
-	}
+	inst.RebuildParticleEmitters(scene, asset);
 
 	// Textures: request loads (descriptor indices are resolved later)
 	for (const auto& [id, td] : asset.textures)

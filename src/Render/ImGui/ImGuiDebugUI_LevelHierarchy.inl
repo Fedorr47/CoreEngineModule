@@ -43,6 +43,7 @@ namespace rendern::ui::level_ui_detail
                         scene.EditorSetSelectionSingle(idx);
                     }
                     st.selectedNode = scene.editorSelectedNode;
+                    st.selectedParticleEmitter = -1;
                 }
 
                 if (open)
@@ -55,6 +56,30 @@ namespace rendern::ui::level_ui_detail
 
         for (int r : derived.roots)
             drawNode(drawNode, r);
+
+        ImGui::SeparatorText("Particle Emitters");
+        for (std::size_t i = 0; i < level.particleEmitters.size(); ++i)
+        {
+            const rendern::ParticleEmitter& emitter = level.particleEmitters[i];
+            char label[256]{};
+            const char* name = emitter.name.empty() ? "<unnamed emitter>" : emitter.name.c_str();
+            std::snprintf(label, sizeof(label), "%d: %s%s", static_cast<int>(i), name, emitter.enabled ? "" : "  [disabled]");
+
+            if (ImGui::Selectable(label, scene.EditorIsParticleEmitterSelected(static_cast<int>(i))))
+            {
+                const bool ctrlDown = ImGui::GetIO().KeyCtrl;
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionParticleEmitter(static_cast<int>(i));
+                }
+                else
+                {
+                    scene.EditorSetSelectionSingleParticleEmitter(static_cast<int>(i));
+                }
+                st.selectedNode = -1;
+                st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+            }
+        }
 
         ImGui::EndChild();
     }

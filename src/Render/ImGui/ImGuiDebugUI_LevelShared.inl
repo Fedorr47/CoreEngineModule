@@ -4,6 +4,8 @@ namespace rendern::ui::level_ui_detail
     {
         int selectedNode = -1;
         int prevSelectedNode = -2;
+        int selectedParticleEmitter = -1;
+        int prevSelectedParticleEmitter = -2;
         bool addAsChildOfSelection = false;
 
         char nameBuf[128]{};
@@ -35,6 +37,11 @@ namespace rendern::ui::level_ui_detail
             return false;
         const std::size_t i = static_cast<std::size_t>(idx);
         return i < level.nodes.size() && level.nodes[i].alive;
+    }
+
+    static bool ParticleEmitterAlive(const rendern::LevelAsset& level, int idx)
+    {
+        return idx >= 0 && static_cast<std::size_t>(idx) < level.particleEmitters.size();
     }
 
     static void SyncSavePathWithSource(rendern::LevelAsset& level, LevelEditorUIState& st)

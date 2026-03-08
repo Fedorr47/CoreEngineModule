@@ -101,6 +101,7 @@ export namespace rendern
 		float lifetime{ 1.0f };
 		float age{ 0.0f };
 		float rotationRad{ 0.0f };
+		int ownerEmitter{ -1 };
 		bool alive{ true };
 	};
 
@@ -120,6 +121,7 @@ export namespace rendern
 		float lifetimeMax{ 1.4f };
 		float spawnRate{ 16.0f };
 		std::uint32_t burstCount{ 0u };
+		std::uint32_t maxParticles{ 128u };
 		float duration{ 0.0f };
 		float startDelay{ 0.0f };
 
@@ -343,6 +345,9 @@ export namespace rendern
 		// Editor selection (runtime-only). Index into Scene::drawItems (or -1).
 		int editorSelectedDrawItem{ -1 };
 
+		// Particle emitter selection (runtime-only). Index into LevelAsset::particleEmitters.
+		int editorSelectedParticleEmitter{ -1 };
+
 		// Multi-selection (runtime-only). Indices into Scene::drawItems.
 		std::vector<int> editorSelectedDrawItems;
 
@@ -375,6 +380,7 @@ export namespace rendern
 			editorSelectedNode = -1;
 			editorSelectedNodes.clear();
 			editorSelectedDrawItem = -1;
+			editorSelectedParticleEmitter = -1;
 			editorSelectedDrawItems.clear();
 			editorReflectionCaptureOwnerNode = -1;
 			editorReflectionCaptureOwnerDrawItem = -1;
@@ -390,6 +396,7 @@ export namespace rendern
 			editorSelectedNode = -1;
 			editorSelectedNodes.clear();
 			editorSelectedDrawItem = -1;
+			editorSelectedParticleEmitter = -1;
 			editorSelectedDrawItems.clear();
 		}
 
@@ -414,6 +421,36 @@ export namespace rendern
 				editorSelectedNode = nodeIndex;
 				editorSelectedNodes.push_back(nodeIndex);
 			}
+		}
+
+		bool EditorIsParticleEmitterSelected(int emitterIndex) const noexcept
+		{
+			return editorSelectedParticleEmitter == emitterIndex;
+		}
+
+		void EditorSetSelectionSingleParticleEmitter(int emitterIndex) noexcept
+		{
+			EditorClearSelection();
+			if (emitterIndex >= 0)
+			{
+				editorSelectedParticleEmitter = emitterIndex;
+			}
+		}
+
+		void EditorToggleSelectionParticleEmitter(int emitterIndex) noexcept
+		{
+			if (emitterIndex < 0)
+			{
+				return;
+			}
+
+			if (editorSelectedParticleEmitter == emitterIndex)
+			{
+				EditorClearSelection();
+				return;
+			}
+
+			EditorSetSelectionSingleParticleEmitter(emitterIndex);
 		}
 
 		// Toggle node in the selection set. Updates primary selection.
@@ -489,7 +526,7 @@ export namespace rendern
 			return particleEmitters.back();
 		}
 
-		void EmitParticleFromEmitter(ParticleEmitter& emitter)
+		void EmitParticleFromEmitter(int emitterIndex, ParticleEmitter& emitter)
 		{
 			std::uint32_t rng = (emitter.spawnSequence++ + 1u) * 747796405u + 2891336453u;
 
@@ -511,6 +548,7 @@ export namespace rendern
 			particle.lifetime = detail::ParticleRandRange(rng, emitter.lifetimeMin, emitter.lifetimeMax);
 			particle.age = 0.0f;
 			particle.rotationRad = detail::ParticleRandRange(rng, 0.0f, 6.28318530718f);
+			particle.ownerEmitter = emitterIndex;
 			particle.alive = true;
 
 			particles.push_back(particle);
@@ -518,21 +556,42 @@ export namespace rendern
 
 		void UpdateParticles(float dt)
 		{
-			for (ParticleEmitter& emitter : particleEmitters)
+			auto CountAliveParticlesForEmitter = [&](int emitterIndex) noexcept -> std::uint32_t
+				{
+					std::uint32_t count = 0u;
+					for (const Particle& particle : particles)
+					{
+						if (particle.alive && particle.ownerEmitter == emitterIndex)
+						{
+							++count;
+						}
+					}
+					return count;
+				};
+
+			for (std::size_t emitterIndex = 0; emitterIndex < particleEmitters.size(); ++emitterIndex)
 			{
+				ParticleEmitter& emitter = particleEmitters[emitterIndex];
 				if (!emitter.enabled)
 				{
 					continue;
 				}
 
+				std::uint32_t aliveCount = CountAliveParticlesForEmitter(static_cast<int>(emitterIndex));
 				const float previousElapsed = emitter.elapsed;
 				emitter.elapsed += dt;
 
 				if (!emitter.burstDone && emitter.burstCount > 0u && previousElapsed <= emitter.startDelay && emitter.elapsed >= emitter.startDelay)
 				{
-					for (std::uint32_t i = 0; i < emitter.burstCount; ++i)
+					std::uint32_t burstToSpawn = emitter.burstCount;
+					if (emitter.maxParticles > 0u && aliveCount + burstToSpawn > emitter.maxParticles)
 					{
-						EmitParticleFromEmitter(emitter);
+						burstToSpawn = emitter.maxParticles > aliveCount ? (emitter.maxParticles - aliveCount) : 0u;
+					}
+					for (std::uint32_t i = 0; i < burstToSpawn; ++i)
+					{
+						EmitParticleFromEmitter(static_cast<int>(emitterIndex), emitter);
+						++aliveCount;
 					}
 					emitter.burstDone = true;
 				}
@@ -552,8 +611,14 @@ export namespace rendern
 					emitter.spawnAccumulator += dt * emitter.spawnRate;
 					while (emitter.spawnAccumulator >= 1.0f)
 					{
+						if (emitter.maxParticles > 0u && aliveCount >= emitter.maxParticles)
+						{
+							emitter.spawnAccumulator = std::min(emitter.spawnAccumulator, 1.0f);
+							break;
+						}
 						emitter.spawnAccumulator -= 1.0f;
-						EmitParticleFromEmitter(emitter);
+						EmitParticleFromEmitter(static_cast<int>(emitterIndex), emitter);
+						++aliveCount;
 					}
 				}
 			}
@@ -593,6 +658,39 @@ export namespace rendern
 
 		std::span<const Particle> GetParticles() const { return particles; }
 		std::span<Particle> GetParticles() { return particles; }
+
+		void RestartParticleEmitter(int emitterIndex)
+		{
+			if (emitterIndex < 0 || static_cast<std::size_t>(emitterIndex) >= particleEmitters.size())
+			{
+				return;
+			}
+
+			particles.erase(
+				std::remove_if(particles.begin(), particles.end(), [emitterIndex](const Particle& particle)
+					{
+						return particle.ownerEmitter == emitterIndex;
+					}),
+				particles.end());
+
+			ParticleEmitter& emitter = particleEmitters[static_cast<std::size_t>(emitterIndex)];
+			emitter.elapsed = 0.0f;
+			emitter.spawnAccumulator = 0.0f;
+			emitter.spawnSequence = 0u;
+			emitter.burstDone = false;
+		}
+
+		void RestartAllParticleEmitters()
+		{
+			particles.clear();
+			for (ParticleEmitter& emitter : particleEmitters)
+			{
+				emitter.elapsed = 0.0f;
+				emitter.spawnAccumulator = 0.0f;
+				emitter.spawnSequence = 0u;
+				emitter.burstDone = false;
+			}
+		}
 
 		std::span<const ParticleEmitter> GetParticleEmitters() const { return particleEmitters; }
 		std::span<ParticleEmitter> GetParticleEmitters() { return particleEmitters; }

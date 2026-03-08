@@ -322,7 +322,7 @@ namespace appEditor
         {
             const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
 
-            const rendern::PickResult pick = rendern::PickNodeUnderScreenPoint(
+            const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(
                 scene,
                 levelInstance,
                 mouseXF,
@@ -333,7 +333,7 @@ namespace appEditor
             scene.debugPickRay.enabled = true;
             scene.debugPickRay.origin = pick.rayOrigin;
             scene.debugPickRay.direction = pick.rayDir;
-            scene.debugPickRay.hit = (pick.nodeIndex >= 0) && std::isfinite(pick.t);
+            scene.debugPickRay.hit = ((pick.nodeIndex >= 0) || (pick.particleEmitterIndex >= 0)) && std::isfinite(pick.t);
             scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
 
             if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
@@ -345,6 +345,17 @@ namespace appEditor
                 else
                 {
                     scene.EditorSetSelectionSingle(pick.nodeIndex);
+                }
+            }
+            else if (scene.debugPickRay.hit && levelInstance.IsValidParticleEmitterIndex(levelAsset, pick.particleEmitterIndex))
+            {
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionParticleEmitter(pick.particleEmitterIndex);
+                }
+                else
+                {
+                    scene.EditorSetSelectionSingleParticleEmitter(pick.particleEmitterIndex);
                 }
             }
             else
