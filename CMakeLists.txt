@@ -342,6 +342,7 @@ set(COMMON_MODULES
 
   Render/Model/ObjLoader.cppm
   Render/Model/AssimpLoader.cppm
+  Render/Model/AssimpSceneLoader.cppm
   Render/Model/Mesh/Mesh.cppm
 
   Render/Decoders/TextureDecoderSTB.cppm
@@ -441,28 +442,6 @@ add_custom_command(TARGET app POST_BUILD
           "${CMAKE_SOURCE_DIR}/assets"
           "$<TARGET_FILE_DIR:app>/assets"
 )
-
-add_custom_command(TARGET app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:assimp::assimp>
-        $<TARGET_FILE_DIR:app>)
-
-# DX12-only deps
-if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
-set(COREENGINE_SM6_DLL_DIR "${CMAKE_SOURCE_DIR}/dlls")
-
-add_custom_command(TARGET app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:app>
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${COREENGINE_SM6_DLL_DIR}"
-        $<TARGET_FILE_DIR:app>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:assimp::assimp>
-        $<TARGET_FILE_DIR:app>
-    COMMENT "Copying sm6 DLLs and Assimp to output directory"
-)
-endif()
 
 target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)

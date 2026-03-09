@@ -29,12 +29,38 @@
 				def.path = GetStringOpt(md, "path");
 				def.debugName = GetStringOpt(md, "debugName");
 				def.flipUVs = GetBoolOpt(md, "flipUVs", true);
-				def.mergeSubmeshes = GetBoolOpt(md, "mergeSubmeshes", true);
+				if (auto* submeshV = TryGet(md, "submeshIndex"))
+				{
+					if (!submeshV->IsNumber())
+					{
+						throw std::runtime_error("Level JSON: meshes." + id + ".submeshIndex must be number");
+					}
+					def.submeshIndex = static_cast<std::uint32_t>(submeshV->AsNumber());
+				}
 				if (def.path.empty())
 				{
 					throw std::runtime_error("Level JSON: meshes." + id + ".path is required");
 				}
 				out.meshes.emplace(id, std::move(def));
+			}
+		}
+
+		// --- models ---
+		if (auto* modelsV = TryGet(jsonObject, "models"))
+		{
+			const JsonObject& modelsO = modelsV->AsObject();
+			for (const auto& [id, defV] : modelsO)
+			{
+				const JsonObject& md = defV.AsObject();
+				LevelModelDef def;
+				def.path = GetStringOpt(md, "path");
+				def.debugName = GetStringOpt(md, "debugName");
+				def.flipUVs = GetBoolOpt(md, "flipUVs", true);
+				if (def.path.empty())
+				{
+					throw std::runtime_error("Level JSON: models." + id + ".path is required");
+				}
+				out.models.emplace(id, std::move(def));
 			}
 		}
 
@@ -382,7 +408,31 @@
 					n.alive = !delV->AsBool();
 				}
 				n.mesh = GetStringOpt(nd, "mesh");
+				n.model = GetStringOpt(nd, "model");
 				n.material = GetStringOpt(nd, "material");
+				if (auto* overridesV = TryGet(nd, "materialOverrides"))
+				{
+					if (!overridesV->IsObject())
+					{
+						throw std::runtime_error("Level JSON: node.materialOverrides must be object");
+					}
+					for (const auto& [submeshKey, materialValue] : overridesV->AsObject())
+					{
+						if (!materialValue.IsString())
+						{
+							throw std::runtime_error("Level JSON: node.materialOverrides values must be strings");
+						}
+
+						char* end = nullptr;
+						const unsigned long parsed = std::strtoul(submeshKey.c_str(), &end, 10);
+						if (end == submeshKey.c_str() || *end != '\0')
+						{
+							throw std::runtime_error("Level JSON: node.materialOverrides keys must be unsigned integers");
+						}
+
+						n.materialOverrides.emplace(static_cast<std::uint32_t>(parsed), materialValue.AsString());
+					}
+				}
 
 				if (auto* trV = TryGet(nd, "transform"))
 				{

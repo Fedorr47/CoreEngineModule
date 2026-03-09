@@ -18,14 +18,13 @@ module;
 
 export module core:imgui_debug_ui;
 
-import std;
-
 import :scene;
 import :renderer_settings;
 import :camera_controller;
 import :math_utils;
 import :level;
 import :asset_manager;
+import :assimp_scene_loader;
 
 export namespace rendern::ui
 {

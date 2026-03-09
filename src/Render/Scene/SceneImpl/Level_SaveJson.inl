@@ -54,9 +54,35 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 			{
 				ss << ", \"flipUVs\": false";
 			}
-			if (!md.mergeSubmeshes)
+			if (md.submeshIndex)
 			{
-				ss << ", \"mergeSubmeshes\": false";
+				ss << ", \"submeshIndex\": " << *md.submeshIndex;
+			}
+			ss << "}";
+		}
+		if (!keys.empty()) ss << "\n  ";
+	}
+	ss << "},\n";
+
+	// models
+	ss << "  \"models\": {";
+	{
+		auto keys = SortedStringKeys(level.models);
+		for (std::size_t i = 0; i < keys.size(); ++i)
+		{
+			const auto& id = keys[i];
+			const LevelModelDef& md = level.models.at(id);
+			if (i == 0) ss << "\n"; else ss << ",\n";
+			ss << "    ";
+			WriteJsonEscaped(ss, id);
+			ss << ": {\"path\": ";
+			WriteJsonEscaped(ss, md.path);
+			ss << ", \"flipUVs\": ";
+			WriteJsonBool(ss, md.flipUVs);
+			if (!md.debugName.empty())
+			{
+				ss << ", \"debugName\": ";
+				WriteJsonEscaped(ss, md.debugName);
 			}
 			ss << "}";
 		}
@@ -350,6 +376,11 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 		ss << ", \"visible\": ";
 		WriteJsonBool(ss, n.visible);
 
+		if (!n.model.empty())
+		{
+			ss << ", \"model\": ";
+			WriteJsonEscaped(ss, n.model);
+		}
 		if (!n.mesh.empty())
 		{
 			ss << ", \"mesh\": ";
@@ -360,7 +391,20 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 			ss << ", \"material\": ";
 			WriteJsonEscaped(ss, n.material);
 		}
-
+		if (!n.materialOverrides.empty())
+		{
+			ss << ", \"materialOverrides\": {";
+			bool firstOverride = true;
+			for (const auto& [submeshIndex, materialId] : n.materialOverrides)
+			{
+				if (!firstOverride) ss << ", ";
+				WriteJsonEscaped(ss, std::to_string(submeshIndex));
+				ss << ": ";
+				WriteJsonEscaped(ss, materialId);
+				firstOverride = false;
+			}
+			ss << "}";
+		}
 		ss << ", \"transform\": {";
 		if (n.transform.useMatrix)
 		{

@@ -5,11 +5,15 @@ struct LevelMeshDef
 {
 	std::string path;
 	std::string debugName;
-
-	// Import hints for mesh loaders that support richer formats (FBX/GLTF/...).
-	// OBJ ignores these safely.
 	bool flipUVs{ true };
-	bool mergeSubmeshes{ true };
+	std::optional<std::uint32_t> submeshIndex{};
+};
+
+struct LevelModelDef
+{
+	std::string path;
+	std::string debugName;
+	bool flipUVs{ true };
 };
 
 enum class LevelTextureKind : std::uint8_t
@@ -54,7 +58,9 @@ struct LevelNode
 	Transform transform{};
 
 	std::string mesh;     // meshId
-	std::string material; // materialId
+	std::string model;    // modelId (multi-draw runtime)
+	std::string material; // default materialId
+	std::unordered_map<std::uint32_t, std::string> materialOverrides; // submeshIndex -> materialId
 };
 
 struct LevelAsset
@@ -65,6 +71,7 @@ struct LevelAsset
 	std::string sourcePath;
 
 	std::unordered_map<std::string, LevelMeshDef> meshes;
+	std::unordered_map<std::string, LevelModelDef> models;
 	std::unordered_map<std::string, LevelTextureDef> textures;
 	std::unordered_map<std::string, LevelMaterialDef> materials;
 

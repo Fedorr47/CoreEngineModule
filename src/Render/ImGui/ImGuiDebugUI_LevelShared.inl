@@ -7,6 +7,8 @@ namespace rendern::ui::level_ui_detail
         int selectedParticleEmitter = -1;
         int prevSelectedParticleEmitter = -2;
         bool addAsChildOfSelection = false;
+        bool importFlipUVs = true;
+        bool importSceneCreateMaterialPlaceholders = true;
 
         char nameBuf[128]{};
         char importPathBuf[512]{};
@@ -22,6 +24,7 @@ namespace rendern::ui::level_ui_detail
         std::vector<std::vector<int>> children;
         std::vector<int> roots;
         std::vector<std::string> meshIds;
+        std::vector<std::string> modelIds;
         std::vector<std::string> materialIds;
     };
 
@@ -81,6 +84,11 @@ namespace rendern::ui::level_ui_detail
         for (const auto& [id, _] : level.meshes) out.meshIds.push_back(id);
         std::sort(out.meshIds.begin(), out.meshIds.end());
 
+        out.modelIds.clear();
+        out.modelIds.reserve(level.models.size());
+        for (const auto& [id, _] : level.models) out.modelIds.push_back(id);
+        std::sort(out.modelIds.begin(), out.modelIds.end());
+
         out.materialIds.clear();
         out.materialIds.reserve(level.materials.size());
         for (const auto& [id, _] : level.materials) out.materialIds.push_back(id);
@@ -114,6 +122,24 @@ namespace rendern::ui::level_ui_detail
         {
             std::string tryId = id + "_" + std::to_string(suffix);
             if (!level.meshes.contains(tryId))
+                return tryId;
+        }
+        return id + "_x";
+    }
+
+    static std::string MakeUniqueModelId(const rendern::LevelAsset& level, std::string base)
+    {
+        std::string id = SanitizeId(std::move(base));
+        if (id.empty())
+            id = "model";
+
+        if (!level.models.contains(id))
+            return id;
+
+        for (int suffix = 2; suffix < 10000; ++suffix)
+        {
+            std::string tryId = id + "_" + std::to_string(suffix);
+            if (!level.models.contains(tryId))
                 return tryId;
         }
         return id + "_x";

@@ -174,6 +174,8 @@ namespace rendern::ui::level_ui_detail
 
         ImGui::Spacing();
         ImGui::InputText("OBJ path", st.importPathBuf, sizeof(st.importPathBuf));
+        ImGui::InputText("Asset path", st.importPathBuf, sizeof(st.importPathBuf));
+        ImGui::Checkbox("Flip UVs on import", &st.importFlipUVs);
 
         if (ImGui::Button("Import mesh into library"))
         {
@@ -189,6 +191,7 @@ namespace rendern::ui::level_ui_detail
                 rendern::LevelMeshDef def{};
                 def.path = pathStr;
                 def.debugName = meshId;
+                def.flipUVs = st.importFlipUVs;
                 level.meshes.emplace(meshId, std::move(def));
 
                 try
@@ -196,6 +199,7 @@ namespace rendern::ui::level_ui_detail
                     rendern::MeshProperties p{};
                     p.filePath = pathStr;
                     p.debugName = meshId;
+                    p.flipUVs = st.importFlipUVs;
                     assets.LoadMeshAsync(meshId, std::move(p));
                 }
                 catch (...)
@@ -220,12 +224,92 @@ namespace rendern::ui::level_ui_detail
                     rendern::LevelMeshDef def{};
                     def.path = pathStr;
                     def.debugName = meshId;
+                    def.flipUVs = st.importFlipUVs;
                     level.meshes.emplace(meshId, std::move(def));
                 }
 
                 const int newIdx = levelInst.AddNode(level, scene, assets, meshId, "", parentForNew, ComputeSpawnTransform(scene, camCtl), meshId);
                 st.selectedNode = newIdx;
                 st.selectedParticleEmitter = -1;
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::SeparatorText("Model / Scene Import");
+        ImGui::Checkbox("Create placeholder materials on scene import", &st.importSceneCreateMaterialPlaceholders);
+
+        if (ImGui::Button("Import model into library"))
+        {
+            const std::string pathStr = std::string(st.importPathBuf);
+            if (!pathStr.empty())
+            {
+                std::string base = std::filesystem::path(pathStr).stem().string();
+                if (base.empty())
+                    base = "model";
+
+                const std::string modelId = MakeUniqueModelId(level, base);
+                rendern::LevelModelDef def{};
+                def.path = pathStr;
+                def.debugName = modelId;
+                def.flipUVs = st.importFlipUVs;
+                level.models.emplace(modelId, std::move(def));
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Create model object"))
+        {
+            const std::string pathStr = std::string(st.importPathBuf);
+            if (!pathStr.empty())
+            {
+                std::string base = std::filesystem::path(pathStr).stem().string();
+                if (base.empty())
+                    base = "model";
+
+                const std::string modelId = level.models.contains(base) ? base : MakeUniqueModelId(level, base);
+                if (!level.models.contains(modelId))
+                {
+                    rendern::LevelModelDef def{};
+                    def.path = pathStr;
+                    def.debugName = modelId;
+                    def.flipUVs = st.importFlipUVs;
+                    level.models.emplace(modelId, std::move(def));
+                }
+
+                const int newIdx = levelInst.AddNode(level, scene, assets, "", "", parentForNew, ComputeSpawnTransform(scene, camCtl), modelId);
+                levelInst.SetNodeModel(level, scene, assets, newIdx, modelId);
+                st.selectedNode = newIdx;
+                st.selectedParticleEmitter = -1;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Import model scene as nodes"))
+        {
+            const std::string pathStr = std::string(st.importPathBuf);
+            if (!pathStr.empty())
+            {
+                std::string base = std::filesystem::path(pathStr).stem().string();
+                if (base.empty())
+                    base = "model";
+
+                const std::string modelId = level.models.contains(base) ? base : MakeUniqueModelId(level, base);
+                if (!level.models.contains(modelId))
+                {
+                    rendern::LevelModelDef def{};
+                    def.path = pathStr;
+                    def.debugName = modelId;
+                    def.flipUVs = st.importFlipUVs;
+                    level.models.emplace(modelId, std::move(def));
+                }
+
+                try
+                {
+                    const int firstIdx = levelInst.ImportModelSceneAsNodes(level, scene, assets, modelId, parentForNew, st.importSceneCreateMaterialPlaceholders);
+                    st.selectedNode = firstIdx;
+                    st.selectedParticleEmitter = -1;
+                }
+                catch (...)
+                {
+                }
             }
         }
     }
@@ -287,6 +371,99 @@ namespace rendern::ui::level_ui_detail
                     levelInst.SetNodeMesh(level, scene, assets, st.selectedNode, "");
                 else
                     levelInst.SetNodeMesh(level, scene, assets, st.selectedNode, items[static_cast<std::size_t>(current)]);
+            }
+        }
+
+        {
+            std::vector<std::string> items;
+            items.reserve(derived.modelIds.size() + 2);
+            items.push_back("(none)");
+            for (const auto& id : derived.modelIds) items.push_back(id);
+
+            if (!node.model.empty() && !level.models.contains(node.model))
+                items.push_back(std::string("<missing> ") + node.model);
+
+            int current = 0;
+            if (!node.model.empty())
+            {
+                for (std::size_t i = 1; i < items.size(); ++i)
+                {
+                    if (items[i] == node.model)
+                    {
+                        current = static_cast<int>(i);
+                        break;
+                    }
+                }
+            }
+
+            std::vector<const char*> citems;
+            citems.reserve(items.size());
+            for (auto& s : items) citems.push_back(s.c_str());
+
+            if (ImGui::Combo("Model", &current, citems.data(), static_cast<int>(citems.size())))
+            {
+                if (current == 0)
+                    levelInst.SetNodeModel(level, scene, assets, st.selectedNode, "");
+                else
+                    levelInst.SetNodeModel(level, scene, assets, st.selectedNode, items[static_cast<std::size_t>(current)]);
+            }
+        }
+
+        {
+            const bool isModelNode = !node.model.empty();
+            ImGui::TextDisabled("Node kind: %s", isModelNode ? "Model" : (!node.mesh.empty() ? "Mesh" : "Empty"));
+            if (isModelNode)
+            {
+                auto itModel = level.models.find(node.model);
+                if (itModel != level.models.end())
+                {
+                    ImGui::TextDisabled("Model path: %s", itModel->second.path.c_str());
+                    try
+                    {
+                        const rendern::ImportedModelScene meta = rendern::LoadAssimpScene(itModel->second.path, itModel->second.flipUVs);
+                        ImGui::TextDisabled("Submeshes: %d", static_cast<int>(meta.submeshes.size()));
+                        ImGui::SeparatorText("Material Overrides");
+                        for (const rendern::ImportedSubmeshInfo& sub : meta.submeshes)
+                        {
+                            std::vector<std::string> overrideItems;
+                            overrideItems.reserve(derived.materialIds.size() + 2);
+                            overrideItems.push_back("(default)");
+                            for (const auto& id : derived.materialIds) overrideItems.push_back(id);
+
+                            int overrideCurrent = 0;
+                            if (auto itOv = node.materialOverrides.find(sub.submeshIndex); itOv != node.materialOverrides.end())
+                            {
+                                for (std::size_t oi = 1; oi < overrideItems.size(); ++oi)
+                                {
+                                    if (overrideItems[oi] == itOv->second)
+                                    {
+                                        overrideCurrent = static_cast<int>(oi);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            std::vector<const char*> overrideCItems;
+                            overrideCItems.reserve(overrideItems.size());
+                            for (auto& s : overrideItems) overrideCItems.push_back(s.c_str());
+
+                            const std::string label = "Submesh " + std::to_string(sub.submeshIndex) + "##mat_override" + std::to_string(sub.submeshIndex);
+                            if (ImGui::Combo(label.c_str(), &overrideCurrent, overrideCItems.data(), static_cast<int>(overrideCItems.size())))
+                            {
+                                if (overrideCurrent == 0)
+                                    levelInst.SetNodeMaterialOverride(level, scene, assets, st.selectedNode, sub.submeshIndex, "");
+                                else
+                                    levelInst.SetNodeMaterialOverride(level, scene, assets, st.selectedNode, sub.submeshIndex, overrideItems[static_cast<std::size_t>(overrideCurrent)]);
+                            }
+                            ImGui::SameLine();
+                            ImGui::TextDisabled("%s", sub.name.c_str());
+                        }
+                    }
+                    catch (...)
+                    {
+                        ImGui::TextDisabled("Failed to read model metadata.");
+                    }
+                }
             }
         }
 
@@ -393,6 +570,14 @@ namespace rendern::ui::level_ui_detail
             t.position.x += 1.0f;
 
             const int newIdx = levelInst.AddNode(level, scene, assets, node.mesh, node.material, node.parent, t, node.name);
+            if (!node.model.empty())
+            {
+                levelInst.SetNodeModel(level, scene, assets, newIdx, node.model);
+                for (const auto& [submeshIndex, materialId] : node.materialOverrides)
+                {
+                    levelInst.SetNodeMaterialOverride(level, scene, assets, newIdx, submeshIndex, materialId);
+                }
+            }
             st.selectedNode = newIdx;
             st.selectedParticleEmitter = -1;
         }

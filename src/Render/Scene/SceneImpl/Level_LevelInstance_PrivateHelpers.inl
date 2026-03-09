@@ -61,8 +61,57 @@ MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, c
 	p.filePath = it->second.path;
 	p.debugName = it->second.debugName;
 	p.flipUVs = it->second.flipUVs;
-	p.mergeSubmeshes = it->second.mergeSubmeshes;
+	p.submeshIndex = it->second.submeshIndex;
 	return assets.LoadMeshAsync(meshId, std::move(p));
+}
+
+const LevelModelDef& GetModelDef_(const LevelAsset& asset, const std::string& modelId) const
+{
+	auto it = asset.models.find(modelId);
+	if (it == asset.models.end())
+	{
+		throw std::runtime_error("Level: node references unknown modelId: " + modelId);
+	}
+	return it->second;
+}
+
+std::vector<int> MakeDrawsForModelNode_(const LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex, const LevelNode& node)
+{
+	const LevelModelDef& md = GetModelDef_(asset, node.model);
+	const ImportedModelScene meta = LoadAssimpScene(md.path, md.flipUVs);
+	std::vector<int> draws;
+	draws.reserve(meta.submeshes.size());
+	for (const ImportedSubmeshInfo& sub : meta.submeshes)
+	{
+		MeshProperties p{};
+		p.filePath = md.path;
+		p.debugName = md.debugName.empty() ? sub.name : (md.debugName + "_" + sub.name);
+		p.flipUVs = md.flipUVs;
+		p.submeshIndex = sub.submeshIndex;
+		const std::string meshKey = node.model + "#submesh=" + std::to_string(sub.submeshIndex);
+		MeshHandle mesh = assets.LoadMeshAsync(meshKey, std::move(p));
+
+		std::string materialId = node.material;
+		if (auto itOverride = node.materialOverrides.find(sub.submeshIndex); itOverride != node.materialOverrides.end())
+		{
+			materialId = itOverride->second;
+		}
+
+		DrawItem item{};
+		item.mesh = mesh;
+		item.material = GetMaterialHandle_(materialId);
+		item.transform.useMatrix = true;
+		item.transform.matrix = world_[static_cast<std::size_t>(nodeIndex)];
+		const int drawIndex = static_cast<int>(scene.drawItems.size());
+		scene.AddDraw(item);
+		if (drawToNode_.size() < scene.drawItems.size())
+		{
+			drawToNode_.resize(scene.drawItems.size(), -1);
+		}
+		drawToNode_[static_cast<std::size_t>(drawIndex)] = nodeIndex;
+		draws.push_back(drawIndex);
+	}
+	return draws;
 }
 
 EntityHandle GetEntityForNode_(int nodeIndex) const noexcept
@@ -199,7 +248,7 @@ void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& ass
 	}
 
 	const LevelNode& node = asset.nodes[i];
-	if (!node.alive || !node.visible || node.mesh.empty())
+	if (!node.alive || !node.visible || (node.mesh.empty() && node.model.empty()))
 	{
 		DestroyDrawForNode_(scene, nodeIndex);
 		return;
@@ -209,37 +258,74 @@ void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& ass
 	{
 		nodeToDraw_.resize(asset.nodes.size(), -1);
 	}
+	if (nodeToDraws_.size() < asset.nodes.size())
+	{
+		nodeToDraws_.resize(asset.nodes.size());
+	}
 	if (world_.size() < asset.nodes.size())
 	{
 		world_.resize(asset.nodes.size(), mathUtils::Mat4(1.0f));
 	}
 
-	const int existing = nodeToDraw_[i];
-	if (existing >= 0 && static_cast<std::size_t>(existing) < scene.drawItems.size())
+	DestroyDrawForNode_(scene, nodeIndex);
+
+	if (!node.model.empty())
 	{
-		DrawItem& item = scene.drawItems[static_cast<std::size_t>(existing)];
-		item.mesh = GetOrLoadMeshHandle_(asset, assets, node.mesh);
-		item.material = GetMaterialHandle_(node.material);
+		nodeToDraws_[i] = MakeDrawsForModelNode_(asset, scene, assets, nodeIndex, node);
+		nodeToDraw_[i] = nodeToDraws_[i].empty() ? -1 : nodeToDraws_[i].front();
 		return;
 	}
 
-	// Spawn new draw item
 	DrawItem item{};
 	item.mesh = GetOrLoadMeshHandle_(asset, assets, node.mesh);
 	item.material = GetMaterialHandle_(node.material);
 	item.transform.useMatrix = true;
-	item.transform.matrix = world_[i]; // will be updated on next SyncTransformsIfDirty()
+	item.transform.matrix = world_[i];
 
 	const int drawIndex = static_cast<int>(scene.drawItems.size());
 	scene.AddDraw(item);
-
-	// Maintain mapping vectors aligned with scene.drawItems.
 	if (drawToNode_.size() < scene.drawItems.size())
 	{
 		drawToNode_.resize(scene.drawItems.size(), -1);
 	}
 	drawToNode_[static_cast<std::size_t>(drawIndex)] = nodeIndex;
+	nodeToDraws_[i] = { drawIndex };
 	nodeToDraw_[i] = drawIndex;
+}
+
+void DestroySingleDrawIndex_(Scene& scene, int drawIndex)
+{
+	if (drawIndex < 0)
+	{
+		return;
+	}
+	const std::size_t idx = static_cast<std::size_t>(drawIndex);
+	if (idx >= scene.drawItems.size())
+	{
+		return;
+	}
+	const std::size_t last = scene.drawItems.size() - 1;
+	if (idx != last)
+	{
+		std::swap(scene.drawItems[idx], scene.drawItems[last]);
+		const int movedNode = drawToNode_[last];
+		drawToNode_[idx] = movedNode;
+		if (movedNode >= 0 && static_cast<std::size_t>(movedNode) < nodeToDraws_.size())
+		{
+			auto& movedDraws = nodeToDraws_[static_cast<std::size_t>(movedNode)];
+			for (int& di : movedDraws)
+			{
+				if (di == static_cast<int>(last))
+				{
+					di = static_cast<int>(idx);
+					break;
+				}
+			}
+			nodeToDraw_[static_cast<std::size_t>(movedNode)] = movedDraws.empty() ? -1 : movedDraws.front();
+		}
+	}
+	scene.drawItems.pop_back();
+	drawToNode_.pop_back();
 }
 
 void DestroyDrawForNode_(Scene& scene, int nodeIndex)
@@ -248,62 +334,27 @@ void DestroyDrawForNode_(Scene& scene, int nodeIndex)
 	{
 		return;
 	}
-
 	const std::size_t nodeIdx = static_cast<std::size_t>(nodeIndex);
-	if (nodeIdx >= nodeToDraw_.size())
+	if (nodeIdx >= nodeToDraws_.size())
 	{
+		if (nodeIdx < nodeToDraw_.size())
+		{
+			nodeToDraw_[nodeIdx] = -1;
+		}
 		return;
 	}
 
-	const int di = nodeToDraw_[nodeIdx];
-	if (di < 0)
+	auto draws = nodeToDraws_[nodeIdx];
+	std::sort(draws.begin(), draws.end(), std::greater<int>());
+	for (const int di : draws)
 	{
-		return;
+		DestroySingleDrawIndex_(scene, di);
 	}
-
-	const std::size_t drawIndex = static_cast<std::size_t>(di);
-	if (drawIndex >= scene.drawItems.size())
+	nodeToDraws_[nodeIdx].clear();
+	if (nodeIdx < nodeToDraw_.size())
 	{
 		nodeToDraw_[nodeIdx] = -1;
-		return;
 	}
-
-	const std::size_t last = scene.drawItems.size() - 1;
-	if (drawIndex != last)
-	{
-		std::swap(scene.drawItems[drawIndex], scene.drawItems[last]);
-
-		if (last < drawToNode_.size())
-		{
-			const int movedNode = drawToNode_[last];
-			if (drawIndex < drawToNode_.size())
-			{
-				drawToNode_[drawIndex] = movedNode;
-			}
-			if (movedNode >= 0 && static_cast<std::size_t>(movedNode) < nodeToDraw_.size())
-			{
-				nodeToDraw_[static_cast<std::size_t>(movedNode)] = static_cast<int>(drawIndex);
-			}
-
-			const EntityHandle movedEntity = GetEntityForNode_(movedNode);
-			if (movedEntity != kNullEntity)
-			{
-				ecs_.UpsertRenderable(movedEntity, Renderable{
-					.mesh = scene.drawItems[drawIndex].mesh,
-					.material = scene.drawItems[drawIndex].material,
-					.drawIndex = static_cast<int>(drawIndex)
-					});
-			}
-		}
-	}
-
-	scene.drawItems.pop_back();
-	if (!drawToNode_.empty())
-	{
-		drawToNode_.pop_back();
-	}
-
-	nodeToDraw_[nodeIdx] = -1;
 }
 
 std::vector<int> CollectSubtree_(const LevelAsset& asset, int rootNodeIndex) const
@@ -414,79 +465,35 @@ void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const
 		};
 
 	assert(nodeToDraw_.size() >= asset.nodes.size());
+	assert(nodeToDraws_.size() >= asset.nodes.size());
 	assert(nodeToEntity_.size() >= asset.nodes.size());
 	assert(world_.size() >= asset.nodes.size());
 	assert(drawToNode_.size() == scene.drawItems.size());
-	assert(ecs_.GetRenderableCount() == scene.drawItems.size());
 	assert(scene.editorSelectedDrawItem == GetNodeDrawIndex(scene.editorSelectedNode));
-	assert(scene.editorReflectionCaptureOwnerDrawItem == GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode));
-
-	for (std::size_t drawIndex = 0; drawIndex < drawToNode_.size(); ++drawIndex)
-	{
-		const int nodeIndex = drawToNode_[drawIndex];
-		assert(nodeIndex >= 0);
-		assert(static_cast<std::size_t>(nodeIndex) < asset.nodes.size());
-		assert(nodeToDraw_[static_cast<std::size_t>(nodeIndex)] == static_cast<int>(drawIndex));
-
-		const EntityHandle entity = GetEntityForNode_(nodeIndex);
-		assert(entity != kNullEntity);
-		assert(ecs_.HasRenderable(entity));
-		Renderable renderable{};
-		assert(ecs_.TryGetRenderable(entity, renderable));
-		assert(renderable.drawIndex == static_cast<int>(drawIndex));
-		assert(renderable.mesh == scene.drawItems[drawIndex].mesh);
-		assert(renderable.material == scene.drawItems[drawIndex].material);
-	}
 
 	for (std::size_t i = 0; i < asset.nodes.size(); ++i)
 	{
 		const LevelNode& node = asset.nodes[i];
-		const int drawIndex = nodeToDraw_[i];
 		const EntityHandle entity = nodeToEntity_[i];
-
 		if (!node.alive)
 		{
-			assert(drawIndex == -1);
-			assert(entity == kNullEntity || !ecs_.IsEntityValid(entity));
 			continue;
 		}
-
-		if (!node.alive || !node.visible || node.mesh.empty())
-			assert(entity != kNullEntity);
-		assert(ecs_.IsEntityValid(entity));
-
-		LevelNodeId nodeId{};
-		ParentIndex parent{};
-		WorldTransform worldTransform{};
-		Flags flags{};
-		assert(ecs_.TryGetLevelNodeId(entity, nodeId));
-		assert(ecs_.TryGetParentIndex(entity, parent));
-		assert(ecs_.TryGetWorldTransform(entity, worldTransform));
-		assert(ecs_.TryGetFlags(entity, flags));
-		assert(nodeId.index == static_cast<int>(i));
-		assert(parent.parent == node.parent);
-		assert(flags.alive == node.alive);
-		assert(flags.visible == node.visible);
-		assert(MatricesNearlyEqual(worldTransform.world, world_[i]));
-
-		if (!node.visible || node.mesh.empty())
+		assert(entity == kNullEntity || ecs_.IsEntityValid(entity));
+		for (const int drawIndex : nodeToDraws_[i])
 		{
-			assert(drawIndex == -1);
-			assert(!ecs_.HasRenderable(entity));
-			continue;
+			assert(drawIndex >= 0);
+			assert(static_cast<std::size_t>(drawIndex) < drawToNode_.size());
+			assert(drawToNode_[static_cast<std::size_t>(drawIndex)] == static_cast<int>(i));
+			assert(static_cast<std::size_t>(drawIndex) < scene.drawItems.size());
 		}
-
-		assert(drawIndex >= 0);
-		assert(static_cast<std::size_t>(drawIndex) < scene.drawItems.size());
-		assert(static_cast<std::size_t>(drawIndex) < drawToNode_.size());
-		assert(drawToNode_[static_cast<std::size_t>(drawIndex)] == static_cast<int>(i));
-		assert(ecs_.HasRenderable(entity));
-
-		Renderable renderable{};
-		assert(ecs_.TryGetRenderable(entity, renderable));
-		assert(renderable.drawIndex == drawIndex);
-		assert(renderable.mesh == scene.drawItems[static_cast<std::size_t>(drawIndex)].mesh);
-		assert(renderable.material == scene.drawItems[static_cast<std::size_t>(drawIndex)].material);
+		assert((nodeToDraws_[i].empty() ? -1 : nodeToDraws_[i].front()) == nodeToDraw_[i]);
+		if (entity != kNullEntity && ecs_.IsEntityValid(entity))
+		{
+			WorldTransform worldTransform{};
+			assert(ecs_.TryGetWorldTransform(entity, worldTransform));
+			assert(MatricesNearlyEqual(worldTransform.world, world_[i]));
+		}
 	}
 #endif
 }

@@ -1,12 +1,15 @@
 {
   "name": "DemoLevel",
   "meshes": {
+    "Ch15_nonPBR": {"path": "D:\\C++projects\\CoreEngineModule\\assets\\models\\Ch15_nonPBR.fbx", "debugName": "Ch15_nonPBR"},
+    "Ch15_nonPBR_2": {"path": "D:\\C++projects\\CoreEngineModule\\assets\\models\\Ch15_nonPBR.fbx", "debugName": "Ch15_nonPBR_2"},
     "cube": {"path": "models/cube.obj", "debugName": "cube.obj"},
     "quad": {"path": "models/quad.obj", "debugName": "quad.obj"},
     "seahawk": {"path": "models/Seahawk.obj", "debugName": "Seahawk.obj"},
     "sphere": {"path": "models/sphere.obj", "debugName": "sphere.obj"},
     "watermelon": {"path": "models/watermelon.obj", "debugName": "watermelon.obj"}
   },
+  "models": {},
   "textures": {
     "Ship_AO": {"kind": "tex2d", "path": "textures/Intergalactic Spaceship Ao_Blender.jpg", "srgb": false, "mips": true, "flipY": false},
     "Ship_Albedo": {"kind": "tex2d", "path": "textures/Intergalactic Spaceship_color_4.jpg", "srgb": true, "mips": true, "flipY": false},
@@ -42,7 +45,7 @@
       "roughness": "watermelon_roughness"
     }}
   },
-  "camera": {"position": [-5.048042,1.704741,2.106844], "target": [-4.164873,1.392808,2.457145], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.010000, "farZ": 200.000000},
+  "camera": {"position": [1.099602,1.704741,8.798310], "target": [1.204251,1.563557,7.813873], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.010000, "farZ": 200.000000},
   "lights": [
     {"type": "directional", "position": [0.000000,0.000000,0.000000], "direction": [-0.357771,-0.894427,-0.268328], "color": [1.000000,1.000000,1.000000], "intensity": 1.000000, "range": 10.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.120000, "attQuadratic": 0.040000},
     {"type": "point", "position": [-1.350000,5.100000,-0.720436], "direction": [0.000000,-1.000000,0.000000], "color": [1.000000,1.000000,1.000000], "intensity": 1.000000, "range": 120.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.020000, "attQuadratic": 0.004000},
@@ -59,6 +62,7 @@
     {"name": "Cube_2_2", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [0.000000,2.300000,1.512242], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [7.464041,0.410678,6.333714], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,2.096679,3.320850]}},
     {"name": "PlanarMirror", "parent": -1, "visible": true, "mesh": "quad", "material": "planar_mirror", "transform": {"position": [6.895704,0.555758,4.328910], "rotationDegrees": [0.000000,-90.000000,0.000000], "scale": [2.139083,0.730530,3.000000]}},
-    {"name": "Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [7.472649,0.410678,3.008554], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,2.096679,3.320850]}}
+    {"name": "Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [7.472649,0.410678,3.008554], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,2.096679,3.320850]}},
+    {"name": "Ch15_nonPBR_2", "parent": -1, "visible": true, "mesh": "Ch15_nonPBR_2", "transform": {"position": [1.809379,-0.563115,3.858349], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [0.010000,0.010000,0.010000]}}
   ]
 }

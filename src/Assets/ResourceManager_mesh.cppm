@@ -15,6 +15,7 @@ module;
 #include <stdexcept>
 #include <functional>
 #include <algorithm>
+#include <cctype>
 
 export module core:resource_manager_mesh;
 
@@ -22,8 +23,8 @@ import :resource_manager_core;
 import :mesh;
 import :math_utils;
 import :obj_loader;
-import :file_system;
 import :assimp_loader;
+import :file_system;
 
 // NOTE: Mesh loading is CPU-side (ObjLoader) and does NOT touch the renderer.
 // GPU upload/destruction is deferred via IRenderQueue (same pattern as textures).
@@ -41,11 +42,11 @@ export namespace rendern
 		// Optional human-readable name (used for debug labels where available).
 		std::string debugName{};
 
-		// Import options for non-OBJ formats (e.g. FBX/GLTF via Assimp).
-		// Kept here so level.json can drive import behavior without changing node schema.
+		// Assimp-backed formats. Ignored by OBJ.
 		bool flipUVs{ true };
-		bool mergeSubmeshes{ true };
+		std::optional<std::uint32_t> submeshIndex{};
 	};
+
 
 	export struct MeshBounds
 	{
@@ -248,6 +249,7 @@ public:
 				{
 					// Resolve via assets/ root unless absolute.
 					const auto abs = corefs::ResolveAsset(std::filesystem::path(path));
+
 					auto ToLower = [](std::string s)
 						{
 							for (char& c : s)
@@ -264,7 +266,7 @@ public:
 					}
 					else
 					{
-						cpuOpt = rendern::LoadAssimp(abs, /*flipUVs*/ true);
+						cpuOpt = rendern::LoadAssimp(abs, propsCopy.flipUVs, propsCopy.submeshIndex);
 					}
 				}
 				catch (const std::exception& e)

@@ -61,7 +61,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		p.filePath = md.path;
 		p.debugName = md.debugName;
 		p.flipUVs = md.flipUVs;
-		p.mergeSubmeshes = md.mergeSubmeshes;
+		p.submeshIndex = md.submeshIndex;
 		meshHandles.emplace(id, assets.LoadMeshAsync(id, std::move(p)));
 	}
 
@@ -102,6 +102,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 
 	// Nodes: create draw items
 	inst.nodeToDraw_.assign(asset.nodes.size(), -1);
+	inst.nodeToDraws_.assign(asset.nodes.size(), {});
 	inst.drawToNode_.clear();
 	inst.drawToNode_.reserve(asset.nodes.size());
 
@@ -122,8 +123,55 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		{
 			continue;
 		}
-		if (n.mesh.empty())
+		if (n.mesh.empty() && n.model.empty())
 		{
+			continue;
+		}
+
+		if (!n.model.empty())
+		{
+			auto modelIt = asset.models.find(n.model);
+			if (modelIt == asset.models.end())
+			{
+				throw std::runtime_error("Level JSON: node references unknown modelId: " + n.model);
+			}
+			const ImportedModelScene meta = LoadAssimpScene(modelIt->second.path, modelIt->second.flipUVs);
+			for (const ImportedSubmeshInfo& sub : meta.submeshes)
+			{
+				MeshProperties p{};
+				p.filePath = modelIt->second.path;
+				p.debugName = modelIt->second.debugName.empty() ? sub.name : (modelIt->second.debugName + "_" + sub.name);
+				p.flipUVs = modelIt->second.flipUVs;
+				p.submeshIndex = sub.submeshIndex;
+				const std::string meshKey = n.model + "#submesh=" + std::to_string(sub.submeshIndex);
+				MeshHandle mh = assets.LoadMeshAsync(meshKey, std::move(p));
+
+				std::string materialId = n.material;
+				if (auto itOv = n.materialOverrides.find(sub.submeshIndex); itOv != n.materialOverrides.end())
+				{
+					materialId = itOv->second;
+				}
+				MaterialHandle mat{};
+				if (!materialId.empty())
+				{
+					auto it = materialHandles.find(materialId);
+					if (it == materialHandles.end())
+					{
+						throw std::runtime_error("Level JSON: node references unknown materialId: " + materialId);
+					}
+					mat = it->second;
+				}
+				DrawItem item{};
+				item.mesh = mh;
+				item.material = mat;
+				item.transform.useMatrix = true;
+				item.transform.matrix = inst.world_[i];
+				const int drawIndex = static_cast<int>(scene.drawItems.size());
+				scene.AddDraw(item);
+				inst.drawToNode_.push_back(static_cast<int>(i));
+				inst.nodeToDraws_[i].push_back(drawIndex);
+			}
+			inst.nodeToDraw_[i] = inst.nodeToDraws_[i].empty() ? -1 : inst.nodeToDraws_[i].front();
 			continue;
 		}
 
@@ -153,6 +201,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		const int drawIndex = static_cast<int>(scene.drawItems.size());
 		scene.AddDraw(item);
 		inst.nodeToDraw_[i] = drawIndex;
+		inst.nodeToDraws_[i].push_back(drawIndex);
 		inst.drawToNode_.push_back(static_cast<int>(i));
 	}
 

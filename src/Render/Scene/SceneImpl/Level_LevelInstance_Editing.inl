@@ -33,7 +33,26 @@ int GetNodeDrawIndex(int nodeIndex) const noexcept
 	{
 		return -1;
 	}
+	if (i < nodeToDraws_.size() && !nodeToDraws_[i].empty())
+	{
+		return nodeToDraws_[i].front();
+	}
 	return nodeToDraw_[i];
+}
+
+const std::vector<int>& GetNodeDrawIndices(int nodeIndex) const noexcept
+{
+	static const std::vector<int> empty;
+	if (nodeIndex < 0)
+	{
+		return empty;
+	}
+	const std::size_t i = static_cast<std::size_t>(nodeIndex);
+	if (i >= nodeToDraws_.size())
+	{
+		return empty;
+	}
+	return nodeToDraws_[i];
 }
 
 int GetNodeIndexFromDrawIndex(int drawIndex) const noexcept
@@ -236,6 +255,10 @@ int AddNode(LevelAsset& asset,
 	{
 		nodeToDraw_.resize(asset.nodes.size(), -1);
 	}
+	if (nodeToDraws_.size() < asset.nodes.size())
+	{
+		nodeToDraws_.resize(asset.nodes.size());
+	}
 	if (world_.size() < asset.nodes.size())
 	{
 		world_.resize(asset.nodes.size(), mathUtils::Mat4(1.0f));
@@ -254,6 +277,222 @@ int AddNode(LevelAsset& asset,
 	ValidateRuntimeMappingsDebug(asset, scene);
 	transformsDirty_ = true;
 	return newIndex;
+}
+
+std::string SanitizeAssetToken(std::string s)
+{
+	for (char& c : s)
+	{
+		const bool ok =
+			(c >= 'a' && c <= 'z') ||
+			(c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') ||
+			c == '_' || c == '-' || c == '.';
+		if (!ok)
+		{
+			c = '_';
+		}
+	}
+	if (s.empty())
+	{
+		s = "asset";
+	}
+	return s;
+}
+
+std::string MakeRelativeImportedTexturePath(
+	std::string_view modelPath,
+	std::string_view rawTexturePath)
+{
+	namespace fs = std::filesystem;
+
+	const fs::path modelAbs = corefs::ResolveAsset(std::filesystem::path(std::string(modelPath)));
+	const fs::path modelDir = modelAbs.parent_path();
+
+	fs::path texPath(rawTexturePath);
+	fs::path resolved = texPath.is_absolute() ? texPath : (modelDir / texPath);
+	resolved = fs::weakly_canonical(resolved);
+
+	const fs::path assetRoot = corefs::FindAssetRoot();
+	std::error_code ec;
+	fs::path rel = fs::relative(resolved, assetRoot, ec);
+	if (!ec && !rel.empty())
+	{
+		return rel.generic_string();
+	}
+
+	// fallback: keep original
+	return resolved.generic_string();
+}
+
+void EnsureImportedTexture(
+	LevelAsset& asset,
+	std::string_view textureId,
+	std::string_view relativePath,
+	bool srgb)
+{
+	if (textureId.empty() || relativePath.empty())
+	{
+		return;
+	}
+
+	if (asset.textures.contains(std::string(textureId)))
+	{
+		return;
+	}
+
+	LevelTextureDef td{};
+	td.kind = LevelTextureKind::Tex2D;
+	td.props.dimension = TextureDimension::Tex2D;
+	td.props.filePath = std::string(relativePath);
+	td.props.srgb = srgb;
+	td.props.generateMips = true;
+	td.props.flipY = false;
+	asset.textures.emplace(std::string(textureId), std::move(td));
+}
+
+void BindImportedTexture(
+	LevelAsset& asset,
+	LevelMaterialDef& md,
+	std::string_view modelPath,
+	std::string_view modelId,
+	std::uint32_t materialIndex,
+	std::string_view slotName,
+	const std::optional<ImportedMaterialTextureRef>& texRef,
+	bool srgb)
+{
+	if (!texRef || texRef->path.empty() || texRef->embedded)
+	{
+		return;
+	}
+
+	const std::string texId =
+		std::string(modelId) + "__mat_" + std::to_string(materialIndex) + "__" + std::string(slotName);
+
+	const std::string relPath = MakeRelativeImportedTexturePath(modelPath, texRef->path);
+
+	EnsureImportedTexture(asset, texId, relPath, srgb);
+	md.textureBindings[std::string(slotName)] = texId;
+}
+
+std::string ResolveImportedTexturePath(
+	const ImportedMaterialTextureRef& texRef,
+	const ImportedModelScene& imported,
+	std::string_view modelPath)
+{
+	if (!texRef.embedded)
+	{
+		return MakeRelativeImportedTexturePath(modelPath, texRef.path);
+	}
+
+	const std::filesystem::path modelAbs = corefs::ResolveAsset(std::filesystem::path(std::string(modelPath)));
+	const ImportedModelScene* dummy = &imported; // just to keep signature consistent
+	(void)dummy;
+
+	return {};
+}
+
+// Import an FBX/Assimp scene as regular Level nodes + mesh defs.
+// Each imported Assimp mesh becomes a dedicated Level mesh entry that points to the same source file
+// with a submeshIndex override, so saved JSON remains editable and runtime stays mesh-based.
+int ImportModelSceneAsNodes(LevelAsset& asset,
+	Scene& scene,
+	AssetManager& assets,
+	std::string_view modelId,
+	int parentNodeIndex = -1,
+	bool createMaterialPlaceholders = true)
+{
+	auto modelIt = asset.models.find(std::string(modelId));
+	if (modelIt == asset.models.end())
+	{
+		throw std::runtime_error("Level: unknown modelId for scene import: " + std::string(modelId));
+	}
+
+	const ImportedModelScene imported = LoadAssimpScene(modelIt->second.path, modelIt->second.flipUVs);
+	if (imported.nodes.empty())
+	{
+		return -1;
+	}
+
+	if (createMaterialPlaceholders)
+	{
+		for (std::size_t i = 0; i < imported.materials.size(); ++i)
+		{
+			const ImportedMaterialInfo& srcMat = imported.materials[i];
+			const std::string matId = std::string(modelId) + "__mat_" + std::to_string(i);
+
+			LevelMaterialDef md{};
+			if (auto it = asset.materials.find(matId); it != asset.materials.end())
+			{
+				md = it->second;
+			}
+
+			md.material.params.baseColor = mathUtils::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "albedo", srcMat.baseColor, true);
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "normal", srcMat.normal, false);
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "metallic", srcMat.metallic, false);
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "roughness", srcMat.roughness, false);
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "ao", srcMat.ao, false);
+			BindImportedTexture(asset, md, modelIt->second.path, modelId, static_cast<std::uint32_t>(i), "emissive", srcMat.emissive, true);
+
+			if (!md.textureBindings.empty())
+			{
+				md.material.permFlags |= MaterialPerm::UseTex;
+			}
+
+			asset.materials[matId] = std::move(md);
+		}
+	}
+
+	std::vector<int> importedNodeMap(imported.nodes.size(), -1);
+	int firstImportedNode = -1;
+
+	for (std::size_t i = 0; i < imported.nodes.size(); ++i)
+	{
+		const ImportedSceneNode& srcNode = imported.nodes[i];
+		int runtimeParent = parentNodeIndex;
+		if (srcNode.parent >= 0 && static_cast<std::size_t>(srcNode.parent) < importedNodeMap.size())
+		{
+			runtimeParent = importedNodeMap[static_cast<std::size_t>(srcNode.parent)];
+		}
+
+		const int containerNode = AddNode(asset, scene, assets, "", "", runtimeParent, srcNode.localTransform, srcNode.name);
+		importedNodeMap[i] = containerNode;
+		if (firstImportedNode < 0)
+		{
+			firstImportedNode = containerNode;
+		}
+
+		for (const std::uint32_t submeshIndex : srcNode.submeshes)
+		{
+			const std::string meshId = std::string(modelId) + "__mesh_" + std::to_string(submeshIndex);
+			if (asset.meshes.find(meshId) == asset.meshes.end())
+			{
+				LevelMeshDef meshDef{};
+				meshDef.path = modelIt->second.path;
+				meshDef.debugName = modelIt->second.debugName.empty()
+					? (std::string(modelId) + "_mesh_" + std::to_string(submeshIndex))
+					: (modelIt->second.debugName + "_mesh_" + std::to_string(submeshIndex));
+				meshDef.flipUVs = modelIt->second.flipUVs;
+				meshDef.submeshIndex = submeshIndex;
+				asset.meshes.emplace(meshId, std::move(meshDef));
+			}
+
+			std::string materialId;
+			if (static_cast<std::size_t>(submeshIndex) < imported.submeshes.size())
+			{
+				const std::uint32_t materialIndex = imported.submeshes[static_cast<std::size_t>(submeshIndex)].materialIndex;
+				materialId = std::string(modelId) + "__mat_" + std::to_string(materialIndex);
+			}
+			AddNode(asset, scene, assets, meshId, materialId, containerNode, Transform{}, std::string(srcNode.name) + "_mesh_" + std::to_string(submeshIndex));
+		}
+	}
+
+	SyncEditorRuntimeBindings(asset, scene);
+	ValidateRuntimeMappingsDebug(asset, scene);
+	transformsDirty_ = true;
+	return firstImportedNode;
 }
 
 // Delete selected node and all its children. (tombstone - keeps indices stable)
@@ -307,6 +546,50 @@ void SetNodeMesh(LevelAsset& asset, Scene& scene, AssetManager& assets, int node
 
 	LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
 	n.mesh = std::string(meshId);
+	n.model.clear();
+	n.materialOverrides.clear();
+
+	EnsureEntityForNode_(asset, nodeIndex);
+	EnsureDrawForNode_(asset, scene, assets, nodeIndex);
+	SyncEntityRenderableForNode_(asset, scene, nodeIndex);
+	SyncEditorRuntimeBindings(asset, scene);
+	ValidateRuntimeMappingsDebug(asset, scene);
+}
+
+void SetNodeModel(LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex, std::string_view modelId)
+{
+	if (!IsNodeAlive(asset, nodeIndex))
+	{
+		return;
+	}
+
+	LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
+	n.model = std::string(modelId);
+	n.mesh.clear();
+
+	EnsureEntityForNode_(asset, nodeIndex);
+	EnsureDrawForNode_(asset, scene, assets, nodeIndex);
+	SyncEntityRenderableForNode_(asset, scene, nodeIndex);
+	SyncEditorRuntimeBindings(asset, scene);
+	ValidateRuntimeMappingsDebug(asset, scene);
+}
+
+void SetNodeMaterialOverride(LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex, std::uint32_t submeshIndex, std::string_view materialId)
+{
+	if (!IsNodeAlive(asset, nodeIndex))
+	{
+		return;
+	}
+
+	LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
+	if (materialId.empty())
+	{
+		n.materialOverrides.erase(submeshIndex);
+	}
+	else
+	{
+		n.materialOverrides[submeshIndex] = std::string(materialId);
+	}
 
 	EnsureEntityForNode_(asset, nodeIndex);
 	EnsureDrawForNode_(asset, scene, assets, nodeIndex);
@@ -322,13 +605,20 @@ void SetNodeMaterial(LevelAsset& asset, Scene& scene, int nodeIndex, std::string
 
 	LevelNode& n = asset.nodes[static_cast<std::size_t>(nodeIndex)];
 	n.material = std::string(materialId);
+	if (!n.model.empty())
+	{
+		n.materialOverrides.clear();
+	}
 
 	EnsureEntityForNode_(asset, nodeIndex);
 
-	const int di = GetNodeDrawIndex(nodeIndex);
-	if (di >= 0 && static_cast<std::size_t>(di) < scene.drawItems.size())
+	const auto& drawIndices = GetNodeDrawIndices(nodeIndex);
+	for (const int di : drawIndices)
 	{
-		scene.drawItems[static_cast<std::size_t>(di)].material = GetMaterialHandle_(materialId);
+		if (di >= 0 && static_cast<std::size_t>(di) < scene.drawItems.size())
+		{
+			scene.drawItems[static_cast<std::size_t>(di)].material = GetMaterialHandle_(materialId);
+		}
 	}
 
 	SyncEntityRenderableForNode_(asset, scene, nodeIndex);
@@ -432,13 +722,15 @@ void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noex
 
 	// Build selected draw item list.
 	scene.editorSelectedDrawItems.clear();
-	scene.editorSelectedDrawItems.reserve(scene.editorSelectedNodes.size());
 	for (const int nodeIndex : scene.editorSelectedNodes)
 	{
-		const int di = GetNodeDrawIndex(nodeIndex);
-		if (di >= 0)
+		const auto& drawIndices = GetNodeDrawIndices(nodeIndex);
+		for (const int di : drawIndices)
 		{
-			scene.editorSelectedDrawItems.push_back(di);
+			if (di >= 0)
+			{
+				scene.editorSelectedDrawItems.push_back(di);
+			}
 		}
 	}
 	scene.editorReflectionCaptureOwnerDrawItem = GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode);
@@ -463,6 +755,8 @@ void SyncTransformsIfDirty(const LevelAsset& asset, Scene& scene)
 	const std::size_t ncount = asset.nodes.size();
 	if (nodeToDraw_.size() < ncount)
 		nodeToDraw_.resize(ncount, -1);
+	if (nodeToDraws_.size() < ncount)
+		nodeToDraws_.resize(ncount);
 	if (nodeToEntity_.size() < ncount)
 		nodeToEntity_.resize(ncount, kNullEntity);
 
@@ -480,16 +774,23 @@ void SyncTransformsIfDirty(const LevelAsset& asset, Scene& scene)
 			ecs_.UpsertNodeData(e, static_cast<int>(i), n.parent, n.transform, world_[i], Flags{ .alive = n.alive, .visible = n.visible });
 		}
 
-		const int di = nodeToDraw_[i];
-		if (di < 0 || static_cast<std::size_t>(di) >= scene.drawItems.size())
+		const auto& drawIndices = (i < nodeToDraws_.size()) ? nodeToDraws_[i] : std::vector<int>{};
+		if (drawIndices.empty())
 		{
 			SyncEntityRenderableForNode_(asset, scene, static_cast<int>(i));
 			continue;
 		}
 
-		DrawItem& item = scene.drawItems[static_cast<std::size_t>(di)];
-		item.transform.useMatrix = true;
-		item.transform.matrix = world_[i];
+		for (const int di : drawIndices)
+		{
+			if (di < 0 || static_cast<std::size_t>(di) >= scene.drawItems.size())
+			{
+				continue;
+			}
+			DrawItem& item = scene.drawItems[static_cast<std::size_t>(di)];
+			item.transform.useMatrix = true;
+			item.transform.matrix = world_[i];
+		}
 
 		SyncEntityRenderableForNode_(asset, scene, static_cast<int>(i));
 	}
