@@ -40,8 +40,12 @@ export namespace rendern
 
 		// Optional human-readable name (used for debug labels where available).
 		std::string debugName{};
-	};
 
+		// Import options for non-OBJ formats (e.g. FBX/GLTF via Assimp).
+		// Kept here so level.json can drive import behavior without changing node schema.
+		bool flipUVs{ true };
+		bool mergeSubmeshes{ true };
+	};
 
 	export struct MeshBounds
 	{

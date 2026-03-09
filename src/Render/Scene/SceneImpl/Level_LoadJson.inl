@@ -28,6 +28,8 @@
 				LevelMeshDef def;
 				def.path = GetStringOpt(md, "path");
 				def.debugName = GetStringOpt(md, "debugName");
+				def.flipUVs = GetBoolOpt(md, "flipUVs", true);
+				def.mergeSubmeshes = GetBoolOpt(md, "mergeSubmeshes", true);
 				if (def.path.empty())
 				{
 					throw std::runtime_error("Level JSON: meshes." + id + ".path is required");

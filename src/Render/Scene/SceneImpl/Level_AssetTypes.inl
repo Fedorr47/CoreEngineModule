@@ -5,6 +5,11 @@ struct LevelMeshDef
 {
 	std::string path;
 	std::string debugName;
+
+	// Import hints for mesh loaders that support richer formats (FBX/GLTF/...).
+	// OBJ ignores these safely.
+	bool flipUVs{ true };
+	bool mergeSubmeshes{ true };
 };
 
 enum class LevelTextureKind : std::uint8_t

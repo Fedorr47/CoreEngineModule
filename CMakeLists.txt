@@ -447,6 +447,8 @@ add_custom_command(TARGET app POST_BUILD
         $<TARGET_FILE:assimp::assimp>
         $<TARGET_FILE_DIR:app>)
 
+# DX12-only deps
+if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
 set(COREENGINE_SM6_DLL_DIR "${CMAKE_SOURCE_DIR}/dlls")
 
 add_custom_command(TARGET app POST_BUILD
@@ -460,6 +462,7 @@ add_custom_command(TARGET app POST_BUILD
         $<TARGET_FILE_DIR:app>
     COMMENT "Copying sm6 DLLs and Assimp to output directory"
 )
+endif()
 
 target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)

@@ -60,6 +60,8 @@ MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, c
 	MeshProperties p{};
 	p.filePath = it->second.path;
 	p.debugName = it->second.debugName;
+	p.flipUVs = it->second.flipUVs;
+	p.mergeSubmeshes = it->second.mergeSubmeshes;
 	return assets.LoadMeshAsync(meshId, std::move(p));
 }
 

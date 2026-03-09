@@ -50,6 +50,14 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				ss << ", \"debugName\": ";
 				WriteJsonEscaped(ss, md.debugName);
 			}
+			if (!md.flipUVs)
+			{
+				ss << ", \"flipUVs\": false";
+			}
+			if (!md.mergeSubmeshes)
+			{
+				ss << ", \"mergeSubmeshes\": false";
+			}
 			ss << "}";
 		}
 		if (!keys.empty()) ss << "\n  ";

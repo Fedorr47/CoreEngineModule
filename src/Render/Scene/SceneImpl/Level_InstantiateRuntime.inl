@@ -60,6 +60,8 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		MeshProperties p{};
 		p.filePath = md.path;
 		p.debugName = md.debugName;
+		p.flipUVs = md.flipUVs;
+		p.mergeSubmeshes = md.mergeSubmeshes;
 		meshHandles.emplace(id, assets.LoadMeshAsync(id, std::move(p)));
 	}
 
