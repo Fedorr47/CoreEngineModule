@@ -35,6 +35,7 @@ export namespace rendern
             aiProcess_Triangulate |
             aiProcess_JoinIdenticalVertices |
             aiProcess_GenSmoothNormals |
+            aiProcess_CalcTangentSpace |
             aiProcess_ImproveCacheLocality;
 
         if (bakeNodeTransforms)
@@ -86,6 +87,7 @@ export namespace rendern
                     v.px = p.x; v.py = p.y; v.pz = p.z;
                     v.nx = n.x; v.ny = n.y; v.nz = n.z;
                     v.u = uv.x; v.v = uv.y;
+                    v.tx = 1.0f; v.ty = 0.0f; v.tz = 0.0f; v.tw = 1.0f;
                     out.vertices.push_back(v);
                 }
 
@@ -125,6 +127,7 @@ export namespace rendern
             throw std::runtime_error("Assimp mesh is empty after import: " + path.string());
         }
 
+        ComputeTangents(out);
         return out;
     }
 }

@@ -283,9 +283,9 @@ export namespace rendern
 			MeshCPU cpu{};
 			// Renderer must not perform file IO. Keep fallback procedural.
 			cpu.vertices = {
-				VertexDesc{-0.8f,-0.6f,0, 0,0,1, 0,0},
-				VertexDesc{ 0.8f,-0.6f,0, 0,0,1, 1,0},
-				VertexDesc{ 0.0f, 0.9f,0, 0,0,1, 0.5f,1},
+				VertexDesc{-0.8f,-0.6f,0, 0,0,1, 0,0,   1,0,0,1},
+				VertexDesc{ 0.8f,-0.6f,0, 0,0,1, 1,0,   1,0,0,1},
+				VertexDesc{ 0.0f, 0.9f,0, 0,0,1, 0.5f,1, 1,0,0,1},
 			};
 			cpu.indices = { 0,1,2 };
 

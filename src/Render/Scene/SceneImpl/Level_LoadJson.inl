@@ -144,6 +144,7 @@
 				def.props.srgb = GetBoolOpt(td, "srgb", true);
 				def.props.generateMips = GetBoolOpt(td, "mips", true);
 				def.props.flipY = GetBoolOpt(td, "flipY", false);
+				def.props.isNormalMap = GetBoolOpt(td, "normalMap", GetBoolOpt(td, "isNormalMap", false));
 
 				out.textures.emplace(id, std::move(def));
 			}

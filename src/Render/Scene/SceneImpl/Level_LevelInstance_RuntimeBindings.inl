@@ -1,3 +1,48 @@
+bool TryParseMaterialTextureSlot_(std::string_view slotName, MaterialTextureSlot& outSlot) const noexcept
+{
+	if (slotName == "albedo")
+	{
+		outSlot = MaterialTextureSlot::Albedo;
+		return true;
+	}
+	if (slotName == "normal")
+	{
+		outSlot = MaterialTextureSlot::Normal;
+		return true;
+	}
+	if (slotName == "metalness" || slotName == "metallic")
+	{
+		outSlot = MaterialTextureSlot::Metalness;
+		return true;
+	}
+	if (slotName == "roughness")
+	{
+		outSlot = MaterialTextureSlot::Roughness;
+		return true;
+	}
+	if (slotName == "ao")
+	{
+		outSlot = MaterialTextureSlot::AO;
+		return true;
+	}
+	if (slotName == "emissive")
+	{
+		outSlot = MaterialTextureSlot::Emissive;
+		return true;
+	}
+	if (slotName == "specular" || slotName == "spec")
+	{
+		outSlot = MaterialTextureSlot::Specular;
+		return true;
+	}
+	if (slotName == "gloss" || slotName == "glossiness")
+	{
+		outSlot = MaterialTextureSlot::Gloss;
+		return true;
+	}
+	return false;
+}
+
 // -----------------------------
 // Runtime: descriptor management
 // -----------------------------
@@ -67,7 +112,7 @@ void FreeDescriptors(BindlessTable& bindless) noexcept
 
 // Ensure that a materialId exists as a runtime Scene material handle.
 // Useful for editor-created materials or late-added materials.
-MaterialHandle EnsureMaterial(LevelAsset& asset, Scene& scene, std::string_view materialId)
+MaterialHandle EnsureMaterial(const LevelAsset& asset, Scene& scene, std::string_view materialId)
 {
 	if (materialId.empty())
 	{
@@ -75,9 +120,10 @@ MaterialHandle EnsureMaterial(LevelAsset& asset, Scene& scene, std::string_view 
 	}
 
 	const std::string id{ materialId };
+	MaterialHandle h{};
 	if (auto it = materialHandles_.find(id); it != materialHandles_.end())
 	{
-		return it->second;
+		h = it->second;
 	}
 
 	auto defIt = asset.materials.find(id);
@@ -86,8 +132,25 @@ MaterialHandle EnsureMaterial(LevelAsset& asset, Scene& scene, std::string_view 
 		return {};
 	}
 
-	MaterialHandle h = scene.CreateMaterial(defIt->second.material);
-	materialHandles_.emplace(id, h);
+	if (!h)
+	{
+		h = scene.CreateMaterial(defIt->second.material);
+		materialHandles_[id] = h;
+	}
+	else
+	{
+		scene.GetMaterial(h) = defIt->second.material;
+	}
+
+	pendingBindings_.erase(
+		std::remove_if(
+			pendingBindings_.begin(),
+			pendingBindings_.end(),
+			[h](const PendingMaterialBinding& pb)
+			{
+				return pb.material == h;
+			}),
+		pendingBindings_.end());
 
 	// Register texture bindings (resolved later as textures upload to GPU).
 	for (const auto& [slot, texId] : defIt->second.textureBindings)
@@ -96,15 +159,7 @@ MaterialHandle EnsureMaterial(LevelAsset& asset, Scene& scene, std::string_view 
 		pb.material = h;
 		pb.textureId = texId;
 
-		if (slot == "albedo") pb.slot = MaterialTextureSlot::Albedo;
-		else if (slot == "normal") pb.slot = MaterialTextureSlot::Normal;
-		else if (slot == "metalness") pb.slot = MaterialTextureSlot::Metalness;
-		else if (slot == "roughness") pb.slot = MaterialTextureSlot::Roughness;
-		else if (slot == "ao") pb.slot = MaterialTextureSlot::AO;
-		else if (slot == "emissive") pb.slot = MaterialTextureSlot::Emissive;
-		else if (slot == "specular" || slot == "spec") pb.slot = MaterialTextureSlot::Specular;
-		else if (slot == "gloss" || slot == "glossiness") pb.slot = MaterialTextureSlot::Gloss;
-		else
+		if (!TryParseMaterialTextureSlot_(slot, pb.slot))
 		{
 			throw std::runtime_error("Level: unknown material texture slot: " + slot);
 		}

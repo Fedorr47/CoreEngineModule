@@ -14,7 +14,6 @@ namespace rendern::ui::level_ui_detail
         char nameBuf[128]{};
         char importPathBuf[512]{};
         char importAssetIdBuf[128]{};
-
         char savePathBuf[512]{};
         char saveStatusBuf[512]{};
         std::string cachedSourcePath;

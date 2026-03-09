@@ -215,6 +215,7 @@ export namespace rendern
 			throw std::runtime_error("OBJ is empty or unsupported: " + path.string());
 		}
 
+		ComputeTangents(mesh);
 		return mesh;
 	}
 }

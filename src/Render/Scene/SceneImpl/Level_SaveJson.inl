@@ -116,6 +116,10 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				WriteJsonBool(ss, td.props.generateMips);
 				ss << ", \"flipY\": ";
 				WriteJsonBool(ss, td.props.flipY);
+				if (td.props.isNormalMap)
+				{
+					ss << ", \"normalMap\": true";
+				}
 			}
 			else
 			{
@@ -158,6 +162,10 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				WriteJsonBool(ss, td.props.generateMips);
 				ss << ", \"flipY\": ";
 				WriteJsonBool(ss, td.props.flipY);
+				if (td.props.isNormalMap)
+				{
+					ss << ", \"normalMap\": true";
+				}
 			}
 			ss << "}";
 		}

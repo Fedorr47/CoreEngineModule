@@ -18,12 +18,28 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 	// Particle emitters
 	inst.RebuildParticleEmitters(scene, asset);
 
+	auto IsTextureUsedAsNormalMap = [&](std::string_view textureId) -> bool
+	{
+		for (const auto& [_, md] : asset.materials)
+		{
+			for (const auto& [slot, boundTextureId] : md.textureBindings)
+			{
+				if (boundTextureId == textureId && slot == "normal")
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+
 	// Textures: request loads (descriptor indices are resolved later)
 	for (const auto& [id, td] : asset.textures)
 	{
 		if (td.kind == LevelTextureKind::Tex2D)
 		{
 			TextureProperties p = td.props;
+			p.isNormalMap = p.isNormalMap || IsTextureUsedAsNormalMap(id);
 			assets.LoadTextureAsync(id, std::move(p));
 		}
 		else
@@ -82,7 +98,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 
 			if (slot == "albedo") pb.slot = MaterialTextureSlot::Albedo;
 			else if (slot == "normal") pb.slot = MaterialTextureSlot::Normal;
-			else if (slot == "metalness") pb.slot = MaterialTextureSlot::Metalness;
+			else if (slot == "metalness" || slot == "metallic") pb.slot = MaterialTextureSlot::Metalness;
 			else if (slot == "roughness") pb.slot = MaterialTextureSlot::Roughness;
 			else if (slot == "ao") pb.slot = MaterialTextureSlot::AO;
 			else if (slot == "emissive") pb.slot = MaterialTextureSlot::Emissive;

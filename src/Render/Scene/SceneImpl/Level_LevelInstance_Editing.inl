@@ -281,16 +281,13 @@ int AddNode(LevelAsset& asset,
 
 void EnsureImportedTexture(
 	LevelAsset& asset,
+	AssetManager& assets,
 	std::string_view textureId,
 	std::string_view relativePath,
-	bool srgb)
+	bool srgb,
+	bool isNormalMap)
 {
 	if (textureId.empty() || relativePath.empty())
-	{
-		return;
-	}
-
-	if (asset.textures.contains(std::string(textureId)))
 	{
 		return;
 	}
@@ -302,11 +299,17 @@ void EnsureImportedTexture(
 	td.props.srgb = srgb;
 	td.props.generateMips = true;
 	td.props.flipY = false;
-	asset.textures.emplace(std::string(textureId), std::move(td));
+	td.props.isNormalMap = isNormalMap;
+
+	auto& dst = asset.textures[std::string(textureId)];
+	dst = std::move(td);
+
+	assets.LoadTextureAsync(textureId, dst.props);
 }
 
 void BindImportedTexture(
 	LevelAsset& asset,
+	AssetManager& assets,
 	LevelMaterialDef& md,
 	std::string_view modelId,
 	std::uint32_t materialIndex,
@@ -319,11 +322,13 @@ void BindImportedTexture(
 		return;
 	}
 
+	const std::string normalizedSlot = (slotName == "metallic") ? "metalness" : std::string(slotName);
+	const bool isNormalMap = (normalizedSlot == "normal");
 	const std::string texId =
-		std::string(modelId) + "__mat_" + std::to_string(materialIndex) + "__" + std::string(slotName);
+		std::string(modelId) + "__mat_" + std::to_string(materialIndex) + "__" + normalizedSlot;
 
-	EnsureImportedTexture(asset, texId, texRef->path, srgb);
-	md.textureBindings[std::string(slotName)] = texId;
+	EnsureImportedTexture(asset, assets, texId, texRef->path, srgb, isNormalMap);
+	md.textureBindings[normalizedSlot] = texId;
 }
 
 // Import an FBX/Assimp scene as regular Level nodes + mesh defs.
@@ -382,6 +387,20 @@ int ImportModelSceneAsNodes(LevelAsset& asset,
 		{
 			it = (it->first.rfind(assetPrefix, 0) == 0) ? asset.textures.erase(it) : std::next(it);
 		}
+
+		for (auto it = materialHandles_.begin(); it != materialHandles_.end();)
+		{
+			it = (it->first.rfind(assetPrefix, 0) == 0) ? materialHandles_.erase(it) : std::next(it);
+		}
+		pendingBindings_.erase(
+			std::remove_if(
+				pendingBindings_.begin(),
+				pendingBindings_.end(),
+				[&](const PendingMaterialBinding& pb)
+				{
+					return pb.textureId.rfind(assetPrefix, 0) == 0;
+				}),
+			pendingBindings_.end());
 	}
 
 	const ImportedModelScene imported = LoadAssimpScene(modelIt->second.path, modelIt->second.flipUVs, importSkeletonNodes, true);
@@ -400,18 +419,19 @@ int ImportModelSceneAsNodes(LevelAsset& asset,
 
 			LevelMaterialDef md{};
 			md.material.params.baseColor = mathUtils::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "albedo", srcMat.baseColor, true);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "normal", srcMat.normal, false);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "metallic", srcMat.metallic, false);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "roughness", srcMat.roughness, false);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "ao", srcMat.ao, false);
-			BindImportedTexture(asset, md, modelId, static_cast<std::uint32_t>(i), "emissive", srcMat.emissive, true);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "albedo", srcMat.baseColor, true);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "normal", srcMat.normal, false);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "metallic", srcMat.metallic, false);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "roughness", srcMat.roughness, false);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "ao", srcMat.ao, false);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "emissive", srcMat.emissive, true);
 			if (!md.textureBindings.empty())
 			{
 				md.material.permFlags |= MaterialPerm::UseTex;
 			}
 
 			asset.materials[matId] = std::move(md);
+			[[maybe_unused]] const MaterialHandle runtimeMat = EnsureMaterial(asset, scene, matId);
 		}
 	}
 
@@ -585,7 +605,7 @@ void SetNodeMaterial(LevelAsset& asset, Scene& scene, int nodeIndex, std::string
 	{
 		if (di >= 0 && static_cast<std::size_t>(di) < scene.drawItems.size())
 		{
-			scene.drawItems[static_cast<std::size_t>(di)].material = GetMaterialHandle_(materialId);
+			scene.drawItems[static_cast<std::size_t>(di)].material = EnsureMaterial(asset, scene, materialId);
 		}
 	}
 

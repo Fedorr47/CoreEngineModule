@@ -20,6 +20,11 @@ rhi::TextureDescIndex GetOrCreateTextureDesc_(
 
 	if (auto it = textureDesc_.find(key); it != textureDesc_.end())
 	{
+		const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
+		if (handle)
+		{
+			bindless.UpdateTexture(it->second, handle);
+		}
 		return it->second;
 	}
 
@@ -100,7 +105,7 @@ std::vector<int> MakeDrawsForModelNode_(const LevelAsset& asset, Scene& scene, A
 
 		DrawItem item{};
 		item.mesh = mesh;
-		item.material = GetMaterialHandle_(materialId);
+		item.material = EnsureMaterial(asset, scene, materialId);
 		item.transform.useMatrix = true;
 		item.transform.matrix = world_[static_cast<std::size_t>(nodeIndex)];
 		const int drawIndex = static_cast<int>(scene.drawItems.size());
@@ -279,7 +284,7 @@ void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& ass
 
 	DrawItem item{};
 	item.mesh = GetOrLoadMeshHandle_(asset, assets, node.mesh);
-	item.material = GetMaterialHandle_(node.material);
+	item.material = EnsureMaterial(asset, scene, node.material);
 	item.transform.useMatrix = true;
 	item.transform.matrix = world_[i];
 
