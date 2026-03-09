@@ -87,6 +87,74 @@ namespace rendern::ui
         }
     }
 
+    static std::vector<float>& GetPrevLightIntensityCache()
+    {
+        static std::vector<float> prevIntensity;
+        return prevIntensity;
+    }
+
+    static void EnsurePrevLightIntensityCacheSize(std::size_t lightCount)
+    {
+        auto& prevIntensity = GetPrevLightIntensityCache();
+        if (prevIntensity.size() != lightCount)
+        {
+            prevIntensity.resize(lightCount, 1.0f);
+        }
+    }
+
+    static void ApplyLightEnabledToggle(rendern::Light& l, std::size_t idx, bool enabled)
+    {
+        auto& prevIntensity = GetPrevLightIntensityCache();
+        if (idx >= prevIntensity.size())
+        {
+            prevIntensity.resize(idx + 1u, 1.0f);
+        }
+
+        if (!enabled && l.intensity > 0.0f)
+        {
+            prevIntensity[idx] = std::max(prevIntensity[idx], l.intensity);
+            l.intensity = 0.0f;
+        }
+        else if (enabled && l.intensity <= 0.00001f)
+        {
+            l.intensity = (prevIntensity[idx] > 0.0f) ? prevIntensity[idx] : 1.0f;
+        }
+    }
+
+    static void DeleteLightAtIndex(rendern::Scene& scene, std::size_t idx)
+    {
+        auto& prevIntensity = GetPrevLightIntensityCache();
+        EnsurePrevLightIntensityCacheSize(scene.lights.size());
+
+        const int removedLightIndex = static_cast<int>(idx);
+        for (int& selectedLight : scene.editorSelectedLights)
+        {
+            if (selectedLight == removedLightIndex)
+            {
+                selectedLight = -1;
+            }
+            else if (selectedLight > removedLightIndex)
+            {
+                --selectedLight;
+            }
+        }
+        if (scene.editorSelectedLight == removedLightIndex)
+        {
+            scene.editorSelectedLight = -1;
+        }
+        else if (scene.editorSelectedLight > removedLightIndex)
+        {
+            --scene.editorSelectedLight;
+        }
+
+        scene.lights.erase(scene.lights.begin() + static_cast<std::ptrdiff_t>(idx));
+        if (idx < prevIntensity.size())
+        {
+            prevIntensity.erase(prevIntensity.begin() + static_cast<std::ptrdiff_t>(idx));
+        }
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+    }
+
     static void DrawOneLightEditor(rendern::Light& l, std::size_t idx)
     {
         ImGui::PushID(static_cast<int>(idx));
@@ -138,16 +206,68 @@ namespace rendern::ui
         ImGui::PopID();
     }
 
+    static void DrawLightInspectorDetails(rendern::Scene& scene)
+    {
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+        if (scene.editorSelectedLight < 0)
+        {
+            return;
+        }
+
+        const std::size_t lightIndex = static_cast<std::size_t>(scene.editorSelectedLight);
+        if (lightIndex >= scene.lights.size())
+        {
+            return;
+        }
+
+        const int selectedCount = static_cast<int>(scene.editorSelectedLights.size());
+        if (selectedCount > 1)
+        {
+            ImGui::Text("Multi-selection: %d lights", selectedCount);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Clear light selection"))
+            {
+                scene.EditorClearLightSelection();
+                return;
+            }
+            ImGui::Text("Primary light: #%d", scene.editorSelectedLight);
+        }
+        else
+        {
+            ImGui::Text("Light #%d", scene.editorSelectedLight);
+        }
+
+        rendern::Light& l = scene.lights[lightIndex];
+
+        EnsurePrevLightIntensityCacheSize(scene.lights.size());
+        bool enabled = (l.intensity > 0.00001f);
+        if (ImGui::Checkbox("Enabled", &enabled))
+        {
+            ApplyLightEnabledToggle(l, lightIndex, enabled);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Delete Light"))
+        {
+            DeleteLightAtIndex(scene, lightIndex);
+            return;
+        }
+
+        DrawOneLightEditor(l, lightIndex);
+    }
+
     // ------------------------------------------------------------
     // Light header row with actions on the right (clickable)
     // ------------------------------------------------------------
     static bool LightHeaderWithActions(
         const char* headerText,
         bool defaultOpen,
+        bool selected,
         bool& enabled,
-        bool& doDelete)
+        bool& doDelete,
+        bool& headerClicked)
     {
         doDelete = false;
+        headerClicked = false;
 
         ImGuiTreeNodeFlags flags =
             ImGuiTreeNodeFlags_Framed |
@@ -157,9 +277,12 @@ namespace rendern::ui
 
         if (defaultOpen)
             flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        if (selected)
+            flags |= ImGuiTreeNodeFlags_Selected;
 
         // Tree node label is hidden; we render text via format string to keep ID stable.
         const bool open = ImGui::TreeNodeEx("##light_node", flags, "%s", headerText);
+        headerClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
         // The last item is the header frame; place our controls on top-right of it.
         const ImVec2 rmin = ImGui::GetItemRectMin();
@@ -195,6 +318,8 @@ namespace rendern::ui
     {
         ImGui::Begin("Lights");
 
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+
         ImGui::Text("Count: %d", static_cast<int>(scene.lights.size()));
 
         if (ImGui::Button("Add Directional"))
@@ -223,10 +348,7 @@ namespace rendern::ui
 
         ImGui::Spacing();
 
-        // Track previous intensities for a simple Enabled toggle.
-        static std::vector<float> prevIntensity;
-        if (prevIntensity.size() != scene.lights.size())
-            prevIntensity.resize(scene.lights.size(), 1.0f);
+        EnsurePrevLightIntensityCacheSize(scene.lights.size());
 
         for (std::size_t i = 0; i < scene.lights.size();)
         {
@@ -240,22 +362,29 @@ namespace rendern::ui
 
             bool enabled = (l.intensity > 0.00001f);
             bool doDelete = false;
+            bool headerClicked = false;
+            const bool selected = scene.EditorIsLightSelected(static_cast<int>(i));
 
-            const bool open = LightHeaderWithActions(header, true, enabled, doDelete);
+            const bool open = LightHeaderWithActions(header, true, selected, enabled, doDelete, headerClicked);
 
-            if (!enabled && l.intensity > 0.0f)
+            if (headerClicked)
             {
-                prevIntensity[i] = std::max(prevIntensity[i], l.intensity);
-                l.intensity = 0.0f;
+                const bool ctrlDown = ImGui::GetIO().KeyCtrl;
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionLight(static_cast<int>(i));
+                }
+                else
+                {
+                    scene.EditorSetLightSelectionSingle(static_cast<int>(i));
+                }
             }
-            else if (enabled && l.intensity <= 0.00001f)
-            {
-                l.intensity = (prevIntensity[i] > 0.0f) ? prevIntensity[i] : 1.0f;
-            }
+
+            ApplyLightEnabledToggle(l, i, enabled);
 
             if (open)
             {
-                DrawOneLightEditor(l, i);
+                ImGui::TextDisabled("Edit light properties in Level Editor -> Inspector.");
                 ImGui::TreePop();
             }
 
@@ -263,9 +392,7 @@ namespace rendern::ui
 
             if (doDelete)
             {
-                scene.lights.erase(scene.lights.begin() + static_cast<std::ptrdiff_t>(i));
-                prevIntensity.erase(prevIntensity.begin() + static_cast<std::ptrdiff_t>(i));
-                continue;
+                DeleteLightAtIndex(scene, i);
             }
 
             ++i;

@@ -158,17 +158,22 @@
 	outlineState_.depth.stencil.front.compareOp = rhi::CompareOp::NotEqual;
 	outlineState_.depth.stencil.back = outlineState_.depth.stencil.front;
 
-	// Planar reflection stencil mask (writes stencil, keeps color untouched via depth-only PSO).
+	// Planar reflection mask/depth seed.
+	//
+	// Mirrors are intentionally excluded from the regular opaque batches, so the mirror surface
+	// itself has to seed depth here. Otherwise the reflected scene ends up depth-testing against
+	// geometry *behind* the mirror and appears to intersect with / disappear behind normal scene
+	// geometry inside the planar reflection.
 	planarMaskState_ = preDepthState_;
 	planarMaskState_.rasterizer.cullMode = rhi::CullMode::Front;
 	planarMaskState_.depth.testEnable = true;
-	planarMaskState_.depth.writeEnable = false;
+	planarMaskState_.depth.writeEnable = true;
 	planarMaskState_.depth.depthCompareOp = rhi::CompareOp::LessEqual;
 	planarMaskState_.blend.enable = false;
 	planarMaskState_.rasterizer.cullMode = rhi::CullMode::None;
 	planarMaskState_.depth.stencil.enable = true;
-	planarMaskState_.depth.stencil.readMask = 0x01u;
-	planarMaskState_.depth.stencil.writeMask = 0x01u;
+	planarMaskState_.depth.stencil.readMask = 0xFFu;
+	planarMaskState_.depth.stencil.writeMask = 0xFFu;
 	planarMaskState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 	planarMaskState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;
 	planarMaskState_.depth.stencil.front.passOp = rhi::StencilOp::Replace;
@@ -186,7 +191,7 @@
 	planarReflectedState_.rasterizer.frontFace = rhi::FrontFace::Clockwise;
 	planarReflectedState_.blend.enable = false;
 	planarReflectedState_.depth.stencil.enable = true;
-	planarReflectedState_.depth.stencil.readMask = 0x01u;
+	planarReflectedState_.depth.stencil.readMask = 0xFFu;
 	planarReflectedState_.depth.stencil.writeMask = 0x00u;
 	planarReflectedState_.depth.stencil.front.failOp = rhi::StencilOp::Keep;
 	planarReflectedState_.depth.stencil.front.depthFailOp = rhi::StencilOp::Keep;

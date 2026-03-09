@@ -1,5 +1,16 @@
 namespace rendern::ui::level_ui_detail
 {
+    static const char* LightTypeLabel(rendern::LightType type) noexcept
+    {
+        switch (type)
+        {
+        case rendern::LightType::Directional: return "Directional";
+        case rendern::LightType::Point:       return "Point";
+        case rendern::LightType::Spot:        return "Spot";
+        }
+        return "Unknown";
+    }
+
     static void DrawHierarchyPanel(
         rendern::LevelAsset& level,
         const DerivedLists& derived,
@@ -78,6 +89,36 @@ namespace rendern::ui::level_ui_detail
                 }
                 st.selectedNode = -1;
                 st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+            }
+        }
+
+        ImGui::SeparatorText("Lights");
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+        for (std::size_t i = 0; i < scene.lights.size(); ++i)
+        {
+            const rendern::Light& light = scene.lights[i];
+            char label[256]{};
+            std::snprintf(
+                label,
+                sizeof(label),
+                "%d: %s%s",
+                static_cast<int>(i),
+                LightTypeLabel(light.type),
+                light.intensity > 0.00001f ? "" : "  [disabled]");
+
+            if (ImGui::Selectable(label, scene.EditorIsLightSelected(static_cast<int>(i))))
+            {
+                const bool ctrlDown = ImGui::GetIO().KeyCtrl;
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionLight(static_cast<int>(i));
+                }
+                else
+                {
+                    scene.EditorSetLightSelectionSingle(static_cast<int>(i));
+                }
+                st.selectedNode = -1;
+                st.selectedParticleEmitter = -1;
             }
         }
 

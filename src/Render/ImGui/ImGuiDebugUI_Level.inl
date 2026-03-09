@@ -14,16 +14,23 @@ namespace rendern::ui
     {
         ImGui::Begin("Level Editor");
 
-        ImGui::Text("Nodes: %d   Emitters: %d   DrawItems: %d",
+        ImGui::Text("Nodes: %d   Emitters: %d   Lights: %d   DrawItems: %d",
             static_cast<int>(level.nodes.size()),
             static_cast<int>(level.particleEmitters.size()),
+            static_cast<int>(scene.lights.size()),
             static_cast<int>(scene.drawItems.size()));
         ImGui::Separator();
 
         auto& st = level_ui_detail::GetState();
 
         // Selection is driven by the main viewport (mouse picking) or by this UI.
-        if (scene.editorSelectedParticleEmitter >= 0)
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+        if (scene.editorSelectedLight >= 0)
+        {
+            st.selectedNode = -1;
+            st.selectedParticleEmitter = -1;
+        }
+        else if (scene.editorSelectedParticleEmitter >= 0)
         {
             st.selectedNode = -1;
             st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
@@ -50,16 +57,19 @@ namespace rendern::ui
         level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, st);
 
         // If UI changed selection directly, push it back to Scene.
-        if (st.selectedParticleEmitter != scene.editorSelectedParticleEmitter ||
-            (st.selectedParticleEmitter < 0 && st.selectedNode != scene.editorSelectedNode))
+        if (scene.editorSelectedLight < 0)
         {
-            if (st.selectedParticleEmitter >= 0)
+            if (st.selectedParticleEmitter != scene.editorSelectedParticleEmitter ||
+                (st.selectedParticleEmitter < 0 && st.selectedNode != scene.editorSelectedNode))
             {
-                scene.EditorSetSelectionSingleParticleEmitter(st.selectedParticleEmitter);
-            }
-            else
-            {
-                scene.EditorSetSelectionSingle(st.selectedNode);
+                if (st.selectedParticleEmitter >= 0)
+                {
+                    scene.EditorSetSelectionSingleParticleEmitter(st.selectedParticleEmitter);
+                }
+                else
+                {
+                    scene.EditorSetSelectionSingle(st.selectedNode);
+                }
             }
         }
 

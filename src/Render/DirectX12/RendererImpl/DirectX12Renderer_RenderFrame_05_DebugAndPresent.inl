@@ -227,11 +227,17 @@ if (settings_.drawLightGizmos)
 	const float arrowLen = settings_.lightGizmoArrowLength * scale;
 	const float axisLen = scene.editorTranslateGizmo.axisLengthWorld;
 
-	for (const auto& light : scene.lights)
+	for (std::size_t lightIndex = 0; lightIndex < scene.lights.size(); ++lightIndex)
 	{
+		const auto& light = scene.lights[lightIndex];
+		const bool selectedLight = scene.EditorIsLightSelected(static_cast<int>(lightIndex));
 		const std::uint32_t colDir = debugDraw::PackRGBA8(255, 255, 255, 255);
-		const std::uint32_t colPoint = debugDraw::PackRGBA8(255, 220, 80, 255);
-		const std::uint32_t colSpot = debugDraw::PackRGBA8(80, 220, 255, 255);
+		const std::uint32_t colPoint = selectedLight
+			? debugDraw::PackRGBA8(255, 255, 255, 255)
+			: debugDraw::PackRGBA8(255, 220, 80, 255);
+		const std::uint32_t colSpot = selectedLight
+			? debugDraw::PackRGBA8(255, 255, 255, 255)
+			: debugDraw::PackRGBA8(80, 220, 255, 255);
 
 		switch (light.type)
 		{
@@ -249,48 +255,23 @@ if (settings_.drawLightGizmos)
 			debugList.AddLine(p - mathUtils::Vec3(0.0f, halfSize, 0.0f), p + mathUtils::Vec3(0.0f, halfSize, 0.0f), colPoint);
 			debugList.AddLine(p - mathUtils::Vec3(0.0f, 0.0f, halfSize), p + mathUtils::Vec3(0.0f, 0.0f, halfSize), colPoint);
 
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(axisLen, 0.0f, 0.0f),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis,
-					scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(0.0f, axisLen, 0.0f),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis,
-					scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(0.0f, 0.0f, axisLen),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Z,
-					debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
-
 			debugList.AddWireSphere(p, halfSize, colPoint, 16);
+			if (selectedLight)
+			{
+				debugList.AddWireSphere(p, halfSize * 1.35f, debugDraw::PackRGBA8(255, 255, 0, 255), 20);
+			}
 			break;
 		}
 		case LightType::Spot:
 		{
 			const mathUtils::Vec3 p = light.position;
 			const mathUtils::Vec3 dir = mathUtils::Normalize(light.direction);
-			debugList.AddArrow(p, p + dir * arrowLen, colSpot);
 			const float outerRad = mathUtils::DegToRad(light.outerHalfAngleDeg);
 			debugList.AddWireCone(p, dir, arrowLen, outerRad, colSpot, 24);
-
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(axisLen, 0.0f, 0.0f),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis,
-					scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::X, debugDraw::PackRGBA8(255, 80, 80, 255)), 0.25f, 0.15f, true);
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(0.0f, axisLen, 0.0f),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis,
-					scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Y, debugDraw::PackRGBA8(80, 255, 80, 255)), 0.25f, 0.15f, true);
-			debugList.AddArrow(
-				p,
-				p + mathUtils::Vec3(0.0f, 0.0f, axisLen),
-				ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::Z,
-					debugDraw::PackRGBA8(80, 160, 255, 255)), 0.25f, 0.15f, true);
+			if (selectedLight)
+			{
+				debugList.AddWireSphere(p, halfSize * 0.65f, debugDraw::PackRGBA8(255, 255, 0, 255), 16);
+			}
 
 			break;
 		}

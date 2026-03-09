@@ -130,7 +130,7 @@ mainAtt.colors = { forwardSceneColor };
 mainAtt.depth = depthRG;
 mainAtt.clearDesc = clearDesc;
 
-graph.AddPass("ForwardMainPass", std::move(mainAtt), [
+graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	this,
 	&scene,
 	shadowRG,
@@ -139,28 +139,13 @@ graph.AddPass("ForwardMainPass", std::move(mainAtt), [
 	spotShadows,
 	pointShadows,
 	mainBatches,
-	captureMainBatchesNoCull,
 	instStride,
-	transparentDraws,
-	planarMirrorDraws,
-	selectionOpaque,
-	selectionOpaqueStart,
-	selectionTransparent,
-	selectionTransparentStart,
-	selectionInstances,
 	activeReflectionProbeCount,
-	DrawEditorSelectionGroup,
 	ResolveMainPassMaterialPerm,
 	ResolveOpaqueEnvBinding,
 	BindMainPassMaterialTextures,
 	BuildMainPassMaterialFlags,
-	ResolveTransparentEnvBinding,
-	ComputeDeferredGBufferReflectionMeta,
 	ComputeForwardGBufferReflectionMeta,
-	FillPerBatchViewLightingConstants,
-	ResetPerBatchEnvProbeBox,
-	ApplyPerBatchReflectionProbeBox,
-	particleCount,
 	doDepthPrepass](renderGraph::PassContext& ctx)
 {
 	const auto extent = ctx.passExtent;
@@ -301,10 +286,75 @@ graph.AddPass("ForwardMainPass", std::move(mainAtt), [
 		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 		ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
 	}
+	});
 
+	// Planar reflections in the forward path cannot safely render straight into the main depth buffer:
+	// reflected geometry lives "behind" the mirror plane in camera space, so reusing the main depth
+	// buffer causes depth conflicts with real scene geometry. Use the same offscreen mask+reflColor+
+	// reflDepth path as deferred, then composite back into ForwardSceneColor.
+	const auto sceneColor = forwardSceneColor;
+#include "RendererImpl/DirectX12Renderer_RenderFrame_04b_PlanarReflections_MaskRT.inl"
 
-	// --- Planar reflections (stencil-gated overlay; coplanar mirrors are grouped to avoid seams) ---
-#include "RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl"
+	renderGraph::PassAttachments transparentAtt{};
+	transparentAtt.useSwapChainBackbuffer = false;
+	transparentAtt.colors = { forwardSceneColor };
+	transparentAtt.depth = depthRG;
+	transparentAtt.clearDesc.clearColor = false;
+	transparentAtt.clearDesc.clearDepth = false;
+	transparentAtt.clearDesc.clearStencil = false;
+
+	graph.AddPass("ForwardTransparentPass", std::move(transparentAtt), [
+		this,
+		&scene,
+		shadowRG,
+		dirLightViewProj,
+		lightCount,
+		spotShadows,
+		pointShadows,
+		instStride,
+		transparentDraws,
+		selectionOpaque,
+		selectionOpaqueStart,
+		selectionTransparent,
+		selectionTransparentStart,
+		DrawEditorSelectionGroup,
+		ResolveMainPassMaterialPerm,
+		ResolveTransparentEnvBinding,
+		BindMainPassMaterialTextures,
+		BuildMainPassMaterialFlags,
+		FillPerBatchViewLightingConstants,
+		ResetPerBatchEnvProbeBox,
+		particleCount,
+		doDepthPrepass](renderGraph::PassContext& ctx)
+	{
+		const auto extent = ctx.passExtent;
+
+		ctx.commandList.SetViewport(0, 0,
+			static_cast<int>(extent.width),
+			static_cast<int>(extent.height));
+
+		const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+		const mathUtils::Mat4& viewProj = camera.viewProj;
+		const mathUtils::Vec3& camPosLocal = camera.camPos;
+		const mathUtils::Vec3& camFLocal = camera.camForward;
+
+		// Rebind lighting/shadow resources for transparent draws.
+		{
+			const auto shadowTex = ctx.resources.GetTexture(shadowRG);
+			ctx.commandList.BindTexture2D(1, shadowTex);
+		}
+		for (std::size_t spotShadowIndex = 0; spotShadowIndex < spotShadows.size(); ++spotShadowIndex)
+		{
+			const auto tex = ctx.resources.GetTexture(spotShadows[spotShadowIndex].tex);
+			ctx.commandList.BindTexture2D(3 + static_cast<std::uint32_t>(spotShadowIndex), tex);
+		}
+		for (std::size_t pointShadowIndex = 0; pointShadowIndex < pointShadows.size(); ++pointShadowIndex)
+		{
+			const auto tex = ctx.resources.GetTexture(pointShadows[pointShadowIndex].cube);
+			ctx.commandList.BindTexture2DArray(7 + static_cast<std::uint32_t>(pointShadowIndex), tex);
+		}
+		ctx.commandList.BindStructuredBufferSRV(11, shadowDataBuffer_);
+		ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
 
 	// If selected objects are opaque, draw outline/highlight BEFORE transparent objects
 	// so transparent surfaces still blend on top.

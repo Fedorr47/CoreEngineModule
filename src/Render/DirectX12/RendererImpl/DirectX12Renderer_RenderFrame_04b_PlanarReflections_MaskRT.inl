@@ -365,7 +365,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			att.clearDesc.clearStencil = false;
 
 			graph.AddPass(std::string("PlanarComposite_") + std::to_string(mirrorIndex), std::move(att),
-				[this, &scene, view, proj, maskTex, reflColor, planeN, planeD](renderGraph::PassContext& ctx)
+				[this, maskTex, reflColor](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));

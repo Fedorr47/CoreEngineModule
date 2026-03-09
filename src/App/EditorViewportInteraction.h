@@ -4,7 +4,12 @@ namespace appEditor
 {
     inline bool HasParticleEmitterSelection(const rendern::Scene& scene)
     {
-        return scene.editorSelectedParticleEmitter >= 0 && scene.editorSelectedNode < 0;
+        return scene.editorSelectedParticleEmitter >= 0 && scene.editorSelectedNode < 0 && scene.editorSelectedLights.empty();
+    }
+
+    inline bool HasLightSelection(const rendern::Scene& scene)
+    {
+        return !scene.editorSelectedLights.empty();
     }
 
     inline void SyncSelectedParticleEmitterTranslateGizmo(
@@ -345,8 +350,11 @@ namespace appEditor
         rendern::LevelInstance& levelInstance,
         rendern::Scene& scene)
     {
-        levelInstance.MarkTransformsDirty();
-        levelInstance.SyncTransformsIfDirty(levelAsset, scene);
+        if (!HasLightSelection(scene))
+        {
+            levelInstance.MarkTransformsDirty();
+            levelInstance.SyncTransformsIfDirty(levelAsset, scene);
+        }
         SyncCurrentGizmoVisual(interaction, levelAsset, levelInstance, scene);
     }
 
@@ -493,7 +501,7 @@ namespace appEditor
             scene.debugPickRay.enabled = true;
             scene.debugPickRay.origin = pick.rayOrigin;
             scene.debugPickRay.direction = pick.rayDir;
-            scene.debugPickRay.hit = ((pick.nodeIndex >= 0) || (pick.particleEmitterIndex >= 0)) && std::isfinite(pick.t);
+            scene.debugPickRay.hit = ((pick.nodeIndex >= 0) || (pick.particleEmitterIndex >= 0) || (pick.lightIndex >= 0)) && std::isfinite(pick.t);
             scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
 
             if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
@@ -516,6 +524,17 @@ namespace appEditor
                 else
                 {
                     scene.EditorSetSelectionSingleParticleEmitter(pick.particleEmitterIndex);
+                }
+            }
+            else if (scene.debugPickRay.hit && pick.lightIndex >= 0)
+            {
+                if (ctrlDown)
+                {
+                    scene.EditorToggleSelectionLight(pick.lightIndex);
+                }
+                else
+                {
+                    scene.EditorSetLightSelectionSingle(pick.lightIndex);
                 }
             }
             else

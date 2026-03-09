@@ -559,6 +559,18 @@ namespace rendern::ui::level_ui_detail
         }
     }
 
+    static void DrawLightSelectionInspector(rendern::Scene& scene, LevelEditorUIState& st)
+    {
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+        st.selectedNode = -1;
+        st.selectedParticleEmitter = -1;
+        st.prevSelectedNode = -2;
+        st.prevSelectedParticleEmitter = -2;
+
+        ImGui::SeparatorText("Light");
+        rendern::ui::DrawLightInspectorDetails(scene);
+    }
+
     static void DrawSelectionInspector(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
@@ -574,6 +586,13 @@ namespace rendern::ui::level_ui_detail
             st.selectedParticleEmitter = -1;
         if (st.selectedNode >= 0 && !NodeAlive(level, st.selectedNode))
             st.selectedNode = -1;
+
+        scene.EditorSanitizeLightSelection(scene.lights.size());
+        if (scene.editorSelectedLight >= 0)
+        {
+            DrawLightSelectionInspector(scene, st);
+            return;
+        }
 
         if (st.selectedParticleEmitter >= 0)
         {
@@ -606,7 +625,7 @@ namespace rendern::ui::level_ui_detail
         }
         else
         {
-            ImGui::TextDisabled("No node or emitter selected.");
+            ImGui::TextDisabled("No node, light, or emitter selected.");
             st.prevSelectedNode = -2;
             st.prevSelectedParticleEmitter = -2;
         }

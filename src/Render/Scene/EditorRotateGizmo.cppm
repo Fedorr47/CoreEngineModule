@@ -24,6 +24,13 @@ namespace
 		return mathUtils::Normalize(v);
 	}
 
+	static mathUtils::Vec3 RotateAroundAxis(const mathUtils::Vec3& v, const mathUtils::Vec3& axisUnit, float angleRad) noexcept
+	{
+		const float c = std::cos(angleRad);
+		const float s = std::sin(angleRad);
+		return v * c + mathUtils::Cross(axisUnit, v) * s + axisUnit * (mathUtils::Dot(axisUnit, v) * (1.0f - c));
+	}
+
 	static mathUtils::Vec3 AxisDirection(const rendern::RotateGizmoState& gizmo, rendern::GizmoAxis axis) noexcept
 	{
 		switch (axis)
@@ -100,11 +107,50 @@ export namespace rendern
 		void SyncVisual(const LevelAsset& asset, const LevelInstance& levelInst, Scene& scene) const noexcept
 		{
 			RotateGizmoState& gizmo = scene.editorRotateGizmo;
+			scene.EditorSanitizeLightSelection(scene.lights.size());
 			if (!gizmo.enabled)
 			{
 				gizmo.visible = false;
 				gizmo.hoveredAxis = GizmoAxis::None;
 				gizmo.activeAxis = GizmoAxis::None;
+				return;
+			}
+
+			if (!scene.editorSelectedLights.empty())
+			{
+				mathUtils::Vec3 sum{ 0.0f, 0.0f, 0.0f };
+				int count = 0;
+				for (const int lightIndex : scene.editorSelectedLights)
+				{
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+					const Light& light = scene.lights[static_cast<std::size_t>(lightIndex)];
+					if (light.type != LightType::Spot)
+					{
+						continue;
+					}
+					sum = sum + light.position;
+					++count;
+				}
+
+				if (count == 0)
+				{
+					gizmo.visible = false;
+					gizmo.hoveredAxis = GizmoAxis::None;
+					gizmo.activeAxis = GizmoAxis::None;
+					return;
+				}
+
+				gizmo.visible = true;
+				gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
+				gizmo.axisXWorld = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
+				gizmo.axisYWorld = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
+				gizmo.axisZWorld = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
+
+				const float distToCamera = mathUtils::Length(scene.camera.position - gizmo.pivotWorld);
+				gizmo.ringRadiusWorld = std::clamp(distToCamera * 0.12f, 0.35f, 3.0f);
 				return;
 			}
 
@@ -176,15 +222,7 @@ export namespace rendern
 				return false;
 			}
 
-			const int primaryNode = scene.editorSelectedNode;
-			if (!levelInst.IsNodeAlive(asset, primaryNode))
-			{
-				return false;
-			}
-			if (scene.editorSelectedNodes.empty())
-			{
-				scene.editorSelectedNodes.push_back(primaryNode);
-			}
+			scene.EditorSanitizeLightSelection(scene.lights.size());
 
 			const GizmoAxis axis = HitTestRing(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
 			if (axis == GizmoAxis::None)
@@ -206,23 +244,67 @@ export namespace rendern
 			}
 
 			dragging_ = true;
+			dragSelectionIsLight_ = false;
 			dragNodeIndices_.clear();
-			dragStartLocalRotations_.clear();
-			dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
-			dragStartLocalRotations_.reserve(scene.editorSelectedNodes.size());
-			for (const int nodeIndex : scene.editorSelectedNodes)
+			
+			dragLightIndices_.clear();
+			dragStartLightDirections_.clear();
+
+			if (!scene.editorSelectedLights.empty())
 			{
-				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				dragSelectionIsLight_ = true;
+				dragLightIndices_.reserve(scene.editorSelectedLights.size());
+				dragStartLightDirections_.reserve(scene.editorSelectedLights.size());
+				for (const int lightIndex : scene.editorSelectedLights)
 				{
-					continue;
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+					const Light& light = scene.lights[static_cast<std::size_t>(lightIndex)];
+					if (light.type != LightType::Spot)
+					{
+						continue;
+					}
+					dragLightIndices_.push_back(lightIndex);
+					dragStartLightDirections_.push_back(SafeNormalizeOr(light.direction, mathUtils::Vec3(0.0f, -1.0f, 0.0f)));
 				}
-				dragNodeIndices_.push_back(nodeIndex);
-				dragStartLocalRotations_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.rotationDegrees);
+				if (dragLightIndices_.empty())
+				{
+					dragging_ = false;
+					dragSelectionIsLight_ = false;
+					return false;
+				}
 			}
-			if (dragNodeIndices_.empty())
+			else
 			{
-				dragging_ = false;
-				return false;
+				const int primaryNode = scene.editorSelectedNode;
+				if (!levelInst.IsNodeAlive(asset, primaryNode))
+				{
+					dragging_ = false;
+					return false;
+				}
+				if (scene.editorSelectedNodes.empty())
+				{
+					scene.editorSelectedNodes.push_back(primaryNode);
+				}
+
+				dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
+				dragStartLocalRotations_.reserve(scene.editorSelectedNodes.size());
+				for (const int nodeIndex : scene.editorSelectedNodes)
+				{
+					if (!levelInst.IsNodeAlive(asset, nodeIndex))
+					{
+						continue;
+					}
+					dragNodeIndices_.push_back(nodeIndex);
+					dragStartLocalRotations_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.rotationDegrees);
+				}
+				if (dragNodeIndices_.empty())
+				{
+					dragging_ = false;
+					return false;
+				}
 			}
 			dragAxis_ = axis;
 			dragStartHitDirWorld_ = mathUtils::Normalize(startDir);
@@ -243,7 +325,7 @@ export namespace rendern
 			float viewportH,
 			bool snapEnabled) noexcept
 		{
-			if (!dragging_ || dragNodeIndices_.empty())
+			if (!dragging_)
 			{
 				return false;
 			}
@@ -269,6 +351,25 @@ export namespace rendern
 			{
 				constexpr float kRotateSnapStepDeg = 15.0f;
 				angleDeg = std::round(angleDeg / kRotateSnapStepDeg) * kRotateSnapStepDeg;
+			}
+
+			if (dragSelectionIsLight_)
+			{
+				const std::size_t n = dragLightIndices_.size();
+				for (std::size_t i = 0; i < n; ++i)
+				{
+					const int lightIndex = dragLightIndices_[i];
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+
+					mathUtils::Vec3 dir = RotateAroundAxis(dragStartLightDirections_[i], dragAxisWorld_, mathUtils::DegToRad(angleDeg));
+					scene.lights[static_cast<std::size_t>(lightIndex)].direction = SafeNormalizeOr(dir, dragStartLightDirections_[i]);
+				}
+
+				scene.editorRotateGizmo.hoveredAxis = dragAxis_;
+				return true;
 			}
 
 			const std::size_t n = dragNodeIndices_.size();
@@ -297,8 +398,11 @@ export namespace rendern
 		void EndDrag(Scene& scene) noexcept
 		{
 			dragging_ = false;
+			dragSelectionIsLight_ = false;
 			dragNodeIndices_.clear();
 			dragStartLocalRotations_.clear();
+			dragLightIndices_.clear();
+			dragStartLightDirections_.clear();
 			dragAxis_ = GizmoAxis::None;
 			dragStartHitDirWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -314,9 +418,12 @@ export namespace rendern
 
 	private:
 		bool dragging_{ false };
+		bool dragSelectionIsLight_{ false };
 		std::vector<int> dragNodeIndices_;
+		std::vector<int> dragLightIndices_;
 		GizmoAxis dragAxis_{ GizmoAxis::None };
 		std::vector<mathUtils::Vec3> dragStartLocalRotations_;
+		std::vector<mathUtils::Vec3> dragStartLightDirections_;
 		mathUtils::Vec3 dragStartHitDirWorld_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragPivotWorld_{ 0.0f, 0.0f, 0.0f };

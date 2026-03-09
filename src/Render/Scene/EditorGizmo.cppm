@@ -356,11 +356,49 @@ export namespace rendern
 		void SyncVisual(const LevelAsset& asset, const LevelInstance& levelInst, Scene& scene) const noexcept
 		{
 			TranslateGizmoState& gizmo = scene.editorTranslateGizmo;
+			scene.EditorSanitizeLightSelection(scene.lights.size());
 			if (!gizmo.enabled || scene.editorGizmoMode != GizmoMode::Translate)
 			{
 				gizmo.visible = false;
 				gizmo.hoveredAxis = GizmoAxis::None;
 				gizmo.activeAxis = GizmoAxis::None;
+				return;
+			}
+
+			if (!scene.editorSelectedLights.empty())
+			{
+				mathUtils::Vec3 sum{ 0.0f, 0.0f, 0.0f };
+				int count = 0;
+				for (const int lightIndex : scene.editorSelectedLights)
+				{
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+					const Light& light = scene.lights[static_cast<std::size_t>(lightIndex)];
+					if (light.type != LightType::Point && light.type != LightType::Spot)
+					{
+						continue;
+					}
+					sum = sum + light.position;
+					++count;
+				}
+
+				if (count == 0)
+				{
+					gizmo.visible = false;
+					gizmo.hoveredAxis = GizmoAxis::None;
+					gizmo.activeAxis = GizmoAxis::None;
+					return;
+				}
+
+				gizmo.visible = true;
+				gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
+				gizmo.axisXWorld = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
+				gizmo.axisYWorld = mathUtils::Vec3(0.0f, 1.0f, 0.0f);
+				gizmo.axisZWorld = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
+				const float distToCamera = mathUtils::Length(scene.camera.position - gizmo.pivotWorld);
+				gizmo.axisLengthWorld = std::clamp(distToCamera * 0.18f, 0.35f, 4.0f);
 				return;
 			}
 
@@ -436,19 +474,10 @@ export namespace rendern
 			float viewportH) noexcept
 		{
 			TranslateGizmoState& gizmo = scene.editorTranslateGizmo;
+			scene.EditorSanitizeLightSelection(scene.lights.size());
 			if (!gizmo.enabled || !gizmo.visible || dragging_)
 			{
 				return false;
-			}
-
-			const int primaryNode = scene.editorSelectedNode;
-			if (!levelInst.IsNodeAlive(asset, primaryNode))
-			{
-				return false;
-			}
-			if (scene.editorSelectedNodes.empty())
-			{
-				scene.editorSelectedNodes.push_back(primaryNode);
 			}
 
 			const GizmoAxis axis = HitTestHandle(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
@@ -484,28 +513,72 @@ export namespace rendern
 			}
 
 			dragging_ = true;
+			dragSelectionIsLight_ = false;
 			dragNodeIndices_.clear();
 			dragStartLocalPositions_.clear();
 			dragInvParentWorld_.clear();
-			dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
-			dragStartLocalPositions_.reserve(scene.editorSelectedNodes.size());
-			dragInvParentWorld_.reserve(scene.editorSelectedNodes.size());
+			dragLightIndices_.clear();
+			dragStartLightPositions_.clear();
 
-			for (const int nodeIndex : scene.editorSelectedNodes)
+			if (!scene.editorSelectedLights.empty())
 			{
-				if (!levelInst.IsNodeAlive(asset, nodeIndex))
+				dragSelectionIsLight_ = true;
+				dragLightIndices_.reserve(scene.editorSelectedLights.size());
+				dragStartLightPositions_.reserve(scene.editorSelectedLights.size());
+				for (const int lightIndex : scene.editorSelectedLights)
 				{
-					continue;
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+					const Light& light = scene.lights[static_cast<std::size_t>(lightIndex)];
+					if (light.type != LightType::Point && light.type != LightType::Spot)
+					{
+						continue;
+					}
+					dragLightIndices_.push_back(lightIndex);
+					dragStartLightPositions_.push_back(light.position);
 				}
-				dragNodeIndices_.push_back(nodeIndex);
-				dragStartLocalPositions_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.position);
-				dragInvParentWorld_.push_back(mathUtils::Inverse(levelInst.GetParentWorldMatrix(asset, nodeIndex)));
-			}
 
-			if (dragNodeIndices_.empty())
+				if (dragLightIndices_.empty())
+				{
+					dragging_ = false;
+					dragSelectionIsLight_ = false;
+					return false;
+				}
+			}
+			else
 			{
-				dragging_ = false;
-				return false;
+				const int primaryNode = scene.editorSelectedNode;
+				if (!levelInst.IsNodeAlive(asset, primaryNode))
+				{
+					dragging_ = false;
+					return false;
+				}
+				if (scene.editorSelectedNodes.empty())
+				{
+					scene.editorSelectedNodes.push_back(primaryNode);
+				}
+
+				dragNodeIndices_.reserve(scene.editorSelectedNodes.size());
+				dragStartLocalPositions_.reserve(scene.editorSelectedNodes.size());
+				dragInvParentWorld_.reserve(scene.editorSelectedNodes.size());
+				for (const int nodeIndex : scene.editorSelectedNodes)
+				{
+					if (!levelInst.IsNodeAlive(asset, nodeIndex))
+					{
+						continue;
+					}
+					dragNodeIndices_.push_back(nodeIndex);
+					dragStartLocalPositions_.push_back(asset.nodes[static_cast<std::size_t>(nodeIndex)].transform.position);
+					dragInvParentWorld_.push_back(mathUtils::Inverse(levelInst.GetParentWorldMatrix(asset, nodeIndex)));
+				}
+
+				if (dragNodeIndices_.empty())
+				{
+					dragging_ = false;
+					return false;
+				}
 			}
 
 			dragAxis_ = axis;
@@ -528,7 +601,7 @@ export namespace rendern
 			float viewportH,
 			bool snapEnabled) noexcept
 		{
-			if (!dragging_ || dragNodeIndices_.empty())
+			if (!dragging_)
 			{
 				return false;
 			}
@@ -552,6 +625,32 @@ export namespace rendern
 			else
 			{
 				return false;
+			}
+
+			if (dragSelectionIsLight_)
+			{
+				const std::size_t n = dragLightIndices_.size();
+				for (std::size_t i = 0; i < n; ++i)
+				{
+					const int lightIndex = dragLightIndices_[i];
+					if (lightIndex < 0 || static_cast<std::size_t>(lightIndex) >= scene.lights.size())
+					{
+						continue;
+					}
+
+					mathUtils::Vec3 newPosition = dragStartLightPositions_[i] + worldDelta;
+					if (snapEnabled)
+					{
+						constexpr float kTranslateSnapStep = 0.5f;
+						newPosition.x = std::round(newPosition.x / kTranslateSnapStep) * kTranslateSnapStep;
+						newPosition.y = std::round(newPosition.y / kTranslateSnapStep) * kTranslateSnapStep;
+						newPosition.z = std::round(newPosition.z / kTranslateSnapStep) * kTranslateSnapStep;
+					}
+
+					scene.lights[static_cast<std::size_t>(lightIndex)].position = newPosition;
+				}
+				scene.editorTranslateGizmo.hoveredAxis = dragAxis_;
+				return true;
 			}
 
 			const std::size_t n = dragNodeIndices_.size();
@@ -582,9 +681,12 @@ export namespace rendern
 		void EndDrag(Scene& scene) noexcept
 		{
 			dragging_ = false;
+			dragSelectionIsLight_ = false;
 			dragNodeIndices_.clear();
 			dragStartLocalPositions_.clear();
 			dragInvParentWorld_.clear();
+			dragLightIndices_.clear();
+			dragStartLightPositions_.clear();
 			dragAxis_ = GizmoAxis::None;
 			dragStartWorldHit_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -601,9 +703,12 @@ export namespace rendern
 
 	private:
 		bool dragging_{ false };
+		bool dragSelectionIsLight_{ false };
 		std::vector<int> dragNodeIndices_;
+		std::vector<int> dragLightIndices_;
 		GizmoAxis dragAxis_{ GizmoAxis::None };
 		std::vector<mathUtils::Vec3> dragStartLocalPositions_;
+		std::vector<mathUtils::Vec3> dragStartLightPositions_;
 		std::vector<mathUtils::Mat4> dragInvParentWorld_;
 		mathUtils::Vec3 dragStartWorldHit_{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec3 dragAxisWorld_{ 0.0f, 0.0f, 0.0f };

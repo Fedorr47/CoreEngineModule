@@ -115,6 +115,7 @@ export namespace rendern
     {
         int nodeIndex{ -1 };
         int particleEmitterIndex{ -1 };
+        int lightIndex{ -1 };
         float t{ std::numeric_limits<float>::infinity() };
         mathUtils::Vec3 rayOrigin{ 0.0f, 0.0f, 0.0f };
         mathUtils::Vec3 rayDir{ 0.0f, 0.0f, 1.0f }; // normalized
@@ -164,6 +165,7 @@ export namespace rendern
         float bestT = std::numeric_limits<float>::infinity();
         int bestNode = -1;
         int bestEmitter = -1;
+        int bestLight = -1;
 
         const LevelWorld& ecs = levelInst.GetLevelWorld();
         ecs.ForEachRenderable([&](EntityHandle,
@@ -197,6 +199,7 @@ export namespace rendern
                     bestT = t;
                     bestNode = nodeId.index;
                     bestEmitter = -1;
+                    bestLight = -1;
                 }
             });
 
@@ -227,11 +230,39 @@ export namespace rendern
                 bestT = t;
                 bestNode = -1;
                 bestEmitter = static_cast<int>(emitterIndex);
+                bestLight = -1;
+            }
+        }
+
+        for (std::size_t lightIndex = 0; lightIndex < scene.lights.size(); ++lightIndex)
+        {
+            const Light& light = scene.lights[lightIndex];
+            if (light.type != LightType::Point && light.type != LightType::Spot)
+            {
+                continue;
+            }
+
+            const float distToCamera = mathUtils::Length(scene.camera.position - light.position);
+            const float pickRadius = std::clamp(distToCamera * 0.04f, 0.15f, 1.5f);
+
+            float t = 0.0f;
+            if (!IntersectRaySphere(ray, light.position, pickRadius, t))
+            {
+                continue;
+            }
+
+            if (t < bestT)
+            {
+                bestT = t;
+                bestNode = -1;
+                bestEmitter = -1;
+                bestLight = static_cast<int>(lightIndex);
             }
         }
 
         out.nodeIndex = bestNode;
         out.particleEmitterIndex = bestEmitter;
+        out.lightIndex = bestLight;
         out.t = bestT;
         return out;
     }
