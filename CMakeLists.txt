@@ -447,6 +447,20 @@ add_custom_command(TARGET app POST_BUILD
         $<TARGET_FILE:assimp::assimp>
         $<TARGET_FILE_DIR:app>)
 
+set(COREENGINE_SM6_DLL_DIR "${CMAKE_SOURCE_DIR}/dlls")
+
+add_custom_command(TARGET app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:app>
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${COREENGINE_SM6_DLL_DIR}"
+        $<TARGET_FILE_DIR:app>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:assimp::assimp>
+        $<TARGET_FILE_DIR:app>
+    COMMENT "Copying sm6 DLLs and Assimp to output directory"
+)
+
 target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)
 
