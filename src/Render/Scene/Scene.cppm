@@ -5,6 +5,7 @@ module;
 #include <span>
 #include <stdexcept>
 #include <memory>
+#include <utility>
 #include <algorithm>
 #include <cmath>
 
@@ -13,6 +14,9 @@ export module core:scene;
 import :rhi;
 import :resource_manager_mesh;
 import :math_utils;
+import :skinned_mesh;
+import :animation_clip;
+import :animator;
 
 export namespace rendern
 {
@@ -340,12 +344,29 @@ export namespace rendern
 		MaterialHandle material{};
 	};
 
+	struct SkinnedAssetBundle
+	{
+		SkinnedMeshCPU mesh{};
+		std::vector<AnimationClip> clips;
+	};
+
+	struct SkinnedDrawItem
+	{
+		std::shared_ptr<SkinnedAssetBundle> asset;
+		Transform transform{};
+		MaterialHandle material{};
+		AnimatorState animator{};
+		int activeClipIndex{ -1 };
+		bool autoplay{ true };
+	};
+
 	class Scene
 	{
 	public:
 		rendern::Camera camera{};
 		std::vector<Material> materials; // persistent "assets" owned by Scene
 		std::vector<DrawItem> drawItems;
+		std::vector<SkinnedDrawItem> skinnedDrawItems;
 		std::vector<Light> lights;
 		std::vector<Particle> particles;
 		std::vector<ParticleEmitter> particleEmitters;
@@ -401,6 +422,7 @@ export namespace rendern
 		void Clear()
 		{
 			drawItems.clear();
+			skinnedDrawItems.clear();
 			lights.clear();
 			particles.clear();
 			particleEmitters.clear();
@@ -685,6 +707,12 @@ export namespace rendern
 			return drawItems.back();
 		}
 
+		SkinnedDrawItem& AddSkinnedDraw(SkinnedDrawItem item)
+		{
+			skinnedDrawItems.push_back(std::move(item));
+			return skinnedDrawItems.back();
+		}
+
 		Light& AddLight(const Light& l)
 		{
 			lights.push_back(l);
@@ -755,6 +783,27 @@ export namespace rendern
 			particle.ownerEmitter = emitterIndex;
 
 			particles.push_back(particle);
+		}
+
+		void UpdateSkinnedAnimations(float dt)
+		{
+			for (SkinnedDrawItem& item : skinnedDrawItems)
+			{
+				if (!item.asset)
+				{
+					continue;
+				}
+
+				if (!IsAnimatorReady(item.animator))
+				{
+					InitializeAnimator(item.animator, &item.asset->mesh.skeleton, nullptr);
+				}
+
+				if (item.autoplay)
+				{
+					UpdateAnimator(item.animator, dt);
+				}
+			}
 		}
 
 		void UpdateParticles(float dt)

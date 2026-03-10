@@ -94,6 +94,36 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	}
 	ss << "},\n";
 
+	// skinnedMeshes
+	ss << "  \"skinnedMeshes\": {";
+	{
+		auto keys = SortedStringKeys(level.skinnedMeshes);
+		for (std::size_t i = 0; i < keys.size(); ++i)
+		{
+			const auto& id = keys[i];
+			const LevelSkinnedMeshDef& md = level.skinnedMeshes.at(id);
+			if (i == 0) ss << "\n"; else ss << ",\n";
+			ss << "    ";
+			WriteJsonEscaped(ss, id);
+			ss << ": {\"path\": ";
+			WriteJsonEscaped(ss, md.path);
+			ss << ", \"flipUVs\": ";
+			WriteJsonBool(ss, md.flipUVs);
+			if (!md.debugName.empty())
+			{
+				ss << ", \"debugName\": ";
+				WriteJsonEscaped(ss, md.debugName);
+			}
+			if (md.submeshIndex)
+			{
+				ss << ", \"submeshIndex\": " << *md.submeshIndex;
+			}
+			ss << "}";
+		}
+		if (!keys.empty()) ss << "\n  ";
+	}
+	ss << "},\n";
+
 	// textures
 	ss << "  \"textures\": {";
 	{
@@ -398,6 +428,11 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 			ss << ", \"mesh\": ";
 			WriteJsonEscaped(ss, n.mesh);
 		}
+		if (!n.skinnedMesh.empty())
+		{
+			ss << ", \"skinnedMesh\": ";
+			WriteJsonEscaped(ss, n.skinnedMesh);
+		}
 		if (!n.material.empty())
 		{
 			ss << ", \"material\": ";
@@ -416,6 +451,23 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				firstOverride = false;
 			}
 			ss << "}";
+		}
+		if (!n.animationClip.empty())
+		{
+			ss << ", \"animationClip\": ";
+			WriteJsonEscaped(ss, n.animationClip);
+		}
+		if (!n.animationAutoplay)
+		{
+			ss << ", \"animationAutoplay\": false";
+		}
+		if (!n.animationLoop)
+		{
+			ss << ", \"animationLoop\": false";
+		}
+		if (std::fabs(n.animationPlayRate - 1.0f) > 1e-6f)
+		{
+			ss << ", \"animationPlayRate\": " << n.animationPlayRate;
 		}
 		ss << ", \"transform\": {";
 		if (n.transform.useMatrix)

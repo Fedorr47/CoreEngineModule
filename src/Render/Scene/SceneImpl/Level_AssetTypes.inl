@@ -17,6 +17,14 @@ struct LevelModelDef
 	bool flipUVs{ true };
 };
 
+struct LevelSkinnedMeshDef
+{
+	std::string path;
+	std::string debugName;
+	bool flipUVs{ true };
+	std::optional<std::uint32_t> submeshIndex{};
+};
+
 enum class LevelTextureKind : std::uint8_t
 {
 	Tex2D,
@@ -58,9 +66,14 @@ struct LevelNode
 
 	Transform transform{};
 
-	std::string mesh;     // meshId
-	std::string model;    // modelId (multi-draw runtime)
-	std::string material; // default materialId
+	std::string mesh;        // meshId
+	std::string model;       // modelId (multi-draw runtime)
+	std::string skinnedMesh; // skinnedMeshId
+	std::string material;    // default materialId
+	std::string animationClip;
+	bool animationAutoplay{ true };
+	bool animationLoop{ true };
+	float animationPlayRate{ 1.0f };
 	std::unordered_map<std::uint32_t, std::string> materialOverrides; // submeshIndex -> materialId
 };
 
@@ -73,6 +86,7 @@ struct LevelAsset
 
 	std::unordered_map<std::string, LevelMeshDef> meshes;
 	std::unordered_map<std::string, LevelModelDef> models;
+	std::unordered_map<std::string, LevelSkinnedMeshDef> skinnedMeshes;
 	std::unordered_map<std::string, LevelTextureDef> textures;
 	std::unordered_map<std::string, LevelMaterialDef> materials;
 

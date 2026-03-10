@@ -24,4 +24,5 @@ export import :file_system;
 export import :mesh;
 export import :skeleton;
 export import :animation_clip;
+export import :animator;
 export import :skinned_mesh;

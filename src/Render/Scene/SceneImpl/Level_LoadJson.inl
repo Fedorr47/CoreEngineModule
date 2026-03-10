@@ -150,6 +150,34 @@
 			}
 		}
 
+		// --- skinnedMeshes ---
+		if (auto* skinnedV = TryGet(jsonObject, "skinnedMeshes"))
+		{
+			const JsonObject& skinnedO = skinnedV->AsObject();
+			for (const auto& [id, defV] : skinnedO)
+			{
+				const JsonObject& md = defV.AsObject();
+				LevelSkinnedMeshDef def;
+				def.path = GetStringOpt(md, "path");
+				def.debugName = GetStringOpt(md, "debugName");
+				def.flipUVs = GetBoolOpt(md, "flipUVs", true);
+				if (auto* smi = TryGet(md, "submeshIndex"))
+				{
+					if (!smi->IsNumber())
+					{
+						throw std::runtime_error("Level JSON: skinnedMeshes." + id + ".submeshIndex must be number");
+					}
+					def.submeshIndex = static_cast<std::uint32_t>(smi->AsNumber());
+				}
+				if (def.path.empty())
+				{
+					throw std::runtime_error("Level JSON: skinnedMeshes." + id + ".path is required");
+				}
+				out.skinnedMeshes.emplace(id, std::move(def));
+			}
+		}
+
+
 		// --- materials ---
 		if (auto* matsV = TryGet(jsonObject, "materials"))
 		{
@@ -411,7 +439,12 @@
 				}
 				n.mesh = GetStringOpt(nd, "mesh");
 				n.model = GetStringOpt(nd, "model");
+				n.skinnedMesh = GetStringOpt(nd, "skinnedMesh");
 				n.material = GetStringOpt(nd, "material");
+				n.animationClip = GetStringOpt(nd, "animationClip");
+				n.animationAutoplay = GetBoolOpt(nd, "animationAutoplay", true);
+				n.animationLoop = GetBoolOpt(nd, "animationLoop", true);
+				n.animationPlayRate = GetFloatOpt(nd, "animationPlayRate", 1.0f);
 				if (auto* overridesV = TryGet(nd, "materialOverrides"))
 				{
 					if (!overridesV->IsObject())

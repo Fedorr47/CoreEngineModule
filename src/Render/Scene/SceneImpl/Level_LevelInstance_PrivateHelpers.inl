@@ -81,6 +81,81 @@ const LevelModelDef& GetModelDef_(const LevelAsset& asset, const std::string& mo
 	return it->second;
 }
 
+const LevelSkinnedMeshDef& GetSkinnedMeshDef_(const LevelAsset& asset, const std::string& skinnedMeshId) const
+{
+	auto it = asset.skinnedMeshes.find(skinnedMeshId);
+	if (it == asset.skinnedMeshes.end())
+	{
+		throw std::runtime_error("Level: node references unknown skinnedMeshId: " + skinnedMeshId);
+	}
+	return it->second;
+}
+
+std::shared_ptr<SkinnedAssetBundle> GetOrLoadSkinnedAssetBundle_(const LevelAsset& asset, const std::string& skinnedMeshId)
+{
+	if (auto it = skinnedAssetCache_.find(skinnedMeshId); it != skinnedAssetCache_.end())
+	{
+		return it->second;
+	}
+
+	const LevelSkinnedMeshDef& def = GetSkinnedMeshDef_(asset, skinnedMeshId);
+	AssimpSkinnedImportResult imported = LoadAssimpSkinnedAsset(def.path, def.flipUVs, def.submeshIndex);
+	auto bundle = std::make_shared<SkinnedAssetBundle>();
+	bundle->mesh = std::move(imported.mesh);
+	bundle->clips = std::move(imported.clips);
+	skinnedAssetCache_.emplace(skinnedMeshId, bundle);
+	return bundle;
+}
+
+[[nodiscard]] int FindAnimationClipIndexByName_(const std::vector<AnimationClip>& clips, std::string_view clipName) const noexcept
+{
+	if (clipName.empty())
+	{
+		return clips.empty() ? -1 : 0;
+	}
+	for (std::size_t clipIndex = 0; clipIndex < clips.size(); ++clipIndex)
+	{
+		if (clips[clipIndex].name == clipName)
+		{
+			return static_cast<int>(clipIndex);
+		}
+	}
+	return clips.empty() ? -1 : 0;
+}
+
+int MakeSkinnedDrawForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex, const LevelNode& node)
+{
+	auto bundle = GetOrLoadSkinnedAssetBundle_(asset, node.skinnedMesh);
+
+	SkinnedDrawItem item{};
+	item.asset = bundle;
+	item.material = EnsureMaterial(asset, scene, node.material);
+	item.transform.useMatrix = true;
+	item.transform.matrix = world_[static_cast<std::size_t>(nodeIndex)];
+	item.autoplay = node.animationAutoplay;
+	item.activeClipIndex = FindAnimationClipIndexByName_(bundle->clips, node.animationClip);
+
+	const int skinnedDrawIndex = static_cast<int>(scene.skinnedDrawItems.size());
+	SkinnedDrawItem& stored = scene.AddSkinnedDraw(std::move(item));
+	const AnimationClip* activeClip = nullptr;
+	if (stored.activeClipIndex >= 0 && static_cast<std::size_t>(stored.activeClipIndex) < stored.asset->clips.size())
+	{
+		activeClip = &stored.asset->clips[static_cast<std::size_t>(stored.activeClipIndex)];
+	}
+	InitializeAnimator(stored.animator, &stored.asset->mesh.skeleton, activeClip);
+	stored.animator.looping = node.animationLoop;
+	stored.animator.playRate = node.animationPlayRate;
+	stored.animator.paused = !node.animationAutoplay;
+	EvaluateAnimator(stored.animator);
+
+	if (skinnedDrawToNode_.size() < scene.skinnedDrawItems.size())
+	{
+		skinnedDrawToNode_.resize(scene.skinnedDrawItems.size(), -1);
+	}
+	skinnedDrawToNode_[static_cast<std::size_t>(skinnedDrawIndex)] = nodeIndex;
+	return skinnedDrawIndex;
+}
+
 std::vector<int> MakeDrawsForModelNode_(const LevelAsset& asset, Scene& scene, AssetManager& assets, int nodeIndex, const LevelNode& node)
 {
 	const LevelModelDef& md = GetModelDef_(asset, node.model);
@@ -217,7 +292,18 @@ void SyncEntityRenderableForNode_(const LevelAsset& asset, Scene& scene, int nod
 	}
 
 	const int drawIndex = GetNodeDrawIndex(nodeIndex);
-	if (drawIndex < 0 || static_cast<std::size_t>(drawIndex) >= scene.drawItems.size())
+	const int skinnedDrawIndex = GetNodeSkinnedDrawIndex(nodeIndex);
+	if (drawIndex >= 0 && static_cast<std::size_t>(drawIndex) < scene.drawItems.size())
+	{
+		const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawIndex)];
+		ecs_.UpsertRenderable(e, Renderable{ .mesh = di.mesh, .material = di.material, .drawIndex = drawIndex, .skinnedDrawIndex = -1, .isSkinned = false });
+	}
+	else if (skinnedDrawIndex >= 0 && static_cast<std::size_t>(skinnedDrawIndex) < scene.skinnedDrawItems.size())
+	{
+		const SkinnedDrawItem& sdi = scene.skinnedDrawItems[static_cast<std::size_t>(skinnedDrawIndex)];
+		ecs_.UpsertRenderable(e, Renderable{ .mesh = {}, .material = sdi.material, .drawIndex = -1, .skinnedDrawIndex = skinnedDrawIndex, .isSkinned = true });
+	}
+	else
 	{
 		if (ecs_.HasRenderable(e))
 		{
@@ -225,9 +311,6 @@ void SyncEntityRenderableForNode_(const LevelAsset& asset, Scene& scene, int nod
 		}
 		return;
 	}
-
-	const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawIndex)];
-	ecs_.UpsertRenderable(e, Renderable{ .mesh = di.mesh, .material = di.material, .drawIndex = drawIndex });
 
 	if (nodeIndex >= 0)
 	{
@@ -254,9 +337,10 @@ void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& ass
 	}
 
 	const LevelNode& node = asset.nodes[i];
-	if (!node.alive || !node.visible || (node.mesh.empty() && node.model.empty()))
+	if (!node.alive || !node.visible || (node.mesh.empty() && node.model.empty() && node.skinnedMesh.empty()))
 	{
 		DestroyDrawForNode_(scene, nodeIndex);
+		DestroySkinnedDrawForNode_(scene, nodeIndex);
 		return;
 	}
 
@@ -272,8 +356,19 @@ void EnsureDrawForNode_(const LevelAsset& asset, Scene& scene, AssetManager& ass
 	{
 		world_.resize(asset.nodes.size(), mathUtils::Mat4(1.0f));
 	}
+	if (nodeToSkinnedDraw_.size() < asset.nodes.size())
+	{
+		nodeToSkinnedDraw_.resize(asset.nodes.size(), -1);
+	}
 
 	DestroyDrawForNode_(scene, nodeIndex);
+	DestroySkinnedDrawForNode_(scene, nodeIndex);
+
+	if (!node.skinnedMesh.empty())
+	{
+		nodeToSkinnedDraw_[i] = MakeSkinnedDrawForNode_(asset, scene, nodeIndex, node);
+		return;
+	}
 
 	if (!node.model.empty())
 	{
@@ -332,6 +427,51 @@ void DestroySingleDrawIndex_(Scene& scene, int drawIndex)
 	}
 	scene.drawItems.pop_back();
 	drawToNode_.pop_back();
+}
+
+void DestroySingleSkinnedDrawIndex_(Scene& scene, int skinnedDrawIndex)
+{
+	if (skinnedDrawIndex < 0)
+	{
+		return;
+	}
+	const std::size_t idx = static_cast<std::size_t>(skinnedDrawIndex);
+	if (idx >= scene.skinnedDrawItems.size())
+	{
+		return;
+	}
+	const std::size_t last = scene.skinnedDrawItems.size() - 1;
+	if (idx != last)
+	{
+		std::swap(scene.skinnedDrawItems[idx], scene.skinnedDrawItems[last]);
+		const int movedNode = skinnedDrawToNode_[last];
+		skinnedDrawToNode_[idx] = movedNode;
+		if (movedNode >= 0 && static_cast<std::size_t>(movedNode) < nodeToSkinnedDraw_.size())
+		{
+			nodeToSkinnedDraw_[static_cast<std::size_t>(movedNode)] = static_cast<int>(idx);
+		}
+	}
+	scene.skinnedDrawItems.pop_back();
+	skinnedDrawToNode_.pop_back();
+}
+
+void DestroySkinnedDrawForNode_(Scene& scene, int nodeIndex)
+{
+	if (nodeIndex < 0)
+	{
+		return;
+	}
+	const std::size_t nodeIdx = static_cast<std::size_t>(nodeIndex);
+	if (nodeIdx >= nodeToSkinnedDraw_.size())
+	{
+		return;
+	}
+	const int skinnedDrawIndex = nodeToSkinnedDraw_[nodeIdx];
+	if (skinnedDrawIndex >= 0)
+	{
+		DestroySingleSkinnedDrawIndex_(scene, skinnedDrawIndex);
+	}
+	nodeToSkinnedDraw_[nodeIdx] = -1;
 }
 
 void DestroyDrawForNode_(Scene& scene, int nodeIndex)
@@ -475,6 +615,7 @@ void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const
 	assert(nodeToEntity_.size() >= asset.nodes.size());
 	assert(world_.size() >= asset.nodes.size());
 	assert(drawToNode_.size() == scene.drawItems.size());
+	assert(skinnedDrawToNode_.size() == scene.skinnedDrawItems.size());
 	assert(scene.editorSelectedDrawItem == GetNodeDrawIndex(scene.editorSelectedNode));
 
 	for (std::size_t i = 0; i < asset.nodes.size(); ++i)
@@ -494,6 +635,11 @@ void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const
 			assert(static_cast<std::size_t>(drawIndex) < scene.drawItems.size());
 		}
 		assert((nodeToDraws_[i].empty() ? -1 : nodeToDraws_[i].front()) == nodeToDraw_[i]);
+		if (i < nodeToSkinnedDraw_.size() && nodeToSkinnedDraw_[i] >= 0)
+		{
+			assert(static_cast<std::size_t>(nodeToSkinnedDraw_[i]) < scene.skinnedDrawItems.size());
+			assert(skinnedDrawToNode_[static_cast<std::size_t>(nodeToSkinnedDraw_[i])] == static_cast<int>(i));
+		}
 		if (entity != kNullEntity && ecs_.IsEntityValid(entity))
 		{
 			WorldTransform worldTransform{};

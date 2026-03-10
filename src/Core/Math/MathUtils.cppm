@@ -43,6 +43,11 @@ export namespace mathUtils
 		{
 			return (i == 0) ? x : y;
 		}
+
+		friend constexpr bool operator==(const Vec2& a, const Vec2& b) noexcept
+		{
+			return a.x == b.x && a.y == b.y;
+		}
 	};
 
 	struct Vec3
@@ -62,6 +67,11 @@ export namespace mathUtils
 		}
 
 		Vec3 operator-() const noexcept { return Vec3(-x, -y, -z); }
+
+		friend constexpr bool operator==(const Vec3& a, const Vec3& b) noexcept
+		{
+			return a.x == b.x && a.y == b.y && a.z == b.z;
+		}
 	};
 
 	struct alignas(16) Vec4
@@ -116,6 +126,14 @@ export namespace mathUtils
 		constexpr const float& operator()(std::size_t row, std::size_t col) const noexcept
 		{
 			return columns[col][row];
+		}
+
+		friend constexpr bool operator==(const Mat4& a, const Mat4& b) noexcept
+		{
+			return a.columns[0] == b.columns[0]
+				&& a.columns[1] == b.columns[1]
+				&& a.columns[2] == b.columns[2]
+				&& a.columns[3] == b.columns[3];
 		}
 	};
 

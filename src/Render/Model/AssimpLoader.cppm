@@ -6,8 +6,10 @@ module;
 
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 #include <filesystem>
 #include <optional>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -23,6 +25,7 @@ import :skinned_mesh;
 import :skeleton;
 import :math_utils;
 import :file_system;
+import :animation_clip;
 
 namespace
 {
@@ -36,10 +39,34 @@ namespace
         return out;
     }
 
+    [[nodiscard]] mathUtils::Vec3 AiToVec3(const aiVector3D& v) noexcept
+    {
+        return mathUtils::Vec3(v.x, v.y, v.z);
+    }
+
+    [[nodiscard]] mathUtils::Vec4 AiToQuatVec4(const aiQuaternion& q) noexcept
+    {
+        return mathUtils::Vec4(q.x, q.y, q.z, q.w);
+    }
+
     struct RawVertexInfluence
     {
         std::string boneName;
         float weight{ 0.0f };
+    };
+
+    struct BindTRS
+    {
+        mathUtils::Vec3 translation{ 0.0f, 0.0f, 0.0f };
+        mathUtils::Vec4 rotation{ 0.0f, 0.0f, 0.0f, 1.0f };
+        mathUtils::Vec3 scale{ 1.0f, 1.0f, 1.0f };
+    };
+
+    struct BoundsAccumulator
+    {
+        bool initialized{ false };
+        mathUtils::Vec3 min{ 0.0f, 0.0f, 0.0f };
+        mathUtils::Vec3 max{ 0.0f, 0.0f, 0.0f };
     };
 
     [[nodiscard]] const aiNode* FindNodeByNameRecursive(const aiNode* node, std::string_view wantedName)
@@ -233,11 +260,310 @@ namespace
             rendern::NormalizeBoneWeights(dstVertex);
         }
     }
+
+    [[nodiscard]] std::vector<BindTRS> BuildBindTRS(const rendern::Skeleton& skeleton)
+    {
+        std::vector<BindTRS> bind;
+        bind.resize(skeleton.bones.size());
+        for (std::size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)
+        {
+            auto& trs = bind[boneIndex];
+            rendern::DecomposeTRS(
+                skeleton.bones[boneIndex].bindLocalTransform,
+                trs.translation,
+                trs.rotation,
+                trs.scale);
+        }
+        return bind;
+    }
+
+    [[nodiscard]] float SanitizeTicksPerSecond(double ticksPerSecond) noexcept
+    {
+        return (ticksPerSecond > 0.0) ? static_cast<float>(ticksPerSecond) : 25.0f;
+    }
+
+    [[nodiscard]] rendern::AnimationClip BuildAnimationClip(
+        const aiAnimation& anim,
+        const rendern::Skeleton& skeleton,
+        std::uint32_t clipIndex)
+    {
+        rendern::AnimationClip clip{};
+        clip.name = (anim.mName.length > 0)
+            ? std::string(anim.mName.C_Str())
+            : ("Anim_" + std::to_string(clipIndex));
+        clip.durationTicks = std::max(0.0f, static_cast<float>(anim.mDuration));
+        clip.ticksPerSecond = SanitizeTicksPerSecond(anim.mTicksPerSecond);
+        clip.looping = true;
+        clip.channels.reserve(anim.mNumChannels);
+
+        for (unsigned channelIndex = 0; channelIndex < anim.mNumChannels; ++channelIndex)
+        {
+            const aiNodeAnim* src = anim.mChannels[channelIndex];
+            if (!src)
+            {
+                continue;
+            }
+
+            rendern::BoneAnimationChannel dst{};
+            dst.boneName = src->mNodeName.C_Str();
+            if (const auto boneIndex = rendern::FindBoneIndex(skeleton, dst.boneName))
+            {
+                dst.boneIndex = static_cast<int>(*boneIndex);
+            }
+
+            dst.translationKeys.reserve(src->mNumPositionKeys);
+            for (unsigned keyIndex = 0; keyIndex < src->mNumPositionKeys; ++keyIndex)
+            {
+                const aiVectorKey& key = src->mPositionKeys[keyIndex];
+                dst.translationKeys.push_back(rendern::TranslationKey{
+                    .timeTicks = static_cast<float>(key.mTime),
+                    .value = AiToVec3(key.mValue)
+                    });
+            }
+
+            dst.rotationKeys.reserve(src->mNumRotationKeys);
+            for (unsigned keyIndex = 0; keyIndex < src->mNumRotationKeys; ++keyIndex)
+            {
+                const aiQuatKey& key = src->mRotationKeys[keyIndex];
+                dst.rotationKeys.push_back(rendern::RotationKey{
+                    .timeTicks = static_cast<float>(key.mTime),
+                    .value = rendern::NormalizeQuat(AiToQuatVec4(key.mValue))
+                    });
+            }
+
+            dst.scaleKeys.reserve(src->mNumScalingKeys);
+            for (unsigned keyIndex = 0; keyIndex < src->mNumScalingKeys; ++keyIndex)
+            {
+                const aiVectorKey& key = src->mScalingKeys[keyIndex];
+                dst.scaleKeys.push_back(rendern::ScaleKey{
+                    .timeTicks = static_cast<float>(key.mTime),
+                    .value = AiToVec3(key.mValue)
+                    });
+            }
+
+            clip.channels.push_back(std::move(dst));
+        }
+
+        return clip;
+    }
+
+    [[nodiscard]] std::vector<rendern::AnimationClip> BuildAnimationClipsFromScene(
+        const aiScene* scene,
+        const rendern::Skeleton& skeleton)
+    {
+        std::vector<rendern::AnimationClip> clips;
+        if (!scene || scene->mNumAnimations == 0)
+        {
+            return clips;
+        }
+
+        clips.reserve(scene->mNumAnimations);
+        for (unsigned animationIndex = 0; animationIndex < scene->mNumAnimations; ++animationIndex)
+        {
+            const aiAnimation* anim = scene->mAnimations[animationIndex];
+            if (!anim)
+            {
+                continue;
+            }
+            clips.push_back(BuildAnimationClip(*anim, skeleton, animationIndex));
+        }
+        return clips;
+    }
+
+    void BuildSkinMatricesForSample(
+        const rendern::Skeleton& skeleton,
+        const rendern::AnimationClip& clip,
+        const std::vector<BindTRS>& bindTrs,
+        float timeTicks,
+        std::vector<mathUtils::Mat4>& outSkinMatrices)
+    {
+        std::vector<mathUtils::Mat4> localPose;
+        std::vector<mathUtils::Mat4> globalPose;
+        localPose.resize(skeleton.bones.size());
+        globalPose.resize(skeleton.bones.size());
+        outSkinMatrices.resize(skeleton.bones.size());
+
+        for (std::size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)
+        {
+            localPose[boneIndex] = skeleton.bones[boneIndex].bindLocalTransform;
+        }
+
+        for (const auto& channel : clip.channels)
+        {
+            if (channel.boneIndex < 0 || channel.boneIndex >= static_cast<int>(skeleton.bones.size()))
+            {
+                continue;
+            }
+
+            const std::size_t boneIndex = static_cast<std::size_t>(channel.boneIndex);
+            BindTRS sampled = bindTrs[boneIndex];
+            sampled.translation = rendern::SampleTranslationKeys(channel.translationKeys, timeTicks, sampled.translation);
+            sampled.rotation = rendern::SampleRotationKeys(channel.rotationKeys, timeTicks, sampled.rotation);
+            sampled.scale = rendern::SampleScaleKeys(channel.scaleKeys, timeTicks, sampled.scale);
+            localPose[boneIndex] = rendern::ComposeTRS(sampled.translation, sampled.rotation, sampled.scale);
+        }
+
+        for (std::size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)
+        {
+            const int parentIndex = skeleton.bones[boneIndex].parentIndex;
+            if (parentIndex >= 0)
+            {
+                globalPose[boneIndex] = globalPose[static_cast<std::size_t>(parentIndex)] * localPose[boneIndex];
+            }
+            else
+            {
+                globalPose[boneIndex] = localPose[boneIndex];
+            }
+            outSkinMatrices[boneIndex] = globalPose[boneIndex] * skeleton.bones[boneIndex].inverseBindMatrix;
+        }
+    }
+
+    [[nodiscard]] mathUtils::Vec3 SkinVertexPosition(
+        const rendern::SkinnedVertexDesc& vertex,
+        const std::vector<mathUtils::Mat4>& skinMatrices) noexcept
+    {
+        const mathUtils::Vec3 bindPos(vertex.px, vertex.py, vertex.pz);
+        mathUtils::Vec3 skinned(0.0f, 0.0f, 0.0f);
+        float accumWeight = 0.0f;
+
+        auto apply = [&](std::uint16_t boneIndex, float weight)
+            {
+                if (weight <= 0.0f || boneIndex >= skinMatrices.size())
+                {
+                    return;
+                }
+                mathUtils::Vec3 tp = TransformPoint(skinMatrices[boneIndex], bindPos);
+                skinned = skinned + tp * weight;
+                accumWeight += weight;
+            };
+
+        apply(vertex.boneIndex0, vertex.boneWeight0);
+        apply(vertex.boneIndex1, vertex.boneWeight1);
+        apply(vertex.boneIndex2, vertex.boneWeight2);
+        apply(vertex.boneIndex3, vertex.boneWeight3);
+
+        if (accumWeight <= 1e-8f)
+        {
+            return bindPos;
+        }
+        return skinned;
+    }
+
+    void ExpandBounds(BoundsAccumulator& acc, const mathUtils::Vec3& p) noexcept
+    {
+        if (!acc.initialized)
+        {
+            acc.initialized = true;
+            acc.min = p;
+            acc.max = p;
+            return;
+        }
+        acc.min.x = std::min(acc.min.x, p.x);
+        acc.min.y = std::min(acc.min.y, p.y);
+        acc.min.z = std::min(acc.min.z, p.z);
+        acc.max.x = std::max(acc.max.x, p.x);
+        acc.max.y = std::max(acc.max.y, p.y);
+        acc.max.z = std::max(acc.max.z, p.z);
+    }
+
+    [[nodiscard]] rendern::SkinnedBounds MakeBounds(const BoundsAccumulator& acc) noexcept
+    {
+        rendern::SkinnedBounds b{};
+        if (!acc.initialized)
+        {
+            return b;
+        }
+        b.aabbMin = acc.min;
+        b.aabbMax = acc.max;
+        b.sphereCenter = (acc.min + acc.max) * 0.5f;
+        const mathUtils::Vec3 ext = acc.max - b.sphereCenter;
+        b.sphereRadius = mathUtils::Length(ext);
+        return b;
+    }
+
+    [[nodiscard]] rendern::SkinnedBounds MergeBounds(
+        const rendern::SkinnedBounds& a,
+        const rendern::SkinnedBounds& b) noexcept
+    {
+        if (a.sphereRadius <= 0.0f)
+        {
+            return b;
+        }
+        if (b.sphereRadius <= 0.0f)
+        {
+            return a;
+        }
+
+        BoundsAccumulator acc{};
+        acc.initialized = true;
+        acc.min = mathUtils::Vec3(
+            std::min(a.aabbMin.x, b.aabbMin.x),
+            std::min(a.aabbMin.y, b.aabbMin.y),
+            std::min(a.aabbMin.z, b.aabbMin.z));
+        acc.max = mathUtils::Vec3(
+            std::max(a.aabbMax.x, b.aabbMax.x),
+            std::max(a.aabbMax.y, b.aabbMax.y),
+            std::max(a.aabbMax.z, b.aabbMax.z));
+        return MakeBounds(acc);
+    }
+
+    [[nodiscard]] std::uint32_t DetermineClipSampleCount(const rendern::AnimationClip& clip) noexcept
+    {
+        if (clip.durationTicks <= 0.0f || clip.ticksPerSecond <= 0.0f)
+        {
+            return 1u;
+        }
+
+        const float durationSeconds = clip.durationTicks / clip.ticksPerSecond;
+        const float targetFps = 60.0f;
+        const std::uint32_t sampleCount = static_cast<std::uint32_t>(std::ceil(durationSeconds * targetFps)) + 1u;
+        return std::clamp(sampleCount, 2u, 600u);
+    }
+
+    [[nodiscard]] rendern::SkinnedBounds ComputeClipBounds(
+        const rendern::SkinnedMeshCPU& mesh,
+        const rendern::AnimationClip& clip)
+    {
+        BoundsAccumulator acc{};
+        for (const auto& v : mesh.vertices)
+        {
+            ExpandBounds(acc, mathUtils::Vec3(v.px, v.py, v.pz));
+        }
+
+        if (!rendern::IsValidAnimationClip(clip) || mesh.skeleton.bones.empty())
+        {
+            return MakeBounds(acc);
+        }
+
+        const std::vector<BindTRS> bindTrs = BuildBindTRS(mesh.skeleton);
+        std::vector<mathUtils::Mat4> skinMatrices;
+
+        const std::uint32_t sampleCount = DetermineClipSampleCount(clip);
+        for (std::uint32_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+        {
+            const float sampleT = (sampleCount <= 1)
+                ? 0.0f
+                : (clip.durationTicks * static_cast<float>(sampleIndex) / static_cast<float>(sampleCount - 1u));
+            BuildSkinMatricesForSample(mesh.skeleton, clip, bindTrs, sampleT, skinMatrices);
+            for (const auto& v : mesh.vertices)
+            {
+                ExpandBounds(acc, SkinVertexPosition(v, skinMatrices));
+            }
+        }
+
+        return MakeBounds(acc);
+    }
 }
 
 export namespace rendern
 {
-    inline MeshCPU LoadAssimp(
+    struct AssimpSkinnedImportResult
+    {
+        SkinnedMeshCPU mesh;
+        std::vector<AnimationClip> clips;
+    };
+
+    MeshCPU LoadAssimp(
         const std::filesystem::path& pathIn,
         bool flipUVs = true,
         std::optional<std::uint32_t> submeshIndex = std::nullopt,
@@ -349,7 +675,7 @@ export namespace rendern
         return out;
     }
 
-    inline SkinnedMeshCPU LoadAssimpSkinned(
+    AssimpSkinnedImportResult LoadAssimpSkinnedAsset(
         const std::filesystem::path& pathIn,
         bool flipUVs = true,
         std::optional<std::uint32_t> submeshIndex = std::nullopt)
@@ -405,7 +731,8 @@ export namespace rendern
             }
         }
 
-        SkinnedMeshCPU out{};
+        AssimpSkinnedImportResult result{};
+        SkinnedMeshCPU& out = result.mesh;
         std::vector<std::vector<RawVertexInfluence>> pendingInfluences;
         std::unordered_set<std::string> weightedBoneNames;
         std::unordered_map<std::string, mathUtils::Mat4> inverseBindByName;
@@ -516,7 +843,33 @@ export namespace rendern
         FinalizeVertexInfluences(out, pendingInfluences);
         ComputeTangents(out);
         RefreshBindPoseBounds(out);
+
+        result.clips = BuildAnimationClipsFromScene(scene, out.skeleton);
+        out.bounds.perClipBounds.clear();
         out.bounds.maxAnimatedBounds = out.bounds.bindPoseBounds;
-        return out;
+        out.bounds.perClipBounds.reserve(result.clips.size());
+        for (const auto& clip : result.clips)
+        {
+            if (!IsValidAnimationClip(clip))
+            {
+                continue;
+            }
+
+            PerClipBounds perClip{};
+            perClip.clipName = clip.name;
+            perClip.bounds = ComputeClipBounds(out, clip);
+            out.bounds.maxAnimatedBounds = MergeBounds(out.bounds.maxAnimatedBounds, perClip.bounds);
+            out.bounds.perClipBounds.push_back(std::move(perClip));
+        }
+
+        return result;
+    }
+
+    SkinnedMeshCPU LoadAssimpSkinned(
+        const std::filesystem::path& pathIn,
+        bool flipUVs = true,
+        std::optional<std::uint32_t> submeshIndex = std::nullopt)
+    {
+        return LoadAssimpSkinnedAsset(pathIn, flipUVs, submeshIndex).mesh;
     }
 }

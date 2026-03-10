@@ -44,6 +44,8 @@ export namespace rendern
         MeshHandle mesh{};
         MaterialHandle material{};
         int drawIndex{ -1 };
+        int skinnedDrawIndex{ -1 };
+        bool isSkinned{ false };
     };
 
     struct Flags

@@ -28,6 +28,9 @@ import :render_bindless;
 import :file_system; 
 import :math_utils;
 import :assimp_scene_loader;
+import :assimp_loader;
+import :animator;
+import :animation_clip;
 
 // ------------------------------------------------------------
 // LevelAsset / LevelInstance

@@ -122,6 +122,9 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 	inst.nodeToDraws_.assign(asset.nodes.size(), {});
 	inst.drawToNode_.clear();
 	inst.drawToNode_.reserve(asset.nodes.size());
+	inst.nodeToSkinnedDraw_.assign(asset.nodes.size(), -1);
+	inst.skinnedDrawToNode_.clear();
+	inst.skinnedDrawToNode_.reserve(asset.nodes.size());
 
 	// Compute world matrices (handles arbitrary parent order)
 	inst.transformsDirty_ = true;
@@ -140,8 +143,75 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		{
 			continue;
 		}
-		if (n.mesh.empty() && n.model.empty())
+		if (n.mesh.empty() && n.model.empty() && n.skinnedMesh.empty())
 		{
+			continue;
+		}
+
+		if (!n.skinnedMesh.empty())
+		{
+			auto skinnedIt = asset.skinnedMeshes.find(n.skinnedMesh);
+			if (skinnedIt == asset.skinnedMeshes.end())
+			{
+				throw std::runtime_error("Level JSON: node references unknown skinnedMeshId: " + n.skinnedMesh);
+			}
+
+			std::shared_ptr<SkinnedAssetBundle> bundle;
+			if (auto cacheIt = inst.skinnedAssetCache_.find(n.skinnedMesh); cacheIt != inst.skinnedAssetCache_.end())
+			{
+				bundle = cacheIt->second;
+			}
+			else
+			{
+				AssimpSkinnedImportResult imported = LoadAssimpSkinnedAsset(
+					skinnedIt->second.path,
+					skinnedIt->second.flipUVs,
+					skinnedIt->second.submeshIndex);
+				bundle = std::make_shared<SkinnedAssetBundle>();
+				bundle->mesh = std::move(imported.mesh);
+				bundle->clips = std::move(imported.clips);
+				inst.skinnedAssetCache_.emplace(n.skinnedMesh, bundle);
+			}
+
+			SkinnedDrawItem item{};
+			item.asset = bundle;
+			item.material = n.material.empty() ? MaterialHandle{} : materialHandles.at(n.material);
+			item.transform.useMatrix = true;
+			item.transform.matrix = inst.world_[i];
+			item.autoplay = n.animationAutoplay;
+			if (!bundle->clips.empty())
+			{
+				if (!n.animationClip.empty())
+				{
+					for (std::size_t clipIndex = 0; clipIndex < bundle->clips.size(); ++clipIndex)
+					{
+						if (bundle->clips[clipIndex].name == n.animationClip)
+						{
+							item.activeClipIndex = static_cast<int>(clipIndex);
+							break;
+						}
+					}
+				}
+				if (item.activeClipIndex < 0)
+				{
+					item.activeClipIndex = 0;
+				}
+			}
+
+			const int skinnedDrawIndex = static_cast<int>(scene.skinnedDrawItems.size());
+			SkinnedDrawItem& stored = scene.AddSkinnedDraw(std::move(item));
+			const AnimationClip* activeClip = nullptr;
+			if (stored.activeClipIndex >= 0 && static_cast<std::size_t>(stored.activeClipIndex) < stored.asset->clips.size())
+			{
+				activeClip = &stored.asset->clips[static_cast<std::size_t>(stored.activeClipIndex)];
+			}
+			InitializeAnimator(stored.animator, &stored.asset->mesh.skeleton, activeClip);
+			stored.animator.looping = n.animationLoop;
+			stored.animator.playRate = n.animationPlayRate;
+			stored.animator.paused = !n.animationAutoplay;
+			EvaluateAnimator(stored.animator);
+			inst.nodeToSkinnedDraw_[i] = skinnedDrawIndex;
+			inst.skinnedDrawToNode_.push_back(static_cast<int>(i));
 			continue;
 		}
 
@@ -244,11 +314,17 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 
 		// Renderable is optional (node can be non-renderable)
 		const int drawIndex = inst.nodeToDraw_[i];
+		const int skinnedDrawIndex = inst.nodeToSkinnedDraw_[i];
 		if (drawIndex >= 0)
 		{
 			// We can grab handles from scene.drawItems since they were created above
 			const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawIndex)];
-			inst.ecs_.EmplaceRenderable(e, Renderable{ .mesh = di.mesh, .material = di.material, .drawIndex = drawIndex });
+			inst.ecs_.EmplaceRenderable(e, Renderable{ .mesh = di.mesh, .material = di.material, .drawIndex = drawIndex, .skinnedDrawIndex = -1, .isSkinned = false });
+		}
+		else if (skinnedDrawIndex >= 0)
+		{
+			const SkinnedDrawItem& sdi = scene.skinnedDrawItems[static_cast<std::size_t>(skinnedDrawIndex)];
+			inst.ecs_.EmplaceRenderable(e, Renderable{ .mesh = {}, .material = sdi.material, .drawIndex = -1, .skinnedDrawIndex = skinnedDrawIndex, .isSkinned = true });
 		}
 	}
 

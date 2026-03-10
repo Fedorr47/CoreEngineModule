@@ -4,7 +4,6 @@ module;
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unordered_map>
 #include <optional>
 
 export module core:skeleton;
@@ -24,25 +23,31 @@ export namespace rendern
 	struct Skeleton
 	{
 		std::vector<SkeletonBone> bones;
-		std::unordered_map<std::string, std::uint32_t> boneIndexByName;
 		std::uint32_t rootBoneIndex{ 0 };
 	};
 
 	inline void RebuildBoneNameLookup(Skeleton& skeleton)
 	{
-		skeleton.boneIndexByName.clear();
-		skeleton.boneIndexByName.reserve(skeleton.bones.size());
-		for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(skeleton.bones.size()); ++i)
-		{
-			skeleton.boneIndexByName.emplace(skeleton.bones[i].name, i);
-		}
+		// No-op for now.
+		//
+		// We originally cached a std::unordered_map<std::string, uint32_t> here,
+		// but MSVC modules currently trips over std::string equality during the
+		// map's comparator instantiation in this exported module. A linear search is
+		// perfectly acceptable for MVP skeletal animation and keeps the module
+		// compileable. We keep the function so later patches can restore an
+		// acceleration structure without touching call sites.
 	}
 
 	[[nodiscard]] inline std::optional<std::uint32_t> FindBoneIndex(const Skeleton& skeleton, std::string_view boneName)
 	{
-		if (const auto it = skeleton.boneIndexByName.find(std::string(boneName)); it != skeleton.boneIndexByName.end())
+		for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(skeleton.bones.size()); ++i)
 		{
-			return it->second;
+			const std::string& candidate = skeleton.bones[i].name;
+			if (candidate.size() == boneName.size()
+				&& std::char_traits<char>::compare(candidate.data(), boneName.data(), boneName.size()) == 0)
+			{
+				return i;
+			}
 		}
 		return std::nullopt;
 	}

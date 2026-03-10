@@ -11,6 +11,7 @@ export import :render;
 export import :mesh;
 export import :skeleton;
 export import :animation_clip;
+export import :animator;
 export import :skinned_mesh;
 export import :obj_loader;
 export import :math_utils;

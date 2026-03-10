@@ -9,6 +9,9 @@ std::vector<mathUtils::Mat4> world_;
 std::vector<int> nodeToDraw_; // first draw for backward compatibility
 std::vector<std::vector<int>> nodeToDraws_;
 std::vector<int> drawToNode_;
+std::vector<int> nodeToSkinnedDraw_;
+std::vector<int> skinnedDrawToNode_;
+std::unordered_map<std::string, std::shared_ptr<SkinnedAssetBundle>> skinnedAssetCache_;
 std::vector<int> particleEmitterToSceneEmitter_;
 std::unordered_map<std::string, MaterialHandle> materialHandles_;
 bool transformsDirty_{ true };
