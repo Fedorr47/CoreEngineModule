@@ -274,8 +274,9 @@ float GeometrySmith(float NdotV, float NdotL, float roughness)
 	return ggxV * ggxL;
 }
 
-float3x3 BuildCotangentFrame(float3 N, float3 worldPos, float2 uv)
+float3 GetNormalMapped(float3 N, float3 worldPos, float2 uv)
 {
+    // Derivative-based TBN (no explicit tangents in the mesh).
 	float3 dp1 = ddx(worldPos);
 	float3 dp2 = ddy(worldPos);
 	float2 duv1 = ddx(uv);
@@ -287,26 +288,8 @@ float3x3 BuildCotangentFrame(float3 N, float3 worldPos, float2 uv)
 	T = normalize(T - N * dot(N, T));
 	B = normalize(B - N * dot(N, B));
 
-	return float3x3(T, B, N);
-}
-
-float3 GetNormalMapped(float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float2 uv)
-{
-	float3x3 TBN;
-	const float tangentLen2 = dot(tangentW, tangentW);
-	const float bitangentLen2 = dot(bitangentW, bitangentW);
-	if (tangentLen2 > 1e-8f && bitangentLen2 > 1e-8f)
-	{
-		float3 T = normalize(tangentW - N * dot(N, tangentW));
-		float3 B = normalize(bitangentW - N * dot(N, bitangentW));
-		TBN = float3x3(T, B, N);
-	}
-	else
-	{
-		TBN = BuildCotangentFrame(N, worldPos, uv);
-	}
-
 	float3 nTS = gNormal.Sample(gLinear, uv).xyz * 2.0f - 1.0f;
+	float3x3 TBN = float3x3(T, B, N);
 	return normalize(mul(nTS, TBN));
 }
 
@@ -362,7 +345,6 @@ struct VSIn
 	float3 pos : POSITION;
 	float3 nrm : NORMAL;
 	float2 uv : TEXCOORD0;
-	float4 tangent : TANGENT;
 
     // Instance matrix rows in TEXCOORD1..4
 	float4 i0 : TEXCOORD1;
@@ -377,9 +359,7 @@ struct VSOut
 	float3 worldPos : TEXCOORD0;
 	float3 nrmW : TEXCOORD1;
 	float2 uv : TEXCOORD2;
-	float3 tangentW : TEXCOORD3;
-	float3 bitangentW : TEXCOORD4;
-	float4 shadowPos : TEXCOORD5; // directional shadow clip (legacy / not used for CSM)
+	float4 shadowPos : TEXCOORD3; // directional shadow clip (legacy / not used for CSM)
 #if defined(CORE_PLANAR_CLIP) && CORE_PLANAR_CLIP
 	    float clipDist : SV_ClipDistance0;
 #endif
@@ -910,14 +890,9 @@ VSOut VSMain(VSIn IN)
 
     float3x3 normalMatrix = InverseTranspose3x3(model3x3);
     float3 nrmW = normalize(mul(IN.nrm, normalMatrix));
-    float3 tangentW = normalize(mul(IN.tangent.xyz, model3x3));
-    tangentW = normalize(tangentW - nrmW * dot(nrmW, tangentW));
-    float3 bitangentW = normalize(cross(nrmW, tangentW)) * IN.tangent.w;
 	
 	OUT.worldPos = world.xyz;
 	OUT.nrmW = nrmW;
-	OUT.tangentW = tangentW;
-	OUT.bitangentW = bitangentW;
 	
 	OUT.uv = IN.uv;
 	OUT.posH = mul(world, uViewProj);
@@ -1047,10 +1022,6 @@ float4 PSMain(VSOut IN) : SV_Target0
 	roughness = clamp(roughness, 0.04f, 1.0f);
 
 	float3 N = normalize(IN.nrmW);
-	if (useNormal)
-	{
-		N = GetNormalMapped(N, IN.tangentW, IN.bitangentW, IN.worldPos, IN.uv);
-	}
 
 	const float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
 	const float NdotV = max(dot(N, V), 0.0f);

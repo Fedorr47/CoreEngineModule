@@ -45,7 +45,6 @@ struct VSIn
 	float3 pos : POSITION;
 	float3 nrm : NORMAL;
 	float2 uv : TEXCOORD0;
-	float4 tangent : TANGENT;
 
     // Instance matrix columns (slot1): TEXCOORD1..4
 	float4 i0 : TEXCOORD1;
@@ -60,8 +59,6 @@ struct VSOut
 	float3 worldPos : TEXCOORD0;
 	float3 nrmW : TEXCOORD1;
 	float2 uv : TEXCOORD2;
-	float3 tangentW : TEXCOORD3;
-	float3 bitangentW : TEXCOORD4;
 };
 
 VSOut VS_GBuffer(VSIn IN)
@@ -70,21 +67,16 @@ VSOut VS_GBuffer(VSIn IN)
 
 	const float3 worldPos = IN.pos.x * IN.i0.xyz + IN.pos.y * IN.i1.xyz + IN.pos.z * IN.i2.xyz + IN.i3.xyz;
 	const float3 nrmW = normalize(IN.nrm.x * IN.i0.xyz + IN.nrm.y * IN.i1.xyz + IN.nrm.z * IN.i2.xyz);
-	float3 tangentW = normalize(IN.tangent.x * IN.i0.xyz + IN.tangent.y * IN.i1.xyz + IN.tangent.z * IN.i2.xyz);
-	tangentW = normalize(tangentW - nrmW * dot(nrmW, tangentW));
-	const float3 bitangentW = normalize(cross(nrmW, tangentW)) * IN.tangent.w;
 
 	OUT.worldPos = worldPos;
 	OUT.nrmW = nrmW;
-	OUT.tangentW = tangentW;
-	OUT.bitangentW = bitangentW;
 	OUT.uv = IN.uv;
 
 	OUT.svPos = mul(float4(worldPos, 1.0f), uViewProj);
 	return OUT;
 }
 
-// Derived tangent frame fallback for meshes that still have no valid tangents.
+// Derived tangent frame from screen-space derivatives (no precomputed tangents required).
 float3x3 CotangentFrame(float3 N, float3 p, float2 uv)
 {
 	const float3 dp1 = ddx(p);
@@ -160,20 +152,9 @@ PSOut PS_GBuffer(VSOut IN)
 	float3 N = normalize(IN.nrmW);
 	if ((flags & kFlagUseNormal) != 0u && normalIdx != 0u)
 	{
+        // Tangent-space normal map (assumes texture stores (x,y,z) in [0..1])
 		float3 nTS = gBindlessTex[NonUniformResourceIndex(normalIdx)].Sample(gLinear, IN.uv).xyz * 2.0f - 1.0f;
-		float3x3 TBN;
-		const float tangentLen2 = dot(IN.tangentW, IN.tangentW);
-		const float bitangentLen2 = dot(IN.bitangentW, IN.bitangentW);
-		if (tangentLen2 > 1e-8f && bitangentLen2 > 1e-8f)
-		{
-			float3 T = normalize(IN.tangentW - N * dot(N, IN.tangentW));
-			float3 B = normalize(IN.bitangentW - N * dot(N, IN.bitangentW));
-			TBN = float3x3(T, B, N);
-		}
-		else
-		{
-			TBN = CotangentFrame(N, IN.worldPos, IN.uv);
-		}
+		float3x3 TBN = CotangentFrame(N, IN.worldPos, IN.uv);
 		N = normalize(mul(nTS, TBN));
 	}
 
