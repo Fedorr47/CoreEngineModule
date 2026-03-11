@@ -113,6 +113,16 @@ if (!combinedInstances.empty())
 	device_.UpdateBuffer(instanceBuffer_, std::as_bytes(std::span{ combinedInstances }));
 }
 
+if (!skinnedPaletteMatrices.empty())
+{
+	const std::size_t bytes = skinnedPaletteMatrices.size() * sizeof(mathUtils::Mat4);
+	if (bytes > skinPaletteBufferSizeBytes_)
+	{
+		throw std::runtime_error("DX12Renderer: skin palette buffer overflow (increase skinPaletteBufferSizeBytes_)");
+	}
+	device_.UpdateBuffer(skinPaletteBuffer_, std::as_bytes(std::span{ skinnedPaletteMatrices }));
+}
+
 particleBatches_.clear();
 std::vector<std::pair<rhi::TextureDescIndex, ParticleInstanceData>> particlePacked;
 particlePacked.reserve(std::min<std::size_t>(scene.particles.size(), static_cast<std::size_t>(kMaxParticles)));

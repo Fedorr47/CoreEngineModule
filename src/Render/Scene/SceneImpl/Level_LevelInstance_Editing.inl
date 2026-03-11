@@ -846,36 +846,3 @@ const SkinnedDrawItem* GetSkinnedDrawItem(const Scene& scene, int skinnedDrawInd
 	}
 	return &scene.skinnedDrawItems[static_cast<std::size_t>(skinnedDrawIndex)];
 }
-
-void UpdateSkinned(Scene& scene, float deltaSeconds)
-{
-	for (std::size_t nodeIndex = 0; nodeIndex < nodeToSkinnedDraw_.size(); ++nodeIndex)
-	{
-		const int skinnedDrawIndex = nodeToSkinnedDraw_[nodeIndex];
-		if (skinnedDrawIndex < 0 || static_cast<std::size_t>(skinnedDrawIndex) >= scene.skinnedDrawItems.size())
-		{
-			continue;
-		}
-
-		SkinnedDrawItem& item = scene.skinnedDrawItems[static_cast<std::size_t>(skinnedDrawIndex)];
-		if (!item.asset)
-		{
-			continue;
-		}
-
-		if (!IsAnimatorReady(item.animator))
-		{
-			const AnimationClip* clip = nullptr;
-			if (item.activeClipIndex >= 0 && static_cast<std::size_t>(item.activeClipIndex) < item.asset->clips.size())
-			{
-				clip = &item.asset->clips[static_cast<std::size_t>(item.activeClipIndex)];
-			}
-			InitializeAnimator(item.animator, &item.asset->mesh.skeleton, clip);
-		}
-
-		if (item.autoplay)
-		{
-			UpdateAnimator(item.animator, deltaSeconds);
-		}
-}
-}

@@ -45,6 +45,20 @@
 
 		psoMain_[idx] = psoCache_.GetOrCreate(psoName, vs, ps);
 
+		const auto vsSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Vertex,
+			.name = "VSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = defs
+			});
+		const auto psSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Pixel,
+			.name = "PSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = defs
+			});
+		psoMainSkinned_[idx] = psoCache_.GetOrCreate(psoName + "_Skinned", vsSkinned, psSkinned);
+
 		// Planar reflection variant: same shader but with CORE_PLANAR_CLIP enabled (VS outputs SV_ClipDistance0).
 		{
 			auto planarDefs = defs;

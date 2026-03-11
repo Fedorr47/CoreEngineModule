@@ -1,8 +1,7 @@
 module;
 
 #include <algorithm>
-#include <array>
-#include <cstddef>
+#include <cmath>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -13,37 +12,12 @@ export module core:skinned_mesh;
 
 import :rhi;
 import :math_utils;
+import :animation_clip;
 import :skeleton;
 
 export namespace rendern
 {
-	inline constexpr std::uint32_t kMaxSkinWeightsPerVertex = 4;
-
-	struct SkinnedVertexDesc
-	{
-		float px, py, pz;
-		float nx, ny, nz;
-		float u, v;
-		float tx, ty, tz, tw;
-		std::uint16_t boneIndex0{ 0 };
-		std::uint16_t boneIndex1{ 0 };
-		std::uint16_t boneIndex2{ 0 };
-		std::uint16_t boneIndex3{ 0 };
-		float boneWeight0{ 1.0f };
-		float boneWeight1{ 0.0f };
-		float boneWeight2{ 0.0f };
-		float boneWeight3{ 0.0f };
-	};
-
-	constexpr std::uint32_t strideSkinnedVDBytes = static_cast<std::uint32_t>(sizeof(SkinnedVertexDesc));
-
-	struct SkinnedSubmesh
-	{
-		std::string name;
-		std::uint32_t firstIndex{ 0 };
-		std::uint32_t indexCount{ 0 };
-		std::uint32_t materialIndex{ 0 };
-	};
+	constexpr std::uint32_t kMaxSkinWeightsPerVertex = 4u;
 
 	struct SkinnedBounds
 	{
@@ -55,7 +29,7 @@ export namespace rendern
 
 	struct PerClipBounds
 	{
-		std::string clipName;
+		std::string clipName{};
 		SkinnedBounds bounds{};
 	};
 
@@ -63,95 +37,88 @@ export namespace rendern
 	{
 		SkinnedBounds bindPoseBounds{};
 		SkinnedBounds maxAnimatedBounds{};
-		std::vector<PerClipBounds> perClipBounds;
+		std::vector<PerClipBounds> perClipBounds{};
 	};
+
+	struct SkinnedSubmesh
+	{
+		std::string name{};
+		std::uint32_t firstIndex{ 0 };
+		std::uint32_t indexCount{ 0 };
+		std::uint32_t materialIndex{ 0 };
+	};
+
+	struct SkinnedVertexDesc
+	{
+		float px, py, pz;
+		float nx, ny, nz;
+		float u, v;
+		float tx, ty, tz, tw;
+
+		std::uint16_t boneIndex0{ 0 };
+		std::uint16_t boneIndex1{ 0 };
+		std::uint16_t boneIndex2{ 0 };
+		std::uint16_t boneIndex3{ 0 };
+
+		float boneWeight0{ 1.0f };
+		float boneWeight1{ 0.0f };
+		float boneWeight2{ 0.0f };
+		float boneWeight3{ 0.0f };
+	};
+
+	constexpr std::uint32_t skinnedStrideVDBytes = static_cast<std::uint32_t>(sizeof(SkinnedVertexDesc));
 
 	struct SkinnedMeshCPU
 	{
-		std::vector<SkinnedVertexDesc> vertices;
-		std::vector<std::uint32_t> indices;
-		std::vector<SkinnedSubmesh> submeshes;
+		std::vector<SkinnedVertexDesc> vertices{};
+		std::vector<std::uint32_t> indices{};
+		std::vector<SkinnedSubmesh> submeshes{};
 		Skeleton skeleton{};
 		SkinnedMeshBounds bounds{};
 	};
 
 	struct SkinnedMeshRHI
 	{
-		rhi::BufferHandle vertexBuffer;
-		rhi::BufferHandle indexBuffer;
-		rhi::InputLayoutHandle layout;
-
-		std::uint32_t vertexStrideBytes{ sizeof(SkinnedVertexDesc) };
+		rhi::BufferHandle vertexBuffer{};
+		rhi::BufferHandle indexBuffer{};
+		rhi::InputLayoutHandle layout{};
+		std::uint32_t vertexStrideBytes{ skinnedStrideVDBytes };
 		std::uint32_t indexCount{ 0 };
 		rhi::IndexType indexType{ rhi::IndexType::UINT32 };
 	};
 
-	inline rhi::InputLayoutHandle CreateSkinnedVertexDescLayout(rhi::IRHIDevice& device, std::string_view name = "SkinnedVertexDesc")
+	struct SkinnedAssetBundle
 	{
-		rhi::InputLayoutDesc desc{};
-		desc.debugName = std::string(name);
-		desc.strideBytes = strideSkinnedVDBytes;
-		desc.attributes = {
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Position,    .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32_FLOAT,    .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, px))},
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Normal,      .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32_FLOAT,    .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, nx))},
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,    .semanticIndex = 0, .format = rhi::VertexFormat::R32G32_FLOAT,       .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, u))},
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Tangent,     .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32A32_FLOAT, .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, tx))},
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::BoneIndices, .semanticIndex = 0, .format = rhi::VertexFormat::R16G16B16A16_UINT,  .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, boneIndex0))},
-			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::BoneWeights, .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32A32_FLOAT, .offsetBytes = static_cast<std::uint32_t>(offsetof(SkinnedVertexDesc, boneWeight0))},
-		};
-		return device.CreateInputLayout(desc);
-	}
+		std::string debugName{};
+		SkinnedMeshCPU mesh{};
+		std::vector<AnimationClip> clips{};
+	};
 
-	inline mathUtils::Vec3 BuildFallbackTangent(const mathUtils::Vec3& normal) noexcept
+	inline void NormalizeBoneWeights(SkinnedVertexDesc& v) noexcept
 	{
-		const mathUtils::Vec3 axis = (std::abs(normal.z) < 0.999f)
-			? mathUtils::Vec3(0.0f, 0.0f, 1.0f)
-			: mathUtils::Vec3(0.0f, 1.0f, 0.0f);
-		return mathUtils::Normalize(mathUtils::Cross(axis, normal));
-	}
+		float sum =
+			v.boneWeight0 +
+			v.boneWeight1 +
+			v.boneWeight2 +
+			v.boneWeight3;
 
-	inline void NormalizeBoneWeights(SkinnedVertexDesc& vertex) noexcept
-	{
-		std::array<float, kMaxSkinWeightsPerVertex> weights = {
-			std::max(vertex.boneWeight0, 0.0f),
-			std::max(vertex.boneWeight1, 0.0f),
-			std::max(vertex.boneWeight2, 0.0f),
-			std::max(vertex.boneWeight3, 0.0f)
-		};
-
-		const float sum = weights[0] + weights[1] + weights[2] + weights[3];
-		if (sum > 1e-8f)
+		if (sum <= 1e-8f)
 		{
-			const float invSum = 1.0f / sum;
-			for (float& w : weights)
-			{
-				w *= invSum;
-			}
-		}
-		else
-		{
-			weights = { 1.0f, 0.0f, 0.0f, 0.0f };
-			vertex.boneIndex0 = 0;
-			vertex.boneIndex1 = 0;
-			vertex.boneIndex2 = 0;
-			vertex.boneIndex3 = 0;
+			v.boneIndex0 = 0; v.boneWeight0 = 1.0f;
+			v.boneIndex1 = 0; v.boneWeight1 = 0.0f;
+			v.boneIndex2 = 0; v.boneWeight2 = 0.0f;
+			v.boneIndex3 = 0; v.boneWeight3 = 0.0f;
+			return;
 		}
 
-		vertex.boneWeight0 = weights[0];
-		vertex.boneWeight1 = weights[1];
-		vertex.boneWeight2 = weights[2];
-		vertex.boneWeight3 = weights[3];
+		const float inv = 1.0f / sum;
+		v.boneWeight0 *= inv;
+		v.boneWeight1 *= inv;
+		v.boneWeight2 *= inv;
+		v.boneWeight3 *= inv;
 	}
 
-	inline void NormalizeBoneWeights(SkinnedMeshCPU& cpu) noexcept
-	{
-		for (auto& v : cpu.vertices)
-		{
-			NormalizeBoneWeights(v);
-		}
-	}
-
-	[[nodiscard]] inline SkinnedBounds ComputeBindPoseBounds(const SkinnedMeshCPU& cpu) noexcept
+	[[nodiscard]] inline SkinnedBounds ComputeSkinnedBoundsFromVertices(const SkinnedMeshCPU& cpu)
 	{
 		SkinnedBounds b{};
 		if (cpu.vertices.empty())
@@ -159,71 +126,54 @@ export namespace rendern
 			return b;
 		}
 
-		const auto& v0 = cpu.vertices.front();
-		float minX = v0.px, minY = v0.py, minZ = v0.pz;
-		float maxX = v0.px, maxY = v0.py, maxZ = v0.pz;
+		mathUtils::Vec3 mn(cpu.vertices[0].px, cpu.vertices[0].py, cpu.vertices[0].pz);
+		mathUtils::Vec3 mx = mn;
+
 		for (const auto& v : cpu.vertices)
 		{
-			minX = std::min(minX, v.px); minY = std::min(minY, v.py); minZ = std::min(minZ, v.pz);
-			maxX = std::max(maxX, v.px); maxY = std::max(maxY, v.py); maxZ = std::max(maxZ, v.pz);
+			const mathUtils::Vec3 p(v.px, v.py, v.pz);
+			mn.x = std::min(mn.x, p.x);
+			mn.y = std::min(mn.y, p.y);
+			mn.z = std::min(mn.z, p.z);
+
+			mx.x = std::max(mx.x, p.x);
+			mx.y = std::max(mx.y, p.y);
+			mx.z = std::max(mx.z, p.z);
 		}
 
-		b.aabbMin = mathUtils::Vec3(minX, minY, minZ);
-		b.aabbMax = mathUtils::Vec3(maxX, maxY, maxZ);
-		b.sphereCenter = (b.aabbMin + b.aabbMax) * 0.5f;
-		const mathUtils::Vec3 ext = b.aabbMax - b.sphereCenter;
-		b.sphereRadius = mathUtils::Length(ext);
+		b.aabbMin = mn;
+		b.aabbMax = mx;
+		b.sphereCenter = (mn + mx) * 0.5f;
+		b.sphereRadius = 0.0f;
+
+		for (const auto& v : cpu.vertices)
+		{
+			const mathUtils::Vec3 p(v.px, v.py, v.pz);
+			b.sphereRadius = std::max(b.sphereRadius, mathUtils::Length(p - b.sphereCenter));
+		}
+
 		return b;
 	}
 
-	inline void RefreshBindPoseBounds(SkinnedMeshCPU& cpu) noexcept
+	inline void RefreshBindPoseBounds(SkinnedMeshCPU& cpu)
 	{
-		cpu.bounds.bindPoseBounds = ComputeBindPoseBounds(cpu);
+		cpu.bounds.bindPoseBounds = ComputeSkinnedBoundsFromVertices(cpu);
 		if (cpu.bounds.maxAnimatedBounds.sphereRadius <= 0.0f)
 		{
 			cpu.bounds.maxAnimatedBounds = cpu.bounds.bindPoseBounds;
 		}
 	}
 
-	inline SkinnedMeshRHI UploadSkinnedMesh(rhi::IRHIDevice& device, const SkinnedMeshCPU& cpu, std::string_view debugName = "SkinnedMesh")
+	[[nodiscard]] inline mathUtils::Vec3 BuildFallbackTangent(const mathUtils::Vec3& normal) noexcept
 	{
-		SkinnedMeshRHI outMeshRHI{};
-		outMeshRHI.vertexStrideBytes = strideSkinnedVDBytes;
-		outMeshRHI.indexCount = static_cast<std::uint32_t>(cpu.indices.size());
-		outMeshRHI.layout = CreateSkinnedVertexDescLayout(device, debugName);
+		const mathUtils::Vec3 axis = (std::abs(normal.z) < 0.999f)
+			? mathUtils::Vec3(0.0f, 0.0f, 1.0f)
+			: mathUtils::Vec3(0.0f, 1.0f, 0.0f);
 
-		{
-			rhi::BufferDesc vertexBuffer{};
-			vertexBuffer.bindFlag = rhi::BufferBindFlag::VertexBuffer;
-			vertexBuffer.usageFlag = rhi::BufferUsageFlag::Static;
-			vertexBuffer.sizeInBytes = cpu.vertices.size() * sizeof(SkinnedVertexDesc);
-			vertexBuffer.debugName = std::string(debugName) + "_VB";
-
-			outMeshRHI.vertexBuffer = device.CreateBuffer(vertexBuffer);
-			if (!cpu.vertices.empty())
-			{
-				device.UpdateBuffer(outMeshRHI.vertexBuffer, std::as_bytes(std::span(cpu.vertices)));
-			}
-		}
-
-		{
-			rhi::BufferDesc indexBuffer{};
-			indexBuffer.bindFlag = rhi::BufferBindFlag::IndexBuffer;
-			indexBuffer.usageFlag = rhi::BufferUsageFlag::Static;
-			indexBuffer.sizeInBytes = cpu.indices.size() * sizeof(std::uint32_t);
-			indexBuffer.debugName = std::string(debugName) + "_IB";
-
-			outMeshRHI.indexBuffer = device.CreateBuffer(indexBuffer);
-			if (!cpu.indices.empty())
-			{
-				device.UpdateBuffer(outMeshRHI.indexBuffer, std::as_bytes(std::span(cpu.indices)));
-			}
-		}
-
-		return outMeshRHI;
+		return mathUtils::Normalize(mathUtils::Cross(axis, normal));
 	}
 
-	void ComputeTangents(SkinnedMeshCPU& cpu)
+	inline void ComputeTangents(SkinnedMeshCPU& cpu)
 	{
 		if (cpu.vertices.empty())
 		{
@@ -282,6 +232,7 @@ export namespace rendern
 			tan1[i0] = tan1[i0] + sdir;
 			tan1[i1] = tan1[i1] + sdir;
 			tan1[i2] = tan1[i2] + sdir;
+
 			tan2[i0] = tan2[i0] + tdir;
 			tan2[i1] = tan2[i1] + tdir;
 			tan2[i2] = tan2[i2] + tdir;
@@ -310,6 +261,59 @@ export namespace rendern
 			v.tz = t.z;
 			v.tw = handedness;
 		}
+	}
+
+	inline rhi::InputLayoutHandle CreateSkinnedVertexDescLayout(
+		rhi::IRHIDevice& device,
+		std::string_view name = "SkinnedVertexDesc")
+	{
+		rhi::InputLayoutDesc desc{};
+		desc.debugName = std::string(name);
+		desc.strideBytes = skinnedStrideVDBytes;
+		desc.attributes = {
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Position,    .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32_FLOAT,    .offsetBytes = 0  },
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Normal,      .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32_FLOAT,    .offsetBytes = 12 },
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::TexCoord,    .semanticIndex = 0, .format = rhi::VertexFormat::R32G32_FLOAT,       .offsetBytes = 24 },
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::Tangent,     .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32A32_FLOAT,.offsetBytes = 32 },
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::BoneIndices, .semanticIndex = 0, .format = rhi::VertexFormat::R16G16B16A16_UINT, .offsetBytes = 48 },
+			rhi::VertexAttributeDesc{.semantic = rhi::VertexSemantic::BoneWeights, .semanticIndex = 0, .format = rhi::VertexFormat::R32G32B32A32_FLOAT,.offsetBytes = 56 },
+		};
+		return device.CreateInputLayout(desc);
+	}
+
+	inline SkinnedMeshRHI UploadSkinnedMesh(
+		rhi::IRHIDevice& device,
+		const SkinnedMeshCPU& cpu,
+		std::string_view debugName = "SkinnedMesh")
+	{
+		SkinnedMeshRHI out{};
+		out.vertexStrideBytes = skinnedStrideVDBytes;
+		out.indexCount = static_cast<std::uint32_t>(cpu.indices.size());
+		out.layout = CreateSkinnedVertexDescLayout(device, debugName);
+
+		rhi::BufferDesc vb{};
+		vb.bindFlag = rhi::BufferBindFlag::VertexBuffer;
+		vb.usageFlag = rhi::BufferUsageFlag::Static;
+		vb.sizeInBytes = cpu.vertices.size() * sizeof(SkinnedVertexDesc);
+		vb.debugName = std::string(debugName) + "_VB";
+		out.vertexBuffer = device.CreateBuffer(vb);
+		if (!cpu.vertices.empty())
+		{
+			device.UpdateBuffer(out.vertexBuffer, std::as_bytes(std::span(cpu.vertices)));
+		}
+
+		rhi::BufferDesc ib{};
+		ib.bindFlag = rhi::BufferBindFlag::IndexBuffer;
+		ib.usageFlag = rhi::BufferUsageFlag::Static;
+		ib.sizeInBytes = cpu.indices.size() * sizeof(std::uint32_t);
+		ib.debugName = std::string(debugName) + "_IB";
+		out.indexBuffer = device.CreateBuffer(ib);
+		if (!cpu.indices.empty())
+		{
+			device.UpdateBuffer(out.indexBuffer, std::as_bytes(std::span(cpu.indices)));
+		}
+
+		return out;
 	}
 
 	inline void DestroySkinnedMesh(rhi::IRHIDevice& device, SkinnedMeshRHI& mesh) noexcept

@@ -139,6 +139,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	spotShadows,
 	pointShadows,
 	mainBatches,
+	skinnedOpaqueDraws,
 	instStride,
 	activeReflectionProbeCount,
 	ResolveMainPassMaterialPerm,
@@ -285,6 +286,50 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 
 		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 		ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
+	}
+
+	for (const SkinnedOpaqueDraw& draw : skinnedOpaqueDraws)
+	{
+		if (!draw.mesh || draw.boneCount == 0)
+		{
+			continue;
+		}
+
+		MaterialPerm perm = MaterialPerm::UseShadow;
+		if (draw.materialHandle.id != 0)
+		{
+			perm = EffectivePerm(scene.GetMaterial(draw.materialHandle));
+		}
+		else if (draw.material.albedoDescIndex != 0)
+		{
+			perm |= MaterialPerm::UseTex;
+		}
+
+		ctx.commandList.BindPipeline(MainSkinnedPipelineFor(perm));
+		ctx.commandList.BindTextureDesc(0, draw.material.albedoDescIndex);
+		ctx.commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+
+		SkinnedPerDrawConstants constants{};
+		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
+		const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+		std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
+		std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+		constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
+		constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
+		constants.uBaseColor = { draw.material.baseColor.x, draw.material.baseColor.y, draw.material.baseColor.z, draw.material.baseColor.w };
+		constants.uMaterialFlags = { draw.material.shininess, draw.material.specStrength, draw.material.shadowBias, 0.0f };
+		constants.uPbrParams = { draw.material.metallic, draw.material.roughness, draw.material.ao, draw.material.emissiveStrength };
+		constants.uCounts = { static_cast<float>(lightCount), 0.0f, 0.0f, 0.0f };
+		constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, 0.0f, 0.0f, 0.0f };
+		const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
+		std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
+		constants.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };
+
+		ctx.commandList.BindInputLayout(draw.mesh->layout);
+		ctx.commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
+		ctx.commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
+		ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+		ctx.commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
 	}
 	});
 

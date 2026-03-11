@@ -344,20 +344,16 @@ export namespace rendern
 		MaterialHandle material{};
 	};
 
-	struct SkinnedAssetBundle
-	{
-		SkinnedMeshCPU mesh{};
-		std::vector<AnimationClip> clips;
-	};
+	using SkinnedHandle = std::shared_ptr<SkinnedAssetBundle>;
 
 	struct SkinnedDrawItem
 	{
-		std::shared_ptr<SkinnedAssetBundle> asset;
+		SkinnedHandle asset{};
 		Transform transform{};
 		MaterialHandle material{};
 		AnimatorState animator{};
-		int activeClipIndex{ -1 };
 		bool autoplay{ true };
+		int activeClipIndex{ -1 };
 	};
 
 	class Scene
@@ -713,6 +709,81 @@ export namespace rendern
 			return skinnedDrawItems.back();
 		}
 
+		SkinnedDrawItem& AddSkinnedDraw(
+			const SkinnedHandle& asset,
+			const Transform& transform,
+			MaterialHandle material,
+			int clipIndex = -1,
+			bool autoplay = true,
+			bool loop = true,
+			float playRate = 1.0f)
+		{
+			SkinnedDrawItem item{};
+			item.asset = asset;
+			item.transform = transform;
+			item.material = material;
+			item.autoplay = autoplay;
+			item.activeClipIndex = clipIndex;
+
+			if (asset)
+			{
+				InitializeAnimator(item.animator, &asset->mesh.skeleton, nullptr);
+
+				if (autoplay)
+				{
+					const int resolvedClip =
+						(clipIndex >= 0) ? clipIndex : (asset->clips.empty() ? -1 : 0);
+
+					item.activeClipIndex = resolvedClip;
+					SetAnimatorClip(item.animator, asset->mesh.skeleton, asset->clips, resolvedClip, loop, playRate);
+					EvaluateAnimator(item.animator);
+				}
+				else
+				{
+					item.animator.looping = loop;
+					item.animator.playRate = playRate;
+					item.animator.paused = true;
+					EvaluateAnimator(item.animator);
+				}
+			}
+
+			skinnedDrawItems.push_back(std::move(item));
+			return skinnedDrawItems.back();
+		}
+
+		void UpdateSkinned(float dt)
+		{
+			for (SkinnedDrawItem& item : skinnedDrawItems)
+			{
+				if (!item.asset)
+				{
+					continue;
+				}
+
+				if (!IsAnimatorReady(item.animator))
+				{
+					const AnimationClip* clip = nullptr;
+					if (item.activeClipIndex >= 0 &&
+						static_cast<std::size_t>(item.activeClipIndex) < item.asset->clips.size())
+					{
+						clip = &item.asset->clips[static_cast<std::size_t>(item.activeClipIndex)];
+					}
+
+					InitializeAnimator(item.animator, &item.asset->mesh.skeleton, clip);
+				}
+
+				if (item.autoplay)
+				{
+					UpdateAnimator(item.animator, dt);
+				}
+			}
+		}
+
+		const std::vector<SkinnedDrawItem>& GetSkinnedDrawItems() const noexcept
+		{
+			return skinnedDrawItems;
+		}
+
 		Light& AddLight(const Light& l)
 		{
 			lights.push_back(l);
@@ -784,28 +855,6 @@ export namespace rendern
 
 			particles.push_back(particle);
 		}
-
-		void UpdateSkinnedAnimations(float dt)
-		{
-			for (SkinnedDrawItem& item : skinnedDrawItems)
-			{
-				if (!item.asset)
-				{
-					continue;
-				}
-
-				if (!IsAnimatorReady(item.animator))
-				{
-					InitializeAnimator(item.animator, &item.asset->mesh.skeleton, nullptr);
-				}
-
-				if (item.autoplay)
-				{
-					UpdateAnimator(item.animator, dt);
-				}
-			}
-		}
-
 		void UpdateParticles(float dt)
 		{
 			for (std::size_t emitterIndex = 0; emitterIndex < particleEmitters.size(); ++emitterIndex)

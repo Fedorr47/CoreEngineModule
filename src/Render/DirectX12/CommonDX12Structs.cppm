@@ -4,6 +4,7 @@ export module core:common_DX12_Structs;
 
 import std;
 import :mesh;
+import :skinned_mesh;
 import :rhi;
 import :math_utils;
 import :scene;
@@ -272,6 +273,16 @@ export namespace rendern
 		int reflectionProbeIndex = -1;
 	};
 
+	struct SkinnedOpaqueDraw
+	{
+		const rendern::SkinnedMeshRHI* mesh{};
+		MaterialParams material{};
+		MaterialHandle materialHandle{};
+		mathUtils::Mat4 model{ 1.0f };
+		std::uint32_t paletteOffset{ 0 };
+		std::uint32_t boneCount{ 0 };
+	};
+
 	struct alignas(16) PerBatchConstants
 	{
 		std::array<float, 16> uViewProj{};
@@ -305,6 +316,26 @@ export namespace rendern
 		std::array<float, 4> uTexIndices1{};
 	};
 	static_assert(sizeof(PerBatchConstants) == 304);
+
+	struct alignas(16) SkinnedPerDrawConstants
+	{
+		std::array<float, 16> uViewProj{};
+		std::array<float, 16> uLightViewProj{};
+		std::array<float, 4>  uCameraAmbient{};
+		std::array<float, 4>  uCameraForward{};
+		std::array<float, 4>  uBaseColor{};
+		std::array<float, 4>  uMaterialFlags{};
+		std::array<float, 4>  uPbrParams{};
+		std::array<float, 4>  uCounts{};
+		std::array<float, 4>  uShadowBias{};
+		std::array<float, 4>  uEnvProbeBoxMin{};
+		std::array<float, 4>  uEnvProbeBoxMax{};
+		std::array<float, 4>  uTexIndices0{};
+		std::array<float, 4>  uTexIndices1{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4>  uSkinning{};
+	};
+	static_assert(sizeof(SkinnedPerDrawConstants) == 384);
 
 	struct EditorSelectionDraw
 	{

@@ -24,6 +24,7 @@ module;
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
 #include <unordered_map>
 #include "assert.h"
 
@@ -39,6 +40,7 @@ import :render_core;
 import :render_graph;
 import :file_system;
 import :mesh;
+import :skinned_mesh;
 import :scene_bridge;
 import :debug_draw;
 import :debug_draw_renderer_dx12;
@@ -208,11 +210,31 @@ export namespace rendern
 			return psoMain_[idx];
 		}
 
+		rhi::PipelineHandle MainSkinnedPipelineFor(MaterialPerm perm) const noexcept
+		{
+			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+			const std::uint32_t idx = (useTex ? 1u : 0u) | (useShadow ? 2u : 0u);
+			return psoMainSkinned_[idx];
+		}
+
 		static float AsFloatBits(std::uint32_t packedBits) noexcept
 		{
 			float floatValue{};
 			std::memcpy(&floatValue, &packedBits, sizeof(packedBits));
 			return floatValue;
+		}
+
+		SkinnedMeshRHI& GetOrCreateSkinnedMeshRHI(const std::shared_ptr<SkinnedAssetBundle>& asset)
+		{
+			auto it = skinnedMeshCache_.find(asset.get());
+			if (it != skinnedMeshCache_.end())
+			{
+				return it->second;
+			}
+			const std::string debugName = (asset && !asset->debugName.empty()) ? asset->debugName : "SkinnedMesh";
+			auto [insertedIt, _] = skinnedMeshCache_.emplace(asset.get(), UploadSkinnedMesh(device_, asset->mesh, debugName));
+			return insertedIt->second;
 		}
 
 		FrameCameraData BuildFrameCameraData(const Scene& scene, const rhi::Extent2D& extent) const
@@ -424,6 +446,7 @@ export namespace rendern
 	private:
 		static constexpr std::uint32_t kMaxLights = 64;
 		static constexpr std::uint32_t kDefaultInstanceBufferSizeBytes = 8u * 1024u * 1024u; // 8 MB (combined shadow+main instances)
+		static constexpr std::uint32_t kDefaultSkinPaletteBufferSizeBytes = 4u * 1024u * 1024u;
 		static constexpr std::uint32_t kMaxDeferredReflectionProbes = 255u;
 		static constexpr std::uint32_t kMaxParticles = 16384u;
 		static constexpr std::uint32_t kParticleInstanceBufferSizeBytes = static_cast<std::uint32_t>(sizeof(ParticleInstanceData) * kMaxParticles);
@@ -438,6 +461,7 @@ export namespace rendern
 
 		// Main pass
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
+		std::array<rhi::PipelineHandle, 4> psoMainSkinned_{};
 		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
 		rhi::PipelineHandle psoPlanarComposite_{}; // fullscreen planar composite (mask+color -> SceneColor)
 		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
@@ -473,6 +497,8 @@ export namespace rendern
 		rhi::GraphicsState planarReflectedState_{};
 
 		rhi::BufferHandle instanceBuffer_{};
+		rhi::BufferHandle skinPaletteBuffer_{};
+		std::uint32_t skinPaletteBufferSizeBytes_{ kDefaultSkinPaletteBufferSizeBytes };
 		std::uint32_t instanceBufferSizeBytes_{ kDefaultInstanceBufferSizeBytes };
 		rhi::BufferHandle highlightInstanceBuffer_{}; // single-instance VB for selection highlight
 		rhi::BufferHandle particleInstanceBuffer_{};
@@ -518,6 +544,7 @@ export namespace rendern
 
 		std::vector<TransparentDraw> transparentDrawsScratch_;
 		std::vector<InstanceData> combinedInstancesScratch_;
+		std::unordered_map<const SkinnedAssetBundle*, SkinnedMeshRHI> skinnedMeshCache_{};
 		std::vector<DeferredReflectionProbeGpu> deferredReflectionProbesScratch_;
 		std::vector<int> deferredReflectionProbeRemapScratch_;
 		std::vector<ParticleDrawBatch> particleBatches_{};

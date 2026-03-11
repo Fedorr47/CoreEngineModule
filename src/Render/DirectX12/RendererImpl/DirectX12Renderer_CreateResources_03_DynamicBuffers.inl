@@ -35,6 +35,17 @@
 					reflectionProbeMetaBuffer_ = device_.CreateBuffer(pd);
 				}
 
+				// Skin palette matrices (t19).
+				{
+					rhi::BufferDesc bd{};
+					bd.bindFlag = rhi::BufferBindFlag::StructuredBuffer;
+					bd.usageFlag = rhi::BufferUsageFlag::Dynamic;
+					bd.sizeInBytes = skinPaletteBufferSizeBytes_;
+					bd.structuredStrideBytes = static_cast<std::uint32_t>(sizeof(mathUtils::Mat4));
+					bd.debugName = "SkinPaletteSB";
+					skinPaletteBuffer_ = device_.CreateBuffer(bd);
+				}
+
 				// Per-instance model matrices VB (slot1)
 				{
 					rhi::BufferDesc id{};

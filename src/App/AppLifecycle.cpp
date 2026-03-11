@@ -166,7 +166,7 @@ namespace appLifecycle
         appEditor::HandleViewportMouseInteraction(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, *app.levelAsset, *app.levelInstance, app.scene, app.win32Input.State());
 
         // Advance CPU animation/particle simulation before UI/rendering so freshly updated state is visible this frame.
-        app.levelInstance->UpdateSkinned(app.scene, deltaSeconds);
+        app.scene.UpdateSkinned(deltaSeconds);
         app.scene.UpdateParticles(deltaSeconds);
 
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(

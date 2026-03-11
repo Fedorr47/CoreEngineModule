@@ -1,4 +1,5 @@
 			std::filesystem::path shaderPath;
+			std::filesystem::path skinnedMainPath;
 			std::filesystem::path shadowPath;
 			std::filesystem::path pointShadowPath;
 
@@ -6,6 +7,7 @@
 			{
 			case rhi::Backend::DirectX12:
 				shaderPath = corefs::ResolveAsset("shaders\\GlobalShaderInstanced_dx12.hlsl");
+				skinnedMainPath = corefs::ResolveAsset("shaders\\GlobalShaderSkinned_dx12.hlsl");
 				shadowPath = corefs::ResolveAsset("shaders\\ShadowDepth_dx12.hlsl");
 				pointShadowPath = corefs::ResolveAsset("shaders\\ShadowPoint_dx12.hlsl");
 				break;

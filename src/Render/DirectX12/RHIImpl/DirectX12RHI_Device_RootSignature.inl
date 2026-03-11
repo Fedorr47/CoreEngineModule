@@ -69,7 +69,7 @@ void CreateRootSignature()
         rootParams[1 + i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParams[1 + i].DescriptorTable.NumDescriptorRanges = 1;
         rootParams[1 + i].DescriptorTable.pDescriptorRanges = &ranges[i];
-        rootParams[1 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        rootParams[1 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
     // bindless table (space1)
@@ -87,7 +87,7 @@ void CreateRootSignature()
         rootParams[1 + i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParams[1 + i].DescriptorTable.NumDescriptorRanges = 1;
         rootParams[1 + i].DescriptorTable.pDescriptorRanges = &ranges[i];
-        rootParams[1 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        rootParams[1 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
     // Bindless SRV table root param (space1)

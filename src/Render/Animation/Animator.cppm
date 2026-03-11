@@ -11,7 +11,6 @@ import :animation_clip;
 import :math_utils;
 import :skeleton;
 
-
 export namespace rendern
 {
 	struct LocalBoneTransform
@@ -19,13 +18,6 @@ export namespace rendern
 		mathUtils::Vec3 translation{ 0.0f, 0.0f, 0.0f };
 		mathUtils::Vec4 rotation{ 0.0f, 0.0f, 0.0f, 1.0f };
 		mathUtils::Vec3 scale{ 1.0f, 1.0f, 1.0f };
-
-		friend constexpr bool operator==(const LocalBoneTransform& a, const LocalBoneTransform& b) noexcept
-		{
-			return a.translation == b.translation
-				&& a.rotation == b.rotation
-				&& a.scale == b.scale;
-		}
 	};
 
 	struct AnimatorState
@@ -45,6 +37,45 @@ export namespace rendern
 		std::vector<mathUtils::Mat4> skinMatrices;
 	};
 
+	namespace detail
+	{
+		[[nodiscard]] inline const AnimationClip* GetClipByIndex(
+			const std::vector<AnimationClip>& clips,
+			int clipIndex) noexcept
+		{
+			if (clipIndex < 0 || static_cast<std::size_t>(clipIndex) >= clips.size())
+			{
+				return nullptr;
+			}
+			return &clips[static_cast<std::size_t>(clipIndex)];
+		}
+
+		inline void ApplyLegacyClipSettings(
+			AnimatorState& state,
+			const AnimationClip* clip,
+			bool loop,
+			float playRate,
+			bool resetTime) noexcept
+		{
+			state.clip = clip;
+			state.playRate = playRate;
+			state.looping = (clip != nullptr) ? (loop && clip->looping) : loop;
+
+			if (resetTime)
+			{
+				state.timeSeconds = 0.0f;
+			}
+		}
+
+		inline void SyncSkeletonPointer(AnimatorState& state, const Skeleton& skeleton)
+		{
+			if (state.skeleton != &skeleton)
+			{
+				state.skeleton = &skeleton;
+			}
+		}
+	}
+
 	[[nodiscard]] inline bool IsAnimatorReady(const AnimatorState& state) noexcept
 	{
 		return state.skeleton != nullptr && IsValidSkeleton(*state.skeleton);
@@ -54,6 +85,7 @@ export namespace rendern
 	{
 		std::vector<LocalBoneTransform> bindPose;
 		bindPose.resize(skeleton.bones.size());
+
 		for (std::size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)
 		{
 			DecomposeTRS(
@@ -62,6 +94,7 @@ export namespace rendern
 				bindPose[boneIndex].rotation,
 				bindPose[boneIndex].scale);
 		}
+
 		return bindPose;
 	}
 
@@ -85,6 +118,12 @@ export namespace rendern
 		state.skinMatrices.assign(boneCount, mathUtils::Mat4(1.0f));
 	}
 
+	inline void ResetAnimatorToBindPose(AnimatorState& state, const Skeleton& skeleton)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+		ResetAnimatorToBindPose(state);
+	}
+
 	inline void RebuildAnimatorClipBinding(AnimatorState& state)
 	{
 		if (!IsAnimatorReady(state))
@@ -103,6 +142,7 @@ export namespace rendern
 		{
 			const BoneAnimationChannel& channel = state.clip->channels[channelIndex];
 			int boneIndex = channel.boneIndex;
+
 			if (boneIndex < 0)
 			{
 				if (const auto found = FindBoneIndex(*state.skeleton, channel.boneName))
@@ -110,22 +150,45 @@ export namespace rendern
 					boneIndex = static_cast<int>(*found);
 				}
 			}
+
 			if (boneIndex < 0 || boneIndex >= static_cast<int>(state.channelIndexByBone.size()))
 			{
 				continue;
 			}
+
 			state.channelIndexByBone[static_cast<std::size_t>(boneIndex)] = static_cast<int>(channelIndex);
 		}
 	}
 
 	inline void InitializeAnimator(AnimatorState& state, const Skeleton* skeleton, const AnimationClip* clip = nullptr)
 	{
+		state = {};
 		state.skeleton = skeleton;
 		state.clip = clip;
 		state.timeSeconds = 0.0f;
 		state.playRate = 1.0f;
 		state.looping = (clip != nullptr) ? clip->looping : true;
 		state.paused = false;
+
+		ResetAnimatorToBindPose(state);
+		RebuildAnimatorClipBinding(state);
+	}
+
+	inline void InitializeAnimator(
+		AnimatorState& state,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips,
+		int clipIndex = -1,
+		bool loop = true,
+		float playRate = 1.0f)
+	{
+		const AnimationClip* clip = detail::GetClipByIndex(clips, clipIndex);
+
+		state = {};
+		state.skeleton = &skeleton;
+		state.paused = false;
+
+		detail::ApplyLegacyClipSettings(state, clip, loop, playRate, true);
 		ResetAnimatorToBindPose(state);
 		RebuildAnimatorClipBinding(state);
 	}
@@ -133,15 +196,58 @@ export namespace rendern
 	inline void SetAnimatorClip(AnimatorState& state, const AnimationClip* clip, bool resetTime = true)
 	{
 		state.clip = clip;
+
 		if (clip != nullptr)
 		{
 			state.looping = clip->looping;
 		}
+
 		if (resetTime)
 		{
 			state.timeSeconds = 0.0f;
 		}
+
+		ResetAnimatorToBindPose(state);
 		RebuildAnimatorClipBinding(state);
+	}
+
+	inline void SetAnimatorClip(
+		AnimatorState& state,
+		const AnimationClip* clip,
+		bool loop,
+		float playRate,
+		bool resetTime = true)
+	{
+		detail::ApplyLegacyClipSettings(state, clip, loop, playRate, resetTime);
+		ResetAnimatorToBindPose(state);
+		RebuildAnimatorClipBinding(state);
+	}
+
+	inline void SetAnimatorClip(
+		AnimatorState& state,
+		const std::vector<AnimationClip>& clips,
+		int clipIndex,
+		bool loop = true,
+		float playRate = 1.0f,
+		bool resetTime = true)
+	{
+		const AnimationClip* clip = detail::GetClipByIndex(clips, clipIndex);
+		detail::ApplyLegacyClipSettings(state, clip, loop, playRate, resetTime);
+		ResetAnimatorToBindPose(state);
+		RebuildAnimatorClipBinding(state);
+	}
+
+	inline void SetAnimatorClip(
+		AnimatorState& state,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips,
+		int clipIndex,
+		bool loop = true,
+		float playRate = 1.0f,
+		bool resetTime = true)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+		SetAnimatorClip(state, clips, clipIndex, loop, playRate, resetTime);
 	}
 
 	inline void EvaluateAnimatorLocalPose(AnimatorState& state)
@@ -150,6 +256,7 @@ export namespace rendern
 		{
 			return;
 		}
+
 		if (state.localPose.size() != state.skeleton->bones.size())
 		{
 			ResetAnimatorToBindPose(state);
@@ -157,6 +264,7 @@ export namespace rendern
 		}
 
 		state.localPose = BuildBindPoseLocalPose(*state.skeleton);
+
 		if (state.clip == nullptr || !IsValidAnimationClip(*state.clip))
 		{
 			return;
@@ -164,9 +272,14 @@ export namespace rendern
 
 		const float timeSeconds = NormalizeAnimationTimeSeconds(*state.clip, state.timeSeconds, state.looping);
 		const float timeTicks = timeSeconds * state.clip->ticksPerSecond;
+
 		for (std::size_t boneIndex = 0; boneIndex < state.localPose.size(); ++boneIndex)
 		{
-			const int channelIndex = (boneIndex < state.channelIndexByBone.size()) ? state.channelIndexByBone[boneIndex] : -1;
+			const int channelIndex =
+				(boneIndex < state.channelIndexByBone.size())
+				? state.channelIndexByBone[boneIndex]
+				: -1;
+
 			if (channelIndex < 0 || channelIndex >= static_cast<int>(state.clip->channels.size()))
 			{
 				continue;
@@ -174,10 +287,26 @@ export namespace rendern
 
 			const BoneAnimationChannel& channel = state.clip->channels[static_cast<std::size_t>(channelIndex)];
 			LocalBoneTransform& dst = state.localPose[boneIndex];
+
 			dst.translation = SampleTranslationKeys(channel.translationKeys, timeTicks, dst.translation);
 			dst.rotation = SampleRotationKeys(channel.rotationKeys, timeTicks, dst.rotation);
 			dst.scale = SampleScaleKeys(channel.scaleKeys, timeTicks, dst.scale);
 		}
+	}
+
+	inline void EvaluateAnimatorLocalPose(
+		AnimatorState& state,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+
+		if (state.clip == nullptr && !clips.empty())
+		{
+			RebuildAnimatorClipBinding(state);
+		}
+
+		EvaluateAnimatorLocalPose(state);
 	}
 
 	inline void BuildAnimatorMatrices(AnimatorState& state)
@@ -186,11 +315,13 @@ export namespace rendern
 		{
 			return;
 		}
+
 		const std::size_t boneCount = state.skeleton->bones.size();
 		if (state.localPose.size() != boneCount)
 		{
 			ResetAnimatorToBindPose(state);
 		}
+
 		state.localMatrices.resize(boneCount, mathUtils::Mat4(1.0f));
 		state.globalMatrices.resize(boneCount, mathUtils::Mat4(1.0f));
 		state.skinMatrices.resize(boneCount, mathUtils::Mat4(1.0f));
@@ -200,19 +331,32 @@ export namespace rendern
 			const LocalBoneTransform& trs = state.localPose[boneIndex];
 			state.localMatrices[boneIndex] = ComposeTRS(trs.translation, trs.rotation, trs.scale);
 		}
+
 		for (std::size_t boneIndex = 0; boneIndex < boneCount; ++boneIndex)
 		{
 			const int parentIndex = state.skeleton->bones[boneIndex].parentIndex;
+
 			if (parentIndex >= 0)
 			{
-				state.globalMatrices[boneIndex] = state.globalMatrices[static_cast<std::size_t>(parentIndex)] * state.localMatrices[boneIndex];
+				state.globalMatrices[boneIndex] =
+					state.globalMatrices[static_cast<std::size_t>(parentIndex)] *
+					state.localMatrices[boneIndex];
 			}
 			else
 			{
 				state.globalMatrices[boneIndex] = state.localMatrices[boneIndex];
 			}
-			state.skinMatrices[boneIndex] = state.globalMatrices[boneIndex] * state.skeleton->bones[boneIndex].inverseBindMatrix;
+
+			state.skinMatrices[boneIndex] =
+				state.globalMatrices[boneIndex] *
+				state.skeleton->bones[boneIndex].inverseBindMatrix;
 		}
+	}
+
+	inline void BuildAnimatorMatrices(AnimatorState& state, const Skeleton& skeleton)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+		BuildAnimatorMatrices(state);
 	}
 
 	inline void EvaluateAnimator(AnimatorState& state)
@@ -221,19 +365,59 @@ export namespace rendern
 		BuildAnimatorMatrices(state);
 	}
 
+	inline void EvaluateAnimator(
+		AnimatorState& state,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+
+		if (state.clip == nullptr && !clips.empty())
+		{
+			RebuildAnimatorClipBinding(state);
+		}
+
+		EvaluateAnimator(state);
+	}
+
 	inline void AdvanceAnimator(AnimatorState& state, float deltaSeconds) noexcept
 	{
 		if (state.paused || state.clip == nullptr || !IsValidAnimationClip(*state.clip))
 		{
 			return;
 		}
+
 		state.timeSeconds += deltaSeconds * state.playRate;
 		state.timeSeconds = NormalizeAnimationTimeSeconds(*state.clip, state.timeSeconds, state.looping);
+	}
+
+	inline void AdvanceAnimator(
+		AnimatorState& state,
+		const std::vector<AnimationClip>& /*clips*/,
+		float deltaSeconds) noexcept
+	{
+		AdvanceAnimator(state, deltaSeconds);
 	}
 
 	inline void UpdateAnimator(AnimatorState& state, float deltaSeconds)
 	{
 		AdvanceAnimator(state, deltaSeconds);
 		EvaluateAnimator(state);
+	}
+
+	inline void UpdateAnimator(
+		AnimatorState& state,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips,
+		float deltaSeconds)
+	{
+		detail::SyncSkeletonPointer(state, skeleton);
+
+		if (state.clip == nullptr && !clips.empty())
+		{
+			RebuildAnimatorClipBinding(state);
+		}
+
+		UpdateAnimator(state, deltaSeconds);
 	}
 }

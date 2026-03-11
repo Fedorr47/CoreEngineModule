@@ -11,6 +11,10 @@ if (highlightInstanceBuffer_)
 {
 	device_.DestroyBuffer(highlightInstanceBuffer_);
 }
+if (skinPaletteBuffer_)
+{
+	device_.DestroyBuffer(skinPaletteBuffer_);
+}
 if (particleInstanceBuffer_)
 {
 	device_.DestroyBuffer(particleInstanceBuffer_);
@@ -44,6 +48,11 @@ if (reflectionProbeMetaBuffer_)
 	device_.DestroyBuffer(reflectionProbeMetaBuffer_); 
 }
 reflectionCubeExtent_ = {};
+for (auto& [_, mesh] : skinnedMeshCache_)
+{
+	DestroySkinnedMesh(device_, mesh);
+}
+skinnedMeshCache_.clear();
 DestroyMesh(device_, skyboxMesh_);
 DestroyMesh(device_, particleMesh_);
 debugDrawRenderer_.Shutdown();

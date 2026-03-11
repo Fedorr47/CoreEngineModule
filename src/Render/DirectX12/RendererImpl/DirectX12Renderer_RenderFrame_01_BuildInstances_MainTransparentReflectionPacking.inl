@@ -13,6 +13,11 @@ planarMirrorInstances.reserve(std::min<std::size_t>(scene.drawItems.size(), stat
 std::vector<PlanarMirrorDraw> planarMirrorDraws;
 planarMirrorDraws.reserve(std::min<std::size_t>(scene.drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
 
+std::vector<SkinnedOpaqueDraw> skinnedOpaqueDraws;
+skinnedOpaqueDraws.reserve(scene.GetSkinnedDrawItems().size());
+
+std::vector<mathUtils::Mat4> skinnedPaletteMatrices;
+
 // ---------------- Reflection probe assignment (multi-probe) ----------------
 drawItemReflectionProbeIndices_.assign(scene.drawItems.size(), -1);
 reflectiveOwnerDrawItems_.clear();
@@ -205,6 +210,47 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 		bucket.reflectionProbeIndex = key.reflectionProbeIndex;
 	}
 	bucket.inst.push_back(inst);
+}
+
+for (const SkinnedDrawItem& item : scene.GetSkinnedDrawItems())
+{
+	if (!item.asset)
+	{
+		continue;
+	}
+	if (item.asset->mesh.indices.empty() || item.asset->mesh.vertices.empty())
+	{
+		continue;
+	}
+	MaterialParams params{};
+	MaterialPerm perm = MaterialPerm::UseShadow;
+	if (item.material.id != 0)
+	{
+		const auto& mat = scene.GetMaterial(item.material);
+		params = mat.params;
+		perm = EffectivePerm(mat);
+	}
+	else
+	{
+		params.baseColor = { 1,1,1,1 };
+	}
+	if (HasFlag(perm, MaterialPerm::Transparent) || params.baseColor.w < 0.999f)
+	{
+		continue;
+	}
+	if (item.animator.skinMatrices.empty())
+	{
+		continue;
+	}
+	SkinnedOpaqueDraw draw{};
+	draw.mesh = &GetOrCreateSkinnedMeshRHI(item.asset);
+	draw.material = params;
+	draw.materialHandle = item.material;
+	draw.model = item.transform.ToMatrix();
+	draw.paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
+	draw.boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
+	skinnedPaletteMatrices.insert(skinnedPaletteMatrices.end(), item.animator.skinMatrices.begin(), item.animator.skinMatrices.end());
+	skinnedOpaqueDraws.push_back(draw);
 }
 
 std::vector<InstanceData> mainInstances;
