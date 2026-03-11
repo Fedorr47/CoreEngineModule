@@ -295,19 +295,20 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 			continue;
 		}
 
-		MaterialPerm perm = MaterialPerm::UseShadow;
-		if (draw.materialHandle.id != 0)
-		{
-			perm = EffectivePerm(scene.GetMaterial(draw.materialHandle));
-		}
-		else if (draw.material.albedoDescIndex != 0)
-		{
-			perm |= MaterialPerm::UseTex;
-		}
+		const MaterialPerm perm = ResolveMainPassMaterialPerm(draw.material, draw.materialHandle);
+		const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+		const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+		const ResolvedMaterialEnvBinding env = ResolveOpaqueEnvBinding(draw.materialHandle, -1);
 
 		ctx.commandList.BindPipeline(MainSkinnedPipelineFor(perm));
-		ctx.commandList.BindTextureDesc(0, draw.material.albedoDescIndex);
+		BindMainPassMaterialTextures(ctx.commandList, draw.material, env);
 		ctx.commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+
+		const std::uint32_t flags = BuildMainPassMaterialFlags(
+			draw.material,
+			useTex,
+			useShadow,
+			env);
 
 		SkinnedPerDrawConstants constants{};
 		const mathUtils::Mat4 viewProjT = mathUtils::Transpose(viewProj);
@@ -317,10 +318,30 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 		constants.uCameraAmbient = { camPosLocal.x, camPosLocal.y, camPosLocal.z, 0.22f };
 		constants.uCameraForward = { camFLocal.x, camFLocal.y, camFLocal.z, 0.0f };
 		constants.uBaseColor = { draw.material.baseColor.x, draw.material.baseColor.y, draw.material.baseColor.z, draw.material.baseColor.w };
-		constants.uMaterialFlags = { draw.material.shininess, draw.material.specStrength, draw.material.shadowBias, 0.0f };
+
+		const float materialBiasTexels = draw.material.shadowBias;
+		constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
 		constants.uPbrParams = { draw.material.metallic, draw.material.roughness, draw.material.ao, draw.material.emissiveStrength };
-		constants.uCounts = { static_cast<float>(lightCount), 0.0f, 0.0f, 0.0f };
-		constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, 0.0f, 0.0f, 0.0f };
+
+		const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeForwardGBufferReflectionMeta(
+			draw.materialHandle,
+			-1,
+			activeReflectionProbeCount);
+
+		constants.uCounts = {
+			static_cast<float>(lightCount),
+			static_cast<float>(spotShadows.size()),
+			static_cast<float>(pointShadows.size()),
+			static_cast<float>(activeReflectionProbeCount)
+		};
+		constants.uShadowBias = {
+			settings_.dirShadowBaseBiasTexels,
+			settings_.spotShadowBaseBiasTexels,
+			settings_.pointShadowBaseBiasTexels,
+			settings_.shadowSlopeScaleTexels
+		};
+		constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, envSourceForGBuffer };
+		constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, probeIdxNForGBuffer };
 		const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
 		std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
 		constants.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };

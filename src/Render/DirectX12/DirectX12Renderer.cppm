@@ -467,6 +467,7 @@ export namespace rendern
 		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
 		rhi::PipelineHandle psoOutline_{}; // editor selection outline shell
 		rhi::PipelineHandle psoDeferredGBuffer_{}; // MRT G-Buffer writer
+		rhi::PipelineHandle psoDeferredGBufferSkinned_{}; // MRT G-Buffer writer for skinned meshes
 		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen deferred lighting
 		rhi::PipelineHandle psoSSAO_{};          // deferred SSAO (normal+depth -> R32_FLOAT)
 		rhi::PipelineHandle psoSSAOForward_{};   // forward SSAO (depth-only reconstruction -> R32_FLOAT)

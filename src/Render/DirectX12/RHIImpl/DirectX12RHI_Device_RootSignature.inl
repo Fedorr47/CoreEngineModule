@@ -25,6 +25,7 @@ void CreateRootSignature()
     //  t16 emissive (Texture2D)
     //  t17 env cube (TextureCube)
     //  t18 env cube alias as Texture2DArray<float4> (same resource, 6 slices)
+    //  t19 bone palette (StructuredBuffer<float4x4>) for GPU skinning in vertex shaders
     //
     // Bindless SRV array for SM6 shaders lives in space1:
     //  Texture2D gBindlessTex[] : register(t0, space1);

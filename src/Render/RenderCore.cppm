@@ -99,7 +99,7 @@ export namespace rendern
 			}
 			else
 			{
-				textSource = FILE_UTILS::LoadTextFile(path);
+				textSource = LoadTextFileWithIncludes(path);
 				finalText = ApplyDefinesToHLSL(textSource.text, key.defines);
 			}
 

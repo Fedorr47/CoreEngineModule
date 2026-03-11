@@ -274,6 +274,7 @@
 		// Deferred rendering (DX12): GBuffer writer + fullscreen resolve.
 		{
 			const auto gbufPath = corefs::ResolveAsset("shaders\\DeferredGBuffer_dx12.hlsl");
+			const auto gbufSkinnedPath = corefs::ResolveAsset("shaders\\DeferredGBufferSkinned_dx12.hlsl");
 			const auto lightPath = corefs::ResolveAsset("shaders\\DeferredLighting_dx12.hlsl");
 			const auto ssaoPath = corefs::ResolveAsset("shaders\\SSAO_dx12.hlsl");
 			const auto ssaoBlurPath = corefs::ResolveAsset("shaders\\SSAOBlur_dx12.hlsl");
@@ -303,6 +304,22 @@
 				.shaderModel = rhi::ShaderModel::SM6_1
 				});
 			psoDeferredGBuffer_ = psoCache_.GetOrCreate("PSO_Deferred_GBuffer", vsG, psG);
+
+			const auto vsGSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VS_GBuffer",
+				.filePath = gbufSkinnedPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			const auto psGSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PS_GBuffer",
+				.filePath = gbufSkinnedPath.string(),
+				.defines = {},
+				.shaderModel = rhi::ShaderModel::SM6_1
+				});
+			psoDeferredGBufferSkinned_ = psoCache_.GetOrCreate("PSO_Deferred_GBuffer_Skinned", vsGSkinned, psGSkinned);
 
 			const auto vsFS = shaderLibrary_.GetOrCreateShader(ShaderKey{
 				.stage = rhi::ShaderStage::Vertex,

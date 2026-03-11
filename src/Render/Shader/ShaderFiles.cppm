@@ -27,13 +27,13 @@ export namespace rendern
 		return line.substr(idx).starts_with(token);
 	}
 
-	void ExpandGLSL(
+	void ExpandTextIncludes(
 		const fs::path& file,
 		std::unordered_set<fs::path>& includeStack,
 		std::vector<fs::path>& dependencies,
 		std::string& output,
-		bool isRoot
-	)
+		bool isRoot,
+		bool stripNestedVersion)
 	{
 		auto absPath = fs::weakly_canonical(file);
 		if (includeStack.contains(absPath))
@@ -50,7 +50,7 @@ export namespace rendern
 		std::string line;
 		while (std::getline(inputStream, line))
 		{
-			if (!isRoot && StartsWithTrimmed(line, "#version"))
+			if (stripNestedVersion && !isRoot && StartsWithTrimmed(line, "#version"))
 			{
 				output += "// (stripped) " + line + "\n";
 				continue;
@@ -70,7 +70,7 @@ export namespace rendern
 				const auto includeName = absPath.parent_path() / fs::path(relatedName);
 
 				output += "\n// --- begin include: " + includeName.string() + "\n";
-				ExpandGLSL(includeName, includeStack, dependencies, output, false);
+				ExpandTextIncludes(includeName, includeStack, dependencies, output, false, stripNestedVersion);
 				output += "// --- end include: " + includeName.string() + "\n\n";
 			}
 			else
@@ -83,6 +83,15 @@ export namespace rendern
 		includeStack.erase(absPath);
 	}
 
+	// Loads a text shader file and expands `#include "..."` recursively.
+	TextFile LoadTextFileWithIncludes(const fs::path& path)
+	{
+		TextFile outputFile;
+		std::unordered_set<fs::path> stack;
+		ExpandTextIncludes(path, stack, outputFile.dpendencies, outputFile.text, true, false);
+		return outputFile;
+	}
+
 	// Loads GLSL from file and expands `#include "..."` recursively.
 	// - Included paths are resolved relative to the including file.
 	// - Nested files must NOT contain `#version` (it will be stripped to avoid GLSL errors).
@@ -90,7 +99,7 @@ export namespace rendern
 	{
 		TextFile outputFile;
 		std::unordered_set<fs::path> stack;
-		ExpandGLSL(path, stack, outputFile.dpendencies, outputFile.text, true);
+		ExpandTextIncludes(path, stack, outputFile.dpendencies, outputFile.text, true, true);
 		return outputFile;
 	}
 

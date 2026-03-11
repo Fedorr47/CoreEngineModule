@@ -120,7 +120,7 @@
         static constexpr std::uint32_t kFramesInFlight = 3;
         static constexpr UINT kPerFrameCBUploadBytes = 512u * 1024u;
         static constexpr UINT kPerFrameBufUploadBytes = 8u * 1024u * 1024u; // 8 MB per frame buffer upload ring
-        static constexpr UINT kMaxSRVSlots = 20; // t0..t19 (room for PBR maps + env)
+        static constexpr UINT kMaxSRVSlots = 20; // t0..t19 (room for PBR maps + env + bones)
         static constexpr UINT kSrvHeapNumDescriptors = 16384u; // CBV/SRV/UAV shader-visible heap size
 
         struct FrameResource
