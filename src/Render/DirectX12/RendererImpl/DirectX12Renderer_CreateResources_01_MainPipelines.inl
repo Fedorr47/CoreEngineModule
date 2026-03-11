@@ -76,6 +76,20 @@
 				.defines = planarDefs
 				});
 			psoPlanar_[idx] = psoCache_.GetOrCreate(psoName + "_Planar", vsPlanar, psPlanar);
+
+			const auto vsPlanarSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Vertex,
+				.name = "VSMain",
+				.filePath = skinnedMainPath.string(),
+				.defines = planarDefs
+				});
+			const auto psPlanarSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+				.stage = rhi::ShaderStage::Pixel,
+				.name = "PSMain",
+				.filePath = skinnedMainPath.string(),
+				.defines = planarDefs
+				});
+			psoPlanarSkinned_[idx] = psoCache_.GetOrCreate(psoName + "_Planar_Skinned", vsPlanarSkinned, psPlanarSkinned);
 		}
 	}
 
@@ -96,6 +110,20 @@
 			});
 		psoHighlight_ = psoCache_.GetOrCreate("PSO_Mesh_Highlight", vsHi, psHi);
 
+		const auto vsHiSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Vertex,
+			.name = "VSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = hiDefs
+			});
+		const auto psHiSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Pixel,
+			.name = "PSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = hiDefs
+			});
+		psoHighlightSkinned_ = psoCache_.GetOrCreate("PSO_Mesh_Highlight_Skinned", vsHiSkinned, psHiSkinned);
+
 		auto outlineDefs = hiDefs;
 		outlineDefs.push_back("CORE_OUTLINE=1");
 		const auto vsOutline = shaderLibrary_.GetOrCreateShader(ShaderKey{
@@ -111,6 +139,20 @@
 			.defines = outlineDefs
 			});
 		psoOutline_ = psoCache_.GetOrCreate("PSO_Mesh_Outline", vsOutline, psOutline);
+
+		const auto vsOutlineSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Vertex,
+			.name = "VSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = outlineDefs
+			});
+		const auto psOutlineSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+			.stage = rhi::ShaderStage::Pixel,
+			.name = "PSMain",
+			.filePath = skinnedMainPath.string(),
+			.defines = outlineDefs
+			});
+		psoOutlineSkinned_ = psoCache_.GetOrCreate("PSO_Mesh_Outline_Skinned", vsOutlineSkinned, psOutlineSkinned);
 	}
 
 	state_.depth.testEnable = true;

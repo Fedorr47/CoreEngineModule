@@ -736,9 +736,11 @@ void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noex
 	}
 
 	scene.editorSelectedDrawItem = GetNodeDrawIndex(scene.editorSelectedNode);
+	scene.editorSelectedSkinnedDrawItem = GetNodeSkinnedDrawIndex(scene.editorSelectedNode);
 
-	// Build selected draw item list.
+	// Build selected draw item lists.
 	scene.editorSelectedDrawItems.clear();
+	scene.editorSelectedSkinnedDrawItems.clear();
 	for (const int nodeIndex : scene.editorSelectedNodes)
 	{
 		const auto& drawIndices = GetNodeDrawIndices(nodeIndex);
@@ -748,6 +750,12 @@ void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noex
 			{
 				scene.editorSelectedDrawItems.push_back(di);
 			}
+		}
+
+		const int skinnedDrawIndex = GetNodeSkinnedDrawIndex(nodeIndex);
+		if (skinnedDrawIndex >= 0)
+		{
+			scene.editorSelectedSkinnedDrawItems.push_back(skinnedDrawIndex);
 		}
 	}
 	scene.editorReflectionCaptureOwnerDrawItem = GetNodeDrawIndex(scene.editorReflectionCaptureOwnerNode);

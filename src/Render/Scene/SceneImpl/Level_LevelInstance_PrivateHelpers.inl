@@ -617,6 +617,7 @@ void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const
 	assert(drawToNode_.size() == scene.drawItems.size());
 	assert(skinnedDrawToNode_.size() == scene.skinnedDrawItems.size());
 	assert(scene.editorSelectedDrawItem == GetNodeDrawIndex(scene.editorSelectedNode));
+	assert(scene.editorSelectedSkinnedDrawItem == GetNodeSkinnedDrawIndex(scene.editorSelectedNode));
 
 	for (std::size_t i = 0; i < asset.nodes.size(); ++i)
 	{

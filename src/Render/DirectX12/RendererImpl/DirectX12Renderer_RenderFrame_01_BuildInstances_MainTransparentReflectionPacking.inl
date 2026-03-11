@@ -212,8 +212,9 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	bucket.inst.push_back(inst);
 }
 
-for (const SkinnedDrawItem& item : scene.GetSkinnedDrawItems())
+for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawItems().size(); ++skinnedDrawIndex)
 {
+	const SkinnedDrawItem& item = scene.GetSkinnedDrawItems()[skinnedDrawIndex];
 	if (!item.asset)
 	{
 		continue;
@@ -249,6 +250,7 @@ for (const SkinnedDrawItem& item : scene.GetSkinnedDrawItems())
 	draw.model = item.transform.ToMatrix();
 	draw.paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
 	draw.boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
+	draw.sourceSkinnedDrawIndex = static_cast<int>(skinnedDrawIndex);
 	skinnedPaletteMatrices.insert(skinnedPaletteMatrices.end(), item.animator.skinMatrices.begin(), item.animator.skinMatrices.end());
 	skinnedOpaqueDraws.push_back(draw);
 }

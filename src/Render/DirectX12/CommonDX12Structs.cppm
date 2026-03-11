@@ -281,6 +281,7 @@ export namespace rendern
 		mathUtils::Mat4 model{ 1.0f };
 		std::uint32_t paletteOffset{ 0 };
 		std::uint32_t boneCount{ 0 };
+		int sourceSkinnedDrawIndex{ -1 };
 	};
 
 	struct alignas(16) PerBatchConstants
@@ -337,12 +338,67 @@ export namespace rendern
 	};
 	static_assert(sizeof(SkinnedPerDrawConstants) == 384);
 
+	struct alignas(16) SkinnedSingleMatrixPassConstants
+	{
+		std::array<float, 16> uLightViewProj{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4> uSkinning{};
+	};
+	static_assert(sizeof(SkinnedSingleMatrixPassConstants) == 144);
+
+	struct alignas(16) SkinnedPointShadowCubeConstants
+	{
+		std::array<float, 16 * 6> uFaceViewProj{};
+		std::array<float, 4> uLightPosRange{};
+		std::array<float, 4> uMisc{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4> uSkinning{};
+	};
+	static_assert(sizeof(SkinnedPointShadowCubeConstants) == 496);
+
+	struct alignas(16) SkinnedPointShadowFaceConstants
+	{
+		std::array<float, 16> uFaceViewProj{};
+		std::array<float, 4> uLightPosRange{};
+		std::array<float, 4> uMisc{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4> uSkinning{};
+	};
+	static_assert(sizeof(SkinnedPointShadowFaceConstants) == 176);
+
+	struct alignas(16) SkinnedReflectionCaptureConstants
+	{
+		std::array<float, 16u * 6u> uFaceViewProj{};
+		std::array<float, 4> uCapturePosAmbient{};
+		std::array<float, 4> uBaseColor{};
+		std::array<float, 4> uParams{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4> uSkinning{};
+	};
+	static_assert(sizeof(SkinnedReflectionCaptureConstants) == 512);
+
+	struct alignas(16) SkinnedReflectionCaptureFaceConstants
+	{
+		std::array<float, 16> uViewProj{};
+		std::array<float, 4>  uCapturePosAmbient{};
+		std::array<float, 4>  uBaseColor{};
+		std::array<float, 4>  uParams{};
+		std::array<float, 16> uModel{};
+		std::array<float, 4>  uSkinning{};
+	};
+	static_assert(sizeof(SkinnedReflectionCaptureFaceConstants) == 192);
+
 	struct EditorSelectionDraw
 	{
 		const rendern::MeshRHI* mesh{};
+		const rendern::SkinnedMeshRHI* skinnedMesh{};
 		InstanceData instance{};
+		mathUtils::Mat4 model{ 1.0f };
+		std::uint32_t paletteOffset{ 0 };
+		std::uint32_t boneCount{ 0 };
 		float outlineWorldOffset = 0.025f;
 		bool isTransparent = false;
+		bool isSkinned = false;
 	};
 
 	struct SSAOConstants

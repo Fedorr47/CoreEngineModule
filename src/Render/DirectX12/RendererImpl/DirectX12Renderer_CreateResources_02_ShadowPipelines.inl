@@ -1,3 +1,7 @@
+			const std::filesystem::path shadowSkinnedPath = corefs::ResolveAsset("shaders\\ShadowDepthSkinned_dx12.hlsl");
+			const std::filesystem::path pointShadowSkinnedPath = corefs::ResolveAsset("shaders\\ShadowPointSkinned_dx12.hlsl");
+			const std::filesystem::path reflSkinnedPath = corefs::ResolveAsset("shaders\\ReflectionCaptureSkinned_dx12.hlsl");
+
 			// Shadow pipeline (depth-only)
 			if (device_.GetBackend() == rhi::Backend::DirectX12)
 			{
@@ -15,6 +19,20 @@
 					});
 
 				psoShadow_ = psoCache_.GetOrCreate("PSO_Shadow", vsShadow, psShadow);
+
+				const auto vsShadowSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Vertex,
+					.name = "VS_Shadow",
+					.filePath = shadowSkinnedPath.string(),
+					.defines = {}
+					});
+				const auto psShadowSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Pixel,
+					.name = "PS_Shadow",
+					.filePath = shadowSkinnedPath.string(),
+					.defines = {}
+					});
+				psoShadowSkinned_ = psoCache_.GetOrCreate("PSO_Shadow_Skinned", vsShadowSkinned, psShadowSkinned);
 
 				shadowState_.depth.testEnable = true;
 				shadowState_.depth.writeEnable = true;
@@ -46,6 +64,20 @@
 					.defines = {}
 					});
 				psoPointShadow_ = psoCache_.GetOrCreate("PSO_PointShadow", vsPoint, psPoint);
+
+				const auto vsPointSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Vertex,
+					.name = "VS_ShadowPoint",
+					.filePath = pointShadowSkinnedPath.string(),
+					.defines = {}
+					});
+				const auto psPointSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Pixel,
+					.name = "PS_ShadowPoint",
+					.filePath = pointShadowSkinnedPath.string(),
+					.defines = {}
+					});
+				psoPointShadowSkinned_ = psoCache_.GetOrCreate("PSO_PointShadow_Skinned", vsPointSkinned, psPointSkinned);
 
 			// Optional View-Instancing variant (single pass renders all 6 cubemap faces).
 			// Requires SM6.1 + DXC + ViewInstancingTier support.
@@ -164,6 +196,20 @@
 						});
 
 					psoReflectionCapture_ = psoCache_.GetOrCreate("PSO_ReflectionCapture", vsRefl, psRefl);
+
+					const auto vsReflSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Vertex,
+						.name = "VS_ReflectionCapture",
+						.filePath = reflSkinnedPath.string(),
+						.defines = {}
+						});
+					const auto psReflSkinned = shaderLibrary_.GetOrCreateShader(ShaderKey{
+						.stage = rhi::ShaderStage::Pixel,
+						.name = "PS_ReflectionCapture",
+						.filePath = reflSkinnedPath.string(),
+						.defines = {}
+						});
+					psoReflectionCaptureSkinned_ = psoCache_.GetOrCreate("PSO_ReflectionCapture_Skinned", vsReflSkinned, psReflSkinned);
 				}
 
 				// VI (SM6.1) - single pass, SV_ViewID, view count = 6

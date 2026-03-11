@@ -152,7 +152,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			att.clearDesc.stencil = 0;
 
 			graph.AddPass(std::string("PlanarReflScene_") + std::to_string(mirrorIndex), std::move(att),
-				[this, &scene, shadowRG, dirLightViewProj, lightCount, spotShadows, pointShadows, mainBatches, captureMainBatchesNoCull, instStride, planeN, planeD](renderGraph::PassContext& ctx)
+				[this, &scene, ResolveMainPassMaterialPerm, ResolveOpaqueEnvBinding, BindMainPassMaterialTextures, BuildMainPassMaterialFlags, shadowRG, dirLightViewProj, lightCount, spotShadows, pointShadows, mainBatches, captureMainBatchesNoCull, skinnedOpaqueDraws, instStride, planeN, planeD](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
@@ -350,6 +350,61 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						ctx.commandList.BindIndexBuffer(batch.mesh->indexBuffer, batch.mesh->indexType, 0);
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
 						ctx.commandList.DrawIndexed(batch.mesh->indexCount, batch.mesh->indexType, 0, 0, batch.instanceCount, 0);
+					}
+
+					for (const SkinnedOpaqueDraw& draw : skinnedOpaqueDraws)
+					{
+						if (!draw.mesh || draw.boneCount == 0)
+						{
+							continue;
+						}
+
+						const MaterialPerm perm = ResolveMainPassMaterialPerm(draw.material, draw.materialHandle);
+						if (HasFlag(perm, MaterialPerm::PlanarMirror))
+						{
+							continue;
+						}
+
+						const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+						const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+						const ResolvedMaterialEnvBinding env = ResolveOpaqueEnvBinding(draw.materialHandle, -1);
+
+						ctx.commandList.BindPipeline(PlanarSkinnedPipelineFor(perm));
+						BindMainPassMaterialTextures(ctx.commandList, draw.material, env);
+						ctx.commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+
+						const std::uint32_t flags = BuildMainPassMaterialFlags(
+							draw.material,
+							useTex,
+							useShadow,
+							env);
+
+						SkinnedPerDrawConstants constants{};
+						const mathUtils::Mat4 dirVP_T = mathUtils::Transpose(dirLightViewProj);
+						std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjReflT), sizeof(float) * 16);
+						std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(dirVP_T), sizeof(float) * 16);
+
+						const mathUtils::Vec3 camPosRefl = ReflectPoint(camPosLocal, planeN, planeD);
+						constants.uCameraAmbient = { camPosRefl.x, camPosRefl.y, camPosRefl.z, 0.22f };
+						const mathUtils::Vec3 camFwdRefl = ReflectVector(camFLocal, planeN);
+						constants.uCameraForward = { camFwdRefl.x, camFwdRefl.y, camFwdRefl.z, planeN.z };
+						constants.uBaseColor = { draw.material.baseColor.x, draw.material.baseColor.y, draw.material.baseColor.z, draw.material.baseColor.w };
+						const float materialBiasTexels = draw.material.shadowBias;
+						constants.uMaterialFlags = { planeN.x, planeN.y, materialBiasTexels, AsFloatBits(flags) };
+						constants.uPbrParams = { draw.material.metallic, draw.material.roughness, draw.material.ao, draw.material.emissiveStrength };
+						constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), (planeD - 0.05f) };
+						constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
+						constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
+						constants.uEnvProbeBoxMax = { 0.0f, 0.0f, 0.0f, 0.0f };
+						const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
+						std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
+						constants.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };
+
+						ctx.commandList.BindInputLayout(draw.mesh->layout);
+						ctx.commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
+						ctx.commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
+						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+						ctx.commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
 					}
 				});
 		}

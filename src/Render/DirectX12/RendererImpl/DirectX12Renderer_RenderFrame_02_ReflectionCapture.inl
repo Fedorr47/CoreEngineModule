@@ -20,17 +20,19 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 		return di.transform.position;
 	};
 
+	const bool haveSkinnedCaptureDraws = !skinnedOpaqueDraws.empty();
+
 	const bool canUseLayered =
 		(!disableReflectionCaptureLayered_) &&
 		(psoReflectionCaptureLayered_) &&
 		device_.SupportsShaderModel6() &&
-		device_.SupportsVPAndRTArrayIndexFromAnyShader();
+		device_.SupportsVPAndRTArrayIndexFromAnyShader() && !haveSkinnedCaptureDraws;
 
 	const bool canUseVI =
 		(!disableReflectionCaptureVI_) &&
 		(psoReflectionCaptureVI_) &&
 		device_.SupportsShaderModel6() &&
-		device_.SupportsViewInstancing();
+		device_.SupportsViewInstancing() && !haveSkinnedCaptureDraws;
 
 	const float nearZ = std::max(0.001f, settings_.reflectionCaptureNearZ);
 	const float farZ = std::max(nearZ + 0.01f, settings_.reflectionCaptureFarZ);
@@ -324,7 +326,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 					"ReflectionProbe_" + std::to_string(probeIndex) + "_Face_" + std::to_string(face);
 
 				graph.AddPass(passName, std::move(att),
-					[this, base, instStride, captureMainBatches](renderGraph::PassContext& ctx) mutable
+					[this, base, skinnedOpaqueDraws, instStride, captureMainBatches, probeCapturePos = probe.capturePos, viewProj = vp, lightCount](renderGraph::PassContext& ctx) mutable
 					{
 						ctx.commandList.SetViewport(0, 0, (int)ctx.passExtent.width, (int)ctx.passExtent.height);
 						ctx.commandList.SetState(state_);
@@ -358,6 +360,44 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 
 							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
 							ctx.commandList.DrawIndexed(b.mesh->indexCount, b.mesh->indexType, 0, 0, b.instanceCount, 0);
+						}
+
+						if (psoReflectionCaptureSkinned_ && skinPaletteBuffer_)
+						{
+							ctx.commandList.BindPipeline(psoReflectionCaptureSkinned_);
+							ctx.commandList.BindStructuredBufferSRV(2, lightsBuffer_);
+							ctx.commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+							const mathUtils::Mat4 vpT = mathUtils::Transpose(viewProj);
+							for (const SkinnedOpaqueDraw& draw : skinnedOpaqueDraws)
+							{
+								if (!draw.mesh || draw.boneCount == 0)
+								{
+									continue;
+								}
+
+								std::uint32_t flags = 0u;
+								const bool useTex = (draw.materialHandle.id != 0) && (draw.material.albedoDescIndex != 0);
+								if (useTex)
+								{
+									flags |= 1u;
+								}
+
+								ctx.commandList.BindTextureDesc(0, useTex ? draw.material.albedoDescIndex : 0);
+								SkinnedReflectionCaptureFaceConstants c{};
+								std::memcpy(c.uViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
+								c.uCapturePosAmbient = { probeCapturePos.x, probeCapturePos.y, probeCapturePos.z, 0.22f };
+								c.uBaseColor = { draw.material.baseColor.x, draw.material.baseColor.y, draw.material.baseColor.z, draw.material.baseColor.w };
+								c.uParams = { static_cast<float>(lightCount), AsFloatBits(flags), 0.0f, 0.0f };
+								const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
+								std::memcpy(c.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
+								c.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };
+
+								ctx.commandList.BindInputLayout(draw.mesh->layout);
+								ctx.commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
+								ctx.commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
+								ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+								ctx.commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+							}
 						}
 					});
 			}

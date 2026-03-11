@@ -1,3 +1,65 @@
+			auto DrawSkinnedShadowPass = [this](auto& commandList, const mathUtils::Mat4& lightViewProj, const std::vector<SkinnedOpaqueDraw>& draws)
+			{
+				if (!psoShadowSkinned_ || !skinPaletteBuffer_)
+				{
+					return;
+				}
+
+				commandList.BindPipeline(psoShadowSkinned_);
+				commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+				const mathUtils::Mat4 vpT = mathUtils::Transpose(lightViewProj);
+				for (const SkinnedOpaqueDraw& draw : draws)
+				{
+					if (!draw.mesh || draw.boneCount == 0)
+					{
+						continue;
+					}
+
+					SkinnedSingleMatrixPassConstants constants{};
+					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
+					const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
+					std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
+					constants.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };
+					commandList.BindInputLayout(draw.mesh->layout);
+					commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
+					commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
+					commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+					commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+				}
+			};
+
+			auto DrawSkinnedPointShadowFacePass = [this](auto& commandList, const mathUtils::Mat4& faceViewProj, const mathUtils::Vec3& lightPos, float lightRange, const std::vector<SkinnedOpaqueDraw>& draws)
+			{
+				if (!psoPointShadowSkinned_ || !skinPaletteBuffer_)
+				{
+					return;
+				}
+
+				commandList.BindPipeline(psoPointShadowSkinned_);
+				commandList.BindStructuredBufferSRV(19, skinPaletteBuffer_);
+				const mathUtils::Mat4 vpT = mathUtils::Transpose(faceViewProj);
+				for (const SkinnedOpaqueDraw& draw : draws)
+				{
+					if (!draw.mesh || draw.boneCount == 0)
+					{
+						continue;
+					}
+
+					SkinnedPointShadowFaceConstants constants{};
+					std::memcpy(constants.uFaceViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
+					constants.uLightPosRange = { lightPos.x, lightPos.y, lightPos.z, lightRange };
+					constants.uMisc = { 0.0f, 0.0f, 0.0f, 0.0f };
+					const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
+					std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
+					constants.uSkinning = { static_cast<float>(draw.paletteOffset), static_cast<float>(draw.boneCount), 0.0f, 0.0f };
+					commandList.BindInputLayout(draw.mesh->layout);
+					commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
+					commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
+					commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+					commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+				}
+			};
+
 			// ---------------- Create shadow passes (all reuse shadowBatches) ----------------
 			// Directional CSM atlas (depth-only). We clear the whole atlas once, then render each cascade
 			// into its own 2048x2048 viewport tile.
@@ -25,7 +87,7 @@
 
 				const char* passName = (cascade == 0u) ? "DirShadow_C0" : (cascade == 1u) ? "DirShadow_C1" : "DirShadow_C2";
 				graph.AddPass(passName, std::move(att),
-					[this, shadowPassConstants, shadowBatches, instStride, vpX, vpY, vpW, vpH](renderGraph::PassContext& ctx) mutable
+					[this, DrawSkinnedShadowPass, shadowPassConstants, shadowBatches, skinnedOpaqueDraws, instStride, vpX, vpY, vpW, vpH, cascadeVP = dirCascadeVP[cascade]](renderGraph::PassContext& ctx) mutable
 					{
 						ctx.commandList.SetViewport(vpX, vpY, vpW, vpH);
 
@@ -35,6 +97,7 @@
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &shadowPassConstants, 1 }));
 
 						this->DrawInstancedShadowBatches(ctx.commandList, shadowBatches, instStride);
+						DrawSkinnedShadowPass(ctx.commandList, cascadeVP, skinnedOpaqueDraws);
 
 					});
 			}
@@ -95,7 +158,7 @@
 					std::memcpy(spotPassConstants.uLightViewProj.data(), mathUtils::ValuePtr(lightViewProjTranspose), sizeof(float) * 16);
 
 					graph.AddPass(passName, std::move(att),
-						[this, spotPassConstants, shadowBatches, instStride](renderGraph::PassContext& ctx) mutable
+						[this, DrawSkinnedShadowPass, spotPassConstants, shadowBatches, skinnedOpaqueDraws, instStride, lightViewProj](renderGraph::PassContext& ctx) mutable
 						{
 							ctx.commandList.SetViewport(0, 0,
 								static_cast<int>(ctx.passExtent.width),
@@ -107,6 +170,7 @@
 							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &spotPassConstants, 1 }));
 
 							this->DrawInstancedShadowBatches(ctx.commandList, shadowBatches, instStride);
+							DrawSkinnedShadowPass(ctx.commandList, lightViewProj, skinnedOpaqueDraws);
 
 						});
 				}
@@ -115,12 +179,13 @@
 					// Point shadows use a cubemap R32_FLOAT distance map (color) + depth for rasterization.
 					// Prefer layered one-pass (SV_RenderTargetArrayIndex). If unavailable, try VI (SV_ViewID).
 					// Otherwise we fall back to 6 separate passes (face-by-face).
+					const bool haveSkinnedShadowDraws = !skinnedOpaqueDraws.empty();
 					bool useLayered =
 						(!disablePointShadowLayered_) &&
 						static_cast<bool>(psoPointShadowLayered_) &&
-						device_.SupportsVPAndRTArrayIndexFromAnyShader();
+						device_.SupportsVPAndRTArrayIndexFromAnyShader() && !haveSkinnedShadowDraws;
 
-					bool useVI = (!disablePointShadowVI_) && static_cast<bool>(psoPointShadowVI_);
+					bool useVI = (!disablePointShadowVI_) && static_cast<bool>(psoPointShadowVI_) && !haveSkinnedShadowDraws;
 
 					const rhi::Extent2D cubeExtent{ 2048, 2048 };
 					const auto cube = graph.CreateTexture(renderGraph::RGTextureDesc{
@@ -290,7 +355,7 @@
 
 
 							graph.AddPass(passName, std::move(att),
-								[this, pointShadowConstants, shadowBatches, instStride](renderGraph::PassContext& ctx) mutable
+								[this, DrawSkinnedPointShadowFacePass, pointShadowConstants, shadowBatches, skinnedOpaqueDraws, instStride, faceViewProj, lightPos = rec.pos, lightRange = rec.range](renderGraph::PassContext& ctx) mutable
 								{
 									ctx.commandList.SetViewport(0, 0,
 										static_cast<int>(ctx.passExtent.width),
@@ -302,6 +367,7 @@
 									ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &pointShadowConstants, 1 }));
 
 									this->DrawInstancedShadowBatches(ctx.commandList, shadowBatches, instStride);
+									DrawSkinnedPointShadowFacePass(ctx.commandList, faceViewProj, lightPos, lightRange, skinnedOpaqueDraws);
 
 								});
 						}

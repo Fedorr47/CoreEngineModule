@@ -202,6 +202,14 @@ export namespace rendern
 			return psoPlanar_[idx];
 		}
 
+		rhi::PipelineHandle PlanarSkinnedPipelineFor(MaterialPerm perm) const noexcept
+		{
+			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
+			const bool useShadow = HasFlag(perm, MaterialPerm::UseShadow);
+			const std::uint32_t idx = (useTex ? 1u : 0u) | (useShadow ? 2u : 0u);
+			return psoPlanarSkinned_[idx];
+		}
+
 		rhi::PipelineHandle MainPipelineFor(MaterialPerm perm) const noexcept
 		{
 			const bool useTex = HasFlag(perm, MaterialPerm::UseTex);
@@ -463,9 +471,12 @@ export namespace rendern
 		std::array<rhi::PipelineHandle, 4> psoMain_{}; // idx: (UseTex?1:0)|(UseShadow?2:0)
 		std::array<rhi::PipelineHandle, 4> psoMainSkinned_{};
 		std::array<rhi::PipelineHandle, 4> psoPlanar_{}; // same indexing, compiled with CORE_PLANAR_CLIP
+		std::array<rhi::PipelineHandle, 4> psoPlanarSkinned_{};
 		rhi::PipelineHandle psoPlanarComposite_{}; // fullscreen planar composite (mask+color -> SceneColor)
 		rhi::PipelineHandle psoHighlight_{}; // editor selection highlight overlay
+		rhi::PipelineHandle psoHighlightSkinned_{};
 		rhi::PipelineHandle psoOutline_{}; // editor selection outline shell
+		rhi::PipelineHandle psoOutlineSkinned_{};
 		rhi::PipelineHandle psoDeferredGBuffer_{}; // MRT G-Buffer writer
 		rhi::PipelineHandle psoDeferredGBufferSkinned_{}; // MRT G-Buffer writer for skinned meshes
 		rhi::PipelineHandle psoDeferredLighting_{}; // fullscreen deferred lighting
@@ -506,6 +517,7 @@ export namespace rendern
 
 		// Shadow pass
 		rhi::PipelineHandle psoShadow_{};
+		rhi::PipelineHandle psoShadowSkinned_{};
 		rhi::GraphicsState shadowState_{};
 
 		rhi::BufferHandle lightsBuffer_{};
@@ -515,6 +527,7 @@ export namespace rendern
 
 		// Point shadow pass (R32_FLOAT distance cubemap)
 		rhi::PipelineHandle psoPointShadow_{};
+		rhi::PipelineHandle psoPointShadowSkinned_{};
 		rhi::PipelineHandle psoPointShadowLayered_{}; // SM6.1 + SV_RenderTargetArrayIndex layered rendering (single-pass cubemap)
 		bool disablePointShadowLayered_{ false };// do not try again after first failure (until restart)
 		rhi::PipelineHandle psoPointShadowVI_{}; // SM6.1 + SV_ViewID + view instancing (single-pass cubemap)
@@ -529,6 +542,7 @@ export namespace rendern
 
 		// Reflection capture pipelines (created in 0007).
 		rhi::PipelineHandle psoReflectionCapture_{};            // optional (6-pass shader later)
+		rhi::PipelineHandle psoReflectionCaptureSkinned_{};
 		rhi::PipelineHandle psoReflectionCaptureLayered_{};     // SM6.1 layered
 		bool disableReflectionCaptureLayered_{ false };
 		rhi::PipelineHandle psoReflectionCaptureVI_{};          // SM6.1 view instancing

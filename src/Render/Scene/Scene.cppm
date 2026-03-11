@@ -390,9 +390,13 @@ export namespace rendern
 
 		// Editor selection (runtime-only). Index into Scene::drawItems (or -1).
 		int editorSelectedDrawItem{ -1 };
+		// Editor selection (runtime-only). Index into Scene::skinnedDrawItems (or -1).
+		int editorSelectedSkinnedDrawItem{ -1 };
 
 		// Multi-selection (runtime-only). Indices into Scene::drawItems.
 		std::vector<int> editorSelectedDrawItems;
+		// Multi-selection (runtime-only). Indices into Scene::skinnedDrawItems.
+		std::vector<int> editorSelectedSkinnedDrawItems;
 
 		// Reflection capture owner (runtime-only).
 		// Node index is stable (LevelAsset::nodes). DrawItem index is derived from LevelInstance mapping.
@@ -430,7 +434,9 @@ export namespace rendern
 			editorSelectedLight = -1;
 			editorSelectedLights.clear();
 			editorSelectedDrawItem = -1;
+			editorSelectedSkinnedDrawItem = -1;
 			editorSelectedDrawItems.clear();
+			editorSelectedSkinnedDrawItems.clear();
 			editorReflectionCaptureOwnerNode = -1;
 			editorReflectionCaptureOwnerDrawItem = -1;
 			editorGizmoMode = GizmoMode::Translate;
@@ -446,7 +452,9 @@ export namespace rendern
 			editorSelectedNode = -1;
 			editorSelectedNodes.clear();
 			editorSelectedDrawItem = -1;
+			editorSelectedSkinnedDrawItem = -1;
 			editorSelectedDrawItems.clear();
+			editorSelectedSkinnedDrawItems.clear();
 		}
 
 		void EditorClearParticleEmitterSelection() noexcept
