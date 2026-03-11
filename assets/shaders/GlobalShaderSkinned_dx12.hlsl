@@ -89,6 +89,13 @@ cbuffer PerBatchCB : register(b0)
 	
     float4 uEnvProbeBoxMin;
     float4 uEnvProbeBoxMax;
+    // Kept for C++ layout compatibility with SkinnedPerDrawConstants.
+    // Forward path does not currently use these bindless indices, but deferred does,
+    // and both paths share the same uploaded constant struct on the CPU side.
+    // x=albedo, y=normal, z=metalness, w=roughness
+    float4 uTexIndices0;
+    // x=ao, y=emissive, z,w unused
+    float4 uTexIndices1;
     float4x4 uModel;
     // x=paletteOffset, y=boneCount
     float4 uSkinning;

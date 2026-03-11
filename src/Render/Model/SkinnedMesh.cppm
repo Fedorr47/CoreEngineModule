@@ -74,6 +74,9 @@ export namespace rendern
 		std::vector<std::uint32_t> indices{};
 		std::vector<SkinnedSubmesh> submeshes{};
 		Skeleton skeleton{};
+		// Converts skeleton-global skinning output back into the mesh local space
+		// expected by the renderer before the node/world transform is applied.
+		mathUtils::Mat4 skinningSkeletonToMeshSpace{ 1.0f };
 		SkinnedMeshBounds bounds{};
 	};
 

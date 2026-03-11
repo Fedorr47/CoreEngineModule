@@ -89,6 +89,59 @@ namespace
         return nullptr;
     }
 
+    [[nodiscard]] mathUtils::Mat4 ComputeNodeGlobalTransform(const aiNode* node)
+    {
+        mathUtils::Mat4 global(1.0f);
+        std::vector<const aiNode*> chain;
+        while (node)
+        {
+            chain.push_back(node);
+            node = node->mParent;
+        }
+        for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+        {
+            global = global * AiToMat4((*it)->mTransformation);
+        }
+        return global;
+    }
+
+    void BuildMeshOwnerGlobalTransformsRecursive(
+        const aiNode* node,
+        const mathUtils::Mat4& parentGlobal,
+        std::unordered_map<unsigned, mathUtils::Mat4>& outMeshOwnerGlobals)
+    {
+        if (!node)
+        {
+            return;
+        }
+
+        const mathUtils::Mat4 nodeGlobal = parentGlobal * AiToMat4(node->mTransformation);
+        for (unsigned meshSlot = 0; meshSlot < node->mNumMeshes; ++meshSlot)
+        {
+            outMeshOwnerGlobals.try_emplace(node->mMeshes[meshSlot], nodeGlobal);
+        }
+
+        for (unsigned childIndex = 0; childIndex < node->mNumChildren; ++childIndex)
+        {
+            BuildMeshOwnerGlobalTransformsRecursive(node->mChildren[childIndex], nodeGlobal, outMeshOwnerGlobals);
+        }
+    }
+
+    [[nodiscard]] bool MatricesNearlyEqual(const mathUtils::Mat4& a, const mathUtils::Mat4& b, float eps = 1e-4f) noexcept
+    {
+        for (int row = 0; row < 4; ++row)
+        {
+            for (int col = 0; col < 4; ++col)
+            {
+                if (std::abs(a(row, col) - b(row, col)) > eps)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     void CollectRequiredBoneNames(
         const aiScene* scene,
         const std::unordered_set<std::string>& weightedBoneNames,
@@ -375,6 +428,7 @@ namespace
         const rendern::AnimationClip& clip,
         const std::vector<BindTRS>& bindTrs,
         float timeTicks,
+        const mathUtils::Mat4& skeletonToMeshSpace,
         std::vector<mathUtils::Mat4>& outSkinMatrices)
     {
         std::vector<mathUtils::Mat4> localPose;
@@ -414,7 +468,10 @@ namespace
             {
                 globalPose[boneIndex] = localPose[boneIndex];
             }
-            outSkinMatrices[boneIndex] = globalPose[boneIndex] * skeleton.bones[boneIndex].inverseBindMatrix;
+            outSkinMatrices[boneIndex] =
+                skeletonToMeshSpace *
+                globalPose[boneIndex] *
+                skeleton.bones[boneIndex].inverseBindMatrix;
         }
     }
 
@@ -544,7 +601,7 @@ namespace
             const float sampleT = (sampleCount <= 1)
                 ? 0.0f
                 : (clip.durationTicks * static_cast<float>(sampleIndex) / static_cast<float>(sampleCount - 1u));
-            BuildSkinMatricesForSample(mesh.skeleton, clip, bindTrs, sampleT, skinMatrices);
+            BuildSkinMatricesForSample(mesh.skeleton, clip, bindTrs, sampleT, mesh.skinningSkeletonToMeshSpace, skinMatrices);
             for (const auto& v : mesh.vertices)
             {
                 ExpandBounds(acc, SkinVertexPosition(v, skinMatrices));
@@ -731,8 +788,27 @@ export namespace rendern
             }
         }
 
+        std::unordered_map<unsigned, mathUtils::Mat4> meshOwnerGlobalByIndex;
+        if (scene->mRootNode)
+        {
+            BuildMeshOwnerGlobalTransformsRecursive(scene->mRootNode, mathUtils::Mat4(1.0f), meshOwnerGlobalByIndex);
+        }
+
+        mathUtils::Mat4 commonMeshGlobal = scene->mRootNode
+            ? ComputeNodeGlobalTransform(scene->mRootNode)
+            : mathUtils::Mat4(1.0f);
+        for (unsigned meshIndex : selectedMeshIndices)
+        {
+            if (const auto it = meshOwnerGlobalByIndex.find(meshIndex); it != meshOwnerGlobalByIndex.end())
+            {
+                commonMeshGlobal = it->second;
+                break;
+            }
+        }
+
         AssimpSkinnedImportResult result{};
         SkinnedMeshCPU& out = result.mesh;
+        out.skinningSkeletonToMeshSpace = mathUtils::Inverse(commonMeshGlobal);
         std::vector<std::vector<RawVertexInfluence>> pendingInfluences;
         std::unordered_set<std::string> weightedBoneNames;
         std::unordered_map<std::string, mathUtils::Mat4> inverseBindByName;
@@ -748,6 +824,16 @@ export namespace rendern
             {
                 throw std::runtime_error("Assimp skinned import requires meshes with bones: " + path.string());
             }
+
+            const mathUtils::Mat4 meshOwnerGlobal = [&]()
+                {
+                    if (const auto it = meshOwnerGlobalByIndex.find(meshIndex); it != meshOwnerGlobalByIndex.end())
+                    {
+                        return it->second;
+                    }
+                    return commonMeshGlobal;
+                }();
+            const mathUtils::Mat4 meshToCommon = out.skinningSkeletonToMeshSpace * meshOwnerGlobal;
 
             const std::uint32_t baseVertex = static_cast<std::uint32_t>(out.vertices.size());
             const std::uint32_t firstIndex = static_cast<std::uint32_t>(out.indices.size());
@@ -765,11 +851,23 @@ export namespace rendern
                 const aiVector3D uv = hasUV0 ? m->mTextureCoords[0][vertexIndex] : aiVector3D(0.0f, 0.0f, 0.0f);
                 const aiVector3D t = hasTangents ? m->mTangents[vertexIndex] : aiVector3D(1.0f, 0.0f, 0.0f);
 
+                const mathUtils::Vec3 pCommon = mathUtils::TransformPoint(meshToCommon, mathUtils::Vec3(p.x, p.y, p.z));
+                mathUtils::Vec3 nCommon = mathUtils::TransformVector(meshToCommon, mathUtils::Vec3(n.x, n.y, n.z));
+                mathUtils::Vec3 tCommon = mathUtils::TransformVector(meshToCommon, mathUtils::Vec3(t.x, t.y, t.z));
+                if (mathUtils::Length(nCommon) > 1e-6f)
+                {
+                    nCommon = mathUtils::Normalize(nCommon);
+                }
+                if (mathUtils::Length(tCommon) > 1e-6f)
+                {
+                    tCommon = mathUtils::Normalize(tCommon);
+                }
+
                 SkinnedVertexDesc v{};
-                v.px = p.x; v.py = p.y; v.pz = p.z;
-                v.nx = n.x; v.ny = n.y; v.nz = n.z;
+                v.px = pCommon.x; v.py = pCommon.y; v.pz = pCommon.z;
+                v.nx = nCommon.x; v.ny = nCommon.y; v.nz = nCommon.z;
                 v.u = uv.x; v.v = uv.y;
-                v.tx = t.x; v.ty = t.y; v.tz = t.z; v.tw = 1.0f;
+                v.tx = tCommon.x; v.ty = tCommon.y; v.tz = tCommon.z; v.tw = 1.0f;
                 out.vertices.push_back(v);
             }
 
@@ -803,7 +901,23 @@ export namespace rendern
 
                 const std::string boneName = bone->mName.C_Str();
                 weightedBoneNames.insert(boneName);
-                inverseBindByName.try_emplace(boneName, AiToMat4(bone->mOffsetMatrix));
+                
+                const mathUtils::Mat4 adjustedInverseBind =
+                    AiToMat4(bone->mOffsetMatrix) *
+                    mathUtils::Inverse(meshOwnerGlobal) *
+                    commonMeshGlobal;
+                if (const auto [it, inserted] = inverseBindByName.try_emplace(boneName, adjustedInverseBind); !inserted)
+                {
+                    if (!MatricesNearlyEqual(it->second, adjustedInverseBind))
+                    {
+                        throw std::runtime_error(
+                            "Assimp skinned import found incompatible mesh-owner bind spaces for bone '" +
+                            boneName +
+                            "' in " +
+                            path.string() +
+                            ". Import a single skinned submesh or normalize the source rig hierarchy.");
+                    }
+                }
 
                 for (unsigned weightIndex = 0; weightIndex < bone->mNumWeights; ++weightIndex)
                 {

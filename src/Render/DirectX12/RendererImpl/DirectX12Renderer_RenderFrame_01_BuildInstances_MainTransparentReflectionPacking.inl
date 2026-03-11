@@ -256,7 +256,10 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawIt
 	draw.paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
 	draw.boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
 	draw.sourceSkinnedDrawIndex = static_cast<int>(skinnedDrawIndex);
-	skinnedPaletteMatrices.insert(skinnedPaletteMatrices.end(), item.animator.skinMatrices.begin(), item.animator.skinMatrices.end());
+	for (const mathUtils::Mat4& skin : item.animator.skinMatrices)
+	{
+		skinnedPaletteMatrices.push_back(item.asset->mesh.skinningSkeletonToMeshSpace * skin);
+	}
 	skinnedOpaqueDraws.push_back(draw);
 }
 
