@@ -262,6 +262,25 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 					ss << ", \"clipSourceAssetId\": ";
 					WriteJsonEscaped(ss, state.clipSourceAssetId);
 				}
+				if (!state.notifies.empty())
+				{
+					ss << ", \"notifies\": [";
+					for (std::size_t notifyIndex = 0; notifyIndex < state.notifies.size(); ++notifyIndex)
+					{
+						const AnimationNotifyDesc& notify = state.notifies[notifyIndex];
+						if (notifyIndex == 0) ss << "\n"; else ss << ",\n";
+						ss << "        {\"id\": ";
+						WriteJsonEscaped(ss, notify.id);
+						ss << ", \"time\": " << notify.timeNormalized;
+						if (notify.fireOnEnter)
+						{
+							ss << ", \"fireOnEnter\": true";
+						}
+						ss << "}";
+					}
+					if (!state.notifies.empty()) ss << "\n      ";
+					ss << "]";
+				}
 				if (!state.looping)
 				{
 					ss << ", \"loop\": false";
@@ -664,6 +683,10 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 		{
 			ss << ", \"animationClip\": ";
 			WriteJsonEscaped(ss, n.animationClip);
+		}
+		if (!n.animationInPlace)
+		{
+			ss << ", \"animationInPlace\": false";
 		}
 		if (!n.animationAutoplay)
 		{

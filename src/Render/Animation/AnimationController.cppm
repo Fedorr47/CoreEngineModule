@@ -5,10 +5,12 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <type_traits>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 export module core:animation_controller;
 
@@ -65,6 +67,13 @@ export namespace rendern
 		float value{ 0.0f };
 	};
 
+	struct AnimationNotifyDesc
+	{
+		std::string id;
+		float timeNormalized{ 0.0f };
+		bool fireOnEnter{ false };
+	};
+
 	struct AnimationStateDesc
 	{
 		std::string name;
@@ -72,6 +81,7 @@ export namespace rendern
 		std::string clipSourceAssetId;
 		std::string blendParameter;
 		std::vector<AnimationBlend1DPoint> blend1D;
+		std::vector<AnimationNotifyDesc> notifies;
 		bool looping{ true };
 		float playRate{ 1.0f };
 	};
@@ -102,6 +112,21 @@ export namespace rendern
 		std::vector<AnimationTransitionDesc> transitions;
 	};
 
+	enum class AnimationRootMotionMode : std::uint8_t
+	{
+		InPlace = 0,
+		Allow = 1
+	};
+
+	struct AnimationNotifyEvent
+	{
+		std::uint64_t sequence{ 0 };
+		std::string id;
+		std::string stateName;
+		std::string clipName;
+		float normalizedTime{ 0.0f };
+	};
+
 	enum class AnimationControllerMode : std::uint8_t
 	{
 		LegacyClip = 0,
@@ -111,6 +136,7 @@ export namespace rendern
 	struct AnimationControllerRuntime
 	{
 		AnimationControllerMode mode{ AnimationControllerMode::LegacyClip };
+		AnimationRootMotionMode rootMotionMode{ AnimationRootMotionMode::InPlace };
 		const Skeleton* skeleton{ nullptr };
 		const std::vector<AnimationClip>* clips{ nullptr };
 		const std::vector<std::string>* clipSourceAssetIds{ nullptr };
@@ -148,6 +174,11 @@ export namespace rendern
 		float playRate{ 1.0f };
 		bool paused{ false };
 		bool forceBindPose{ false };
+		mathUtils::Vec3 lastAppliedRootMotionDelta{ 0.0f, 0.0f, 0.0f };
+		float previousStateNormalizedTime{ 0.0f };
+		bool stateEnteredThisFrame{ true };
+		std::uint64_t nextNotifySequence{ 0 };
+		std::vector<AnimationNotifyEvent> pendingNotifyEvents;
 
 		AnimationParameterStore parameters{};
 	};
@@ -605,6 +636,119 @@ export namespace rendern
 			}
 		}
 
+		inline void ApplyRootMotionModeToAnimatorPose(AnimationControllerRuntime& runtime, AnimatorState& animator)
+		{
+			runtime.lastAppliedRootMotionDelta = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
+
+			if (runtime.rootMotionMode != AnimationRootMotionMode::InPlace ||
+				!IsAnimatorReady(animator) ||
+				animator.localPose.empty())
+			{
+				return;
+			}
+
+			const std::size_t rootIndex = static_cast<std::size_t>(animator.skeleton->rootBoneIndex);
+			if (rootIndex >= animator.localPose.size() || rootIndex >= animator.skeleton->bones.size())
+			{
+				return;
+			}
+
+			mathUtils::Vec3 bindTranslation{ 0.0f, 0.0f, 0.0f };
+			mathUtils::Vec4 bindRotation{ 0.0f, 0.0f, 0.0f, 1.0f };
+			mathUtils::Vec3 bindScale{ 1.0f, 1.0f, 1.0f };
+			DecomposeTRS(
+				animator.skeleton->bones[rootIndex].bindLocalTransform,
+				bindTranslation,
+				bindRotation,
+				bindScale);
+
+			LocalBoneTransform& rootTransform = animator.localPose[rootIndex];
+			runtime.lastAppliedRootMotionDelta = rootTransform.translation - bindTranslation;
+			rootTransform.translation = bindTranslation;
+		}
+
+		inline void PushNotifyEvent(
+			AnimationControllerRuntime& runtime,
+			const AnimationStateDesc& state,
+			const AnimationNotifyDesc& notify,
+			const AnimationClip* clip)
+		{
+			AnimationNotifyEvent event{};
+			event.sequence = ++runtime.nextNotifySequence;
+			event.id = notify.id;
+			event.stateName = state.name;
+			event.clipName = (clip != nullptr) ? clip->name : std::string{};
+			event.normalizedTime = std::clamp(notify.timeNormalized, 0.0f, 1.0f);
+			runtime.pendingNotifyEvents.push_back(std::move(event));
+
+			constexpr std::size_t kMaxRetainedNotifyEvents = 64;
+			if (runtime.pendingNotifyEvents.size() > kMaxRetainedNotifyEvents)
+			{
+				runtime.pendingNotifyEvents.erase(
+					runtime.pendingNotifyEvents.begin(),
+					runtime.pendingNotifyEvents.begin() + static_cast<std::ptrdiff_t>(runtime.pendingNotifyEvents.size() - kMaxRetainedNotifyEvents));
+			}
+		}
+
+		[[nodiscard]] inline bool DidNormalizedTimePass(
+			float previousNormalizedTime,
+			float currentNormalizedTime,
+			float notifyTime,
+			bool looping) noexcept
+		{
+			const float t = std::clamp(notifyTime, 0.0f, 1.0f);
+			constexpr float kEpsilon = 1e-6f;
+
+			if (!looping || currentNormalizedTime >= previousNormalizedTime)
+			{
+				return t > previousNormalizedTime + kEpsilon && t <= currentNormalizedTime + kEpsilon;
+			}
+
+			return t > previousNormalizedTime + kEpsilon || t <= currentNormalizedTime + kEpsilon;
+		}
+
+		inline void QueueCurrentStateNotifies(AnimationControllerRuntime& runtime, const AnimatorState& animator)
+		{
+			if (runtime.stateMachineAsset == nullptr ||
+				runtime.currentStateIndex < 0 ||
+				static_cast<std::size_t>(runtime.currentStateIndex) >= runtime.stateMachineAsset->states.size())
+			{
+				runtime.previousStateNormalizedTime = 0.0f;
+				runtime.stateEnteredThisFrame = false;
+				return;
+			}
+
+			const AnimationStateDesc& state = runtime.stateMachineAsset->states[static_cast<std::size_t>(runtime.currentStateIndex)];
+			const float currentNormalizedTime = GetAnimatorNormalizedTime(animator);
+
+			if (!state.notifies.empty())
+			{
+				const bool looping = animator.clip != nullptr && animator.looping && animator.clip->looping;
+				for (const AnimationNotifyDesc& notify : state.notifies)
+				{
+					if (notify.id.empty())
+					{
+						continue;
+					}
+
+					const float notifyTime = std::clamp(notify.timeNormalized, 0.0f, 1.0f);
+					if (runtime.stateEnteredThisFrame && (notify.fireOnEnter || notifyTime <= 1e-6f))
+					{
+						PushNotifyEvent(runtime, state, notify, animator.clip);
+						continue;
+					}
+
+					if (DidNormalizedTimePass(runtime.previousStateNormalizedTime, currentNormalizedTime, notifyTime, looping))
+					{
+						PushNotifyEvent(runtime, state, notify, animator.clip);
+					}
+				}
+			}
+
+			runtime.previousStateNormalizedTime = currentNormalizedTime;
+			runtime.stateEnteredThisFrame = false;
+		}
+
 		inline void SyncRuntimeBlendMetadata(AnimationControllerRuntime& runtime, const StateSampleConfig& sample)
 		{
 			runtime.currentStateUsesBlend1D = sample.usesBlend1D;
@@ -677,7 +821,7 @@ export namespace rendern
 			runtime.blendSecondaryAlpha = 0.0f;
 		}
 
-		inline void ApplyRuntimeState(AnimationControllerRuntime& runtime, int stateIndex)
+		inline void ApplyRuntimeState(AnimationControllerRuntime& runtime, int stateIndex, bool resetStateTracking = true)
 		{
 			if (runtime.stateMachineAsset == nullptr ||
 				stateIndex < 0 ||
@@ -687,6 +831,11 @@ export namespace rendern
 				runtime.currentStateName.clear();
 				runtime.legacyClipIndex = -1;
 				ClearActiveBlendMetadata(runtime);
+				if (resetStateTracking)
+				{
+					runtime.previousStateNormalizedTime = 0.0f;
+					runtime.stateEnteredThisFrame = true;
+				}
 				return;
 			}
 			runtime.currentStateIndex = stateIndex;
@@ -705,6 +854,11 @@ export namespace rendern
 			runtime.currentBlendSecondaryClipName.clear();
 			runtime.blendSecondaryClipIndex = -1;
 			runtime.blendSecondaryAlpha = 0.0f;
+			if (resetStateTracking)
+			{
+				runtime.previousStateNormalizedTime = 0.0f;
+				runtime.stateEnteredThisFrame = true;
+			}
 		}
 
 		[[nodiscard]] inline bool TransitionMatchesState(const AnimationTransitionDesc& transition, std::string_view currentState) noexcept
@@ -814,6 +968,23 @@ export namespace rendern
 		return true;
 	}
 
+	[[nodiscard]] inline const std::vector<AnimationNotifyEvent>& PeekAnimationControllerNotifyEvents(const AnimationControllerRuntime& runtime) noexcept
+	{
+		return runtime.pendingNotifyEvents;
+	}
+
+	inline void ClearAnimationControllerNotifyEvents(AnimationControllerRuntime& runtime) noexcept
+	{
+		runtime.pendingNotifyEvents.clear();
+	}
+
+	[[nodiscard]] inline std::vector<AnimationNotifyEvent> ConsumeAnimationControllerNotifyEvents(AnimationControllerRuntime& runtime)
+	{
+		std::vector<AnimationNotifyEvent> out = std::move(runtime.pendingNotifyEvents);
+		runtime.pendingNotifyEvents.clear();
+		return out;
+	}
+
 	[[nodiscard]] inline bool IsAnimationControllerUsingLegacyClipMode(const AnimationControllerRuntime& runtime) noexcept
 	{
 		return runtime.mode == AnimationControllerMode::LegacyClip;
@@ -905,11 +1076,11 @@ export namespace rendern
 				!asset.defaultState.empty()
 				? detail::FindStateIndexByName(asset, asset.defaultState)
 				: (asset.states.empty() ? -1 : 0);
-			detail::ApplyRuntimeState(runtime, defaultIndex);
+			detail::ApplyRuntimeState(runtime, defaultIndex, true);
 		}
 		else if (runtime.currentStateIndex >= 0)
 		{
-			detail::ApplyRuntimeState(runtime, runtime.currentStateIndex);
+			detail::ApplyRuntimeState(runtime, runtime.currentStateIndex, false);
 		}
 	}
 
@@ -933,7 +1104,7 @@ export namespace rendern
 			detail::ResolveStateClipIndices(runtime);
 			if (runtime.currentStateIndex >= 0)
 			{
-				detail::ApplyRuntimeState(runtime, runtime.currentStateIndex);
+				detail::ApplyRuntimeState(runtime, runtime.currentStateIndex, false);
 			}
 			else
 			{
@@ -966,13 +1137,14 @@ export namespace rendern
 					!runtime.stateMachineAsset->defaultState.empty()
 					? detail::FindStateIndexByName(*runtime.stateMachineAsset, runtime.stateMachineAsset->defaultState)
 					: (runtime.stateMachineAsset->states.empty() ? -1 : 0);
-				detail::ApplyRuntimeState(runtime, defaultIndex);
+				detail::ApplyRuntimeState(runtime, defaultIndex, true);
 			}
 
 			if (runtime.forceBindPose)
 			{
 				detail::ResetBlendState(runtime);
 				detail::ClearActiveBlendMetadata(runtime);
+				runtime.lastAppliedRootMotionDelta = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 				ResetAnimatorToBindPose(animator, *runtime.skeleton);
 				BuildAnimatorMatrices(animator);
 				return;
@@ -1069,7 +1241,7 @@ export namespace rendern
 					detail::ResetBlendState(runtime);
 				}
 
-				detail::ApplyRuntimeState(runtime, targetStateIndex);
+				detail::ApplyRuntimeState(runtime, targetStateIndex, true);
 				const detail::StateSampleConfig targetSample = detail::BuildStateSampleConfig(runtime, targetStateIndex);
 				detail::SyncActiveStateAnimators(runtime, animator, targetSample, true);
 				if (matchedTransition != nullptr)
@@ -1095,32 +1267,33 @@ export namespace rendern
 					IsAnimatorReady(runtime.transitionSourceAnimator) &&
 					runtime.transitionSourceAnimator.skeleton == runtime.skeleton &&
 					runtime.transitionDurationSeconds > 1e-4f;
-				if (!validBlend)
+				if (validBlend)
+				{
+					runtime.transitionSourceAnimator.paused = runtime.paused;
+					detail::EvaluateAnimatorPairToLocalPose(
+						runtime.transitionSourceAnimator,
+						(runtime.transitionSourceSecondaryClipIndex >= 0) ? &runtime.transitionSourceBlendSecondaryAnimator : nullptr,
+						runtime.transitionSourceSecondaryAlpha);
+
+					const float alpha = std::clamp(
+						runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds,
+						0.0f,
+						1.0f);
+					const std::vector<LocalBoneTransform> targetPose = animator.localPose;
+					BlendLocalPoses(animator.localPose, runtime.transitionSourceAnimator.localPose, targetPose, alpha);
+					if (alpha >= 1.0f - 1e-6f)
+					{
+						detail::ResetBlendState(runtime);
+					}
+				}
+				else
 				{
 					detail::ResetBlendState(runtime);
-					BuildAnimatorMatrices(animator);
-					return;
 				}
-
-				runtime.transitionSourceAnimator.paused = runtime.paused;
-				detail::EvaluateAnimatorPairToLocalPose(
-					runtime.transitionSourceAnimator,
-					(runtime.transitionSourceSecondaryClipIndex >= 0) ? &runtime.transitionSourceBlendSecondaryAnimator : nullptr,
-					runtime.transitionSourceSecondaryAlpha);
-
-				const float alpha = std::clamp(
-					runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds,
-					0.0f,
-					1.0f);
-				const std::vector<LocalBoneTransform> targetPose = animator.localPose;
-				BlendLocalPoses(animator.localPose, runtime.transitionSourceAnimator.localPose, targetPose, alpha);
-				BuildAnimatorMatrices(animator);
-				if (alpha >= 1.0f - 1e-6f)
-				{
-					detail::ResetBlendState(runtime);
-				}
-				return;
 			}
+
+			detail::ApplyRootMotionModeToAnimatorPose(runtime, animator);
+			detail::QueueCurrentStateNotifies(runtime, animator);
 
 			BuildAnimatorMatrices(animator);
 			return;
@@ -1143,6 +1316,7 @@ export namespace rendern
 
 		if (runtime.forceBindPose)
 		{
+			runtime.lastAppliedRootMotionDelta = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			ResetAnimatorToBindPose(animator, *runtime.skeleton);
 			BuildAnimatorMatrices(animator);
 			return;
@@ -1150,13 +1324,10 @@ export namespace rendern
 
 		if (runtime.autoplay && !animator.paused)
 		{
-			UpdateAnimator(animator, deltaSeconds);
+			AdvanceAnimator(animator, deltaSeconds);
 		}
-		else
-		{
-			EvaluateAnimator(animator);
-		}
+		EvaluateAnimatorLocalPose(animator);
+		detail::ApplyRootMotionModeToAnimatorPose(runtime, animator);
+		BuildAnimatorMatrices(animator);
 	}
-
-
 }

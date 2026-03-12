@@ -269,6 +269,9 @@ int MakeSkinnedDrawForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex
 	stored.animator.playRate = node.animationPlayRate;
 	stored.animator.paused = !node.animationAutoplay;
 	stored.controller.controllerAssetId = node.animationController;
+	stored.controller.rootMotionMode = node.animationInPlace
+		? AnimationRootMotionMode::InPlace
+		: AnimationRootMotionMode::Allow;
 
 	if (!node.animationController.empty())
 	{

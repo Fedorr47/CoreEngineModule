@@ -297,6 +297,26 @@ LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath)
 							stateDesc.clipName = stateDesc.blend1D.front().clipName;
 						}
 					}
+					if (auto* notifiesV = TryGet(sd, "notifies"))
+					{
+						if (!notifiesV->IsArray())
+						{
+							throw std::runtime_error("Level JSON: animationControllers." + id + ".states." + stateName + ".notifies must be array");
+						}
+						for (const JsonValue& notifyV : notifiesV->AsArray())
+						{
+							const JsonObject& notifyO = notifyV.AsObject();
+							AnimationNotifyDesc notifyDesc;
+							notifyDesc.id = GetStringOpt(notifyO, "id");
+							if (notifyDesc.id.empty())
+							{
+								throw std::runtime_error("Level JSON: animationControllers." + id + ".states." + stateName + ".notifies[].id is required");
+							}
+							notifyDesc.timeNormalized = std::clamp(GetFloatOpt(notifyO, "time", 0.0f), 0.0f, 1.0f);
+							notifyDesc.fireOnEnter = GetBoolOpt(notifyO, "fireOnEnter", false);
+							stateDesc.notifies.push_back(std::move(notifyDesc));
+						}
+					}
 					if (stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() && stateDesc.blend1D.empty())
 					{
 						throw std::runtime_error("Level JSON: animationControllers." + id + ".states." + stateName + " must define clip, clipSourceAssetId, or blend1D");
@@ -664,6 +684,7 @@ LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath)
 			n.animation = GetStringOpt(nd, "animation");
 			n.animationController = GetStringOpt(nd, "animationController");
 			n.animationClip = GetStringOpt(nd, "animationClip");
+			n.animationInPlace = GetBoolOpt(nd, "animationInPlace", true);
 			n.animationAutoplay = GetBoolOpt(nd, "animationAutoplay", true);
 			n.animationLoop = GetBoolOpt(nd, "animationLoop", true);
 			n.animationPlayRate = GetFloatOpt(nd, "animationPlayRate", 1.0f);

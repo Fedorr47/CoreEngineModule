@@ -727,6 +727,26 @@ namespace rendern::ui::level_ui_detail
                                         blendAlpha);
                                 }
 
+                                const auto& recentNotifies = PeekAnimationControllerNotifyEvents(skinnedItem->controller);
+                                if (!recentNotifies.empty())
+                                {
+                                    ImGui::SeparatorText("Recent Notifies");
+                                    const std::size_t firstNotify =
+                                        (recentNotifies.size() > 6)
+                                        ? recentNotifies.size() - 6
+                                        : 0;
+                                    for (std::size_t notifyIndex = firstNotify; notifyIndex < recentNotifies.size(); ++notifyIndex)
+                                    {
+                                        const auto& notify = recentNotifies[notifyIndex];
+                                        ImGui::BulletText(
+                                            "#%llu %s (%s @ %.2f)",
+                                            static_cast<unsigned long long>(notify.sequence),
+                                            notify.id.c_str(),
+                                            notify.stateName.c_str(),
+                                            notify.normalizedTime);
+                                    }
+                                }
+
                                 const rendern::AnimationControllerAsset& controllerAsset = *skinnedItem->controller.stateMachineAsset;
                                 if (!controllerAsset.states.empty())
                                 {
@@ -899,6 +919,21 @@ namespace rendern::ui::level_ui_detail
                                     }
                                 }
                             }
+
+                            bool inPlaceRootMotion = node.animationInPlace;
+                            if (ImGui::Checkbox("In-place root motion", &inPlaceRootMotion))
+                            {
+                                node.animationInPlace = inPlaceRootMotion;
+                                skinnedItem->controller.rootMotionMode = inPlaceRootMotion
+                                    ? rendern::AnimationRootMotionMode::InPlace
+                                    : rendern::AnimationRootMotionMode::Allow;
+                                UpdateAnimationControllerRuntime(skinnedItem->controller, skinnedItem->animator, 0.0f);
+                            }
+                            ImGui::TextDisabled(
+                                "Suppressed root delta: (%.3f, %.3f, %.3f)",
+                                skinnedItem->controller.lastAppliedRootMotionDelta.x,
+                                skinnedItem->controller.lastAppliedRootMotionDelta.y,
+                                skinnedItem->controller.lastAppliedRootMotionDelta.z);
 
                             bool autoplay = node.animationAutoplay;
                             if (ImGui::Checkbox("Autoplay", &autoplay))
