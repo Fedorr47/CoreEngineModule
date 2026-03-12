@@ -235,8 +235,28 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				if (sIndex == 0) ss << "\n"; else ss << ",\n";
 				ss << "      ";
 				WriteJsonEscaped(ss, state.name);
-				ss << ": {\"clip\": ";
-				WriteJsonEscaped(ss, state.clipName);
+				ss << ": {";
+				if (!state.blend1D.empty())
+				{
+					ss << "\"blend1D\": {\"parameter\": ";
+					WriteJsonEscaped(ss, state.blendParameter);
+					ss << ", \"points\": [";
+					for (std::size_t pointIndex = 0; pointIndex < state.blend1D.size(); ++pointIndex)
+					{
+						const AnimationBlend1DPoint& point = state.blend1D[pointIndex];
+						if (pointIndex == 0) ss << "\n"; else ss << ",\n";
+						ss << "        {\"clip\": ";
+						WriteJsonEscaped(ss, point.clipName);
+						ss << ", \"value\": " << point.value << "}";
+					}
+					if (!state.blend1D.empty()) ss << "\n      ";
+					ss << "]}";
+				}
+				else
+				{
+					ss << "\"clip\": ";
+					WriteJsonEscaped(ss, state.clipName);
+				}
 				if (!state.looping)
 				{
 					ss << ", \"loop\": false";
@@ -260,6 +280,10 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				if (transition.hasExitTime)
 				{
 					ss << ", \"exitTime\": " << transition.exitTimeNormalized;
+				}
+				if (std::fabs(transition.blendDurationSeconds - 0.15f) > 1e-6f)
+				{
+					ss << ", \"blendDuration\": " << transition.blendDurationSeconds;
 				}
 				if (!transition.conditions.empty())
 				{
@@ -625,11 +649,6 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 		{
 			ss << ", \"animation\": ";
 			WriteJsonEscaped(ss, n.animation);
-		}
-		if (!n.animationController.empty())
-		{
-			ss << ", \"animationController\": ";
-			WriteJsonEscaped(ss, n.animationController);
 		}
 		if (!n.animationController.empty())
 		{

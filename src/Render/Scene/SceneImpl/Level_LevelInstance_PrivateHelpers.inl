@@ -190,13 +190,7 @@ std::shared_ptr<SkinnedAssetBundle> ResolveSkinnedAssetBundleForNode_(const Leve
 			return static_cast<int>(clipIndex);
 		}
 	}
-	for (std::size_t clipIndex = 0; clipIndex < clips.size(); ++clipIndex)
-	{
-		if (clipMatchesSource(clipIndex))
-		{
-			return static_cast<int>(clipIndex);
-		}
-	}
+
 	return -1;
 }
 

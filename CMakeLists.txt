@@ -490,4 +490,4 @@ if (WITH_TESTS)
   endif()
 
   add_subdirectory(tests)
-endif()
+  endif()

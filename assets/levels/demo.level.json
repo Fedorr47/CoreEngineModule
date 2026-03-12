@@ -15,7 +15,8 @@
     "models_character_fbx": {"path": "models/character.fbx", "flipUVs": true, "debugName": "models_character_fbx"}
   },
   "animations": {
-    "breathing_idle": {"path": "animations/Breathing Idle.fbx", "flipUVs": true, "debugName": "Breathing Idle"}
+    "breathing_idle": {"path": "animations/Breathing Idle.fbx", "flipUVs": true, "debugName": "Breathing Idle"},
+	"swing_dancing": {"path": "animations/Swing Dancing.fbx", "flipUVs": true, "debugName": "Swing Dancing"}
   },
   "textures": {
     "Ship_AO": {"kind": "tex2d", "path": "textures/Intergalactic Spaceship Ao_Blender.jpg", "srgb": false, "mips": true, "flipY": false},

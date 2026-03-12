@@ -690,6 +690,42 @@ namespace rendern::ui::level_ui_detail
                             if (usingController)
                             {
                                 ImGui::Text("Controller state: %s", skinnedItem->controller.currentStateName.c_str());
+                                if (skinnedItem->controller.currentStateUsesBlend1D)
+                                {
+                                    ImGui::TextDisabled(
+                                        "Blend1D: %s = %.3f",
+                                        skinnedItem->controller.currentBlendParameterName.c_str(),
+                                        skinnedItem->controller.currentBlendParameterValue);
+                                    if (!skinnedItem->controller.currentBlendSecondaryClipName.empty())
+                                    {
+                                        ImGui::TextDisabled(
+                                            "State blend: %s -> %s (%.2f)",
+                                            skinnedItem->controller.currentBlendPrimaryClipName.c_str(),
+                                            skinnedItem->controller.currentBlendSecondaryClipName.c_str(),
+                                            skinnedItem->controller.blendSecondaryAlpha);
+                                    }
+                                    else if (!skinnedItem->controller.currentBlendPrimaryClipName.empty())
+                                    {
+                                        ImGui::TextDisabled(
+                                            "State blend clip: %s",
+                                            skinnedItem->controller.currentBlendPrimaryClipName.c_str());
+                                    }
+                                }
+                                if (skinnedItem->controller.transitionActive)
+                                {
+                                    const float blendAlpha =
+                                        (skinnedItem->controller.transitionDurationSeconds > 1e-6f)
+                                        ? std::clamp(
+                                            skinnedItem->controller.transitionElapsedSeconds / skinnedItem->controller.transitionDurationSeconds,
+                                            0.0f,
+                                            1.0f)
+                                        : 1.0f;
+                                    ImGui::TextDisabled(
+                                        "Transition: %s -> %s (%.2f)",
+                                        skinnedItem->controller.transitionSourceStateName.c_str(),
+                                        skinnedItem->controller.currentStateName.c_str(),
+                                        blendAlpha);
+                                }
 
                                 const rendern::AnimationControllerAsset& controllerAsset = *skinnedItem->controller.stateMachineAsset;
                                 if (!controllerAsset.states.empty())
