@@ -119,37 +119,88 @@ std::shared_ptr<SkinnedAssetBundle> GetOrLoadBaseSkinnedAssetBundle_(const Level
 	return bundle;
 }
 
-[[nodiscard]] std::string MakeResolvedSkinnedBundleCacheKey_(std::string_view skinnedMeshId, std::string_view animationId) const
+[[nodiscard]] std::vector<std::string> CollectRequiredAnimationSourceIds_(const LevelAsset& asset, const LevelNode& node) const
+{
+	std::vector<std::string> sourceIds;
+	auto appendUnique = [&](std::string_view animationId)
+		{
+			if (animationId.empty())
+			{
+				return;
+			}
+			const std::string value(animationId);
+			if (std::find(sourceIds.begin(), sourceIds.end(), value) == sourceIds.end())
+			{
+				sourceIds.push_back(value);
+			}
+		};
+
+	appendUnique(node.animation);
+	if (!node.animationController.empty())
+	{
+		if (auto controllerIt = asset.animationControllers.find(node.animationController);
+			controllerIt != asset.animationControllers.end())
+		{
+			for (const AnimationStateDesc& state : controllerIt->second.states)
+			{
+				appendUnique(state.clipSourceAssetId);
+			}
+		}
+	}
+	return sourceIds;
+}
+
+[[nodiscard]] std::string MakeResolvedSkinnedBundleCacheKey_(
+	std::string_view skinnedMeshId,
+	const std::vector<std::string>& animationSourceIds) const
 {
 	std::string key(skinnedMeshId);
-	key += "::";
-	key += animationId;
+	for (const std::string& animationId : animationSourceIds)
+	{
+		key += "::";
+		key += animationId;
+	}
 	return key;
 }
 
 std::shared_ptr<SkinnedAssetBundle> ResolveSkinnedAssetBundleForNode_(const LevelAsset& asset, const LevelNode& node)
 {
 	auto baseBundle = GetOrLoadBaseSkinnedAssetBundle_(asset, node.skinnedMesh);
-	if (node.animation.empty())
+	const std::vector<std::string> animationSourceIds = CollectRequiredAnimationSourceIds_(asset, node);
+	if (animationSourceIds.empty())
 	{
 		return baseBundle;
 	}
 
-	const std::string cacheKey = MakeResolvedSkinnedBundleCacheKey_(node.skinnedMesh, node.animation);
+	const std::string cacheKey = MakeResolvedSkinnedBundleCacheKey_(node.skinnedMesh, animationSourceIds);
 	if (auto it = resolvedSkinnedAssetCache_.find(cacheKey); it != resolvedSkinnedAssetCache_.end())
 	{
 		return it->second;
 	}
 
-	const LevelAnimationDef& def = GetAnimationDef_(asset, node.animation);
-	AssimpAnimationImportResult imported = LoadAssimpAnimationClips(def.path, baseBundle->mesh.skeleton, def.flipUVs);
 	auto bundle = std::make_shared<SkinnedAssetBundle>(*baseBundle);
-	bundle->clips.reserve(bundle->clips.size() + imported.clips.size());
-	bundle->clipSourceAssetIds.reserve(bundle->clipSourceAssetIds.size() + imported.clips.size());
-	for (auto& clip : imported.clips)
+	for (const std::string& animationId : animationSourceIds)
 	{
-		bundle->clipSourceAssetIds.push_back(node.animation);
-		bundle->clips.push_back(std::move(clip));
+		const LevelAnimationDef& def = GetAnimationDef_(asset, animationId);
+		AssimpAnimationImportResult imported = LoadAssimpAnimationClips(def.path, baseBundle->mesh.skeleton, def.flipUVs);
+
+		ExternalAnimationSourceInfo sourceInfo{};
+		sourceInfo.assetId = animationId;
+		sourceInfo.debugName = def.debugName;
+		sourceInfo.clipCount = imported.clips.size();
+		sourceInfo.sourceChannelCount = imported.sourceChannelCount;
+		sourceInfo.matchedChannelCount = imported.matchedChannelCount;
+		sourceInfo.ignoredChannelCount = imported.ignoredChannelCount;
+		sourceInfo.diagnosticMessage = imported.diagnosticMessage;
+		bundle->externalAnimationSources.push_back(sourceInfo);
+
+		bundle->clips.reserve(bundle->clips.size() + imported.clips.size());
+		bundle->clipSourceAssetIds.reserve(bundle->clipSourceAssetIds.size() + imported.clips.size());
+		for (auto& clip : imported.clips)
+		{
+			bundle->clipSourceAssetIds.push_back(animationId);
+			bundle->clips.push_back(std::move(clip));
+		}
 	}
 	resolvedSkinnedAssetCache_.emplace(cacheKey, bundle);
 	return bundle;
