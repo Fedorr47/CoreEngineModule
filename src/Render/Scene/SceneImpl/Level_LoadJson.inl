@@ -21,6 +21,143 @@
 	throw std::runtime_error("Level JSON: animation controller condition op is invalid");
 }
 
+[[nodiscard]] std::vector<AnimationNotifyDesc> ParseAnimationNotifyArray_(
+	const JsonArray& notifiesA,
+	const std::string& contextPrefix)
+{
+	std::vector<AnimationNotifyDesc> notifies;
+	for (const JsonValue& notifyV : notifiesA)
+	{
+		const JsonObject& notifyO = notifyV.AsObject();
+		AnimationNotifyDesc notifyDesc;
+		notifyDesc.id = GetStringOpt(notifyO, "id");
+		if (notifyDesc.id.empty())
+		{
+			throw std::runtime_error(contextPrefix + ".id is required");
+		}
+		notifyDesc.timeNormalized = std::clamp(GetFloatOpt(notifyO, "time", 0.0f), 0.0f, 1.0f);
+		notifyDesc.fireOnEnter = GetBoolOpt(notifyO, "fireOnEnter", false);
+		notifies.push_back(std::move(notifyDesc));
+	}
+	return notifies;
+}
+
+inline void ParseAnimationEventBindingsInto_(
+	AnimationControllerAsset& def,
+	const JsonArray& bindingsA,
+	const std::string& contextPrefix)
+{
+	for (const JsonValue& bindingV : bindingsA)
+	{
+		const JsonObject& bindingO = bindingV.AsObject();
+		AnimationEventBindingDesc bindingDesc;
+		bindingDesc.animationEventId = GetStringOpt(bindingO, "animationEvent");
+		bindingDesc.gameplayEventId = GetStringOpt(bindingO, "gameplayEvent");
+		if (bindingDesc.animationEventId.empty())
+		{
+			throw std::runtime_error(contextPrefix + ".animationEvent is required");
+		}
+		if (bindingDesc.gameplayEventId.empty())
+		{
+			throw std::runtime_error(contextPrefix + ".gameplayEvent is required");
+		}
+		def.eventBindings.push_back(std::move(bindingDesc));
+	}
+}
+
+inline void MergeAnimationNotifyAssetIntoController_(
+	AnimationControllerAsset& def,
+	const JsonObject& root,
+	const std::string& contextPrefix)
+{
+	if (auto* statesV = TryGet(root, "states"))
+	{
+		if (!statesV->IsObject())
+		{
+			throw std::runtime_error(contextPrefix + ".states must be object");
+		}
+		for (const auto& [stateName, notifyListV] : statesV->AsObject())
+		{
+			if (!notifyListV.IsArray())
+			{
+				throw std::runtime_error(contextPrefix + ".states." + stateName + " must be array");
+			}
+			const std::vector<AnimationNotifyDesc> parsed = ParseAnimationNotifyArray_(notifyListV.AsArray(), contextPrefix + ".states." + stateName + "[]");
+			for (AnimationStateDesc& state : def.states)
+			{
+				if (state.name == stateName)
+				{
+					state.notifies.insert(state.notifies.end(), parsed.begin(), parsed.end());
+				}
+			}
+		}
+	}
+
+	if (auto* clipsV = TryGet(root, "clips"))
+	{
+		if (!clipsV->IsObject())
+		{
+			throw std::runtime_error(contextPrefix + ".clips must be object");
+		}
+		for (const auto& [clipName, notifyListV] : clipsV->AsObject())
+		{
+			if (!notifyListV.IsArray())
+			{
+				throw std::runtime_error(contextPrefix + ".clips." + clipName + " must be array");
+			}
+			const std::vector<AnimationNotifyDesc> parsed = ParseAnimationNotifyArray_(notifyListV.AsArray(), contextPrefix + ".clips." + clipName + "[]");
+			for (AnimationStateDesc& state : def.states)
+			{
+				if (state.clipName == clipName && state.blend1D.empty())
+				{
+					state.notifies.insert(state.notifies.end(), parsed.begin(), parsed.end());
+				}
+			}
+		}
+	}
+}
+
+inline void LoadAndMergeExternalAnimationNotifyAsset_(AnimationControllerAsset& def)
+{
+	if (def.notifyAssetPath.empty())
+	{
+		return;
+	}
+
+	const std::filesystem::path absPath = corefs::ResolveAsset(std::filesystem::path(def.notifyAssetPath));
+	const std::string text = FILE_UTILS::ReadAllText(absPath);
+	JsonParser parser(text);
+	JsonValue root = parser.Parse();
+	if (!root.IsObject())
+	{
+		throw std::runtime_error("Animation notify JSON: root must be object");
+	}
+	MergeAnimationNotifyAssetIntoController_(def, root.AsObject(), std::string("Animation notify JSON: ") + def.notifyAssetPath);
+}
+
+inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationControllerAsset& def)
+{
+	if (def.eventBindingsAssetPath.empty())
+	{
+		return;
+	}
+
+	const std::filesystem::path absPath = corefs::ResolveAsset(std::filesystem::path(def.eventBindingsAssetPath));
+	const std::string text = FILE_UTILS::ReadAllText(absPath);
+	JsonParser parser(text);
+	JsonValue root = parser.Parse();
+	if (!root.IsObject())
+	{
+		throw std::runtime_error("Animation event bindings JSON: root must be object");
+	}
+	const JsonValue* bindingsV = TryGet(root.AsObject(), "bindings");
+	if (bindingsV == nullptr || !bindingsV->IsArray())
+	{
+		throw std::runtime_error(std::string("Animation event bindings JSON: ") + def.eventBindingsAssetPath + ".bindings must be array");
+	}
+	ParseAnimationEventBindingsInto_(def, bindingsV->AsArray(), std::string("Animation event bindings JSON: ") + def.eventBindingsAssetPath + ".bindings[]");
+}
+
 
 [[nodiscard]] AnimationControllerAsset ParseAnimationControllerAssetObject_(
 	const JsonObject& cd,
@@ -30,6 +167,8 @@
 	AnimationControllerAsset def;
 	def.id = id;
 	def.defaultState = GetStringOpt(cd, "defaultState");
+	def.notifyAssetPath = GetStringOpt(cd, "notifyAsset");
+	def.eventBindingsAssetPath = GetStringOpt(cd, "eventBindingsAsset");
 
 	if (auto* paramsV = TryGet(cd, "parameters"))
 	{
@@ -146,19 +285,7 @@
 				{
 					throw std::runtime_error(contextPrefix + ".states." + stateName + ".notifies must be array");
 				}
-				for (const JsonValue& notifyV : notifiesV->AsArray())
-				{
-					const JsonObject& notifyO = notifyV.AsObject();
-					AnimationNotifyDesc notifyDesc;
-					notifyDesc.id = GetStringOpt(notifyO, "id");
-					if (notifyDesc.id.empty())
-					{
-						throw std::runtime_error(contextPrefix + ".states." + stateName + ".notifies[].id is required");
-					}
-					notifyDesc.timeNormalized = std::clamp(GetFloatOpt(notifyO, "time", 0.0f), 0.0f, 1.0f);
-					notifyDesc.fireOnEnter = GetBoolOpt(notifyO, "fireOnEnter", false);
-					stateDesc.notifies.push_back(std::move(notifyDesc));
-				}
+				stateDesc.notifies = ParseAnimationNotifyArray_(notifiesV->AsArray(), contextPrefix + ".states." + stateName + ".notifies[]");
 			}
 			if (stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() && stateDesc.blend1D.empty())
 			{
@@ -230,6 +357,17 @@
 		}
 	}
 
+	if (auto* eventBindingsV = TryGet(cd, "eventBindings"))
+	{
+		if (!eventBindingsV->IsArray())
+		{
+			throw std::runtime_error(contextPrefix + ".eventBindings must be array");
+		}
+		ParseAnimationEventBindingsInto_(def, eventBindingsV->AsArray(), contextPrefix + ".eventBindings[]");
+	}
+
+	LoadAndMergeExternalAnimationNotifyAsset_(def);
+	LoadAndMergeExternalAnimationEventBindingsAsset_(def);
 	return def;
 }
 

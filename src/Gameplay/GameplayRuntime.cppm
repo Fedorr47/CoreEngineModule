@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <cctype>
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <string_view>
@@ -28,6 +29,19 @@ export namespace rendern
         int nodeIndex{ -1 };
         int skinnedDrawIndex{ -1 };
         AnimationNotifyEvent event{};
+    };
+
+    struct GameplayEventRecord
+    {
+        EntityHandle entity{ kNullEntity };
+        int nodeIndex{ -1 };
+        int skinnedDrawIndex{ -1 };
+        std::uint64_t sequence{ 0 };
+        std::string animationEventId{};
+        std::string gameplayEventId{};
+        std::string stateName{};
+        std::string clipName{};
+        float normalizedTime{ 0.0f };
     };
 
     struct GameplayUpdateContext
@@ -85,6 +99,7 @@ export namespace rendern
         {
             world_.Clear();
             recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
             intentBindings_.clear();
             motorEntities_.clear();
             nodeBoundEntities_.clear();
@@ -94,6 +109,7 @@ export namespace rendern
         void BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
         {
             recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
 
             if (!world_.IsEntityValid(entity) || !callback)
             {
@@ -162,6 +178,7 @@ export namespace rendern
         void BeginFrame()
         {
             recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
             CompactTrackedState_();
 
             for (const EntityHandle entity : motorEntities_)
@@ -228,7 +245,7 @@ export namespace rendern
 
                 GameplayActionComponent* action = world_.TryGetAction(entity);
 
-                for (AnimationNotifyEvent& event : events)
+                for (const AnimationNotifyEvent& event : events)
                 {
                     recentNotifyEvents_.push_back(GameplayAnimationNotifyRecord{
                         .entity = entity,
@@ -236,9 +253,16 @@ export namespace rendern
                         .skinnedDrawIndex = animLink->skinnedDrawIndex,
                         .event = event
                         });
-
-                    ApplyAnimationNotifyToGameplayState(*notifyState, action, event);
                 }
+
+                RouteAnimationEventsToGameplay_(
+                    entity,
+                    nodeLink->nodeIndex,
+                    animLink->skinnedDrawIndex,
+                    skinnedItem->controller,
+                    *notifyState,
+                    action,
+                    events);
             }
         }
 
@@ -260,6 +284,11 @@ export namespace rendern
         [[nodiscard]] const std::vector<GameplayAnimationNotifyRecord>& GetRecentNotifyEvents() const noexcept
         {
             return recentNotifyEvents_;
+        }
+
+        [[nodiscard]] const std::vector<GameplayEventRecord>& GetRecentGameplayEvents() const noexcept
+        {
+            return recentGameplayEvents_;
         }
 
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(const GameplayUpdateContext& ctx, const int nodeIndex, const bool playerControlled = false)
@@ -516,6 +545,57 @@ export namespace rendern
             action.requestDispatched = false;
         }
 
+        static void PushRecentControllerGameplayEvent_(AnimationControllerRuntime& controller, const std::string& label)
+        {
+            controller.recentRoutedGameplayEvents.push_back(label);
+            constexpr std::size_t kMaxRecentGameplayEvents = 16;
+            if (controller.recentRoutedGameplayEvents.size() > kMaxRecentGameplayEvents)
+            {
+                controller.recentRoutedGameplayEvents.erase(
+                    controller.recentRoutedGameplayEvents.begin(),
+                    controller.recentRoutedGameplayEvents.begin() + static_cast<std::ptrdiff_t>(controller.recentRoutedGameplayEvents.size() - kMaxRecentGameplayEvents));
+            }
+        }
+
+        void RouteAnimationEventsToGameplay_(
+            const EntityHandle entity,
+            const int nodeIndex,
+            const int skinnedDrawIndex,
+            AnimationControllerRuntime& controller,
+            GameplayAnimationNotifyStateComponent& notifyState,
+            GameplayActionComponent* action,
+            const std::vector<AnimationNotifyEvent>& animationEvents)
+        {
+            std::vector<std::string> gameplayEventIds;
+            for (const AnimationNotifyEvent& event : animationEvents)
+            {
+                CollectGameplayEventIdsForAnimationEvent(controller.stateMachineAsset, event, gameplayEventIds);
+                for (const std::string& gameplayEventId : gameplayEventIds)
+                {
+                    recentGameplayEvents_.push_back(GameplayEventRecord{
+                        .entity = entity,
+                        .nodeIndex = nodeIndex,
+                        .skinnedDrawIndex = skinnedDrawIndex,
+                        .sequence = event.sequence,
+                        .animationEventId = event.id,
+                        .gameplayEventId = gameplayEventId,
+                        .stateName = event.stateName,
+                        .clipName = event.clipName,
+                        .normalizedTime = event.normalizedTime
+                    });
+
+                    std::string debugLabel = gameplayEventId;
+                    if (gameplayEventId != event.id)
+                    {
+                        debugLabel += " <= ";
+                        debugLabel += event.id;
+                    }
+                    PushRecentControllerGameplayEvent_(controller, debugLabel);
+                    ApplyGameplayEventToGameplayState(notifyState, action, gameplayEventId, event);
+                }
+            }
+        }
+
         void UpdateIntentSources_(const GameplayUpdateContext& ctx)
         {
             for (IntentBinding& binding : intentBindings_)
@@ -602,18 +682,36 @@ export namespace rendern
 
                 const float planarSpeed = mathUtils::Length(motor->velocity);
                 const bool isMoving = planarSpeed > 1e-4f;
-                if (isMoving)
+                const float previousYawDegrees = transform->rotationDegrees.y;
+                const bool shouldFaceMovement = intent->moveY > 0.1f;
+                if (isMoving && shouldFaceMovement)
                 {
                     transform->rotationDegrees.y = mathUtils::RadToDeg(std::atan2(motor->velocity.x, motor->velocity.z));
                 }
+
+                const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
+                const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
+                const mathUtils::Vec3 actorRight(actorForward.z, 0.0f, -actorForward.x);
+                const float forwardSpeed = mathUtils::Dot(motor->velocity, actorForward);
+                const float rightSpeed = mathUtils::Dot(motor->velocity, actorRight);
+                float turnDeltaYawDegrees = transform->rotationDegrees.y - previousYawDegrees;
+                while (turnDeltaYawDegrees > 180.0f) turnDeltaYawDegrees -= 360.0f;
+                while (turnDeltaYawDegrees < -180.0f) turnDeltaYawDegrees += 360.0f;
+                const bool wantsTurnInPlaceLeft = !isMoving && intent->moveX < -0.5f;
+                const bool wantsTurnInPlaceRight = !isMoving && intent->moveX > 0.5f;
 
                 if (locomotion != nullptr)
                 {
                     locomotion->moveX = intent->moveX;
                     locomotion->moveY = intent->moveY;
+                    locomotion->forwardSpeed = forwardSpeed;
+                    locomotion->rightSpeed = rightSpeed;
                     locomotion->planarSpeed = planarSpeed;
+                    locomotion->turnDeltaYawDegrees = turnDeltaYawDegrees;
                     locomotion->isMoving = isMoving;
                     locomotion->isRunning = isMoving && intent->runHeld;
+                    locomotion->wantsTurnInPlaceLeft = wantsTurnInPlaceLeft;
+                    locomotion->wantsTurnInPlaceRight = wantsTurnInPlaceRight;
                 }
 
             }
@@ -776,5 +874,6 @@ export namespace rendern
         std::vector<EntityHandle> motorEntities_{};
         std::vector<EntityHandle> nodeBoundEntities_{};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
+        std::vector<GameplayEventRecord> recentGameplayEvents_{};
     };
 }

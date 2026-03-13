@@ -173,6 +173,11 @@ export namespace rendern
 
             return GameplayActionKind::None;
         }
+
+        [[nodiscard]] inline std::string BuildCanonicalGameplayEventId_(std::string_view animationEventId)
+        {
+            return CanonicalizeAnimationNameToken_(animationEventId);
+        }
     }
 
     inline void ResetGameplayAnimationNotifyFrame(GameplayAnimationNotifyStateComponent& notifyState)
@@ -186,47 +191,48 @@ export namespace rendern
         notifyState.hitWindowClosedThisFrame = false;
     }
 
-    inline void ApplyAnimationNotifyToGameplayState(
+    inline void ApplyGameplayEventToGameplayState(
         GameplayAnimationNotifyStateComponent& notifyState,
         GameplayActionComponent* action,
-        const AnimationNotifyEvent& event)
+        std::string_view gameplayEventId,
+        const AnimationNotifyEvent& sourceEvent)
     {
         notifyState.anyThisFrame = true;
-        notifyState.lastSequence = event.sequence;
-        notifyState.lastNormalizedTime = event.normalizedTime;
-        notifyState.lastNotifyId = event.id;
-        notifyState.lastStateName = event.stateName;
-        notifyState.lastClipName = event.clipName;
+        notifyState.lastSequence = sourceEvent.sequence;
+        notifyState.lastNormalizedTime = sourceEvent.normalizedTime;
+        notifyState.lastNotifyId = std::string(gameplayEventId);
+        notifyState.lastStateName = sourceEvent.stateName;
+        notifyState.lastClipName = sourceEvent.clipName;
 
-        if (detail::NameMatchesAnyAlias_(event.id, { "Footstep", "Step", "FootStep" }))
+        if (detail::NameMatchesAnyAlias_(gameplayEventId, { "Footstep", "Step", "FootStep", "CharacterFootstep" }))
         {
             notifyState.footstepThisFrame = true;
         }
 
-        if (detail::NameMatchesAnyAlias_(event.id, { "Interact", "Interaction", "InteractionPoint", "UsePoint" }))
+        if (detail::NameMatchesAnyAlias_(gameplayEventId, { "Interact", "Interaction", "InteractionPoint", "UsePoint", "InteractionEvent" }))
         {
             notifyState.interactionPointThisFrame = true;
         }
 
         if (detail::NameMatchesAnyAlias_(
-            event.id,
-            { "HitWindowBegin", "HitWindowStart", "AttackWindowBegin", "AttackWindowStart", "HitEnable", "EnableHit", "DamageWindowBegin", "DamageOn" }))
+            gameplayEventId,
+            { "HitWindowBegin", "HitWindowStart", "AttackWindowBegin", "AttackWindowStart", "HitEnable", "EnableHit", "DamageWindowBegin", "DamageOn", "CombatHitWindowOpen" }))
         {
             notifyState.hitWindowOpenedThisFrame = true;
             notifyState.hitWindowActive = true;
         }
 
         if (detail::NameMatchesAnyAlias_(
-            event.id,
-            { "HitWindowEnd", "HitWindowStop", "AttackWindowEnd", "AttackWindowStop", "HitDisable", "DisableHit", "DamageWindowEnd", "DamageOff" }))
+            gameplayEventId,
+            { "HitWindowEnd", "HitWindowStop", "AttackWindowEnd", "AttackWindowStop", "HitDisable", "DisableHit", "DamageWindowEnd", "DamageOff", "CombatHitWindowClose" }))
         {
             notifyState.hitWindowClosedThisFrame = true;
             notifyState.hitWindowActive = false;
         }
 
         if (detail::NameMatchesAnyAlias_(
-            event.id,
-            { "ActionBegin", "ActionStart", "AttackBegin", "AttackStart", "LightAttackBegin", "LightAttackStart", "InteractBegin", "InteractStart", "JumpBegin", "JumpStart" }))
+            gameplayEventId,
+            { "ActionBegin", "ActionStart", "AttackBegin", "AttackStart", "LightAttackBegin", "LightAttackStart", "InteractBegin", "InteractStart", "JumpBegin", "JumpStart", "GameplayActionBegin" }))
         {
             notifyState.actionStartedThisFrame = true;
             if (action != nullptr)
@@ -235,7 +241,7 @@ export namespace rendern
                 GameplayActionKind startedKind = action->requested;
                 if (startedKind == GameplayActionKind::None)
                 {
-                    startedKind = detail::InferGameplayActionKindFromNotifyId_(event.id);
+                    startedKind = detail::InferGameplayActionKindFromNotifyId_(gameplayEventId);
                 }
                 if (startedKind != GameplayActionKind::None)
                 {
@@ -248,8 +254,8 @@ export namespace rendern
         }
 
         if (detail::NameMatchesAnyAlias_(
-            event.id,
-            { "ActionEnd", "ActionFinish", "ActionFinished", "AttackEnd", "AttackFinish", "AttackFinished", "LightAttackEnd", "InteractEnd", "InteractFinish", "JumpEnd", "JumpFinish" }))
+            gameplayEventId,
+            { "ActionEnd", "ActionFinish", "ActionFinished", "AttackEnd", "AttackFinish", "AttackFinished", "LightAttackEnd", "InteractEnd", "InteractFinish", "JumpEnd", "JumpFinish", "GameplayActionEnd" }))
         {
             notifyState.actionFinishedThisFrame = true;
             if (action != nullptr)
@@ -259,6 +265,41 @@ export namespace rendern
                 action->requested = GameplayActionKind::None;
                 action->requestDispatched = false;
             }
+        }
+    }
+
+    inline void ApplyAnimationNotifyToGameplayState(
+        GameplayAnimationNotifyStateComponent& notifyState,
+        GameplayActionComponent* action,
+        const AnimationNotifyEvent& event)
+    {
+        ApplyGameplayEventToGameplayState(notifyState, action, event.id, event);
+    }
+
+    inline void CollectGameplayEventIdsForAnimationEvent(
+        const AnimationControllerAsset* asset,
+        const AnimationNotifyEvent& event,
+        std::vector<std::string>& outGameplayEventIds)
+    {
+        outGameplayEventIds.clear();
+        if (asset != nullptr)
+        {
+            for (const AnimationEventBindingDesc& binding : asset->eventBindings)
+            {
+                if (binding.animationEventId.empty() || binding.gameplayEventId.empty())
+                {
+                    continue;
+                }
+                if (detail::NameMatchesAnyAlias_(event.id, { binding.animationEventId }))
+                {
+                    outGameplayEventIds.push_back(binding.gameplayEventId);
+                }
+            }
+        }
+
+        if (outGameplayEventIds.empty())
+        {
+            outGameplayEventIds.push_back(event.id);
         }
     }
 
@@ -280,6 +321,31 @@ export namespace rendern
             controller,
             { "Speed", "MoveSpeed", "PlanarSpeed", "GroundSpeed", "LocomotionSpeed" },
             locomotion.planarSpeed);
+
+        detail::SetAnimationFloatParameterByAliases_(
+            controller,
+            { "ForwardSpeed", "MoveForward", "SignedForwardSpeed", "LocomotionForwardSpeed" },
+            locomotion.forwardSpeed);
+
+        detail::SetAnimationFloatParameterByAliases_(
+            controller,
+            { "RightSpeed", "MoveRight", "SignedRightSpeed", "LocomotionRightSpeed" },
+            locomotion.rightSpeed);
+
+        detail::SetAnimationFloatParameterByAliases_(
+            controller,
+            { "TurnDeltaYaw", "TurnYawDelta", "DeltaYaw", "AimYawDelta" },
+            locomotion.turnDeltaYawDegrees);
+
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "TurnInPlaceLeft", "WantsTurnLeft", "bTurnInPlaceLeft" },
+            locomotion.wantsTurnInPlaceLeft);
+
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "TurnInPlaceRight", "WantsTurnRight", "bTurnInPlaceRight" },
+            locomotion.wantsTurnInPlaceRight);
 
         detail::SetAnimationBoolParameterByAliases_(
             controller,

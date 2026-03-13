@@ -107,13 +107,22 @@ export namespace rendern
 		std::vector<AnimationConditionDesc> conditions;
 	};
 
+	struct AnimationEventBindingDesc
+	{
+		std::string animationEventId;
+		std::string gameplayEventId;
+	};
+
 	struct AnimationControllerAsset
 	{
 		std::string id;
 		std::string defaultState;
+		std::string notifyAssetPath;
+		std::string eventBindingsAssetPath;
 		std::vector<AnimationParameterDesc> parameters;
 		std::vector<AnimationStateDesc> states;
 		std::vector<AnimationTransitionDesc> transitions;
+		std::vector<AnimationEventBindingDesc> eventBindings;
 	};
 
 	enum class AnimationRootMotionMode : std::uint8_t
@@ -184,6 +193,10 @@ export namespace rendern
 		bool stateEnteredThisFrame{ true };
 		std::uint64_t nextNotifySequence{ 0 };
 		std::vector<AnimationNotifyEvent> pendingNotifyEvents;
+		std::vector<AnimationNotifyEvent> notifyHistory;
+		std::vector<std::string> recentRoutedGameplayEvents;
+		std::vector<std::string> debugTransitionCandidates;
+		std::string debugLastTransitionSelection;
 
 		AnimationParameterStore parameters{};
 	};
@@ -828,7 +841,8 @@ export namespace rendern
 			event.stateName = state.name;
 			event.clipName = (clip != nullptr) ? clip->name : std::string{};
 			event.normalizedTime = std::clamp(notify.timeNormalized, 0.0f, 1.0f);
-			runtime.pendingNotifyEvents.push_back(std::move(event));
+			runtime.pendingNotifyEvents.push_back(event);
+			runtime.notifyHistory.push_back(std::move(event));
 
 			constexpr std::size_t kMaxRetainedNotifyEvents = 64;
 			if (runtime.pendingNotifyEvents.size() > kMaxRetainedNotifyEvents)
@@ -836,6 +850,12 @@ export namespace rendern
 				runtime.pendingNotifyEvents.erase(
 					runtime.pendingNotifyEvents.begin(),
 					runtime.pendingNotifyEvents.begin() + static_cast<std::ptrdiff_t>(runtime.pendingNotifyEvents.size() - kMaxRetainedNotifyEvents));
+			}
+			if (runtime.notifyHistory.size() > kMaxRetainedNotifyEvents)
+			{
+				runtime.notifyHistory.erase(
+					runtime.notifyHistory.begin(),
+					runtime.notifyHistory.begin() + static_cast<std::ptrdiff_t>(runtime.notifyHistory.size() - kMaxRetainedNotifyEvents));
 			}
 		}
 
@@ -1119,12 +1139,13 @@ export namespace rendern
 
 	[[nodiscard]] inline const std::vector<AnimationNotifyEvent>& PeekAnimationControllerNotifyEvents(const AnimationControllerRuntime& runtime) noexcept
 	{
-		return runtime.pendingNotifyEvents;
+		return runtime.notifyHistory;
 	}
 
 	inline void ClearAnimationControllerNotifyEvents(AnimationControllerRuntime& runtime) noexcept
 	{
 		runtime.pendingNotifyEvents.clear();
+		runtime.notifyHistory.clear();
 	}
 
 	[[nodiscard]] inline std::vector<AnimationNotifyEvent> ConsumeAnimationControllerNotifyEvents(AnimationControllerRuntime& runtime)
@@ -1341,6 +1362,8 @@ export namespace rendern
 			int targetStateIndex = -1;
 			const AnimationTransitionDesc* matchedTransition = nullptr;
 			int matchedTransitionPriority = std::numeric_limits<int>::min();
+			runtime.debugTransitionCandidates.clear();
+			runtime.debugLastTransitionSelection.clear();
 
 			if (!runtime.requestedStateName.empty())
 			{
@@ -1355,9 +1378,16 @@ export namespace rendern
 					{
 						continue;
 					}
+
+					std::string debugLabel = transition.fromState.empty() ? std::string("*") : transition.fromState;
+					debugLabel += " -> ";
+					debugLabel += transition.toState;
+
 					if (transition.hasExitTime &&
 						detail::GetAnimatorNormalizedTime(animator) < transition.exitTimeNormalized)
 					{
+						debugLabel += " [exit-time blocked]";
+						runtime.debugTransitionCandidates.push_back(std::move(debugLabel));
 						continue;
 					}
 					bool passed = true;
@@ -1366,23 +1396,32 @@ export namespace rendern
 						if (!detail::EvaluateCondition(condition, runtime.parameters))
 						{
 							passed = false;
+							debugLabel += " [condition failed: ";
+							debugLabel += condition.parameter;
+							debugLabel += "]";
 							break;
 						}
 					}
 					if (!passed)
 					{
+						runtime.debugTransitionCandidates.push_back(std::move(debugLabel));
 						continue;
 					}
 					const int candidateStateIndex = detail::FindStateIndexByName(*runtime.stateMachineAsset, transition.toState);
 					if (candidateStateIndex < 0)
 					{
+						debugLabel += " [target missing]";
+						runtime.debugTransitionCandidates.push_back(std::move(debugLabel));
 						continue;
 					}
+					debugLabel += " [pass, priority=" + std::to_string(transition.priority) + "]";
+					runtime.debugTransitionCandidates.push_back(debugLabel);
 					if (matchedTransition == nullptr || transition.priority > matchedTransitionPriority)
 					{
 						targetStateIndex = candidateStateIndex;
 						matchedTransition = &transition;
 						matchedTransitionPriority = transition.priority;
+						runtime.debugLastTransitionSelection = std::move(debugLabel);
 					}
 				}
 			}

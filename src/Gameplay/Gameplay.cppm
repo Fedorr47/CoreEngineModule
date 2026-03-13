@@ -64,9 +64,14 @@ export namespace rendern
     {
         float moveX{ 0.0f };
         float moveY{ 0.0f };
+        float forwardSpeed{ 0.0f };
+        float rightSpeed{ 0.0f };
         float planarSpeed{ 0.0f };
+        float turnDeltaYawDegrees{ 0.0f };
         bool isMoving{ false };
         bool isRunning{ false };
+        bool wantsTurnInPlaceLeft{ false };
+        bool wantsTurnInPlaceRight{ false };
     };
 
     enum class GameplayActionKind : std::uint8_t

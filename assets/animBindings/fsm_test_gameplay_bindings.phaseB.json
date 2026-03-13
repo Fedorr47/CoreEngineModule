@@ -1,0 +1,32 @@
+{
+  "bindings": [
+    {
+      "animationEvent": "Footstep",
+      "gameplayEvent": "CharacterFootstep"
+    },
+    {
+      "animationEvent": "ActionBegin",
+      "gameplayEvent": "ActionBegin"
+    },
+    {
+      "animationEvent": "ActionEnd",
+      "gameplayEvent": "ActionEnd"
+    },
+    {
+      "animationEvent": "HitWindowBegin",
+      "gameplayEvent": "CombatHitWindowOpen"
+    },
+    {
+      "animationEvent": "HitWindowEnd",
+      "gameplayEvent": "CombatHitWindowClose"
+    },
+    {
+      "animationEvent": "JumpImpulse",
+      "gameplayEvent": "Jump"
+    },
+    {
+      "animationEvent": "Jump",
+      "gameplayEvent": "Jump"
+    }
+  ]
+}

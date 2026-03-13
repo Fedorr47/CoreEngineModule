@@ -735,7 +735,7 @@ namespace rendern::ui::level_ui_detail
                                         (recentNotifies.size() > 6)
                                         ? recentNotifies.size() - 6
                                         : 0;
-                                    /*for (std::size_t notifyIndex = firstNotify; notifyIndex < recentNotifies.size(); ++notifyIndex)
+                                    for (std::size_t notifyIndex = firstNotify; notifyIndex < recentNotifies.size(); ++notifyIndex)
                                     {
                                         const auto& notify = recentNotifies[notifyIndex];
                                         ImGui::BulletText(
@@ -744,7 +744,46 @@ namespace rendern::ui::level_ui_detail
                                             notify.id.c_str(),
                                             notify.stateName.c_str(),
                                             notify.normalizedTime);
-                                    }*/
+                                    }
+                                }
+
+                                if (!skinnedItem->controller.debugLastTransitionSelection.empty())
+                                {
+                                    ImGui::TextDisabled(
+                                        "Selected transition: %s",
+                                        skinnedItem->controller.debugLastTransitionSelection.c_str());
+                                }
+                                if (!skinnedItem->controller.debugTransitionCandidates.empty())
+                                {
+                                    ImGui::SeparatorText("Transition Candidates");
+                                    const std::size_t firstCandidate =
+                                        (skinnedItem->controller.debugTransitionCandidates.size() > 8)
+                                        ? skinnedItem->controller.debugTransitionCandidates.size() - 8
+                                        : 0;
+                                    for (std::size_t candidateIndex = firstCandidate;
+                                        candidateIndex < skinnedItem->controller.debugTransitionCandidates.size();
+                                        ++candidateIndex)
+                                    {
+                                        ImGui::BulletText(
+                                            "%s",
+                                            skinnedItem->controller.debugTransitionCandidates[candidateIndex].c_str());
+                                    }
+                                }
+                                if (!skinnedItem->controller.recentRoutedGameplayEvents.empty())
+                                {
+                                    ImGui::SeparatorText("Gameplay Events");
+                                    const std::size_t firstEvent =
+                                        (skinnedItem->controller.recentRoutedGameplayEvents.size() > 8)
+                                        ? skinnedItem->controller.recentRoutedGameplayEvents.size() - 8
+                                        : 0;
+                                    for (std::size_t eventIndex = firstEvent;
+                                        eventIndex < skinnedItem->controller.recentRoutedGameplayEvents.size();
+                                        ++eventIndex)
+                                    {
+                                        ImGui::BulletText(
+                                            "%s",
+                                            skinnedItem->controller.recentRoutedGameplayEvents[eventIndex].c_str());
+                                    }
                                 }
 
                                 const rendern::AnimationControllerAsset& controllerAsset = *skinnedItem->controller.stateMachineAsset;

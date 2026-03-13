@@ -234,6 +234,16 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 			ss << ": {";
 			ss << "\"defaultState\": ";
 			WriteJsonEscaped(ss, controller.defaultState);
+			if (!controller.notifyAssetPath.empty())
+			{
+				ss << ", \"notifyAsset\": ";
+				WriteJsonEscaped(ss, controller.notifyAssetPath);
+			}
+			if (!controller.eventBindingsAssetPath.empty())
+			{
+				ss << ", \"eventBindingsAsset\": ";
+				WriteJsonEscaped(ss, controller.eventBindingsAssetPath);
+			}
 			ss << ", \"parameters\": {";
 			for (std::size_t pIndex = 0; pIndex < controller.parameters.size(); ++pIndex)
 			{
@@ -286,7 +296,7 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 					ss << ", \"clipSourceAssetId\": ";
 					WriteJsonEscaped(ss, state.clipSourceAssetId);
 				}
-				if (!state.notifies.empty())
+				if (controller.notifyAssetPath.empty() && !state.notifies.empty())
 				{
 					ss << ", \"notifies\": [";
 					for (std::size_t notifyIndex = 0; notifyIndex < state.notifies.size(); ++notifyIndex)
@@ -373,7 +383,24 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 				ss << "}";
 			}
 			if (!controller.transitions.empty()) ss << "\n    ";
-			ss << "]}";
+			ss << "]";
+			if (controller.eventBindingsAssetPath.empty() && !controller.eventBindings.empty())
+			{
+				ss << ", \"eventBindings\": [";
+				for (std::size_t bindingIndex = 0; bindingIndex < controller.eventBindings.size(); ++bindingIndex)
+				{
+					const AnimationEventBindingDesc& binding = controller.eventBindings[bindingIndex];
+					if (bindingIndex == 0) ss << "\n"; else ss << ",\n";
+					ss << "      {\"animationEvent\": ";
+					WriteJsonEscaped(ss, binding.animationEventId);
+					ss << ", \"gameplayEvent\": ";
+					WriteJsonEscaped(ss, binding.gameplayEventId);
+					ss << "}";
+				}
+				if (!controller.eventBindings.empty()) ss << "\n    ";
+				ss << "]";
+			}
+			ss << "}";
 		}
 		if (!keys.empty()) ss << "\n  ";
 	}
