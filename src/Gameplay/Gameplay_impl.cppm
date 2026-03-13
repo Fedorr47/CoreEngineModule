@@ -386,4 +386,44 @@ namespace rendern
 
         impl_->registry.remove<GameplayActionComponent>(ToEnTT(entity));
     }
+
+    void GameplayWorld::AddAnimationNotifyState(const EntityHandle entity, const GameplayAnimationNotifyStateComponent& value)
+    {
+        if (!IsEntityValid(entity))
+        {
+            return;
+        }
+
+        impl_->registry.emplace_or_replace<GameplayAnimationNotifyStateComponent>(ToEnTT(entity), value);
+    }
+
+    void GameplayWorld::SetAnimationNotifyState(const EntityHandle entity, const GameplayAnimationNotifyStateComponent& value)
+    {
+        AddAnimationNotifyState(entity, value);
+    }
+
+    GameplayAnimationNotifyStateComponent* GameplayWorld::TryGetAnimationNotifyState(const EntityHandle entity) noexcept
+    {
+        return IsEntityValid(entity) ? impl_->registry.try_get<GameplayAnimationNotifyStateComponent>(ToEnTT(entity)) : nullptr;
+    }
+
+    const GameplayAnimationNotifyStateComponent* GameplayWorld::TryGetAnimationNotifyState(const EntityHandle entity) const noexcept
+    {
+        return IsEntityValid(entity) ? impl_->registry.try_get<GameplayAnimationNotifyStateComponent>(ToEnTT(entity)) : nullptr;
+    }
+
+    bool GameplayWorld::HasAnimationNotifyState(const EntityHandle entity) const noexcept
+    {
+        return IsEntityValid(entity) && impl_->registry.all_of<GameplayAnimationNotifyStateComponent>(ToEnTT(entity));
+    }
+
+    void GameplayWorld::RemoveAnimationNotifyState(const EntityHandle entity)
+    {
+        if (!HasAnimationNotifyState(entity))
+        {
+            return;
+        }
+
+        impl_->registry.remove<GameplayAnimationNotifyStateComponent>(ToEnTT(entity));
+    }
 }

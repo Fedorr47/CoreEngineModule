@@ -62,6 +62,8 @@ export namespace rendern
 
     struct GameplayLocomotionComponent
     {
+        float moveX{ 0.0f };
+        float moveY{ 0.0f };
         float planarSpeed{ 0.0f };
         bool isMoving{ false };
         bool isRunning{ false };
@@ -79,6 +81,24 @@ export namespace rendern
         GameplayActionKind current{ GameplayActionKind::None };
         GameplayActionKind requested{ GameplayActionKind::None };
         bool busy{ false };
+        bool requestDispatched{ false };
+    };
+
+    struct GameplayAnimationNotifyStateComponent
+    {
+        bool anyThisFrame{ false };
+        bool footstepThisFrame{ false };
+        bool interactionPointThisFrame{ false };
+        bool actionStartedThisFrame{ false };
+        bool actionFinishedThisFrame{ false };
+        bool hitWindowOpenedThisFrame{ false };
+        bool hitWindowClosedThisFrame{ false };
+        bool hitWindowActive{ false };
+        std::uint64_t lastSequence{ 0 };
+        float lastNormalizedTime{ 0.0f };
+        std::string lastNotifyId{};
+        std::string lastStateName{};
+        std::string lastClipName{};
     };
 
     class GameplayWorld
@@ -154,6 +174,13 @@ export namespace rendern
         [[nodiscard]] const GameplayActionComponent* TryGetAction(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasAction(EntityHandle entity) const noexcept;
         void RemoveAction(EntityHandle entity);
+
+        void AddAnimationNotifyState(EntityHandle entity, const GameplayAnimationNotifyStateComponent& value = {});
+        void SetAnimationNotifyState(EntityHandle entity, const GameplayAnimationNotifyStateComponent& value);
+        [[nodiscard]] GameplayAnimationNotifyStateComponent* TryGetAnimationNotifyState(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayAnimationNotifyStateComponent* TryGetAnimationNotifyState(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasAnimationNotifyState(EntityHandle entity) const noexcept;
+        void RemoveAnimationNotifyState(EntityHandle entity);
 
     private:
         struct Impl;

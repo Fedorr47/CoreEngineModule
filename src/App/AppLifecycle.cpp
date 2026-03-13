@@ -181,9 +181,8 @@ namespace appLifecycle
             app.gameplayRuntime->PreAnimationUpdate(gameplayCtx);
         }
         
-        // Advance CPU animation/particle simulation before UI/rendering so freshly updated state is visible this frame.
+        // Advance CPU animation before gameplay post-processing so freshly updated notify state is visible this frame.
         app.scene.UpdateSkinned(deltaSeconds);
-        app.scene.UpdateParticles(deltaSeconds);
 
         if (app.gameplayRuntime)
         {
@@ -195,6 +194,8 @@ namespace appLifecycle
             gameplayCtx.scene = &app.scene;
             app.gameplayRuntime->PostAnimationUpdate(gameplayCtx);
         }
+
+        app.scene.UpdateParticles(deltaSeconds);
 
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
             *app.device,

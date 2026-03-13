@@ -596,4 +596,11 @@ export namespace mathUtils
 		// v' = v - 2 * (n·v) * n
 		return v - n * (2.0f * Dot(n, v));
 	}
+
+	bool NearlyEqualVec3_(const mathUtils::Vec3& a, const mathUtils::Vec3& b, const float eps = 1e-4f) noexcept
+	{
+		return std::fabs(a.x - b.x) <= eps &&
+			std::fabs(a.y - b.y) <= eps &&
+			std::fabs(a.z - b.z) <= eps;
+	}
 }
