@@ -499,6 +499,61 @@ export namespace rendern
             outForward = forward;
         }
 
+        [[nodiscard]] static float NormalizeYawDegrees_(float yawDegrees) noexcept
+        {
+            while (yawDegrees > 180.0f)
+            {
+                yawDegrees -= 360.0f;
+            }
+            while (yawDegrees <= -180.0f)
+            {
+                yawDegrees += 360.0f;
+            }
+            return yawDegrees;
+        }
+
+        [[nodiscard]] static float ShortestYawDeltaDegrees_(const float fromDegrees, const float toDegrees) noexcept
+        {
+            return NormalizeYawDegrees_(toDegrees - fromDegrees);
+        }
+
+        [[nodiscard]] static float AdvanceYawTowards_(
+            const float currentDegrees,
+            const float targetDegrees,
+            const float maxStepDegrees) noexcept
+        {
+            const float deltaDegrees = ShortestYawDeltaDegrees_(currentDegrees, targetDegrees);
+            if (std::fabs(deltaDegrees) <= maxStepDegrees)
+            {
+                return NormalizeYawDegrees_(targetDegrees);
+            }
+
+            return NormalizeYawDegrees_(
+                currentDegrees + (deltaDegrees > 0.0f ? maxStepDegrees : -maxStepDegrees));
+        }
+
+        [[nodiscard]] static float YawDegreesFromDirection_(const mathUtils::Vec3& direction) noexcept
+        {
+            if (mathUtils::Length(direction) <= 1e-6f)
+            {
+                return 0.0f;
+            }
+            return NormalizeYawDegrees_(mathUtils::RadToDeg(std::atan2(direction.x, direction.z)));
+        }
+
+        [[nodiscard]] static bool IsIdleLikeAnimationState_(const std::string_view stateName) noexcept
+        {
+            return stateName == "Idle" || stateName == "IdleRelaxed";
+        }
+
+        [[nodiscard]] static bool IsTurnInPlaceAnimationState_(const std::string_view stateName) noexcept
+        {
+            return stateName == "TurnLeftStart" ||
+                stateName == "TurnLeft90" ||
+                stateName == "TurnRightStart" ||
+                stateName == "TurnRight90";
+        }
+
         [[nodiscard]] static std::string CanonicalizeAnimationParameterName_(std::string_view name)
         {
             std::string canonical;
@@ -793,12 +848,38 @@ export namespace rendern
             }
         }
 
+        [[nodiscard]] std::string_view GetCurrentAnimationStateName_(const GameplayUpdateContext& ctx, const EntityHandle entity) const noexcept
+        {
+            if (ctx.levelInstance == nullptr || ctx.scene == nullptr)
+            {
+                return {};
+            }
+
+            const GameplayAnimationLinkComponent* animLink = world_.TryGetAnimationLink(entity);
+            if (animLink == nullptr || animLink->skinnedDrawIndex < 0)
+            {
+                return {};
+            }
+
+            const SkinnedDrawItem* skinnedItem = ctx.levelInstance->GetSkinnedDrawItem(*ctx.scene, animLink->skinnedDrawIndex);
+            if (skinnedItem == nullptr || skinnedItem->controller.stateMachineAsset == nullptr)
+            {
+                return {};
+            }
+
+            return skinnedItem->controller.currentStateName;
+        }
+
         void UpdateMotorEntities_(const GameplayUpdateContext& ctx)
         {
             if (ctx.scene == nullptr)
             {
                 return;
             }
+
+            constexpr float kForwardFacingTurnSpeedDegPerSecond = 540.0f;
+            constexpr float kTurnInPlaceSpeedDegPerSecond = 180.0f;
+            constexpr float kTurnInPlaceSpeedThreshold = 0.05f;
 
             mathUtils::Vec3 basisRight(1.0f, 0.0f, 0.0f);
             mathUtils::Vec3 basisForward(0.0f, 0.0f, 1.0f);
@@ -815,6 +896,15 @@ export namespace rendern
                     continue;
                 }
 
+                const std::string_view currentAnimationState = GetCurrentAnimationStateName_(ctx, entity);
+                const bool isTurnInPlaceState = IsTurnInPlaceAnimationState_(currentAnimationState);
+                const bool wantsTurnFromIdle =
+                    !isTurnInPlaceState &&
+                    IsIdleLikeAnimationState_(currentAnimationState) &&
+                    mathUtils::Length(motor->velocity) <= kTurnInPlaceSpeedThreshold &&
+                    std::fabs(intent->moveX) > 0.1f &&
+                    std::fabs(intent->moveY) <= 0.1f;
+
                 mathUtils::Vec3 desiredMoveWorld =
                     basisRight * intent->moveX +
                     basisForward * intent->moveY;
@@ -824,6 +914,11 @@ export namespace rendern
                     desiredMoveWorld = mathUtils::Normalize(desiredMoveWorld);
                 }
                 else
+                {
+                    desiredMoveWorld = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
+                }
+
+                if (wantsTurnFromIdle || isTurnInPlaceState)
                 {
                     desiredMoveWorld = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
                 }
@@ -851,12 +946,29 @@ export namespace rendern
 
                 transform->position = transform->position + motor->velocity * ctx.deltaSeconds;
 
+                if (wantsTurnFromIdle || isTurnInPlaceState)
+                {
+                    const float turnDirection =
+                        (intent->moveX > 0.1f) ? 1.0f :
+                        ((intent->moveX < -0.1f) ? -1.0f : 0.0f);
+                    transform->rotationDegrees.y = NormalizeYawDegrees_(
+                        transform->rotationDegrees.y + turnDirection * kTurnInPlaceSpeedDegPerSecond * ctx.deltaSeconds);
+                }
+                else if (intent->moveY > 0.1f && mathUtils::Length(desiredMoveWorld) > 1e-6f)
+                {
+                    const float targetYawDegrees = YawDegreesFromDirection_(desiredMoveWorld);
+                    transform->rotationDegrees.y = AdvanceYawTowards_(
+                        transform->rotationDegrees.y,
+                        targetYawDegrees,
+                        kForwardFacingTurnSpeedDegPerSecond * std::max(ctx.deltaSeconds, 0.0f));
+                }
+                else
+                {
+                    transform->rotationDegrees.y = NormalizeYawDegrees_(transform->rotationDegrees.y);
+                }
+
                 const float planarSpeed = mathUtils::Length(motor->velocity);
                 const bool isMoving = planarSpeed > 1e-4f;
-                if (isMoving)
-                {
-                    transform->rotationDegrees.y = mathUtils::RadToDeg(std::atan2(motor->velocity.x, motor->velocity.z));
-                }
 
                 if (locomotion != nullptr)
                 {
