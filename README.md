@@ -19,47 +19,7 @@ This document is intentionally written as an **entry point** into the rest of th
 
 Below is a starter Graphviz DOT block for the first top-level SVG diagram:
 
-```dot
 
-digraph CoreEngine_HighLevel_EN {
-  rankdir=LR;
-  graph [pad=0.3, nodesep=0.45, ranksep=0.7, splines=true, bgcolor="white"];
-  node [shape=box, style="rounded,filled", fillcolor="#eef4ff", color="#5b7bb2", fontname="Arial"];
-  edge [color="#607080", arrowsize=0.8, fontname="Arial"];
-
-  App      [label="App / Platform\nlifecycle, windows, main loop"];
-  Input    [label="Input\nWin32 input + intent reading"];
-  Gameplay [label="Gameplay\nruntime ECS, character, camera, interaction"];
-  Scene    [label="Scene / Level\nCPU-side world, nodes, lights, selection"];
-  Assets   [label="Assets / Streaming\ntextures, meshes, import, upload"];
-  Render   [label="Renderer\nfacade + frame orchestration"];
-  RHI      [label="RHI\nbackend-agnostic device/commands/resources"];
-  DX12     [label="DX12 backend\nmain production renderer path"];
-  GL       [label="OpenGL backend\nalternative / fallback path"];
-  Math     [label="Core Math\nvec/mat/geometry/intersections"];
-  Anim     [label="Animation\nclips, skeleton, animator, controllers"];
-  Tools    [label="Debug / ImGui / Editor tools\ninspector, gizmos, debug window"];
-
-  App -> Input;
-  App -> Gameplay;
-  App -> Scene;
-  App -> Assets;
-  App -> Render;
-  Gameplay -> Scene;
-  Gameplay -> Anim;
-  Assets -> Scene;
-  Assets -> Anim;
-  Render -> Scene;
-  Render -> RHI;
-  RHI -> DX12;
-  RHI -> GL;
-  Math -> Gameplay;
-  Math -> Scene;
-  Math -> Render;
-  Tools -> Scene;
-  Tools -> Render;
-}
-```
 
 [Screenshot here: main engine viewport]
 [Screenshot here: debug window / ImGui inspector]
