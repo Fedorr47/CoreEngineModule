@@ -1,0 +1,88 @@
+{
+  "id": "default_humanoid_layered",
+  "layers": [
+    {
+      "name": "Locomotion",
+      "defaultState": "Idle",
+      "states": [
+        {
+          "name": "Idle",
+          "onEnter": [
+            { "type": "SetBlackboardString", "key": "Locomotion.State", "value": "Idle" }
+          ],
+          "transitions": [
+            {
+              "to": "Move",
+              "condition": { "type": "FloatGreater", "param": "planarSpeed", "value": 0.1 }
+            }
+          ]
+        },
+        {
+          "name": "Move",
+          "onEnter": [
+            { "type": "SetBlackboardString", "key": "Locomotion.State", "value": "Move" },
+            { "type": "CopyParameterToBlackboardFloat", "source": "planarSpeed", "key": "Locomotion.EntrySpeed" }
+          ],
+          "transitions": [
+            {
+              "to": "Idle",
+              "condition": { "type": "FloatLessEqual", "param": "planarSpeed", "value": 0.1 }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Combat",
+      "defaultState": "Ready",
+      "states": [
+        {
+          "name": "Ready",
+          "onEnter": [
+            { "type": "SetBlackboardString", "key": "Combat.State", "value": "Ready" }
+          ],
+          "transitions": [
+            {
+              "to": "Attack",
+              "condition": { "type": "EventReceived", "event": "Input.AttackPressed" }
+            },
+            {
+              "to": "Jump",
+              "condition": { "type": "EventReceived", "event": "Input.JumpPressed" }
+            }
+          ]
+        },
+        {
+          "name": "Attack",
+          "onEnter": [
+            { "type": "SetBlackboardString", "key": "Combat.State", "value": "Attack" },
+            { "type": "EmitEvent", "event": "Gameplay.Attack.Requested" }
+          ],
+          "transitions": [
+            {
+              "to": "Ready",
+              "condition": { "type": "EventReceived", "event": "ActionEnd" }
+            }
+          ]
+        },
+        {
+          "name": "Jump",
+          "onEnter": [
+            { "type": "SetBlackboardString", "key": "Combat.State", "value": "Jump" },
+            { "type": "EmitEvent", "event": "Gameplay.Jump.Requested" }
+          ],
+          "transitions": [
+            {
+              "to": "Ready",
+              "condition": { "type": "EventReceived", "event": "ActionEnd" }
+            },
+            {
+              "to": "Ready",
+              "condition": { "type": "EventReceived", "event": "Jump" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

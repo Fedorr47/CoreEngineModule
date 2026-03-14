@@ -9,11 +9,13 @@ module;
 #include <utility>
 #include <string_view>
 #include <functional>
+#include <unordered_map>
 #include <vector>
 
 export module core:gameplay_runtime;
 
 import :gameplay;
+import :gameplay_graph;
 import :input;
 import :level;
 import :scene;
@@ -88,6 +90,9 @@ export namespace rendern
 
         void Initialize(LevelAsset& levelAsset, LevelInstance& levelInstance, Scene& scene)
         {
+            defaultGraphAsset_ = MakeDefaultHumanoidGameplayGraphAsset();
+            defaultAnimationBindingAsset_ = MakeDefaultHumanoidGameplayAnimationBindingAsset();
+
             GameplayUpdateContext ctx{};
             ctx.levelAsset = &levelAsset;
             ctx.levelInstance = &levelInstance;
@@ -101,8 +106,8 @@ export namespace rendern
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
             intentBindings_.clear();
-            motorEntities_.clear();
             nodeBoundEntities_.clear();
+            graphInstances_.clear();
             controlledEntity_ = kNullEntity;
         }
 
@@ -126,7 +131,7 @@ export namespace rendern
                     const GameplayUpdateContext& ctx,
                     [[maybe_unused]] GameplayWorld& world,
                     GameplayInputIntentComponent& outIntent,
-                    GameplayActionComponent* action)
+                    [[maybe_unused]] GameplayActionComponent* action)
                 {
                     if (ctx.input == nullptr)
                     {
@@ -144,22 +149,6 @@ export namespace rendern
                     outIntent.jumpPressed = GameplayRuntime::ReadPressedButton_(input, bindings.jump);
                     outIntent.attackPressed = GameplayRuntime::ReadPressedButton_(input, bindings.attack);
                     outIntent.interactPressed = GameplayRuntime::ReadPressedButton_(input, bindings.interact);
-
-                    if (action != nullptr)
-                    {
-                        if (outIntent.jumpPressed)
-                        {
-                            GameplayRuntime::QueueActionRequest_(*action, GameplayActionKind::Jump);
-                        }
-                        else if (outIntent.attackPressed)
-                        {
-                            GameplayRuntime::QueueActionRequest_(*action, GameplayActionKind::LightAttack);
-                        }
-                        else if (outIntent.interactPressed)
-                        {
-                            GameplayRuntime::QueueActionRequest_(*action, GameplayActionKind::Interact);
-                        }
-                    }
                 });
         }
 
@@ -181,25 +170,21 @@ export namespace rendern
             recentGameplayEvents_.clear();
             CompactTrackedState_();
 
-            for (const EntityHandle entity : motorEntities_)
+            for (const EntityHandle entity : nodeBoundEntities_)
             {
                 if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
                 {
                     *intent = {};
                 }
 
-                if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))
-                {
-                    locomotion->moveX = 0.0f;
-                    locomotion->moveY = 0.0f;
-                }
-            }
-
-            for (const EntityHandle entity : nodeBoundEntities_)
-            {
                 if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))
                 {
                     ResetGameplayAnimationNotifyFrame(*notifyState);
+                }
+
+                if (auto it = graphInstances_.find(entity); it != graphInstances_.end())
+                {
+                    ClearGameplayGraphFrameState(it->second);
                 }
             }
         }
@@ -208,10 +193,9 @@ export namespace rendern
         {
             EnsureBootstrapEntity_(ctx);
             UpdateIntentSources_(ctx);
-            UpdateMotorEntities_(ctx);
+            ExecuteGameplayGraphs_(ctx);
             SyncGameplayTransformsToRuntime_(ctx);
-            SyncGameplayLocomotionToAnimation_(ctx);
-            SyncGameplayActionsToAnimation_(ctx);
+            SyncGameplayGraphsToAnimation_(ctx);
         }
 
         void PostAnimationUpdate(const GameplayUpdateContext& ctx)
@@ -243,8 +227,6 @@ export namespace rendern
                     continue;
                 }
 
-                GameplayActionComponent* action = world_.TryGetAction(entity);
-
                 for (const AnimationNotifyEvent& event : events)
                 {
                     recentNotifyEvents_.push_back(GameplayAnimationNotifyRecord{
@@ -252,7 +234,7 @@ export namespace rendern
                         .nodeIndex = nodeLink->nodeIndex,
                         .skinnedDrawIndex = animLink->skinnedDrawIndex,
                         .event = event
-                        });
+                    });
                 }
 
                 RouteAnimationEventsToGameplay_(
@@ -261,7 +243,6 @@ export namespace rendern
                     animLink->skinnedDrawIndex,
                     skinnedItem->controller,
                     *notifyState,
-                    action,
                     events);
             }
         }
@@ -293,11 +274,7 @@ export namespace rendern
 
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(const GameplayUpdateContext& ctx, const int nodeIndex, const bool playerControlled = false)
         {
-            if (ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
-            {
-                return kNullEntity;
-            }
-            if (nodeIndex < 0 || static_cast<std::size_t>(nodeIndex) >= ctx.levelAsset->nodes.size())
+            if (ctx.levelAsset == nullptr || nodeIndex < 0 || static_cast<std::size_t>(nodeIndex) >= ctx.levelAsset->nodes.size())
             {
                 return kNullEntity;
             }
@@ -311,12 +288,10 @@ export namespace rendern
 
             world_.AddInputIntent(entity);
             world_.AddCharacterMotor(entity);
-            world_.AddLocomotion(entity);
-            world_.AddAction(entity);
             world_.AddAnimationNotifyState(entity);
 
-            TrackMotorEntity_(entity);
             TrackNodeBoundEntity_(entity);
+            CreateDefaultGraphInstance_(entity);
 
             if (playerControlled)
             {
@@ -430,7 +405,6 @@ export namespace rendern
 
         void CompactTrackedState_()
         {
-            CompactEntityVector_(motorEntities_, world_);
             CompactEntityVector_(nodeBoundEntities_, world_);
 
             intentBindings_.erase(
@@ -443,6 +417,18 @@ export namespace rendern
                             !world_.IsEntityValid(binding.entity);
                     }),
                 intentBindings_.end());
+
+            for (auto it = graphInstances_.begin(); it != graphInstances_.end(); )
+            {
+                if (!world_.IsEntityValid(it->first))
+                {
+                    it = graphInstances_.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
 
             if (controlledEntity_ != kNullEntity && !world_.IsEntityValid(controlledEntity_))
             {
@@ -464,24 +450,7 @@ export namespace rendern
             intentBindings_.push_back(IntentBinding{
                 .entity = entity,
                 .callback = std::move(callback)
-                });
-        }
-
-        void TrackMotorEntity_(const EntityHandle entity)
-        {
-            if (entity == kNullEntity)
-            {
-                return;
-            }
-
-            for (const EntityHandle tracked : motorEntities_)
-            {
-                if (tracked == entity)
-                {
-                    return;
-                }
-            }
-            motorEntities_.push_back(entity);
+            });
         }
 
         void TrackNodeBoundEntity_(const EntityHandle entity)
@@ -529,76 +498,35 @@ export namespace rendern
             outForward = forward;
         }
 
-        static void QueueActionRequest_(GameplayActionComponent& action, const GameplayActionKind kind) noexcept
+        void CreateDefaultGraphInstance_(const EntityHandle entity)
         {
-            if (kind == GameplayActionKind::None || action.busy)
+            GameplayGraphInstance instance{};
+            instance.asset = &defaultGraphAsset_;
+            instance.layers.reserve(defaultGraphAsset_.layers.size());
+
+            for (const GameplayGraphLayerDesc& layer : defaultGraphAsset_.layers)
             {
-                return;
+                const int defaultStateIndex = FindGameplayGraphStateIndex(layer, layer.defaultState);
+                instance.layers.push_back(GameplayGraphLayerRuntimeState{
+                    .activeStateIndex = defaultStateIndex,
+                    .previousStateIndex = -1,
+                    .stateTime = 0.0f,
+                    .enterPending = true
+                });
             }
 
-            if (action.requested != GameplayActionKind::None)
-            {
-                return;
-            }
+            SetGameplayGraphBool(instance.parameters, "hasActionRequest", false);
+            SetGameplayGraphBool(instance.parameters, "actionBusy", false);
+            SetGameplayGraphBool(instance.parameters, "actionRequestDispatched", false);
+            SetGameplayGraphInt(instance.parameters, "requestedActionKind", 0);
+            SetGameplayGraphInt(instance.parameters, "currentAction", 0);
 
-            action.requested = kind;
-            action.requestDispatched = false;
-        }
-
-        static void PushRecentControllerGameplayEvent_(AnimationControllerRuntime& controller, const std::string& label)
-        {
-            controller.recentRoutedGameplayEvents.push_back(label);
-            constexpr std::size_t kMaxRecentGameplayEvents = 16;
-            if (controller.recentRoutedGameplayEvents.size() > kMaxRecentGameplayEvents)
-            {
-                controller.recentRoutedGameplayEvents.erase(
-                    controller.recentRoutedGameplayEvents.begin(),
-                    controller.recentRoutedGameplayEvents.begin() + static_cast<std::ptrdiff_t>(controller.recentRoutedGameplayEvents.size() - kMaxRecentGameplayEvents));
-            }
-        }
-
-        void RouteAnimationEventsToGameplay_(
-            const EntityHandle entity,
-            const int nodeIndex,
-            const int skinnedDrawIndex,
-            AnimationControllerRuntime& controller,
-            GameplayAnimationNotifyStateComponent& notifyState,
-            GameplayActionComponent* action,
-            const std::vector<AnimationNotifyEvent>& animationEvents)
-        {
-            std::vector<std::string> gameplayEventIds;
-            for (const AnimationNotifyEvent& event : animationEvents)
-            {
-                CollectGameplayEventIdsForAnimationEvent(controller.stateMachineAsset, event, gameplayEventIds);
-                for (const std::string& gameplayEventId : gameplayEventIds)
-                {
-                    recentGameplayEvents_.push_back(GameplayEventRecord{
-                        .entity = entity,
-                        .nodeIndex = nodeIndex,
-                        .skinnedDrawIndex = skinnedDrawIndex,
-                        .sequence = event.sequence,
-                        .animationEventId = event.id,
-                        .gameplayEventId = gameplayEventId,
-                        .stateName = event.stateName,
-                        .clipName = event.clipName,
-                        .normalizedTime = event.normalizedTime
-                    });
-
-                    std::string debugLabel = gameplayEventId;
-                    if (gameplayEventId != event.id)
-                    {
-                        debugLabel += " <= ";
-                        debugLabel += event.id;
-                    }
-                    PushRecentControllerGameplayEvent_(controller, debugLabel);
-                    ApplyGameplayEventToGameplayState(notifyState, action, gameplayEventId, event);
-                }
-            }
+            graphInstances_.insert_or_assign(entity, std::move(instance));
         }
 
         void UpdateIntentSources_(const GameplayUpdateContext& ctx)
         {
-            for (IntentBinding& binding : intentBindings_)
+            for (const IntentBinding& binding : intentBindings_)
             {
                 if (!world_.IsEntityValid(binding.entity) || !binding.callback)
                 {
@@ -611,113 +539,361 @@ export namespace rendern
                     continue;
                 }
 
-                GameplayActionComponent* action = world_.TryGetAction(binding.entity);
-                binding.callback(binding.entity, ctx, world_, *intent, action);
-
-                float normalizedX = 0.0f;
-                float normalizedY = 0.0f;
-                NormalizeMoveAxis_(intent->moveX, intent->moveY, normalizedX, normalizedY);
-                intent->moveX = normalizedX;
-                intent->moveY = normalizedY;
+                *intent = {};
+                binding.callback(binding.entity, ctx, world_, *intent, nullptr);
             }
         }
 
-        void UpdateMotorEntities_(const GameplayUpdateContext& ctx)
+        void ExecuteGameplayGraphs_(const GameplayUpdateContext& ctx)
         {
-            if (ctx.scene == nullptr)
+            for (const EntityHandle entity : nodeBoundEntities_)
+            {
+                auto it = graphInstances_.find(entity);
+                if (it == graphInstances_.end())
+                {
+                    continue;
+                }
+
+                GameplayGraphInstance& graph = it->second;
+                SyncInputToGraphParameters_(entity, graph);
+
+                for (std::size_t layerIndex = 0; layerIndex < graph.layers.size() && layerIndex < graph.asset->layers.size(); ++layerIndex)
+                {
+                    GameplayGraphLayerRuntimeState& runtimeLayer = graph.layers[layerIndex];
+                    const GameplayGraphLayerDesc& assetLayer = graph.asset->layers[layerIndex];
+                    ExecuteGraphLayer_(entity, graph, runtimeLayer, assetLayer, ctx);
+                }
+            }
+        }
+
+        void ExecuteGraphLayer_(
+            const EntityHandle entity,
+            GameplayGraphInstance& graph,
+            GameplayGraphLayerRuntimeState& runtimeLayer,
+            const GameplayGraphLayerDesc& assetLayer,
+            const GameplayUpdateContext& ctx)
+        {
+            if (runtimeLayer.activeStateIndex < 0 ||
+                static_cast<std::size_t>(runtimeLayer.activeStateIndex) >= assetLayer.states.size())
+            {
+                runtimeLayer.activeStateIndex = FindGameplayGraphStateIndex(assetLayer, assetLayer.defaultState);
+                runtimeLayer.enterPending = true;
+                runtimeLayer.stateTime = 0.0f;
+            }
+            if (runtimeLayer.activeStateIndex < 0)
             {
                 return;
             }
+
+            const GameplayGraphStateDesc* state = &assetLayer.states[static_cast<std::size_t>(runtimeLayer.activeStateIndex)];
+            if (runtimeLayer.enterPending)
+            {
+                ExecuteGraphTasks_(entity, graph, runtimeLayer, *state, state->onEnter, ctx);
+                runtimeLayer.enterPending = false;
+            }
+
+            ExecuteGraphTasks_(entity, graph, runtimeLayer, *state, state->onUpdate, ctx);
+
+            for (const GameplayGraphTransitionDesc& transition : state->transitions)
+            {
+                if (!EvaluateGraphTransition_(graph, transition))
+                {
+                    continue;
+                }
+
+                ExecuteGraphTasks_(entity, graph, runtimeLayer, *state, state->onExit, ctx);
+
+                runtimeLayer.previousStateIndex = runtimeLayer.activeStateIndex;
+                runtimeLayer.activeStateIndex = FindGameplayGraphStateIndex(assetLayer, transition.toState);
+                runtimeLayer.stateTime = 0.0f;
+                runtimeLayer.enterPending = true;
+
+                if (runtimeLayer.activeStateIndex >= 0 &&
+                    static_cast<std::size_t>(runtimeLayer.activeStateIndex) < assetLayer.states.size())
+                {
+                    const GameplayGraphStateDesc& newState = assetLayer.states[static_cast<std::size_t>(runtimeLayer.activeStateIndex)];
+                    ExecuteGraphTasks_(entity, graph, runtimeLayer, newState, newState.onEnter, ctx);
+                    runtimeLayer.enterPending = false;
+                }
+                return;
+            }
+
+            runtimeLayer.stateTime += std::max(ctx.deltaSeconds, 0.0f);
+        }
+
+        [[nodiscard]] bool EvaluateGraphTransition_(const GameplayGraphInstance& graph, const GameplayGraphTransitionDesc& transition) const
+        {
+            for (const GameplayGraphConditionDesc& condition : transition.conditions)
+            {
+                const std::string conditionName = CanonicalizeGameplayGraphToken(condition.name);
+                if (conditionName == "booltrue")
+                {
+                    if (!GetGameplayGraphBool(graph.parameters, condition.parameter, false))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (conditionName == "boolfalse")
+                {
+                    if (GetGameplayGraphBool(graph.parameters, condition.parameter, false))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (conditionName == "floatgreater")
+                {
+                    if (!(GetGameplayGraphFloat(graph.parameters, condition.parameter, 0.0f) > condition.threshold))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (conditionName == "floatless")
+                {
+                    if (!(GetGameplayGraphFloat(graph.parameters, condition.parameter, 0.0f) < condition.threshold))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        void ExecuteGraphTasks_(
+            const EntityHandle entity,
+            GameplayGraphInstance& graph,
+            GameplayGraphLayerRuntimeState& runtimeLayer,
+            const GameplayGraphStateDesc& state,
+            const std::vector<GameplayGraphTaskDesc>& tasks,
+            const GameplayUpdateContext& ctx)
+        {
+            for (const GameplayGraphTaskDesc& task : tasks)
+            {
+                const std::string taskName = CanonicalizeGameplayGraphToken(task.name);
+                if (taskName == "syncinputtoparameters")
+                {
+                    SyncInputToGraphParameters_(entity, graph);
+                }
+                else if (taskName == "queueactionrequestsfrominput")
+                {
+                    QueueActionRequestsFromInput_(graph);
+                }
+                else if (taskName == "buildcamerarelativemove")
+                {
+                    BuildCameraRelativeMove_(entity, graph, ctx);
+                }
+                else if (taskName == "applycharactermotor")
+                {
+                    ApplyCharacterMotor_(entity, graph, ctx);
+                }
+                else if (taskName == "facemovementforwardonly")
+                {
+                    FaceMovementForwardOnly_(entity, graph);
+                }
+                else if (taskName == "computelocomotionmetrics")
+                {
+                    ComputeLocomotionMetrics_(entity, graph);
+                }
+                else if (taskName == "beginactionstate")
+                {
+                    BeginActionState_(graph);
+                }
+                [[maybe_unused]] const auto& unusedRuntimeLayer = runtimeLayer;
+                [[maybe_unused]] const auto& unusedState = state;
+            }
+        }
+
+        void SyncInputToGraphParameters_(const EntityHandle entity, GameplayGraphInstance& graph)
+        {
+            const GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity);
+            if (intent == nullptr)
+            {
+                return;
+            }
+
+            SetGameplayGraphFloat(graph.parameters, "moveX", intent->moveX);
+            SetGameplayGraphFloat(graph.parameters, "moveY", intent->moveY);
+            SetGameplayGraphBool(graph.parameters, "runHeld", intent->runHeld);
+            if (intent->jumpPressed)
+            {
+                SetGameplayGraphTrigger(graph.parameters, "jumpPressed");
+            }
+            if (intent->attackPressed)
+            {
+                SetGameplayGraphTrigger(graph.parameters, "attackPressed");
+            }
+            if (intent->interactPressed)
+            {
+                SetGameplayGraphTrigger(graph.parameters, "interactPressed");
+            }
+        }
+
+        void QueueActionRequestsFromInput_(GameplayGraphInstance& graph)
+        {
+            const bool actionBusy = GetGameplayGraphBool(graph.parameters, "actionBusy", false);
+            const bool hasActionRequest = GetGameplayGraphBool(graph.parameters, "hasActionRequest", false);
+            if (actionBusy || hasActionRequest)
+            {
+                return;
+            }
+
+            int requestedActionKind = 0;
+            if (ConsumeGameplayGraphTrigger(graph.parameters, "jumpPressed"))
+            {
+                requestedActionKind = 3;
+            }
+            else if (ConsumeGameplayGraphTrigger(graph.parameters, "attackPressed"))
+            {
+                requestedActionKind = 1;
+            }
+            else if (ConsumeGameplayGraphTrigger(graph.parameters, "interactPressed"))
+            {
+                requestedActionKind = 2;
+            }
+
+            if (requestedActionKind == 0)
+            {
+                return;
+            }
+
+            SetGameplayGraphInt(graph.parameters, "requestedActionKind", requestedActionKind);
+            SetGameplayGraphBool(graph.parameters, "hasActionRequest", true);
+            SetGameplayGraphBool(graph.parameters, "actionRequestDispatched", false);
+        }
+
+        void BuildCameraRelativeMove_(const EntityHandle entity, GameplayGraphInstance& graph, const GameplayUpdateContext& ctx)
+        {
+            GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
+            if (motor == nullptr || ctx.scene == nullptr)
+            {
+                return;
+            }
+
+            const float moveX = GetGameplayGraphFloat(graph.parameters, "moveX", 0.0f);
+            const float moveY = GetGameplayGraphFloat(graph.parameters, "moveY", 0.0f);
 
             mathUtils::Vec3 basisRight(1.0f, 0.0f, 0.0f);
             mathUtils::Vec3 basisForward(0.0f, 0.0f, 1.0f);
             BuildPlanarMovementBasis_(ctx.scene->camera, basisRight, basisForward);
 
-            for (const EntityHandle entity : motorEntities_)
+            mathUtils::Vec3 desiredMoveWorld = basisRight * moveX + basisForward * moveY;
+            if (mathUtils::Length(desiredMoveWorld) > 1e-6f)
             {
-                GameplayTransformComponent* transform = world_.TryGetTransform(entity);
-                GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity);
-                GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
-                GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity);
-                if (transform == nullptr || intent == nullptr || motor == nullptr)
-                {
-                    continue;
-                }
+                desiredMoveWorld = mathUtils::Normalize(desiredMoveWorld);
+            }
+            else
+            {
+                desiredMoveWorld = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
+            }
 
-                mathUtils::Vec3 desiredMoveWorld =
-                    basisRight * intent->moveX +
-                    basisForward * intent->moveY;
+            motor->desiredMoveWorld = desiredMoveWorld;
+        }
 
-                if (mathUtils::Length(desiredMoveWorld) > 1e-6f)
-                {
-                    desiredMoveWorld = mathUtils::Normalize(desiredMoveWorld);
-                }
-                else
-                {
-                    desiredMoveWorld = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-                }
+        void ApplyCharacterMotor_(const EntityHandle entity, GameplayGraphInstance& graph, const GameplayUpdateContext& ctx)
+        {
+            GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+            GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
+            if (transform == nullptr || motor == nullptr)
+            {
+                return;
+            }
 
-                motor->desiredMoveWorld = desiredMoveWorld;
+            const bool runHeld = GetGameplayGraphBool(graph.parameters, "runHeld", false);
+            const float targetSpeed = runHeld ? motor->maxRunSpeed : motor->maxWalkSpeed;
+            const mathUtils::Vec3 targetVelocity = motor->desiredMoveWorld * targetSpeed;
+            const mathUtils::Vec3 velocityDelta = targetVelocity - motor->velocity;
 
-                const float targetSpeed = intent->runHeld ? motor->maxRunSpeed : motor->maxWalkSpeed;
-                const mathUtils::Vec3 targetVelocity = desiredMoveWorld * targetSpeed;
-                const mathUtils::Vec3 velocityDelta = targetVelocity - motor->velocity;
+            const float currentSpeed = mathUtils::Length(motor->velocity);
+            const float desiredSpeed = mathUtils::Length(targetVelocity);
+            const float rate = desiredSpeed > currentSpeed ? motor->acceleration : motor->deceleration;
+            const float maxDelta = std::max(rate, 0.0f) * std::max(ctx.deltaSeconds, 0.0f);
+            const float deltaLen = mathUtils::Length(velocityDelta);
 
-                const float currentSpeed = mathUtils::Length(motor->velocity);
-                const float desiredSpeed = mathUtils::Length(targetVelocity);
-                const float rate = desiredSpeed > currentSpeed ? motor->acceleration : motor->deceleration;
-                const float maxDelta = std::max(rate, 0.0f) * std::max(ctx.deltaSeconds, 0.0f);
-                const float deltaLen = mathUtils::Length(velocityDelta);
+            if (deltaLen <= maxDelta || maxDelta <= 1e-6f)
+            {
+                motor->velocity = targetVelocity;
+            }
+            else
+            {
+                motor->velocity = motor->velocity + (velocityDelta * (maxDelta / deltaLen));
+            }
 
-                if (deltaLen <= maxDelta || maxDelta <= 1e-6f)
-                {
-                    motor->velocity = targetVelocity;
-                }
-                else
-                {
-                    motor->velocity = motor->velocity + (velocityDelta * (maxDelta / deltaLen));
-                }
+            transform->position = transform->position + motor->velocity * ctx.deltaSeconds;
+        }
 
-                transform->position = transform->position + motor->velocity * ctx.deltaSeconds;
+        void FaceMovementForwardOnly_(const EntityHandle entity, GameplayGraphInstance& graph)
+        {
+            GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+            GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
+            if (transform == nullptr || motor == nullptr)
+            {
+                return;
+            }
 
-                const float planarSpeed = mathUtils::Length(motor->velocity);
-                const bool isMoving = planarSpeed > 1e-4f;
-                const float previousYawDegrees = transform->rotationDegrees.y;
-                const bool shouldFaceMovement = intent->moveY > 0.1f;
-                if (isMoving && shouldFaceMovement)
-                {
-                    transform->rotationDegrees.y = mathUtils::RadToDeg(std::atan2(motor->velocity.x, motor->velocity.z));
-                }
-
-                const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
-                const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
-                const mathUtils::Vec3 actorRight(actorForward.z, 0.0f, -actorForward.x);
-                const float forwardSpeed = mathUtils::Dot(motor->velocity, actorForward);
-                const float rightSpeed = mathUtils::Dot(motor->velocity, actorRight);
-                float turnDeltaYawDegrees = transform->rotationDegrees.y - previousYawDegrees;
-                while (turnDeltaYawDegrees > 180.0f) turnDeltaYawDegrees -= 360.0f;
-                while (turnDeltaYawDegrees < -180.0f) turnDeltaYawDegrees += 360.0f;
-                const bool wantsTurnInPlaceLeft = !isMoving && intent->moveX < -0.5f;
-                const bool wantsTurnInPlaceRight = !isMoving && intent->moveX > 0.5f;
-
-                if (locomotion != nullptr)
-                {
-                    locomotion->moveX = intent->moveX;
-                    locomotion->moveY = intent->moveY;
-                    locomotion->forwardSpeed = forwardSpeed;
-                    locomotion->rightSpeed = rightSpeed;
-                    locomotion->planarSpeed = planarSpeed;
-                    locomotion->turnDeltaYawDegrees = turnDeltaYawDegrees;
-                    locomotion->isMoving = isMoving;
-                    locomotion->isRunning = isMoving && intent->runHeld;
-                    locomotion->wantsTurnInPlaceLeft = wantsTurnInPlaceLeft;
-                    locomotion->wantsTurnInPlaceRight = wantsTurnInPlaceRight;
-                }
-
+            const float moveY = GetGameplayGraphFloat(graph.parameters, "moveY", 0.0f);
+            const float planarSpeed = mathUtils::Length(motor->velocity);
+            const bool isMoving = planarSpeed > 1e-4f;
+            if (isMoving && moveY > 0.1f)
+            {
+                transform->rotationDegrees.y = mathUtils::RadToDeg(std::atan2(motor->velocity.x, motor->velocity.z));
             }
         }
 
-        void SyncGameplayLocomotionToAnimation_(const GameplayUpdateContext& ctx)
+        void ComputeLocomotionMetrics_(const EntityHandle entity, GameplayGraphInstance& graph)
+        {
+            const GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+            const GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
+            if (transform == nullptr || motor == nullptr)
+            {
+                return;
+            }
+
+            const float planarSpeed = mathUtils::Length(motor->velocity);
+            const bool isMoving = planarSpeed > 1e-4f;
+            const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
+            const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
+            const mathUtils::Vec3 actorRight(actorForward.z, 0.0f, -actorForward.x);
+            const float forwardSpeed = mathUtils::Dot(motor->velocity, actorForward);
+            const float rightSpeed = mathUtils::Dot(motor->velocity, actorRight);
+            const float moveX = GetGameplayGraphFloat(graph.parameters, "moveX", 0.0f);
+            const bool wantsTurnInPlaceLeft = !isMoving && moveX < -0.5f;
+            const bool wantsTurnInPlaceRight = !isMoving && moveX > 0.5f;
+
+            const float previousYaw = GetGameplayGraphFloat(graph.blackboard, "previousYawDegrees", transform->rotationDegrees.y);
+            float turnDeltaYawDegrees = transform->rotationDegrees.y - previousYaw;
+            while (turnDeltaYawDegrees > 180.0f) turnDeltaYawDegrees -= 360.0f;
+            while (turnDeltaYawDegrees < -180.0f) turnDeltaYawDegrees += 360.0f;
+
+            SetGameplayGraphFloat(graph.parameters, "forwardSpeed", forwardSpeed);
+            SetGameplayGraphFloat(graph.parameters, "rightSpeed", rightSpeed);
+            SetGameplayGraphFloat(graph.parameters, "planarSpeed", planarSpeed);
+            SetGameplayGraphFloat(graph.parameters, "turnDeltaYawDegrees", turnDeltaYawDegrees);
+            SetGameplayGraphBool(graph.parameters, "isMoving", isMoving);
+            SetGameplayGraphBool(graph.parameters, "isRunning", isMoving && GetGameplayGraphBool(graph.parameters, "runHeld", false));
+            SetGameplayGraphBool(graph.parameters, "wantsTurnInPlaceLeft", wantsTurnInPlaceLeft);
+            SetGameplayGraphBool(graph.parameters, "wantsTurnInPlaceRight", wantsTurnInPlaceRight);
+            SetGameplayGraphFloat(graph.blackboard, "previousYawDegrees", transform->rotationDegrees.y);
+        }
+
+        void BeginActionState_(GameplayGraphInstance& graph)
+        {
+            const bool hasActionRequest = GetGameplayGraphBool(graph.parameters, "hasActionRequest", false);
+            if (!hasActionRequest)
+            {
+                return;
+            }
+
+            SetGameplayGraphBool(graph.parameters, "actionBusy", true);
+            SetGameplayGraphInt(graph.parameters, "currentAction", GetGameplayGraphInt(graph.parameters, "requestedActionKind", 0));
+        }
+
+        void SyncGameplayGraphsToAnimation_(const GameplayUpdateContext& ctx)
         {
             if (ctx.levelInstance == nullptr || ctx.scene == nullptr)
             {
@@ -726,9 +902,14 @@ export namespace rendern
 
             for (const EntityHandle entity : nodeBoundEntities_)
             {
-                const GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity);
+                auto graphIt = graphInstances_.find(entity);
+                if (graphIt == graphInstances_.end())
+                {
+                    continue;
+                }
+
                 const GameplayAnimationLinkComponent* animLink = world_.TryGetAnimationLink(entity);
-                if (locomotion == nullptr || animLink == nullptr || animLink->skinnedDrawIndex < 0)
+                if (animLink == nullptr || animLink->skinnedDrawIndex < 0)
                 {
                     continue;
                 }
@@ -739,33 +920,126 @@ export namespace rendern
                     continue;
                 }
 
-                WriteGameplayLocomotionAnimationParameters(skinnedItem->controller, *locomotion);
+                GameplayGraphInstance& graph = graphIt->second;
+                WriteGraphParametersToAnimation_(skinnedItem->controller, graph.parameters);
+                DispatchGraphAnimationTriggers_(skinnedItem->controller, graph);
             }
         }
 
-        void SyncGameplayActionsToAnimation_(const GameplayUpdateContext& ctx)
+        void WriteGraphParametersToAnimation_(AnimationControllerRuntime& controller, const GameplayGraphParameterStore& params)
         {
-            if (ctx.levelInstance == nullptr || ctx.scene == nullptr)
+            for (const GameplayAnimationParameterBindingDesc& binding : defaultAnimationBindingAsset_.parameterBindings)
+            {
+                const auto it = params.values.find(binding.gameplayParameter);
+                if (it == params.values.end())
+                {
+                    continue;
+                }
+
+                const GameplayGraphValue& value = it->second;
+                switch (value.type)
+                {
+                case GameplayGraphValueType::Bool:
+                case GameplayGraphValueType::Trigger:
+                    SetAnimationParameter(controller.parameters, binding.animationParameter, value.boolValue);
+                    break;
+                case GameplayGraphValueType::Int:
+                    SetAnimationParameter(controller.parameters, binding.animationParameter, value.intValue);
+                    break;
+                case GameplayGraphValueType::Float:
+                    SetAnimationParameter(controller.parameters, binding.animationParameter, value.floatValue);
+                    break;
+                case GameplayGraphValueType::String:
+                default:
+                    break;
+                }
+            }
+        }
+
+        void DispatchGraphAnimationTriggers_(AnimationControllerRuntime& controller, GameplayGraphInstance& graph)
+        {
+            const bool hasActionRequest = GetGameplayGraphBool(graph.parameters, "hasActionRequest", false);
+            const bool dispatched = GetGameplayGraphBool(graph.parameters, "actionRequestDispatched", false);
+            if (!hasActionRequest || dispatched)
             {
                 return;
             }
 
-            for (const EntityHandle entity : nodeBoundEntities_)
+            const int requestedAction = GetGameplayGraphInt(graph.parameters, "requestedActionKind", 0);
+            for (const GameplayAnimationEventTriggerBindingDesc& binding : defaultAnimationBindingAsset_.actionTriggerBindings)
             {
-                GameplayActionComponent* action = world_.TryGetAction(entity);
-                const GameplayAnimationLinkComponent* animLink = world_.TryGetAnimationLink(entity);
-                if (action == nullptr || animLink == nullptr || animLink->skinnedDrawIndex < 0)
+                if (binding.actionKind == requestedAction && !binding.animationTrigger.empty())
                 {
-                    continue;
+                    FireAnimationTrigger(controller.parameters, binding.animationTrigger);
+                    SetGameplayGraphBool(graph.parameters, "actionRequestDispatched", true);
+                    return;
+                }
+            }
+        }
+
+        void RouteAnimationEventsToGameplay_(
+            const EntityHandle entity,
+            const int nodeIndex,
+            const int skinnedDrawIndex,
+            const AnimationControllerRuntime& controller,
+            GameplayAnimationNotifyStateComponent& notifyState,
+            const std::vector<AnimationNotifyEvent>& events)
+        {
+            auto graphIt = graphInstances_.find(entity);
+            GameplayGraphInstance* graph = graphIt != graphInstances_.end() ? &graphIt->second : nullptr;
+
+            for (const AnimationNotifyEvent& event : events)
+            {
+                ApplyAnimationNotifyToGameplayState(notifyState, nullptr, event);
+
+                std::vector<std::string> gameplayEventIds{};
+                CollectGameplayEventIdsForAnimationEvent(controller.stateMachineAsset, event, gameplayEventIds);
+
+                if (gameplayEventIds.empty())
+                {
+                    gameplayEventIds.push_back(event.id);
                 }
 
-                SkinnedDrawItem* skinnedItem = ctx.levelInstance->GetSkinnedDrawItem(*ctx.scene, animLink->skinnedDrawIndex);
-                if (skinnedItem == nullptr || skinnedItem->controller.stateMachineAsset == nullptr)
+                for (const std::string& gameplayEventId : gameplayEventIds)
                 {
-                    continue;
-                }
+                    if (graph != nullptr)
+                    {
+                        PushGameplayGraphEvent(*graph, gameplayEventId);
+                        ApplyAnimationEventToGraphState_(*graph, gameplayEventId);
+                    }
 
-                WriteGameplayActionAnimationParameters(skinnedItem->controller, *action);
+                    recentGameplayEvents_.push_back(GameplayEventRecord{
+                        .entity = entity,
+                        .nodeIndex = nodeIndex,
+                        .skinnedDrawIndex = skinnedDrawIndex,
+                        .sequence = event.sequence,
+                        .animationEventId = event.id,
+                        .gameplayEventId = gameplayEventId,
+                        .stateName = event.stateName,
+                        .clipName = event.clipName,
+                        .normalizedTime = event.normalizedTime
+                    });
+                }
+            }
+        }
+
+        void ApplyAnimationEventToGraphState_(GameplayGraphInstance& graph, std::string_view gameplayEventId)
+        {
+            const std::string canonical = CanonicalizeGameplayGraphToken(gameplayEventId);
+            if (canonical.find("actionbegin") != std::string::npos)
+            {
+                SetGameplayGraphBool(graph.parameters, "actionBusy", true);
+                SetGameplayGraphInt(graph.parameters, "currentAction", GetGameplayGraphInt(graph.parameters, "requestedActionKind", 0));
+                return;
+            }
+
+            if (canonical.find("actionend") != std::string::npos || canonical.find("actionfinish") != std::string::npos)
+            {
+                SetGameplayGraphBool(graph.parameters, "actionBusy", false);
+                SetGameplayGraphInt(graph.parameters, "currentAction", 0);
+                SetGameplayGraphInt(graph.parameters, "requestedActionKind", 0);
+                SetGameplayGraphBool(graph.parameters, "hasActionRequest", false);
+                SetGameplayGraphBool(graph.parameters, "actionRequestDispatched", false);
             }
         }
 
@@ -871,8 +1145,10 @@ export namespace rendern
         GameplayWorld world_{};
         EntityHandle controlledEntity_{ kNullEntity };
         std::vector<IntentBinding> intentBindings_{};
-        std::vector<EntityHandle> motorEntities_{};
         std::vector<EntityHandle> nodeBoundEntities_{};
+        std::unordered_map<EntityHandle, GameplayGraphInstance> graphInstances_{};
+        GameplayGraphAsset defaultGraphAsset_{};
+        GameplayAnimationBindingAsset defaultAnimationBindingAsset_{};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
     };

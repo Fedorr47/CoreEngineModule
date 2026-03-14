@@ -19,6 +19,7 @@ export import :math_utils;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
+export import :gameplay_graph;
 export import :gameplay_runtime;
 
 #if defined(CORE_USE_DX12)

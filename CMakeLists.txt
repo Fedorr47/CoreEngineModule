@@ -308,10 +308,21 @@ set(COMMON_MODULES
 
   ECS/EnTTHelpers.cppm
 
-  Gameplay/Gameplay.cppm
-  Gameplay/Gameplay_impl.cppm
-  Gameplay/GameplayAnimationBridge.cppm
-  Gameplay/GameplayRuntime.cppm
+  Gameplay/GameplayWorld.cppm
+  Gameplay/GameplayWorld_impl.cppm
+  Gameplay/Input/GameplayInput.cppm
+  Gameplay/Character/CharacterController.cppm
+  Gameplay/Character/CharacterMovement.cppm
+  Gameplay/Combat/CombatSystem.cppm
+  Gameplay/Interaction/InteractionSystem.cppm
+  Gameplay/Animation/GameplayAnimationBridge.cppm
+  Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
+  Gameplay/Graph/GameplayGraph.cppm
+  Gameplay/Graph/GameplayGraphAssets.cppm
+  Gameplay/Runtime/GameplayRuntimeCommon.cppm
+  Gameplay/Runtime/GameplayBootstrap.cppm
+  Gameplay/Runtime/GameplaySceneSync.cppm
+  Gameplay/Runtime/GameplayRuntime.cppm
 
   Timer/GameTimer.ixx
   Timer/GameTimer.cppm
