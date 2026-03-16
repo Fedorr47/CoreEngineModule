@@ -68,6 +68,7 @@ if (!transparentDraws.empty())
 		ResolveTransparentEnvBinding,
 		ResolveMainPassMaterialPerm,
 		BuildMainPassMaterialFlags,
+		FillMainPassMaterialTextureIndices,
 		FillPerBatchViewLightingConstants,
 		ResetPerBatchEnvProbeBox,
 		instStride](renderGraph::PassContext& ctx)
@@ -149,6 +150,7 @@ if (!transparentDraws.empty())
 			constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
 
 			constants.uPbrParams = { batchTransparent.material.metallic, batchTransparent.material.roughness, batchTransparent.material.ao, batchTransparent.material.emissiveStrength };
+			FillMainPassMaterialTextureIndices(constants, batchTransparent.material);
 
 			constants.uCounts = {
 				static_cast<float>(lightCount),

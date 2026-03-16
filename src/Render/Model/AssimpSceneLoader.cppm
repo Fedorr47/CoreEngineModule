@@ -64,6 +64,8 @@ export namespace rendern
         std::optional<ImportedMaterialTextureRef> roughness;
         std::optional<ImportedMaterialTextureRef> ao;
         std::optional<ImportedMaterialTextureRef> emissive;
+        std::optional<ImportedMaterialTextureRef> specular;
+        std::optional<ImportedMaterialTextureRef> gloss;
     };
 
     struct ImportedModelScene
@@ -718,6 +720,8 @@ export namespace rendern
             if (!info.ao) info.ao = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_LIGHTMAP, "ao", materializeTextures, &textureWriteTracker);
             info.emissive = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_EMISSIVE, "emissive", materializeTextures, &textureWriteTracker);
             if (!info.emissive) info.emissive = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_EMISSION_COLOR, "emissive", materializeTextures, &textureWriteTracker);
+            info.specular = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_SPECULAR, "specular", materializeTextures, &textureWriteTracker);
+            info.gloss = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_SHININESS, "gloss", materializeTextures, &textureWriteTracker);
             out.materials.push_back(std::move(info));
         }
 

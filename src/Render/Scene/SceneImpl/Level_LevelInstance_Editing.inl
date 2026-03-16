@@ -410,6 +410,8 @@ std::string ImportSkinnedMaterials(
 		BindImportedTexture(asset, assets, md, skinnedId, static_cast<std::uint32_t>(i), "roughness", srcMat.roughness, false);
 		BindImportedTexture(asset, assets, md, skinnedId, static_cast<std::uint32_t>(i), "ao", srcMat.ao, false);
 		BindImportedTexture(asset, assets, md, skinnedId, static_cast<std::uint32_t>(i), "emissive", srcMat.emissive, true);
+		BindImportedTexture(asset, assets, md, skinnedId, static_cast<std::uint32_t>(i), "specular", srcMat.specular, false);
+		BindImportedTexture(asset, assets, md, skinnedId, static_cast<std::uint32_t>(i), "gloss", srcMat.gloss, false);
 		if (!md.textureBindings.empty())
 		{
 			md.material.permFlags |= MaterialPerm::UseTex;
@@ -520,6 +522,8 @@ int ImportModelSceneAsNodes(LevelAsset& asset,
 			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "roughness", srcMat.roughness, false);
 			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "ao", srcMat.ao, false);
 			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "emissive", srcMat.emissive, true);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "specular", srcMat.specular, false);
+			BindImportedTexture(asset, assets, md, modelId, static_cast<std::uint32_t>(i), "gloss", srcMat.gloss, false);
 			if (!md.textureBindings.empty())
 			{
 				md.material.permFlags |= MaterialPerm::UseTex;

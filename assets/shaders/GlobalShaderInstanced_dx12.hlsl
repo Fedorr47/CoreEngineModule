@@ -63,6 +63,8 @@ TextureCube gEnv : register(t17);
 // Reflection probes are rendered as cubemaps (6 faces). We also bind the same resource as a 2D array
 // (6 slices) to allow manual dir->face+UV sampling (same convention as point shadows).
 Texture2DArray<float4> gEnvArray : register(t18);
+// Bindless SRV heap view (space1) for auxiliary material textures (spec/gloss fallback).
+Texture2D gBindlessTex[] : register(t0, space1);
 
 cbuffer PerBatchCB : register(b0)
 {
@@ -87,6 +89,10 @@ cbuffer PerBatchCB : register(b0)
 	
     float4 uEnvProbeBoxMin;
     float4 uEnvProbeBoxMax;
+	// x=albedo, y=normal, z=metalness, w=roughness
+	float4 uTexIndices0;
+	// x=ao, y=emissive, z=specular, w=gloss
+	float4 uTexIndices1;
 };
 
 // Flags (must match C++)
@@ -102,6 +108,8 @@ static const uint FLAG_ENV_FLIP_Z = 1u << 8;
 // When enabled, treat gEnv as an unfiltered dynamic cubemap: sample mip0 only.
 // This avoids seams/garbage when the cubemap has multiple mips but only mip0 is rendered.
 static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
+static const uint FLAG_USE_SPECULAR_TEX = 1u << 10;
+static const uint FLAG_USE_GLOSS_TEX = 1u << 11;
 
 // Planar reflection clip-plane (used only in a dedicated planar PSO)
 // We pack the plane as:
@@ -1032,18 +1040,41 @@ float4 PSMain(VSOut IN) : SV_Target0
 		alphaOut *= tex.a;
 	}
 
+	const uint specularIdx = (uint) uTexIndices1.z;
+	const uint glossIdx = (uint) uTexIndices1.w;
+	const bool useSpecularTex = ((flags & FLAG_USE_SPECULAR_TEX) != 0u) && (specularIdx != 0u);
+	const bool useGlossTex = ((flags & FLAG_USE_GLOSS_TEX) != 0u) && (glossIdx != 0u);
+	
+	// Legacy FBX/Phong assets often provide spec/gloss instead of metal/rough.
+	// Only treat them as a fallback when the corresponding PBR texture is absent.
+	const bool useLegacySpecularTex = useSpecularTex && !useMetalTex;
+	const bool useLegacyGlossTex = useGlossTex && !useRoughTex;
+	
+	
 	float metallic = saturate(uPbrParams.x);
-	float roughness = saturate(uPbrParams.y);
-	float ao = saturate(uPbrParams.z);
-	const float emissiveStrength = max(uPbrParams.w, 0.0f);
 
 	if (useMetalTex)
-		metallic *= gMetalness.Sample(gLinear, IN.uv).r;
+	{
+		metallic = gMetalness.Sample(gLinear, IN.uv).r;
+	}
+	
+	float roughness = saturate(uPbrParams.y);
 	if (useRoughTex)
-		roughness *= gRoughness.Sample(gLinear, IN.uv).r;
+	{
+		roughness = gRoughness.Sample(gLinear, IN.uv).r;
+	}
+	else if (useLegacyGlossTex)
+	{
+		roughness = 1.0f - gBindlessTex[NonUniformResourceIndex(glossIdx)].Sample(gLinear, IN.uv).r;
+	}
+	
+	float ao = saturate(uPbrParams.z);
 	if (useAOTex)
+	{
 		ao *= gAO.Sample(gLinear, IN.uv).r;
+	}
 
+	const float emissiveStrength = max(uPbrParams.w, 0.0f);
 	roughness = clamp(roughness, 0.04f, 1.0f);
 
 	float3 N = normalize(IN.nrmW);
@@ -1059,7 +1090,7 @@ float4 PSMain(VSOut IN) : SV_Target0
     // Works with BOTH skybox cubemap and dynamic reflection capture cubemap.
     // Trigger: metallic ~= 1, roughness very low, no extra material maps.
 	const bool simpleMirror = useEnv
-        && !useTex && !useNormal && !useMetalTex && !useRoughTex && !useAOTex && !useEmissiveTex
+		&& !useTex && !useNormal && !useMetalTex && !useRoughTex && !useAOTex && !useEmissiveTex && !useSpecularTex && !useGlossTex
         && (metallic >= 0.99f)
         && (roughness <= 0.06f);
     
@@ -1081,7 +1112,18 @@ float4 PSMain(VSOut IN) : SV_Target0
 	}
 
     // Fresnel reflectance at normal incidence
-	const float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), baseColor, metallic);
+	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), baseColor, metallic);
+	float oneMinusReflectivity = 1.0f - metallic;
+	if (useLegacySpecularTex)
+	{
+		const float3 legacySpec = saturate(gBindlessTex[NonUniformResourceIndex(specularIdx)].Sample(gLinear, IN.uv).rgb);
+		
+		// aiTextureType_SPECULAR from legacy FBX/Phong content is usually a spec mask / intensity map,
+		// not a physically authored F0 texture. Remap it into a conservative dielectric range so
+		// skybox / probe reflections do not become unrealistically strong.
+		F0 = lerp(float3(0.02f, 0.02f, 0.02f), float3(0.08f, 0.08f, 0.08f), legacySpec);
+		oneMinusReflectivity = 1.0f - saturate(max(max(F0.r, F0.g), F0.b));
+	}
 
 	float3 Lo = 0.0f;
 
@@ -1193,7 +1235,7 @@ float4 PSMain(VSOut IN) : SV_Target0
 		const float3 specular = numerator / denom;
 
 		const float3 kS = F;
-		const float3 kD = (1.0f - kS) * (1.0f - metallic);
+		const float3 kD = (1.0f - kS) * oneMinusReflectivity;
 		const float3 diffuse = kD * baseColor / PI;
 
 		const float3 radiance = Ld.p2.xyz * (Ld.p1.w * attenuation);
@@ -1261,15 +1303,26 @@ float4 PSMain(VSOut IN) : SV_Target0
 					envR,
 					uEnvProbeBoxMin.xyz,
 					uEnvProbeBoxMax.xyz);
-        }
+					
+			// Reflection-capture cubes currently render mip0 only. Approximate roughness by
+			// widening the lookup direction towards the surface normal for rough materials.
+			envRspec = normalize(lerp(envRspec, envN, saturate(roughness)));
+		}
         
-		const float3 envSpec = useManualEnv
+		float3 envSpec = useManualEnv
             ? SampleEnvArray(envRspec, lodSpec)
             : gEnv.SampleLevel(gLinearClamp, envR, lodSpec).rgb;
+			
+		if (useManualEnv)
+		{
+				// Until probes have a properly prefiltered mip chain, damp the raw mip0 reflection
+				// on rough materials to avoid overly aggressive skybox highlights.
+			envSpec *= lerp(1.0f, 0.35f, roughness);
+		}
 
 		const float3 F = FresnelSchlick(NdotV, F0);
 		const float3 kS = F;
-		const float3 kD = (1.0f - kS) * (1.0f - metallic);
+		const float3 kD = (1.0f - kS) * oneMinusReflectivity;
 
 		ambient = (kD * baseColor * envDiffuse) + (envSpec * kS);
 		ambient *= (ao * uCameraAmbient.w);

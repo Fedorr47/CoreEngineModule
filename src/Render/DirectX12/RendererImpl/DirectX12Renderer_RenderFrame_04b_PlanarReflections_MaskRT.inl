@@ -152,7 +152,25 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			att.clearDesc.stencil = 0;
 
 			graph.AddPass(std::string("PlanarReflScene_") + std::to_string(mirrorIndex), std::move(att),
-				[this, &scene, ResolveMainPassMaterialPerm, ResolveOpaqueEnvBinding, BindMainPassMaterialTextures, BuildMainPassMaterialFlags, shadowRG, dirLightViewProj, lightCount, spotShadows, pointShadows, mainBatches, captureMainBatchesNoCull, skinnedOpaqueDraws, instStride, planeN, planeD](renderGraph::PassContext& ctx)
+				[
+				this, 
+				&scene, 
+				ResolveMainPassMaterialPerm, 
+				ResolveOpaqueEnvBinding, 
+				BindMainPassMaterialTextures, 
+				BuildMainPassMaterialFlags,
+				FillMainPassMaterialTextureIndices, 
+				shadowRG, 
+				dirLightViewProj, 
+				lightCount, 
+				spotShadows, 
+				pointShadows, 
+				mainBatches, 
+				captureMainBatchesNoCull, 
+				skinnedOpaqueDraws, 
+				instStride, 
+				planeN, 
+				planeD](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
@@ -331,6 +349,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						constants.uMaterialFlags = { planeN.x, planeN.y, materialBiasTexels, AsFloatBits(flags) };
 
 						constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+						FillMainPassMaterialTextureIndices(constants, batch.material);
 						constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), (planeD - 0.05f) };
 						constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
 						constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -392,6 +411,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						const float materialBiasTexels = draw.material.shadowBias;
 						constants.uMaterialFlags = { planeN.x, planeN.y, materialBiasTexels, AsFloatBits(flags) };
 						constants.uPbrParams = { draw.material.metallic, draw.material.roughness, draw.material.ao, draw.material.emissiveStrength };
+						FillMainPassMaterialTextureIndices(constants, draw.material);
 						constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), (planeD - 0.05f) };
 						constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
 						constants.uEnvProbeBoxMin = { 0.0f, 0.0f, 0.0f, 0.0f };

@@ -311,7 +311,7 @@ export namespace rendern
 
 		// Bindless material texture descriptor indices (DX12 SM6 deferred).
 		// Packed as float4 to keep the constant buffer simple across backends.
-		// x=albedo, y=normal, z=metalness, w=roughness
+		// x=ao, y=emissive, z=specular, w=gloss
 		std::array<float, 4> uTexIndices0{};
 		// x=ao, y=emissive, z,w unused
 		std::array<float, 4> uTexIndices1{};

@@ -8,6 +8,8 @@ constexpr std::uint32_t kMaterialFlagUseEmissiveTex = 1u << 6;
 constexpr std::uint32_t kMaterialFlagUseEnv = 1u << 7;
 constexpr std::uint32_t kMaterialFlagEnvForceMip0 = 1u << 8;
 constexpr std::uint32_t kMaterialFlagEnvFlipZ = 1u << 9;
+constexpr std::uint32_t kMaterialFlagUseSpecularTex = 1u << 10;
+constexpr std::uint32_t kMaterialFlagUseGlossTex = 1u << 11;
 
 auto ResolveMainPassMaterialPerm = [&](const auto& material, const auto& materialHandle) -> MaterialPerm
 	{
@@ -84,6 +86,22 @@ auto ResolveTransparentEnvBinding = [&](const auto& materialHandle) -> ResolvedM
 		return env;
 	};
 
+auto FillMainPassMaterialTextureIndices = [&](auto& constants, const auto& material)
+	{
+		constants.uTexIndices0 = {
+			static_cast<float>(material.albedoDescIndex),
+			static_cast<float>(material.normalDescIndex),
+			static_cast<float>(material.metalnessDescIndex),
+			static_cast<float>(material.roughnessDescIndex)
+		};
+		constants.uTexIndices1 = {
+			static_cast<float>(material.aoDescIndex),
+			static_cast<float>(material.emissiveDescIndex),
+			static_cast<float>(material.specularDescIndex),
+			static_cast<float>(material.glossDescIndex)
+		};
+	};
+
 auto BindMainPassMaterialTextures = [&](auto& commandList, const auto& material, const ResolvedMaterialEnvBinding& env)
 	{
 		commandList.BindTextureDesc(0, material.albedoDescIndex);
@@ -134,6 +152,14 @@ auto BuildMainPassMaterialFlags = [&](const auto& material, bool useTex, bool us
 		if (env.descIndex != 0)
 		{
 			flags |= kMaterialFlagUseEnv;
+		}
+		if (material.specularDescIndex != 0)
+		{
+			flags |= kMaterialFlagUseSpecularTex;
+		}
+		if (material.glossDescIndex != 0)
+		{
+			flags |= kMaterialFlagUseGlossTex;
 		}
 		if (settings_.enableReflectionCapture && env.usingReflectionProbeEnv)
 		{

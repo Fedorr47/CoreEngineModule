@@ -274,12 +274,9 @@ PSOut PS_GBuffer(VSOut IN)
 	
 	// CPU packs:
 	// uEnvProbeBoxMin.w = envSource (0 = Skybox, 1 = ReflectionCapture)
-	// uEnvProbeBoxMax.xyz = packed reflection cubemap descriptor bytes / 255
+	// uEnvProbeBoxMax.w = normalized reflection probe index for deferred resolve
 	const float envSource = saturate(uEnvProbeBoxMin.w);
-	OUT.rt3 = float4(envSource,
-	                 saturate(uEnvProbeBoxMax.x),
-	                 saturate(uEnvProbeBoxMax.y),
-	                 saturate(uEnvProbeBoxMax.z));
+	OUT.rt3 = float4(envSource, saturate(uEnvProbeBoxMax.w), 0.0f, 0.0f);
 	
 	return OUT;
 }

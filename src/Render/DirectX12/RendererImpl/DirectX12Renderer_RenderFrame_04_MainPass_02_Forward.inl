@@ -145,6 +145,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	ResolveMainPassMaterialPerm,
 	ResolveOpaqueEnvBinding,
 	BindMainPassMaterialTextures,
+	FillMainPassMaterialTextureIndices,
 	BuildMainPassMaterialFlags,
 	ComputeForwardGBufferReflectionMeta,
 	doDepthPrepass](renderGraph::PassContext& ctx)
@@ -255,6 +256,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 		constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
 
 		constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+		FillMainPassMaterialTextureIndices(constants, batch.material);
 
 		const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeForwardGBufferReflectionMeta(
 			batch.materialHandle,
@@ -322,6 +324,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 		const float materialBiasTexels = draw.material.shadowBias;
 		constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
 		constants.uPbrParams = { draw.material.metallic, draw.material.roughness, draw.material.ao, draw.material.emissiveStrength };
+		FillMainPassMaterialTextureIndices(constants, draw.material);
 
 		const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeForwardGBufferReflectionMeta(
 			draw.materialHandle,
@@ -388,6 +391,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 		ResolveTransparentEnvBinding,
 		BindMainPassMaterialTextures,
 		BuildMainPassMaterialFlags,
+		FillMainPassMaterialTextureIndices,
 		FillPerBatchViewLightingConstants,
 		ResetPerBatchEnvProbeBox,
 		particleCount,
@@ -474,6 +478,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 			constants.uMaterialFlags = { 0.0f, 0.0f, materialBiasTexels, AsFloatBits(flags) };
 
 			constants.uPbrParams = { batchTransparent.material.metallic, batchTransparent.material.roughness, batchTransparent.material.ao, batchTransparent.material.emissiveStrength };
+			FillMainPassMaterialTextureIndices(constants, batchTransparent.material);
 
 			constants.uCounts = {
 				static_cast<float>(lightCount),

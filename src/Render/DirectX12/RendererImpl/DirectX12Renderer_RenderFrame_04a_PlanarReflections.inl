@@ -146,6 +146,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			constants.uMaterialFlags = { clipN.x, clipN.y, materialBiasTexels, AsFloatBits(flags) };
 
 			constants.uPbrParams = { batch.material.metallic, batch.material.roughness, batch.material.ao, batch.material.emissiveStrength };
+			FillMainPassMaterialTextureIndices(constants, batch.material);
 			constants.uCounts = { float(lightCount), float(spotShadows.size()), float(pointShadows.size()), clipD };
 			constants.uShadowBias = { settings_.dirShadowBaseBiasTexels, settings_.spotShadowBaseBiasTexels, settings_.pointShadowBaseBiasTexels, settings_.shadowSlopeScaleTexels };
 			ResetPerBatchEnvProbeBox(constants);
