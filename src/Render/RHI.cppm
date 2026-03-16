@@ -596,6 +596,10 @@ export namespace rhi
 			throw std::runtime_error("CreateFramebufferMRT: backend does not support MRT yet");
 		}
 		virtual FrameBufferHandle CreateFramebufferCubeFace(TextureHandle colorCube, std::uint32_t faceIndex, TextureHandle depth) = 0;
+		virtual FrameBufferHandle CreateFramebufferCubeFaceMip(TextureHandle colorCube, std::uint32_t faceIndex, [[maybe_unused]] std::uint32_t mipLevel, TextureHandle depth)
+		{
+			return CreateFramebufferCubeFace(colorCube, faceIndex, depth);
+		}
 		virtual FrameBufferHandle CreateFramebufferCube(TextureHandle colorCube, TextureHandle depthCube)
 		{
 			return CreateFramebufferCubeFace(colorCube, 0u, depthCube);
@@ -726,6 +730,12 @@ namespace rhi
 			return handle;
 		}
 		FrameBufferHandle CreateFramebufferCubeFace(TextureHandle, std::uint32_t, TextureHandle) override
+		{
+			FrameBufferHandle handle{};
+			handle.id = ++nextId_;
+			return handle;
+		}
+		FrameBufferHandle CreateFramebufferCubeFaceMip(TextureHandle, std::uint32_t, std::uint32_t, TextureHandle) override
 		{
 			FrameBufferHandle handle{};
 			handle.id = ++nextId_;

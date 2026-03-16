@@ -56,6 +56,7 @@
             Extent2D extent{};
             Format format{ Format::Unknown };
             Type type{ Type::Tex2D };
+            UINT mipLevels{ 1 };
 
             ComPtr<ID3D12Resource> resource;
 
@@ -81,6 +82,10 @@
             std::array<UINT, 6> rtvIndexFaces{};
             std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 6> rtvFaces{};
 
+            // Optional per-mip RTVs for cubemap render targets.
+            // Layout is [mip * 6 + face]. mip0 aliases the regular face RTVs.
+            std::vector<UINT> rtvIndexMipFaces;
+            std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvMipFaces;
 
             // For cubemap render targets (RTV for all 6 faces as a Texture2DArray view)
             bool hasRTVAllFaces{ false };
@@ -112,6 +117,7 @@
 
             // UINT32_MAX means "regular 2D color attachment".
             std::uint32_t colorCubeFace{ 0xFFFFFFFFu };
+            std::uint32_t colorCubeMip{ 0u };
 
             // If true, bind the cubemap RTV/DSV as a 2D array view with ArraySize=6 (View-Instancing path).
             bool colorCubeAllFaces{ false };

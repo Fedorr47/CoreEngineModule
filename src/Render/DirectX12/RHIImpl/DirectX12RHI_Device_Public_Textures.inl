@@ -228,18 +228,36 @@
 
                 EnsureRTVHeap();
 
-                // One RTV per face (fallback 6-pass path).
+                // One RTV per face for mip0 (fallback 6-pass path).
                 textureEntry.hasRTVFaces = true;
                 for (UINT face = 0; face < 6; ++face)
                 {
                     textureEntry.rtvFaces[face] = AllocateRTVTexture2DArraySlice(textureEntry.resource.Get(), dxFmt, face, textureEntry.rtvIndexFaces[face]);
                 }
 
+                // Optional per-mip RTVs for reflection-probe prefilter. mip0 aliases the regular face RTVs.
+                textureEntry.mipLevels = mipLevels;
+                textureEntry.rtvIndexMipFaces.resize(static_cast<std::size_t>(mipLevels) * 6u);
+                textureEntry.rtvMipFaces.resize(static_cast<std::size_t>(mipLevels) * 6u);
+                for (UINT face = 0; face < 6; ++face)
+                {
+                    textureEntry.rtvIndexMipFaces[face] = textureEntry.rtvIndexFaces[face];
+                    textureEntry.rtvMipFaces[face] = textureEntry.rtvFaces[face];
+                }
+                for (UINT mip = 1; mip < mipLevels; ++mip)
+                {
+                    for (UINT face = 0; face < 6; ++face)
+                    {
+                        const std::size_t idx = static_cast<std::size_t>(mip) * 6u + static_cast<std::size_t>(face);
+                        textureEntry.rtvMipFaces[idx] = AllocateRTVTexture2DArraySliceMip(textureEntry.resource.Get(), dxFmt, face, mip, textureEntry.rtvIndexMipFaces[idx]);
+                    }
+                }
+
                 // One RTV that targets all 6 faces as a Texture2DArray view (View-Instancing path).
                 textureEntry.rtvAllFaces = AllocateRTVTexture2DArray(textureEntry.resource.Get(), dxFmt, 0, 6, textureEntry.rtvIndexAllFaces);
                 textureEntry.hasRTVAllFaces = true;
 
-                AllocateSRV(textureEntry, dxFmt, 1);
+                AllocateSRV(textureEntry, dxFmt, mipLevels);
             }
 
             textures_[textureHandle.id] = std::move(textureEntry);
@@ -287,6 +305,13 @@
                 for (UINT idx : entry.rtvIndexFaces)
                 {
                     CurrentFrame().deferredFreeRtv.push_back(idx);
+                }
+                if (entry.rtvIndexMipFaces.size() > 6u)
+                {
+                    for (std::size_t i = 6; i < entry.rtvIndexMipFaces.size(); ++i)
+                    {
+                        CurrentFrame().deferredFreeRtv.push_back(entry.rtvIndexMipFaces[i]);
+                    }
                 }
             }
             if (entry.hasRTVAllFaces)
@@ -356,6 +381,20 @@
             frameBufEntry.colorCount = 1u;
             frameBufEntry.depth = depth;
             frameBufEntry.colorCubeFace = faceIndex;
+            frameBufEntry.colorCubeMip = 0u;
+            framebuffers_[frameBuffer.id] = frameBufEntry;
+            return frameBuffer;
+        }
+
+        FrameBufferHandle CreateFramebufferCubeFaceMip(TextureHandle colorCube, std::uint32_t faceIndex, std::uint32_t mipLevel, TextureHandle depth) override
+        {
+            FrameBufferHandle frameBuffer{ ++nextFBId_ };
+            FramebufferEntry frameBufEntry{};
+            frameBufEntry.colors[0] = colorCube;
+            frameBufEntry.colorCount = 1u;
+            frameBufEntry.depth = depth;
+            frameBufEntry.colorCubeFace = faceIndex;
+            frameBufEntry.colorCubeMip = mipLevel;
             framebuffers_[frameBuffer.id] = frameBufEntry;
             return frameBuffer;
         }

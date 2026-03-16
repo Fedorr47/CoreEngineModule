@@ -16,7 +16,7 @@
 	for (std::size_t probeIndex = 0; probeIndex < reflectionProbes_.size(); ++probeIndex)
 	{
 		const auto& probe = reflectionProbes_[probeIndex];
-		if (!probe.cube || probe.cubeDescIndex == 0)
+		if (!probe.prefilteredCube || probe.cubeDescIndex == 0)
 		{
 			continue;
 		}

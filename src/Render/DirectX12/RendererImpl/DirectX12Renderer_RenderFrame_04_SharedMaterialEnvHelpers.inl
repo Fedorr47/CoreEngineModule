@@ -48,13 +48,13 @@ auto ResolveOpaqueEnvBinding = [&](const auto& materialHandle, int reflectionPro
 		}
 
 		const auto& probe = reflectionProbes_[static_cast<std::size_t>(reflectionProbeIndex)];
-		if (probe.cubeDescIndex == 0 || !probe.cube)
+		if (probe.cubeDescIndex == 0 || !probe.prefilteredCube)
 		{
 			return env;
 		}
 
 		env.descIndex = probe.cubeDescIndex;
-		env.arrayTexture = probe.cube;
+		env.arrayTexture = probe.prefilteredCube;
 		env.usingReflectionProbeEnv = true;
 		return env;
 	};
@@ -163,7 +163,8 @@ auto BuildMainPassMaterialFlags = [&](const auto& material, bool useTex, bool us
 		}
 		if (settings_.enableReflectionCapture && env.usingReflectionProbeEnv)
 		{
-			// Dynamic reflection captures update mip0 only and are sampled via manual face+UV mapping.
+			// Reflection probes use the manual cube-as-array sampling path to preserve capture orientation
+			// and box-parallax correction, but now rely on a prefiltered mip chain for roughness.
 			flags |= kMaterialFlagEnvForceMip0;
 			flags |= kMaterialFlagEnvFlipZ;
 		}

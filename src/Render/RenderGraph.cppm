@@ -58,6 +58,8 @@ struct RGTextureDesc
 
 		// If set, color attachment is treated as a cubemap and this selects the face [0..5].
 		std::optional<std::uint32_t> colorCubeFace;
+		// Optional mip level for cubemap color attachment. Used for reflection-probe prefilter passes.
+		std::optional<std::uint32_t> colorCubeMip;
 		// If true, color cubemap is rendered as all faces (array layers) in a single pass (e.g. DX12 view-instancing).
 		bool colorCubeAllFaces{ false };
 		rhi::ClearDesc clearDesc{};
@@ -204,7 +206,14 @@ struct RGTextureDesc
 					}
 					else if (pass.attachments.colorCubeFace && colors.size() == 1 && colors[0].id != 0)
 					{
-						frameBuffer = device.CreateFramebufferCubeFace(colors[0], *pass.attachments.colorCubeFace, depth);
+						if (pass.attachments.colorCubeMip)
+						{
+							frameBuffer = device.CreateFramebufferCubeFaceMip(colors[0], *pass.attachments.colorCubeFace, *pass.attachments.colorCubeMip, depth);
+						}
+						else
+						{
+							frameBuffer = device.CreateFramebufferCubeFace(colors[0], *pass.attachments.colorCubeFace, depth);
+						}
 					}
 					else
 					{

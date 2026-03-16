@@ -127,6 +127,22 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
 }
 
+float3 EnvBRDFApprox(float3 F0, float roughness, float NdotV)
+{
+    const float4 c0 = float4(-1.0f, -0.0275f, -0.572f, 0.022f);
+    const float4 c1 = float4(1.0f, 0.0425f, 1.04f, -0.04f);
+    const float4 r = roughness * c0 + c1;
+    const float a004 = min(r.x * r.x, exp2(-9.28f * NdotV)) * r.x + r.y;
+    const float2 AB = float2(-1.04f, 1.04f) * a004 + r.zw;
+    return saturate(F0 * AB.x + AB.y);
+}
+
+float ComputeSpecularOcclusion(float ao, float NdotV, float roughness)
+{
+    const float exponent = exp2(-16.0f * roughness - 1.0f);
+    return saturate(pow(NdotV + ao, exponent) - 1.0f + ao);
+}
+
 float DistributionGGX(float NdotH, float roughness)
 {
     float a = max(roughness, 0.04f);
@@ -744,7 +760,9 @@ float4 PS_DeferredLighting(VSOut IN) : SV_Target0
     }
 
     float3 indirectDiffuse = kD * (envDiffuse * albedo) * ao * ambientStrength;
-    float3 indirectSpec = envSpec * F;
+    float3 envBrdf = EnvBRDFApprox(F0, roughness, NdotV);
+    float specularOcclusion = ComputeSpecularOcclusion(ao, NdotV, roughness);
+    float3 indirectSpec = envSpec * envBrdf * specularOcclusion * ambientStrength;
     float3 indirect = indirectDiffuse + indirectSpec;
 
     float3 color = indirect + Lo + emissive;

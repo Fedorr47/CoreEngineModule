@@ -140,7 +140,21 @@ if constexpr (std::is_same_v<T, CommandBeginPass>)
                         te.resource.Get(),
                         te.state,
                         D3D12_RESOURCE_STATE_RENDER_TARGET);
-                    rtvs[0] = te.rtvFaces[fb.colorCubeFace];
+
+                    const std::uint32_t mipLevel = fb.colorCubeMip;
+                    if (mipLevel == 0u)
+                    {
+                        rtvs[0] = te.rtvFaces[fb.colorCubeFace];
+                    }
+                    else
+                    {
+                        const std::size_t mipFaceIndex = static_cast<std::size_t>(mipLevel) * 6u + static_cast<std::size_t>(fb.colorCubeFace);
+                        if (mipFaceIndex >= te.rtvMipFaces.size())
+                        {
+                            throw std::runtime_error("DX12: CommandBeginPass: cubemap mip RTV index out of range");
+                        }
+                        rtvs[0] = te.rtvMipFaces[mipFaceIndex];
+                    }
                     numRT = 1;
                     curRTVFormats[0] = te.rtvFormat;
                 }

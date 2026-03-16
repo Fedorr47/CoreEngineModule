@@ -192,9 +192,10 @@ export namespace rendern
 		bool dirty = true;
 		bool hasLastPos = false;
 		mathUtils::Vec3 lastPos{};
-		rhi::TextureHandle cube{};
+		rhi::TextureHandle cube{};              // raw capture cube (mip0 written by capture pass)
+		rhi::TextureHandle prefilteredCube{};   // final sampled cube with roughness-prefiltered mip chain
 		rhi::TextureHandle depthCube{};
-		rhi::TextureDescIndex cubeDescIndex{};
+		rhi::TextureDescIndex cubeDescIndex{};  // descriptor for prefilteredCube
 	};
 
 	struct BatchKey

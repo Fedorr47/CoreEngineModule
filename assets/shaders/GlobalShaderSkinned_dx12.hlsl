@@ -113,8 +113,8 @@ static const uint FLAG_USE_AO_TEX = 1u << 5;
 static const uint FLAG_USE_EMISSIVE_TEX = 1u << 6;
 static const uint FLAG_USE_ENV = 1u << 7;
 static const uint FLAG_ENV_FLIP_Z = 1u << 8;
-// When enabled, treat gEnv as an unfiltered dynamic cubemap: sample mip0 only.
-// This avoids seams/garbage when the cubemap has multiple mips but only mip0 is rendered.
+// When enabled, route env sampling through the manual cube-as-array path.
+// Used for dynamic reflection probes so face orientation/parallax correction stays consistent.
 static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
 static const uint FLAG_USE_SPECULAR_TEX = 1u << 10;
 static const uint FLAG_USE_GLOSS_TEX = 1u << 11;
@@ -267,6 +267,22 @@ float Pow5(float x)
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
 	return F0 + (1.0f - F0) * Pow5(1.0f - saturate(cosTheta));
+}
+
+float3 EnvBRDFApprox(float3 F0, float roughness, float NdotV)
+{
+	const float4 c0 = float4(-1.0f, -0.0275f, -0.572f, 0.022f);
+	const float4 c1 = float4(1.0f, 0.0425f, 1.04f, -0.04f);
+	const float4 r = roughness * c0 + c1;
+	const float a004 = min(r.x * r.x, exp2(-9.28f * NdotV)) * r.x + r.y;
+	const float2 AB = float2(-1.04f, 1.04f) * a004 + r.zw;
+	return saturate(F0 * AB.x + AB.y);
+}
+
+float ComputeSpecularOcclusion(float ao, float NdotV, float roughness)
+{
+	const float exponent = exp2(-16.0f * roughness - 1.0f);
+	return saturate(pow(NdotV + ao, exponent) - 1.0f + ao);
 }
 
 float DistributionGGX(float NdotH, float alpha)
@@ -779,9 +795,7 @@ float3 SampleEnvArray(float3 dir, float lod)
     // gEnvArray is Texture2DArray<float4>, bound at t18 as the same reflection cubemap resource
     // viewed as a 6-slice 2D array. SampleLevel is valid here.
     
-    // Use point-clamp for dynamic probe array view while debugging convention issues.
-    // This avoids linear filtering smearing along face borders and makes orientation problems obvious.
-	return gEnvArray.SampleLevel(gPointClamp, float3(fu.uv, (float) fu.face), lod).rgb;
+    	return gEnvArray.SampleLevel(gLinearClamp, float3(fu.uv, (float) fu.face), lod).rgb;
 }
 
 float3 ParallaxCorrect_Box(
@@ -1265,30 +1279,26 @@ float4 PSMain(VSOut IN) : SV_Target0
 	float3 ambient = 0.0f;
 	if (useEnv)
 	{
-       // Compute mipMax from actual env mip levels (important for dynamic cubemaps that may have 1 mip).
+       // Compute mipMax from actual env mip levels. Dynamic reflection probes now use a
+		// properly prefiltered mip chain, so roughness drives the env LOD in both paths.
 		uint w, h, levels;
 		gEnv.GetDimensions(0, w, h, levels);
-		float mipMax = (levels > 0u) ? (float) (levels - 1u) : 0.0f;
-        
-        // Dynamic reflection captures typically render only mip0. If the texture was created with
-        // a full mip chain, sampling higher mips will read uninitialized data and show face seams.
-		if (envForceMip0)
-			mipMax = 0.0f;
+		const float mipMax = (levels > 0u) ? (float) (levels - 1u) : 0.0f;
 
 		const float3 R = reflect(-V, N);
-        
+
 		float3 envN = N;
 		float3 envR = R;
-        
-        // Dynamic reflection probes (envForceMip0 path) are sampled through manual face selection and
-        // must stay in the same convention as the capture pass. Ignore legacy envFlipZ there.
+
+        // Dynamic reflection probes are sampled through the manual face-selection path so they stay
+        // in the same convention as the capture pass and can apply box-parallax correction.
 		const bool dynamicProbe = envForceMip0;
 		if (envFlipZ && !dynamicProbe)
 		{
 			envN.z = -envN.z;
 			envR.z = -envR.z;
 		}
-        
+
         // Optional debug direction override (helps separate reflect()/normal issues from cube face mapping issues)
 		envN = normalize(DebugPickFixedDir(envN));
 		envR = normalize(DebugPickFixedDir(envR));
@@ -1299,20 +1309,18 @@ float4 PSMain(VSOut IN) : SV_Target0
     CubeFaceUV dbgFace = CubeDirToFaceUV_Env(normalize(dbgDir));
     return float4(DebugFaceColor(dbgFace.face), 1.0f);
 #endif
-        
-         // For dynamic captures (mip0 only), keep both diffuse and specular on mip0.
-		const float lodDiffuse = envForceMip0 ? 0.0f : mipMax;
-		const float lodSpec = envForceMip0 ? 0.0f : (roughness * mipMax);
 
-        // Dynamic reflection probes (mip0-only) use manual face sampling via gEnvArray to avoid
-        // obvious cross-face seams / orientation mismatch in the custom capture pipeline.
-        // Skybox / regular cubemap path stays TextureCube (Luna-like).
+		const float lodDiffuse = mipMax;
+		const float lodSpec = roughness * mipMax;
+
+        // Dynamic reflection probes use manual face sampling via gEnvArray to preserve capture
+        // orientation and box-parallax correction. Regular skybox/cubemap path stays TextureCube.
 		const bool useManualEnv = dynamicProbe;
-        
+
 		const float3 envDiffuse = useManualEnv
             ? SampleEnvArray(envN, lodDiffuse)
             : gEnv.SampleLevel(gLinearClamp, envN, lodDiffuse).rgb;
-			
+
 		float3 envRspec = envR;
 		if (useManualEnv)
 		{
@@ -1321,28 +1329,21 @@ float4 PSMain(VSOut IN) : SV_Target0
 					envR,
 					uEnvProbeBoxMin.xyz,
 					uEnvProbeBoxMax.xyz);
-			// Reflection-capture cubes currently render mip0 only. Approximate roughness by
-			// widening the lookup direction towards the surface normal for rough materials.
-			envRspec = normalize(lerp(envRspec, envN, saturate(roughness)));
 		}
-        
-		float3 envSpec = useManualEnv
+
+		const float3 envSpec = useManualEnv
             ? SampleEnvArray(envRspec, lodSpec)
             : gEnv.SampleLevel(gLinearClamp, envR, lodSpec).rgb;
-			
-		if (useManualEnv)
-		{
-				// Until probes have a properly prefiltered mip chain, damp the raw mip0 reflection
-				// on rough materials to avoid overly aggressive skybox highlights.
-			envSpec *= lerp(1.0f, 0.35f, roughness);
-		}
 
 		const float3 F = FresnelSchlick(NdotV, F0);
 		const float3 kS = F;
 		const float3 kD = (1.0f - kS) * oneMinusReflectivity;
+		const float3 envBrdf = EnvBRDFApprox(F0, roughness, NdotV);
+		const float specularOcclusion = ComputeSpecularOcclusion(ao, NdotV, roughness);
+		const float3 indirectDiffuse = kD * baseColor * envDiffuse * ao;
+		const float3 indirectSpecular = envSpec * envBrdf * specularOcclusion;
 
-		ambient = (kD * baseColor * envDiffuse) + (envSpec * kS);
-		ambient *= (ao * uCameraAmbient.w);
+		ambient = (indirectDiffuse + indirectSpecular) * uCameraAmbient.w;
 	}
 	else
 	{

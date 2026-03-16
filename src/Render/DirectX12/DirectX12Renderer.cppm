@@ -373,6 +373,11 @@ export namespace rendern
 					device_.DestroyTexture(probe.cube);
 					probe.cube = {};
 				}
+				if (probe.prefilteredCube)
+				{
+					device_.DestroyTexture(probe.prefilteredCube);
+					probe.prefilteredCube = {};
+				}
 				if (probe.depthCube)
 				{
 					device_.DestroyTexture(probe.depthCube);
@@ -400,7 +405,7 @@ export namespace rendern
 			for (std::size_t i = 0; i < requiredCount; ++i)
 			{
 				ReflectionProbeRuntime& probe = reflectionProbes_[i];
-				const bool needCreate = (!probe.cube) || (!probe.depthCube);
+				const bool needCreate = (!probe.cube) || (!probe.prefilteredCube) || (!probe.depthCube);
 				if (!needCreate)
 				{
 					continue;
@@ -416,16 +421,27 @@ export namespace rendern
 					device_.DestroyTexture(probe.depthCube);
 					probe.depthCube = {};
 				}
+				if (probe.prefilteredCube)
+				{
+					device_.DestroyTexture(probe.prefilteredCube);
+					probe.prefilteredCube = {};
+				}
 
 				probe.cube = device_.CreateTextureCube(reflectionCubeExtent_, rhi::Format::RGBA8_UNORM);
+				probe.prefilteredCube = device_.CreateTextureCube(reflectionCubeExtent_, rhi::Format::RGBA8_UNORM);
 				probe.depthCube = device_.CreateTextureCube(reflectionCubeExtent_, rhi::Format::D32_FLOAT);
 
-				if (!probe.cube || !probe.depthCube)
+				if (!probe.cube || !probe.prefilteredCube || !probe.depthCube)
 				{
 					if (probe.cube)
 					{
 						device_.DestroyTexture(probe.cube);
 						probe.cube = {};
+					}
+					if (probe.prefilteredCube)
+					{
+						device_.DestroyTexture(probe.prefilteredCube);
+						probe.prefilteredCube = {};
 					}
 					if (probe.depthCube)
 					{
@@ -437,11 +453,11 @@ export namespace rendern
 
 				if (probe.cubeDescIndex == 0)
 				{
-					probe.cubeDescIndex = device_.AllocateTextureDesctiptor(probe.cube);
+					probe.cubeDescIndex = device_.AllocateTextureDesctiptor(probe.prefilteredCube);
 				}
 				else
 				{
-					device_.UpdateTextureDescriptor(probe.cubeDescIndex, probe.cube);
+					device_.UpdateTextureDescriptor(probe.cubeDescIndex, probe.prefilteredCube);
 				}
 
 				probe.dirty = true;
@@ -548,6 +564,7 @@ export namespace rendern
 		bool disableReflectionCaptureLayered_{ false };
 		rhi::PipelineHandle psoReflectionCaptureVI_{};          // SM6.1 view instancing
 		bool disableReflectionCaptureVI_{ false };
+		rhi::PipelineHandle psoReflectionProbePrefilter_{};      // fullscreen GGX prefilter into probe mip chain
 
 
 		std::vector<ReflectionProbeRuntime> reflectionProbes_;

@@ -210,7 +210,7 @@ if (settings_.enableReflectionCapture)
 			probe.capturePos.y + h,
 			probe.capturePos.z + h);
 
-		const bool validProbe = (probe.cube && probe.cubeDescIndex != 0);
+		const bool validProbe = (probe.prefilteredCube && probe.cubeDescIndex != 0);
 
 		const std::uint32_t boxColor = validProbe ? 0xFF00FFFFu : 0xFF0000FFu;   // cyan / red
 		const std::uint32_t centerColor = 0xFFFFFF00u;                            // yellow
@@ -854,9 +854,9 @@ if (settings_.ShowCubeAtlas)
 			const std::uint32_t maxIdx = static_cast<std::uint32_t>(reflectionProbes_.size() - 1u);
 			const std::uint32_t idx = std::min(settings_.debugCubeAtlasIndex, maxIdx);
 			const ReflectionProbeRuntime& probe = reflectionProbes_[idx];
-			if (probe.cube)
+			if (probe.prefilteredCube)
 			{
-				debugReflectionCube = probe.cube;
+				debugReflectionCube = probe.prefilteredCube;
 			}
 		}
 		else if (reflectionCube_)

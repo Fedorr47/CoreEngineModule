@@ -297,10 +297,10 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 								if (batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
 								{
 									const auto& probe = reflectionProbes_[static_cast<std::size_t>(batch.reflectionProbeIndex)];
-									if (probe.cubeDescIndex != 0 && probe.cube)
+									if (probe.cubeDescIndex != 0 && probe.prefilteredCube)
 									{
 										envDescIndex = probe.cubeDescIndex;
-										envArrayTexture = probe.cube;
+										envArrayTexture = probe.prefilteredCube;
 										usingReflectionProbeEnv = true;
 									}
 								}

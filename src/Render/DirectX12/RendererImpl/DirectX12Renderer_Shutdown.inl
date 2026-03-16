@@ -48,6 +48,30 @@ if (reflectionProbeMetaBuffer_)
 	device_.DestroyBuffer(reflectionProbeMetaBuffer_); 
 }
 reflectionCubeExtent_ = {};
+for (auto& probe : reflectionProbes_)
+{
+	if (probe.cubeDescIndex != 0)
+	{
+		device_.FreeTextureDescriptor(probe.cubeDescIndex);
+		probe.cubeDescIndex = 0;
+	}
+	if (probe.cube)
+	{
+		device_.DestroyTexture(probe.cube);
+		probe.cube = {};
+	}
+	if (probe.prefilteredCube)
+	{
+		device_.DestroyTexture(probe.prefilteredCube);
+		probe.prefilteredCube = {};
+	}
+	if (probe.depthCube)
+	{
+		device_.DestroyTexture(probe.depthCube);
+		probe.depthCube = {};
+	}
+}
+reflectionProbes_.clear();
 for (auto& [_, mesh] : skinnedMeshCache_)
 {
 	DestroySkinnedMesh(device_, mesh);

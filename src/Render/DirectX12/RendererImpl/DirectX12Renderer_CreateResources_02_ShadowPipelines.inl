@@ -179,6 +179,7 @@
 				const std::filesystem::path reflPath = corefs::ResolveAsset("shaders\\ReflectionCapture_dx12.hlsl");
 				const std::filesystem::path reflVIPath = corefs::ResolveAsset("shaders\\ReflectionCaptureVI_dx12.hlsl");
 				const std::filesystem::path reflLayeredPath = corefs::ResolveAsset("shaders\\ReflectionCaptureLayered_dx12.hlsl");
+				const std::filesystem::path reflPrefilterPath = corefs::ResolveAsset("shaders\\ReflectionProbePrefilter_dx12.hlsl");
 
 				// Fallback (SM5.x) - 6 passes, one face at a time
 				{
@@ -285,4 +286,17 @@
 						disableReflectionCaptureLayered_ = true;
 					}
 				}
+				const auto vsPrefilter = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Vertex,
+					.name = "VS_Fullscreen",
+					.filePath = reflPrefilterPath.string(),
+					.defines = {}
+					});
+				const auto psPrefilter = shaderLibrary_.GetOrCreateShader(ShaderKey{
+					.stage = rhi::ShaderStage::Pixel,
+					.name = "PS_PrefilterEnv",
+					.filePath = reflPrefilterPath.string(),
+					.defines = {}
+					});
+				psoReflectionProbePrefilter_ = psoCache_.GetOrCreate("PSO_ReflectionProbe_Prefilter", vsPrefilter, psPrefilter);
 			}

@@ -52,6 +52,23 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 	const std::uint32_t skyboxDesc = scene.skyboxDescIndex;
 	const bool haveSkybox = (skyboxDesc != 0);
 
+	struct ReflectionProbePrefilterConstants
+	{
+		std::array<float, 4> uFaceRoughnessMip{}; // x=faceIndex, y=roughness, z=mipLevel, w=copyBase(1/0)
+	};
+
+	auto CalcCubeMipCount = [](const rhi::Extent2D extent) -> std::uint32_t
+	{
+		std::uint32_t levels = 1;
+		std::uint32_t v = std::max(extent.width, extent.height);
+		while (v > 1u)
+		{
+			v >>= 1u;
+			++levels;
+		}
+		return levels;
+	};
+
 	for (std::size_t probeIndex = 0; probeIndex < reflectiveOwnerDrawItems_.size(); ++probeIndex)
 	{
 		if (probeIndex >= reflectionProbes_.size())
@@ -79,7 +96,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 			}
 		}
 
-		if (!probe.cube || !probe.depthCube || probe.cubeDescIndex == 0)
+		if (!probe.cube || !probe.prefilteredCube || !probe.depthCube || probe.cubeDescIndex == 0)
 		{
 			continue;
 		}
@@ -102,6 +119,14 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 			.debugName = "ReflectionProbeCube"
 		});
 
+		const auto prefilteredCubeRG = graph.ImportTexture(probe.prefilteredCube, renderGraph::RGTextureDesc{
+			.extent = reflectionCubeExtent_,
+			.format = rhi::Format::RGBA8_UNORM,
+			.usage = renderGraph::ResourceUsage::RenderTarget,
+			.type = renderGraph::TextureType::Cube,
+			.debugName = "ReflectionProbeCubePrefiltered"
+		});
+
 		const auto depthCubeRG = graph.ImportTexture(probe.depthCube, renderGraph::RGTextureDesc{
 			.extent = reflectionCubeExtent_,
 			.format = rhi::Format::D32_FLOAT,
@@ -116,6 +141,8 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 			.usage = renderGraph::ResourceUsage::DepthStencil,
 			.debugName = "ReflectionProbeDepthTmp"
 		});
+
+		const std::uint32_t probeMipCount = CalcCubeMipCount(reflectionCubeExtent_);
 
 		std::vector<Batch> captureMainBatches;
 		captureMainBatches.reserve(captureMainBatchesNoCull.size());
@@ -400,6 +427,77 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 							}
 						}
 					});
+			}
+		}
+
+		if (psoReflectionProbePrefilter_ && fullscreenLayout_)
+		{
+			const auto sourceCube = cubeRG;
+			for (std::uint32_t face = 0; face < 6u; ++face)
+			{
+				renderGraph::PassAttachments att{};
+				att.useSwapChainBackbuffer = false;
+				att.bindDepthStencil = false;
+				att.colors = { prefilteredCubeRG };
+				att.colorCubeFace = face;
+				att.colorCubeMip = 0u;
+				att.clearDesc.clearColor = false;
+				att.clearDesc.clearDepth = false;
+				att.clearDesc.clearStencil = false;
+
+				const ReflectionProbePrefilterConstants constants{ .uFaceRoughnessMip = { static_cast<float>(face), 0.0f, 0.0f, 1.0f } };
+				const std::string passName =
+					"ReflectionProbe_" + std::to_string(probeIndex) + "_PrefilterCopy_Face_" + std::to_string(face);
+
+				graph.AddPass(passName, std::move(att),
+					[this, sourceCube, constants](renderGraph::PassContext& ctx) mutable
+					{
+						ctx.commandList.SetViewport(0, 0, static_cast<int>(ctx.passExtent.width), static_cast<int>(ctx.passExtent.height));
+						ctx.commandList.SetState(copyToSwapChainState_);
+						ctx.commandList.BindPipeline(psoReflectionProbePrefilter_);
+						ctx.commandList.BindInputLayout(fullscreenLayout_);
+						ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+						ctx.commandList.BindTexture2DArray(0, ctx.resources.GetTexture(sourceCube));
+						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+						ctx.commandList.Draw(3);
+					});
+			}
+
+			for (std::uint32_t mip = 1u; mip < probeMipCount; ++mip)
+			{
+				const std::uint32_t mipWidth = std::max(1u, reflectionCubeExtent_.width >> mip);
+				const std::uint32_t mipHeight = std::max(1u, reflectionCubeExtent_.height >> mip);
+				const float roughness = (probeMipCount > 1u) ? (static_cast<float>(mip) / static_cast<float>(probeMipCount - 1u)) : 0.0f;
+
+				for (std::uint32_t face = 0; face < 6u; ++face)
+				{
+					renderGraph::PassAttachments att{};
+					att.useSwapChainBackbuffer = false;
+					att.bindDepthStencil = false;
+					att.colors = { prefilteredCubeRG };
+					att.colorCubeFace = face;
+					att.colorCubeMip = mip;
+					att.clearDesc.clearColor = false;
+					att.clearDesc.clearDepth = false;
+					att.clearDesc.clearStencil = false;
+
+					const ReflectionProbePrefilterConstants constants{ .uFaceRoughnessMip = { static_cast<float>(face), roughness, static_cast<float>(mip), 0.0f } };
+					const std::string passName =
+						"ReflectionProbe_" + std::to_string(probeIndex) + "_PrefilterMip_" + std::to_string(mip) + "_Face_" + std::to_string(face);
+
+					graph.AddPass(passName, std::move(att),
+						[this, sourceCube, constants, mipWidth, mipHeight](renderGraph::PassContext& ctx) mutable
+						{
+							ctx.commandList.SetViewport(0, 0, static_cast<int>(mipWidth), static_cast<int>(mipHeight));
+							ctx.commandList.SetState(copyToSwapChainState_);
+							ctx.commandList.BindPipeline(psoReflectionProbePrefilter_);
+							ctx.commandList.BindInputLayout(fullscreenLayout_);
+							ctx.commandList.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+							ctx.commandList.BindTexture2DArray(0, ctx.resources.GetTexture(sourceCube));
+							ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
+							ctx.commandList.Draw(3);
+						});
+				}
 			}
 		}
 	}

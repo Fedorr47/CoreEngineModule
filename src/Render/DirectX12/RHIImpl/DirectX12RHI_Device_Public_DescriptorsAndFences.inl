@@ -56,18 +56,21 @@
             srvDesc.Format = te.srvFormat;
             srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
+            const D3D12_RESOURCE_DESC resourceDesc = te.resource->GetDesc();
+            const UINT mipLevels = std::max<UINT>(1u, resourceDesc.MipLevels);
+
             if (te.type == TextureEntry::Type::Cube)
             {
                 srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
                 srvDesc.TextureCube.MostDetailedMip = 0;
-                srvDesc.TextureCube.MipLevels = 1;
+                srvDesc.TextureCube.MipLevels = mipLevels;
                 srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
             }
             else
             {
                 srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
                 srvDesc.Texture2D.MostDetailedMip = 0;
-                srvDesc.Texture2D.MipLevels = 1;
+                srvDesc.Texture2D.MipLevels = mipLevels;
                 srvDesc.Texture2D.PlaneSlice = 0;
                 srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
             }

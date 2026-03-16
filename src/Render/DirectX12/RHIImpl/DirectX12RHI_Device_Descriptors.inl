@@ -96,6 +96,38 @@
             return cpu;
         }
 
+        D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTVTexture2DArraySliceMip(ID3D12Resource* res, DXGI_FORMAT fmt, UINT arraySlice, UINT mipSlice, UINT& outIndex)
+        {
+            EnsureRTVHeap();
+
+            UINT idx = 0;
+            if (!freeRTV_.empty())
+            {
+                idx = freeRTV_.back();
+                freeRTV_.pop_back();
+            }
+            else
+            {
+                idx = nextRTV_++;
+            }
+
+            D3D12_RENDER_TARGET_VIEW_DESC viewDesc{};
+            viewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+            viewDesc.Format = fmt;
+            viewDesc.Texture2DArray.MipSlice = mipSlice;
+            viewDesc.Texture2DArray.FirstArraySlice = arraySlice;
+            viewDesc.Texture2DArray.ArraySize = 1;
+            viewDesc.Texture2DArray.PlaneSlice = 0;
+
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpu =
+            {
+                rtvHeap_->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(idx) * static_cast<SIZE_T>(rtvInc_)
+            };
+
+            NativeDevice()->CreateRenderTargetView(res, &viewDesc, cpu);
+            outIndex = idx;
+            return cpu;
+        }
 
         D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTVTexture2DArray(ID3D12Resource* res, DXGI_FORMAT fmt, UINT firstSlice, UINT arraySize, UINT& outIndex)
         {
