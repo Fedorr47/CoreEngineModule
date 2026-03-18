@@ -1,3 +1,8 @@
+namespace rendern::ui::level_ui_detail
+{
+    static constexpr const char* kDemoSmokeTextureId = "particle_smoke_soft_01";
+    static constexpr const char* kDemoSmokeTexturePath = "textures/particles/soft_smoke_01.png";
+
     static std::string MakeUniqueParticleEmitterName(const rendern::LevelAsset& level, std::string_view base)
     {
         auto NameExists = [&](std::string_view candidate) noexcept
@@ -355,3 +360,4 @@
         }
     }
 
+}

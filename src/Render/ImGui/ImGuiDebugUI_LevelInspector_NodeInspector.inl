@@ -1,3 +1,5 @@
+namespace rendern::ui::level_ui_detail
+{
     static void DrawNodeSelectionInspector(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
@@ -882,3 +884,4 @@
         }
     }
 
+}

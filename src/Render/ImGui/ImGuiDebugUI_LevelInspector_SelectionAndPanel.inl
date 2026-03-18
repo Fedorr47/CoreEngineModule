@@ -1,3 +1,5 @@
+namespace rendern::ui::level_ui_detail
+{
     void DrawParticleEmitterSelectionInspector(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
