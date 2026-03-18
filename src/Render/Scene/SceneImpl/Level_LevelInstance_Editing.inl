@@ -847,6 +847,50 @@ void SetNodeMaterial(LevelAsset& asset, Scene& scene, int nodeIndex, std::string
 	ValidateRuntimeMappingsDebug(asset, scene);
 }
 
+void SanitizeAliveNodeSelectionIndex(const LevelAsset& asset, int& nodeIndex) const noexcept
+{
+	if (!IsNodeAlive(asset, nodeIndex))
+	{
+		nodeIndex = -1;
+	}
+}
+
+void SanitizeAliveParticleEmitterSelectionIndex(const LevelAsset& asset, int& emitterIndex) const noexcept
+{
+	if (!IsParticleEmitterAlive(asset, emitterIndex))
+	{
+		emitterIndex = -1;
+	}
+}
+
+void SanitizeSelectedNodeSet(const LevelAsset& asset, Scene& scene) const noexcept
+{
+	auto& selectedNodes = scene.editorSelectedNodes;
+	std::size_t write = 0;
+	for (std::size_t i = 0; i < selectedNodes.size(); ++i)
+	{
+		const int nodeIndex = selectedNodes[i];
+		if (IsNodeAlive(asset, nodeIndex))
+		{
+			selectedNodes[write++] = nodeIndex;
+		}
+	}
+	selectedNodes.resize(write);
+
+	for (std::size_t i = 0; i < selectedNodes.size(); ++i)
+	{
+		for (std::size_t j = i + 1; j < selectedNodes.size();)
+		{
+			if (selectedNodes[j] == selectedNodes[i])
+			{
+				selectedNodes.erase(selectedNodes.begin() + static_cast<std::vector<int>::difference_type>(j));
+				continue;
+			}
+			++j;
+		}
+	}
+}
+
 void MarkTransformsDirty() noexcept
 {
 	transformsDirty_ = true;
@@ -854,56 +898,10 @@ void MarkTransformsDirty() noexcept
 
 void SyncEditorRuntimeBindings(const LevelAsset& asset, Scene& scene) const noexcept
 {
-	auto SanitizeNodeIndex = [&](int& nodeIndex) noexcept
-		{
-			if (!IsNodeAlive(asset, nodeIndex))
-			{
-				nodeIndex = -1;
-			}
-		};
-
-	auto SanitizeParticleEmitterIndex = [&](int& emitterIndex) noexcept
-		{
-			if (!IsParticleEmitterAlive(asset, emitterIndex))
-			{
-				emitterIndex = -1;
-			}
-		};
-
-	auto SanitizeSelectedNodes = [&]() noexcept
-		{
-			// Remove dead/out-of-range nodes.
-			auto& sel = scene.editorSelectedNodes;
-			std::size_t write = 0;
-			for (std::size_t i = 0; i < sel.size(); ++i)
-			{
-				const int nodeIndex = sel[i];
-				if (IsNodeAlive(asset, nodeIndex))
-				{
-					sel[write++] = nodeIndex;
-				}
-			}
-			sel.resize(write);
-
-			// Deduplicate (keep order stable).
-			for (std::size_t i = 0; i < sel.size(); ++i)
-			{
-				for (std::size_t j = i + 1; j < sel.size();)
-				{
-					if (sel[j] == sel[i])
-					{
-						sel.erase(sel.begin() + static_cast<std::vector<int>::difference_type>(j));
-						continue;
-					}
-					++j;
-				}
-			}
-		};
-
-	SanitizeNodeIndex(scene.editorSelectedNode);
-	SanitizeParticleEmitterIndex(scene.editorSelectedParticleEmitter);
-	SanitizeNodeIndex(scene.editorReflectionCaptureOwnerNode);
-	SanitizeSelectedNodes();
+	SanitizeAliveNodeSelectionIndex(asset, scene.editorSelectedNode);
+	SanitizeAliveParticleEmitterSelectionIndex(asset, scene.editorSelectedParticleEmitter);
+	SanitizeAliveNodeSelectionIndex(asset, scene.editorReflectionCaptureOwnerNode);
+	SanitizeSelectedNodeSet(asset, scene);
 
 	// Keep primary selection consistent with the selection set.
 	if (scene.editorSelectedNode >= 0)

@@ -422,22 +422,23 @@ namespace
 		}
 	};
 
+	[[nodiscard]] inline std::size_t CombineHashValue_(std::size_t hash, const std::uint64_t value) noexcept
+	{
+		return hash ^ (static_cast<std::size_t>(value) + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2));
+	}
+
 	struct VaoKeyHash
 	{
 		std::size_t operator()(const VaoKey& key) const noexcept
 		{
 			std::size_t hash = 1469598103934665603ull;
-			auto mix = [&](std::uint64_t val)
-				{
-					hash ^= static_cast<std::size_t>(val) + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2);
-				};
-			mix(key.layoutId);
-			mix(key.vbId);
-			mix(key.vbOffset);
-			mix(key.vbStride);
-			mix(key.ibId);
-			mix(key.ibOffset);
-			mix(static_cast<std::uint32_t>(key.indexType));
+			hash = CombineHashValue_(hash, key.layoutId);
+			hash = CombineHashValue_(hash, key.vbId);
+			hash = CombineHashValue_(hash, key.vbOffset);
+			hash = CombineHashValue_(hash, key.vbStride);
+			hash = CombineHashValue_(hash, key.ibId);
+			hash = CombineHashValue_(hash, key.ibOffset);
+			hash = CombineHashValue_(hash, static_cast<std::uint32_t>(key.indexType));
 			return hash;
 		}
 	};

@@ -731,6 +731,27 @@ export namespace rendern
 			return false;
 		}
 
+		[[nodiscard]] inline int ScoreInPlaceMotionChannel(
+			const Skeleton& skeleton,
+			const BoneAnimationChannel& channel) noexcept
+		{
+			if (!ChannelHasMeaningfulTranslation(skeleton, channel))
+			{
+				return -1;
+			}
+
+			int score = 0;
+			const std::string_view boneName = channel.boneName;
+			if (ContainsInsensitive(boneName, "hips")) score += 200;
+			if (ContainsInsensitive(boneName, "pelvis")) score += 180;
+			if (ContainsInsensitive(boneName, "root")) score += 120;
+			if (ContainsInsensitive(boneName, "master")) score += 80;
+			if (ContainsInsensitive(boneName, "ctrl")) score -= 10;
+			const std::size_t boneIndex = static_cast<std::size_t>(channel.boneIndex);
+			score -= GetBoneDepth(skeleton, boneIndex) * 4;
+			return score;
+		}
+
 		[[nodiscard]] inline std::size_t ResolveInPlaceMotionBoneIndex(
 			const AnimationControllerRuntime& runtime,
 			const AnimatorState& animator) noexcept
@@ -755,25 +776,6 @@ export namespace rendern
 				return rootIndex;
 			}
 
-			const auto scoreChannel = [&](const BoneAnimationChannel& channel) noexcept -> int
-				{
-					if (!ChannelHasMeaningfulTranslation(skeleton, channel))
-					{
-						return -1;
-					}
-
-					int score = 0;
-					const std::string_view boneName = channel.boneName;
-					if (ContainsInsensitive(boneName, "hips")) score += 200;
-					if (ContainsInsensitive(boneName, "pelvis")) score += 180;
-					if (ContainsInsensitive(boneName, "root")) score += 120;
-					if (ContainsInsensitive(boneName, "master")) score += 80;
-					if (ContainsInsensitive(boneName, "ctrl")) score -= 10;
-					const std::size_t boneIndex = static_cast<std::size_t>(channel.boneIndex);
-					score -= GetBoneDepth(skeleton, boneIndex) * 4;
-					return score;
-				};
-
 			int bestScore = -1;
 			std::size_t bestIndex = rootIndex;
 			for (const BoneAnimationChannel& channel : animator.clip->channels)
@@ -783,7 +785,7 @@ export namespace rendern
 					continue;
 				}
 
-				const int score = scoreChannel(channel);
+				const int score = ScoreInPlaceMotionChannel(skeleton, channel);
 				if (score > bestScore)
 				{
 					bestScore = score;

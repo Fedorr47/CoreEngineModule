@@ -265,6 +265,190 @@ namespace appEditor
         }
     }
 
+    inline bool TryGetViewportMouseClientPos(HWND hwnd, int viewportWidth, int viewportHeight, int& outMouseX, int& outMouseY);
+
+    struct ViewportMouseState
+    {
+        int x{ 0 };
+        int y{ 0 };
+        float xFloat{ 0.0f };
+        float yFloat{ 0.0f };
+        float widthFloat{ 0.0f };
+        float heightFloat{ 0.0f };
+    };
+
+    inline bool TryGetViewportMouseState(
+        HWND hwnd,
+        int viewportWidth,
+        int viewportHeight,
+        ViewportMouseState& outState)
+    {
+        if (!TryGetViewportMouseClientPos(hwnd, viewportWidth, viewportHeight, outState.x, outState.y))
+        {
+            return false;
+        }
+
+        outState.xFloat = static_cast<float>(outState.x);
+        outState.yFloat = static_cast<float>(outState.y);
+        outState.widthFloat = static_cast<float>(viewportWidth);
+        outState.heightFloat = static_cast<float>(viewportHeight);
+        return true;
+    }
+
+    template <typename TGizmoController>
+    inline bool HandleStandardGizmoInteraction(
+        TGizmoController& gizmoController,
+        rendern::LevelAsset& levelAsset,
+        rendern::LevelInstance& levelInstance,
+        rendern::Scene& scene,
+        const ViewportMouseState& mouseState,
+        const rendern::InputState& input,
+        bool& outTransformChanged)
+    {
+        if (gizmoController.IsDragging())
+        {
+            if (input.KeyDown(VK_LBUTTON))
+            {
+                outTransformChanged = gizmoController.UpdateDrag(
+                    levelAsset,
+                    levelInstance,
+                    scene,
+                    mouseState.xFloat,
+                    mouseState.yFloat,
+                    mouseState.widthFloat,
+                    mouseState.heightFloat,
+                    input.shiftDown);
+                return true;
+            }
+
+            gizmoController.EndDrag(scene);
+            return true;
+        }
+
+        if (!input.KeyPressed(VK_LBUTTON))
+        {
+            return false;
+        }
+
+        return gizmoController.TryBeginDrag(
+            levelAsset,
+            levelInstance,
+            scene,
+            mouseState.xFloat,
+            mouseState.yFloat,
+            mouseState.widthFloat,
+            mouseState.heightFloat);
+    }
+
+    inline bool HandleParticleEmitterTranslateInteraction(
+        rendern::LevelAsset& levelAsset,
+        rendern::LevelInstance& levelInstance,
+        rendern::Scene& scene,
+        const ViewportMouseState& mouseState,
+        const rendern::InputState& input,
+        bool& outTransformChanged)
+    {
+        if (scene.editorParticleEmitterTranslateDrag.dragging)
+        {
+            if (input.KeyDown(VK_LBUTTON))
+            {
+                outTransformChanged = UpdateParticleEmitterTranslateDrag(
+                    levelAsset,
+                    levelInstance,
+                    scene,
+                    mouseState.xFloat,
+                    mouseState.yFloat,
+                    mouseState.widthFloat,
+                    mouseState.heightFloat);
+                return true;
+            }
+
+            EndParticleEmitterTranslateDrag(scene);
+            return true;
+        }
+
+        if (!input.KeyPressed(VK_LBUTTON))
+        {
+            return false;
+        }
+
+        return TryBeginParticleEmitterTranslateDrag(
+            levelAsset,
+            scene,
+            mouseState.xFloat,
+            mouseState.yFloat,
+            mouseState.widthFloat,
+            mouseState.heightFloat);
+    }
+
+    inline void ApplyViewportPickSelection(
+        rendern::LevelAsset& levelAsset,
+        rendern::LevelInstance& levelInstance,
+        rendern::Scene& scene,
+        const ViewportMouseState& mouseState,
+        const rendern::InputState& input)
+    {
+        const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
+
+        const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(
+            scene,
+            levelInstance,
+            mouseState.xFloat,
+            mouseState.yFloat,
+            mouseState.widthFloat,
+            mouseState.heightFloat);
+
+        scene.debugPickRay.enabled = true;
+        scene.debugPickRay.origin = pick.rayOrigin;
+        scene.debugPickRay.direction = pick.rayDir;
+        scene.debugPickRay.hit = ((pick.nodeIndex >= 0) || (pick.particleEmitterIndex >= 0) || (pick.lightIndex >= 0)) && std::isfinite(pick.t);
+        scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
+
+        if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
+        {
+            if (ctrlDown)
+            {
+                scene.EditorToggleSelectionNode(pick.nodeIndex);
+            }
+            else
+            {
+                scene.EditorSetSelectionSingle(pick.nodeIndex);
+            }
+            return;
+        }
+
+        if (scene.debugPickRay.hit && levelInstance.IsValidParticleEmitterIndex(pick.particleEmitterIndex))
+        {
+            if (ctrlDown)
+            {
+                scene.EditorToggleSelectionParticleEmitter(pick.particleEmitterIndex);
+            }
+            else
+            {
+                scene.EditorSetSelectionSingleParticleEmitter(pick.particleEmitterIndex);
+            }
+            return;
+        }
+
+        if (scene.debugPickRay.hit && pick.lightIndex >= 0)
+        {
+            if (ctrlDown)
+            {
+                scene.EditorToggleSelectionLight(pick.lightIndex);
+            }
+            else
+            {
+                scene.EditorSetLightSelectionSingle(pick.lightIndex);
+            }
+            return;
+        }
+
+        if (!ctrlDown)
+        {
+            scene.EditorClearSelection();
+        }
+    }
+
     inline bool TryGetViewportMouseClientPos(HWND hwnd, int viewportWidth, int viewportHeight, int& outMouseX, int& outMouseY)
     {
         int x = 0;
@@ -298,43 +482,37 @@ namespace appEditor
             return;
         }
 
-        int mouseX = 0;
-        int mouseY = 0;
-        if (!TryGetViewportMouseClientPos(hwnd, viewportWidth, viewportHeight, mouseX, mouseY))
+        ViewportMouseState mouseState{};
+        if (!TryGetViewportMouseState(hwnd, viewportWidth, viewportHeight, mouseState))
         {
             ClearAllGizmoHover(interaction, scene);
             return;
         }
 
-        const float mouseXF = static_cast<float>(mouseX);
-        const float mouseYF = static_cast<float>(mouseY);
-        const float viewportWidthF = static_cast<float>(viewportWidth);
-        const float viewportHeightF = static_cast<float>(viewportHeight);
-
         if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
         {
             if (HasParticleEmitterSelection(scene))
             {
-                scene.editorTranslateGizmo.hoveredAxis = rendern::HitTestTranslateGizmoAxis(scene, scene.editorTranslateGizmo, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                scene.editorTranslateGizmo.hoveredAxis = rendern::HitTestTranslateGizmoAxis(scene, scene.editorTranslateGizmo, mouseState.xFloat, mouseState.yFloat, mouseState.widthFloat, mouseState.heightFloat);
                 scene.editorRotateGizmo.hoveredAxis = rendern::GizmoAxis::None;
                 scene.editorScaleGizmo.hoveredAxis = rendern::GizmoAxis::None;
             }
             else
             {
-                interaction.translateGizmo.UpdateHover(scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                interaction.translateGizmo.UpdateHover(scene, mouseState.xFloat, mouseState.yFloat, mouseState.widthFloat, mouseState.heightFloat);
                 interaction.rotateGizmo.ClearHover(scene);
                 interaction.scaleGizmo.ClearHover(scene);
             }
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
         {
-            interaction.rotateGizmo.UpdateHover(scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+            interaction.rotateGizmo.UpdateHover(scene, mouseState.xFloat, mouseState.yFloat, mouseState.widthFloat, mouseState.heightFloat);
             interaction.translateGizmo.ClearHover(scene);
             interaction.scaleGizmo.ClearHover(scene);
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
         {
-            interaction.scaleGizmo.UpdateHover(scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+            interaction.scaleGizmo.UpdateHover(scene, mouseState.xFloat, mouseState.yFloat, mouseState.widthFloat, mouseState.heightFloat);
             interaction.translateGizmo.ClearHover(scene);
             interaction.rotateGizmo.ClearHover(scene);
         }
@@ -377,13 +555,8 @@ namespace appEditor
             return;
         }
 
-        int mouseX = 0;
-        int mouseY = 0;
-        if (!appWin32::TryGetCursorPosClient(hwnd, mouseX, mouseY))
-        {
-            return;
-        }
-        if (mouseX < 0 || mouseY < 0 || mouseX >= viewportWidth || mouseY >= viewportHeight)
+        ViewportMouseState mouseState{};
+        if (!TryGetViewportMouseState(hwnd, viewportWidth, viewportHeight, mouseState))
         {
             if (!input.KeyDown(VK_LBUTTON))
             {
@@ -392,93 +565,22 @@ namespace appEditor
             return;
         }
 
-        const float mouseXF = static_cast<float>(mouseX);
-        const float mouseYF = static_cast<float>(mouseY);
-        const float viewportWidthF = static_cast<float>(viewportWidth);
-        const float viewportHeightF = static_cast<float>(viewportHeight);
-
         bool gizmoConsumed = false;
         bool transformChanged = false;
 
         if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
         {
-            if (HasParticleEmitterSelection(scene))
-            {
-                if (scene.editorParticleEmitterTranslateDrag.dragging)
-                {
-                    if (input.KeyDown(VK_LBUTTON))
-                    {
-                        transformChanged = UpdateParticleEmitterTranslateDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
-                        gizmoConsumed = true;
-                    }
-                    else
-                    {
-                        EndParticleEmitterTranslateDrag(scene);
-                        gizmoConsumed = true;
-                    }
-                }
-                else if (input.KeyPressed(VK_LBUTTON))
-                {
-                    gizmoConsumed = TryBeginParticleEmitterTranslateDrag(levelAsset, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
-                }
-            }
-            else if (interaction.translateGizmo.IsDragging())
-            {
-                if (input.KeyDown(VK_LBUTTON))
-                {
-                    transformChanged = interaction.translateGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF, input.shiftDown);
-                    gizmoConsumed = true;
-                }
-                else
-                {
-                    interaction.translateGizmo.EndDrag(scene);
-                    gizmoConsumed = true;
-                }
-            }
-            else if (input.KeyPressed(VK_LBUTTON))
-            {
-                gizmoConsumed = interaction.translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
-            }
+            gizmoConsumed = HasParticleEmitterSelection(scene)
+                ? HandleParticleEmitterTranslateInteraction(levelAsset, levelInstance, scene, mouseState, input, transformChanged)
+                : HandleStandardGizmoInteraction(interaction.translateGizmo, levelAsset, levelInstance, scene, mouseState, input, transformChanged);
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
         {
-            if (interaction.rotateGizmo.IsDragging())
-            {
-                if (input.KeyDown(VK_LBUTTON))
-                {
-                    transformChanged = interaction.rotateGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF, input.shiftDown);
-                    gizmoConsumed = true;
-                }
-                else
-                {
-                    interaction.rotateGizmo.EndDrag(scene);
-                    gizmoConsumed = true;
-                }
-            }
-            else if (input.KeyPressed(VK_LBUTTON))
-            {
-                gizmoConsumed = interaction.rotateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
-            }
+            gizmoConsumed = HandleStandardGizmoInteraction(interaction.rotateGizmo, levelAsset, levelInstance, scene, mouseState, input, transformChanged);
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Scale)
         {
-            if (interaction.scaleGizmo.IsDragging())
-            {
-                if (input.KeyDown(VK_LBUTTON))
-                {
-                    transformChanged = interaction.scaleGizmo.UpdateDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF, input.shiftDown);
-                    gizmoConsumed = true;
-                }
-                else
-                {
-                    interaction.scaleGizmo.EndDrag(scene);
-                    gizmoConsumed = true;
-                }
-            }
-            else if (input.KeyPressed(VK_LBUTTON))
-            {
-                gizmoConsumed = interaction.scaleGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
-            }
+            gizmoConsumed = HandleStandardGizmoInteraction(interaction.scaleGizmo, levelAsset, levelInstance, scene, mouseState, input, transformChanged);
         }
 
         if (transformChanged)
@@ -488,63 +590,7 @@ namespace appEditor
 
         if (!gizmoConsumed && input.KeyPressed(VK_LBUTTON))
         {
-            const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
-
-            const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(
-                scene,
-                levelInstance,
-                mouseXF,
-                mouseYF,
-                viewportWidthF,
-                viewportHeightF);
-
-            scene.debugPickRay.enabled = true;
-            scene.debugPickRay.origin = pick.rayOrigin;
-            scene.debugPickRay.direction = pick.rayDir;
-            scene.debugPickRay.hit = ((pick.nodeIndex >= 0) || (pick.particleEmitterIndex >= 0) || (pick.lightIndex >= 0)) && std::isfinite(pick.t);
-            scene.debugPickRay.length = scene.debugPickRay.hit ? pick.t : scene.camera.farZ;
-
-            if (scene.debugPickRay.hit && levelInstance.IsNodeAlive(levelAsset, pick.nodeIndex))
-            {
-                if (ctrlDown)
-                {
-                    scene.EditorToggleSelectionNode(pick.nodeIndex);
-                }
-                else
-                {
-                    scene.EditorSetSelectionSingle(pick.nodeIndex);
-                }
-            }
-            else if (scene.debugPickRay.hit && levelInstance.IsValidParticleEmitterIndex(pick.particleEmitterIndex))
-            {
-                if (ctrlDown)
-                {
-                    scene.EditorToggleSelectionParticleEmitter(pick.particleEmitterIndex);
-                }
-                else
-                {
-                    scene.EditorSetSelectionSingleParticleEmitter(pick.particleEmitterIndex);
-                }
-            }
-            else if (scene.debugPickRay.hit && pick.lightIndex >= 0)
-            {
-                if (ctrlDown)
-                {
-                    scene.EditorToggleSelectionLight(pick.lightIndex);
-                }
-                else
-                {
-                    scene.EditorSetLightSelectionSingle(pick.lightIndex);
-                }
-            }
-            else
-            {
-                // Click on empty space: clear selection only when Ctrl is not pressed.
-                if (!ctrlDown)
-                {
-                    scene.EditorClearSelection();
-                }
-            }
+            ApplyViewportPickSelection(levelAsset, levelInstance, scene, mouseState, input);
         }
     }
 } // namespace appEditor
