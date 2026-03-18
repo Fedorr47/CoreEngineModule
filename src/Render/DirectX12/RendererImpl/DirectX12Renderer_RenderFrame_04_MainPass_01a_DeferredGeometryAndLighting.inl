@@ -171,6 +171,8 @@
 			constexpr std::uint32_t kFlagUseRoughTex = 1u << 4;
 			constexpr std::uint32_t kFlagUseAOTex = 1u << 5;
 			constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
+			constexpr std::uint32_t kFlagUseSpecularTex = 1u << 10;
+			constexpr std::uint32_t kFlagUseGlossTex = 1u << 11;
 
 			for (const Batch& batch : mainBatches)
 			{
@@ -216,6 +218,14 @@
 				if (batch.material.emissiveDescIndex != 0)
 				{
 					flags |= kFlagUseEmissiveTex;
+				}
+				if (batch.material.specularDescIndex != 0)
+				{
+					flags |= kFlagUseSpecularTex;
+				}
+				if (batch.material.glossDescIndex != 0)
+				{
+					flags |= kFlagUseGlossTex;
 				}
 
 				const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeDeferredGBufferReflectionMeta(
@@ -265,8 +275,8 @@
 				constants.uTexIndices1 = {
 					static_cast<float>(batch.material.aoDescIndex),
 					static_cast<float>(batch.material.emissiveDescIndex),
-					0.0f,
-					0.0f
+					static_cast<float>(batch.material.specularDescIndex),
+					static_cast<float>(batch.material.glossDescIndex)
 				};
 
 				// IA (instanced)
@@ -321,6 +331,14 @@
 				{
 					flags |= kFlagUseEmissiveTex;
 				}
+				if (draw.material.specularDescIndex != 0)
+				{
+					flags |= kFlagUseSpecularTex;
+				}
+				if (draw.material.glossDescIndex != 0)
+				{
+					flags |= kFlagUseGlossTex;
+				}
 
 				const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeDeferredGBufferReflectionMeta(
 					draw.materialHandle,
@@ -365,8 +383,8 @@
 				constants.uTexIndices1 = {
 					static_cast<float>(draw.material.aoDescIndex),
 					static_cast<float>(draw.material.emissiveDescIndex),
-					0.0f,
-					0.0f
+					static_cast<float>(draw.material.specularDescIndex),
+					static_cast<float>(draw.material.glossDescIndex)
 				};
 				const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
 				std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
@@ -381,7 +399,7 @@
 				ctx.commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
 				ctx.commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
 				ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-				ctx.commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+				ctx.commandList.DrawIndexed(draw.indexCount, draw.mesh->indexType, draw.firstIndex, 0);
 			}
 		});
 	}

@@ -245,6 +245,50 @@ std::shared_ptr<SkinnedAssetBundle> ResolveSkinnedAssetBundleForNode_(const Leve
 	return -1;
 }
 
+[[nodiscard]] std::string MakeImportedSkinnedMaterialId_(std::string_view skinnedMeshId, std::uint32_t materialIndex) const
+{
+	return std::string(skinnedMeshId) + "__mat_" + std::to_string(materialIndex);
+}
+
+[[nodiscard]] std::vector<MaterialHandle> BuildSkinnedSubmeshMaterials_(const LevelAsset& asset, Scene& scene, const LevelNode& node, const SkinnedAssetBundle& bundle)
+{
+	std::vector<MaterialHandle> materials;
+	if (bundle.mesh.submeshes.empty())
+	{
+		return materials;
+	}
+
+	materials.reserve(bundle.mesh.submeshes.size());
+	const std::string importedDefaultMaterialId = MakeImportedSkinnedMaterialId_(node.skinnedMesh, 0u);
+	const bool preferImportedMaterialLayout =
+		node.material.empty() ||
+		(node.material == importedDefaultMaterialId);
+
+	for (std::size_t submeshIndex = 0; submeshIndex < bundle.mesh.submeshes.size(); ++submeshIndex)
+	{
+		const SkinnedSubmesh& submesh = bundle.mesh.submeshes[submeshIndex];
+		std::string materialId = node.material;
+
+		if (auto itOverride = node.materialOverrides.find(static_cast<std::uint32_t>(submeshIndex));
+			itOverride != node.materialOverrides.end())
+		{
+			materialId = itOverride->second;
+		}
+		else if (preferImportedMaterialLayout)
+		{
+			const std::string importedMaterialId = MakeImportedSkinnedMaterialId_(node.skinnedMesh, submesh.materialIndex);
+			if (asset.materials.contains(importedMaterialId))
+			{
+				materialId = importedMaterialId;
+			}
+		}
+
+		materials.push_back(EnsureMaterial(asset, scene, materialId));
+	}
+
+	return materials;
+}
+
 int MakeSkinnedDrawForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex, const LevelNode& node)
 {
 	auto bundle = ResolveSkinnedAssetBundleForNode_(asset, node);
@@ -252,6 +296,7 @@ int MakeSkinnedDrawForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex
 	SkinnedDrawItem item{};
 	item.asset = bundle;
 	item.material = EnsureMaterial(asset, scene, node.material);
+	item.submeshMaterials = BuildSkinnedSubmeshMaterials_(asset, scene, node, *bundle);
 	item.transform.useMatrix = true;
 	item.transform.matrix = world_[static_cast<std::size_t>(nodeIndex)];
 	item.autoplay = node.animationAutoplay;

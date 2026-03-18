@@ -377,6 +377,7 @@ export namespace rendern
 		SkinnedHandle asset{};
 		Transform transform{};
 		MaterialHandle material{};
+		std::vector<MaterialHandle> submeshMaterials{};
 		AnimatorState animator{};
 		AnimationControllerRuntime controller{};
 		bool autoplay{ true };

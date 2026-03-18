@@ -280,6 +280,8 @@ export namespace rendern
 		MaterialParams material{};
 		MaterialHandle materialHandle{};
 		mathUtils::Mat4 model{ 1.0f };
+		std::uint32_t firstIndex{ 0 };
+		std::uint32_t indexCount{ 0 };
 		std::uint32_t paletteOffset{ 0 };
 		std::uint32_t boneCount{ 0 };
 		int sourceSkinnedDrawIndex{ -1 };

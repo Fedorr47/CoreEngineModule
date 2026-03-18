@@ -424,7 +424,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						ctx.commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
 						ctx.commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
 						ctx.commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-						ctx.commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+						ctx.commandList.DrawIndexed(draw.indexCount, draw.mesh->indexType, draw.firstIndex, 0);
 					}
 				});
 		}

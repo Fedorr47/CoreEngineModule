@@ -24,7 +24,7 @@
 					commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
 					commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
 					commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-					commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+					commandList.DrawIndexed(draw.indexCount, draw.mesh->indexType, draw.firstIndex, 0);
 				}
 			};
 
@@ -56,7 +56,7 @@
 					commandList.BindVertexBuffer(0, draw.mesh->vertexBuffer, draw.mesh->vertexStrideBytes, 0);
 					commandList.BindIndexBuffer(draw.mesh->indexBuffer, draw.mesh->indexType, 0);
 					commandList.SetConstants(0, std::as_bytes(std::span{ &constants, 1 }));
-					commandList.DrawIndexed(draw.mesh->indexCount, draw.mesh->indexType, 0, 0);
+					commandList.DrawIndexed(draw.indexCount, draw.mesh->indexType, draw.firstIndex, 0);
 				}
 			};
 

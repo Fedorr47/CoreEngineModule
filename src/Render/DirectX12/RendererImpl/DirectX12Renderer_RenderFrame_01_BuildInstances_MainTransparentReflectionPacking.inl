@@ -228,39 +228,74 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawIt
 	{
 		continue;
 	}
-	MaterialParams params{};
-	MaterialPerm perm = MaterialPerm::UseShadow;
-	if (item.material.id != 0)
-	{
-		const auto& mat = scene.GetMaterial(item.material);
-		params = mat.params;
-		perm = EffectivePerm(mat);
-	}
-	else
-	{
-		params.baseColor = { 1,1,1,1 };
-	}
-	if (HasFlag(perm, MaterialPerm::Transparent) || params.baseColor.w < 0.999f)
-	{
-		continue;
-	}
 	if (item.animator.skinMatrices.empty())
 	{
 		continue;
 	}
-	SkinnedOpaqueDraw draw{};
-	draw.mesh = &GetOrCreateSkinnedMeshRHI(item.asset);
-	draw.material = params;
-	draw.materialHandle = item.material;
-	draw.model = model;
-	draw.paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
-	draw.boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
-	draw.sourceSkinnedDrawIndex = static_cast<int>(skinnedDrawIndex);
+
+	const SkinnedMeshRHI& skinnedMesh = GetOrCreateSkinnedMeshRHI(item.asset);
+	const std::uint32_t paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
+	const std::uint32_t boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
 	for (const mathUtils::Mat4& skin : item.animator.skinMatrices)
 	{
 		skinnedPaletteMatrices.push_back(item.asset->mesh.skinningSkeletonToMeshSpace * skin);
 	}
-	skinnedOpaqueDraws.push_back(draw);
+
+	auto EmitSkinnedDraw = [&](std::uint32_t firstIndex, std::uint32_t indexCount, MaterialHandle materialHandle)
+	{
+		if (indexCount == 0)
+		{
+			return;
+		}
+
+		MaterialParams params{};
+		MaterialPerm perm = MaterialPerm::UseShadow;
+		if (materialHandle.id != 0)
+		{
+			const auto& mat = scene.GetMaterial(materialHandle);
+			params = mat.params;
+			perm = EffectivePerm(mat);
+		}
+		else
+		{
+			params.baseColor = { 1,1,1,1 };
+		}
+
+		if (HasFlag(perm, MaterialPerm::Transparent) || params.baseColor.w < 0.999f)
+		{
+			return;
+		}
+
+		SkinnedOpaqueDraw draw{};
+		draw.mesh = &skinnedMesh;
+		draw.material = params;
+		draw.materialHandle = materialHandle;
+		draw.model = model;
+		draw.firstIndex = firstIndex;
+		draw.indexCount = indexCount;
+		draw.paletteOffset = paletteOffset;
+		draw.boneCount = boneCount;
+		draw.sourceSkinnedDrawIndex = static_cast<int>(skinnedDrawIndex);
+		skinnedOpaqueDraws.push_back(draw);
+	};
+
+	if (!item.asset->mesh.submeshes.empty())
+	{
+		for (std::size_t submeshIndex = 0; submeshIndex < item.asset->mesh.submeshes.size(); ++submeshIndex)
+		{
+			const SkinnedSubmesh& submesh = item.asset->mesh.submeshes[submeshIndex];
+			MaterialHandle materialHandle = item.material;
+			if (submeshIndex < item.submeshMaterials.size() && item.submeshMaterials[submeshIndex].id != 0)
+			{
+				materialHandle = item.submeshMaterials[submeshIndex];
+			}
+			EmitSkinnedDraw(submesh.firstIndex, submesh.indexCount, materialHandle);
+		}
+	}
+	else
+	{
+		EmitSkinnedDraw(0u, skinnedMesh.indexCount, item.material);
+	}
 }
 
 std::vector<InstanceData> mainInstances;

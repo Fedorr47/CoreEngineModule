@@ -574,12 +574,28 @@ void SetNodeMaterial(LevelAsset& asset, Scene& scene, int nodeIndex, std::string
 
 	EnsureEntityForNode_(asset, nodeIndex);
 
+	const MaterialHandle resolvedMaterial = EnsureMaterial(asset, scene, materialId);
 	const auto& drawIndices = GetNodeDrawIndices(nodeIndex);
 	for (const int di : drawIndices)
 	{
 		if (di >= 0 && static_cast<std::size_t>(di) < scene.drawItems.size())
 		{
-			scene.drawItems[static_cast<std::size_t>(di)].material = EnsureMaterial(asset, scene, materialId);
+			scene.drawItems[static_cast<std::size_t>(di)].material = resolvedMaterial;
+		}
+	}
+
+	const int skinnedDrawIndex = GetNodeSkinnedDrawIndex(nodeIndex);
+	if (skinnedDrawIndex >= 0 && static_cast<std::size_t>(skinnedDrawIndex) < scene.skinnedDrawItems.size())
+	{
+		SkinnedDrawItem& item = scene.skinnedDrawItems[static_cast<std::size_t>(skinnedDrawIndex)];
+		item.material = resolvedMaterial;
+		if (item.asset)
+		{
+			item.submeshMaterials = BuildSkinnedSubmeshMaterials_(asset, scene, n, *item.asset);
+		}
+		else
+		{
+			item.submeshMaterials.clear();
 		}
 	}
 
