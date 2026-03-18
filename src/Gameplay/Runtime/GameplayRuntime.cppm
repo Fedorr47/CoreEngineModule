@@ -46,7 +46,8 @@ export namespace rendern
         void Shutdown()
         {
             world_.Clear();
-            ClearRecentEvents_();
+            recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
             intentBindings_.clear();
             nodeBoundEntities_.clear();
             graphInstances_.clear();
@@ -56,7 +57,8 @@ export namespace rendern
 
         void BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
         {
-            ClearRecentEvents_();
+            recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
 
             if (!world_.IsEntityValid(entity) || !callback)
             {
@@ -98,7 +100,8 @@ export namespace rendern
 
         void BeginFrame()
         {
-            ClearRecentEvents_();
+            recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
             CompactTrackedState_();
 
             for (const EntityHandle entity : nodeBoundEntities_)
@@ -122,7 +125,8 @@ export namespace rendern
                 return;
             }
 
-            UpdateFollowCamera_(ctx, false);
+            UpdateFollowCamera_(ctx, true);
+
             UpdateGameplayIntentSources(world_, intentBindings_, ctx);
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_);
@@ -131,7 +135,7 @@ export namespace rendern
             UpdateGameplayCharacterMovement(world_, nodeBoundEntities_, ctx.deltaSeconds);
             UpdateGameplayCharacterLocomotion(world_, nodeBoundEntities_);
             SyncGameplayTransformsToRuntime(world_, nodeBoundEntities_, ctx);
-            UpdateFollowCamera_(ctx, true);
+            UpdateFollowCamera_(ctx, false);
             PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
         }
 
@@ -184,7 +188,7 @@ export namespace rendern
             const int nodeIndex,
             const bool playerControlled)
         {
-            if (!HasValidSceneContext_(ctx))
+            if (ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
             {
                 return kNullEntity;
             }
@@ -211,17 +215,6 @@ export namespace rendern
         }
 
     private:
-        [[nodiscard]] static bool HasValidSceneContext_(const GameplayUpdateContext& ctx) noexcept
-        {
-            return ctx.levelAsset != nullptr && ctx.levelInstance != nullptr && ctx.scene != nullptr;
-        }
-
-        void ClearRecentEvents_()
-        {
-            recentNotifyEvents_.clear();
-            recentGameplayEvents_.clear();
-        }
-
         void ResetEntityFrameState_(const EntityHandle entity)
         {
             if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
@@ -245,73 +238,19 @@ export namespace rendern
             }
         }
 
-        void ResetEntitySimulationState_(const EntityHandle entity)
-        {
-            if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
-            {
-                *intent = {};
-            }
-
-            if (GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity))
-            {
-                *command = {};
-            }
-
-            if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
-            {
-                motor->velocity = {};
-                motor->desiredMoveWorld = {};
-            }
-
-            if (GameplayCharacterMovementStateComponent* movementState = world_.TryGetCharacterMovementState(entity))
-            {
-                movementState->grounded = true;
-                movementState->jumping = false;
-                movementState->falling = false;
-                movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
-            }
-
-            if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))
-            {
-                *locomotion = {};
-            }
-
-            if (GameplayActionComponent* action = world_.TryGetAction(entity))
-            {
-                action->requested = GameplayActionKind::None;
-                action->current = GameplayActionKind::None;
-                action->busy = false;
-                action->requestDispatched = false;
-            }
-
-            if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))
-            {
-                *notifyState = {};
-            }
-
-            if (auto it = graphInstances_.find(entity); it != graphInstances_.end())
-            {
-                ClearGameplayGraphFrameState(it->second);
-                SyncActionStateToGraphParameters_(entity, it->second);
-            }
-        }
-
-        void UpdateFollowCamera_(const GameplayUpdateContext& ctx, const bool ignoreInput)
+        void UpdateFollowCamera_(const GameplayUpdateContext& ctx, const bool consumeInput)
         {
             if (ctx.scene == nullptr)
             {
                 return;
             }
 
-            if (!ignoreInput)
+            GameplayUpdateContext cameraCtx = ctx;
+            if (!consumeInput)
             {
-                followCameraController_.Update(world_, controlledEntity_, ctx);
-                return;
+                cameraCtx.input = nullptr;
             }
 
-            GameplayUpdateContext cameraCtx = ctx;
-            cameraCtx.input = nullptr;
             followCameraController_.Update(world_, controlledEntity_, cameraCtx);
         }
 
@@ -586,13 +525,61 @@ export namespace rendern
         {
             for (const EntityHandle entity : nodeBoundEntities_)
             {
-                ResetEntitySimulationState_(entity);
+                if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
+                {
+                    *intent = {};
+                }
+
+                if (GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity))
+                {
+                    *command = {};
+                }
+
+                if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
+                {
+                    motor->velocity = {};
+                    motor->desiredMoveWorld = {};
+                }
+
+                if (GameplayCharacterMovementStateComponent* movementState = world_.TryGetCharacterMovementState(entity))
+                {
+                    movementState->grounded = true;
+                    movementState->jumping = false;
+                    movementState->falling = false;
+                    movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
+                    movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                }
+
+                if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))
+                {
+                    *locomotion = {};
+                }
+
+                if (GameplayActionComponent* action = world_.TryGetAction(entity))
+                {
+                    action->requested = GameplayActionKind::None;
+                    action->current = GameplayActionKind::None;
+                    action->busy = false;
+                    action->requestDispatched = false;
+                }
+
+                if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))
+                {
+                    *notifyState = {};
+                }
+
+                if (auto it = graphInstances_.find(entity); it != graphInstances_.end())
+                {
+                    ClearGameplayGraphFrameState(it->second);
+                    SyncActionStateToGraphParameters_(entity, it->second);
+                }
             }
         }
 
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx)
         {
-            ClearRecentEvents_();
+            recentNotifyEvents_.clear();
+            recentGameplayEvents_.clear();
 
             for (const EntityHandle entity : nodeBoundEntities_)
             {
@@ -618,7 +605,7 @@ export namespace rendern
             {
                 return;
             }
-            if (!HasValidSceneContext_(ctx))
+            if (ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
             {
                 return;
             }

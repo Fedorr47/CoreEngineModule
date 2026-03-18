@@ -53,7 +53,7 @@ export namespace rendern
         float moveY = 0.0f;
         ReadGameplayAxisFromKeys(input, bindings.moveX, moveX);
         ReadGameplayAxisFromKeys(input, bindings.moveY, moveY);
-        NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
+        [[maybe_unused]] const float moveMagnitude = NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
 
         outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
         outIntent.jumpPressed = ReadGameplayPressedButton(input, bindings.jump);
