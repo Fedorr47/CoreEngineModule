@@ -13,16 +13,10 @@ import :math_utils;
 import :picking;
 import :geometry;
 
+#include "SceneImpl/EditorGizmoMathShared.inl"
+
 namespace
 {
-	static mathUtils::Vec3 SafeNormalizeOr(const mathUtils::Vec3& v, const mathUtils::Vec3& fallback) noexcept
-	{
-		if (mathUtils::Length(v) < 1e-5f)
-		{
-			return fallback;
-		}
-		return mathUtils::Normalize(v);
-	}
 
 	static mathUtils::Vec3 RotateAroundAxis(const mathUtils::Vec3& v, const mathUtils::Vec3& axisUnit, float angleRad) noexcept
 	{
@@ -31,37 +25,7 @@ namespace
 		return v * c + mathUtils::Cross(axisUnit, v) * s + axisUnit * (mathUtils::Dot(axisUnit, v) * (1.0f - c));
 	}
 
-	static mathUtils::Vec3 AxisDirection(const rendern::RotateGizmoState& gizmo, rendern::GizmoAxis axis) noexcept
-	{
-		switch (axis)
-		{
-		case rendern::GizmoAxis::X: return gizmo.axisXWorld;
-		case rendern::GizmoAxis::Y: return gizmo.axisYWorld;
-		case rendern::GizmoAxis::Z: return gizmo.axisZWorld;
-		default: return mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-		}
-	}
 
-	static bool IntersectRayPlane(const geometry::Ray& ray,
-		const mathUtils::Vec3& planePoint,
-		const mathUtils::Vec3& planeNormal,
-		mathUtils::Vec3& outPoint) noexcept
-	{
-		const float denom = mathUtils::Dot(planeNormal, ray.dir);
-		if (std::fabs(denom) < 1e-6f)
-		{
-			return false;
-		}
-
-		const float t = mathUtils::Dot(planePoint - ray.origin, planeNormal) / denom;
-		if (t < 0.0f)
-		{
-			return false;
-		}
-
-		outPoint = ray.origin + ray.dir * t;
-		return true;
-	}
 
 	static rendern::GizmoAxis HitTestRing(const rendern::Scene& scene,
 		const rendern::RotateGizmoState& gizmo,
@@ -77,9 +41,9 @@ namespace
 		rendern::GizmoAxis bestAxis = rendern::GizmoAxis::None;
 		for (rendern::GizmoAxis axis : { rendern::GizmoAxis::X, rendern::GizmoAxis::Y, rendern::GizmoAxis::Z })
 		{
-			const mathUtils::Vec3 axisWorld = AxisDirection(gizmo, axis);
+			const mathUtils::Vec3 axisWorld = GizmoAxisDirection(gizmo, axis);
 			mathUtils::Vec3 hit{};
-			if (!IntersectRayPlane(ray, gizmo.pivotWorld, axisWorld, hit))
+			if (!GizmoIntersectRayPlane(ray, gizmo.pivotWorld, axisWorld, hit))
 			{
 				continue;
 			}
@@ -183,9 +147,9 @@ export namespace rendern
 			const mathUtils::Mat4& nodeWorld = levelInst.GetNodeWorldMatrix(selectedNode);
 			gizmo.visible = true;
 			gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
-			gizmo.axisXWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
-			gizmo.axisYWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
-			gizmo.axisZWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
+			gizmo.axisXWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
+			gizmo.axisYWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
+			gizmo.axisZWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
 
 			const float distToCamera = mathUtils::Length(scene.camera.position - gizmo.pivotWorld);
 			gizmo.ringRadiusWorld = std::clamp(distToCamera * 0.12f, 0.35f, 3.0f);
@@ -230,9 +194,9 @@ export namespace rendern
 				return false;
 			}
 
-			const mathUtils::Vec3 axisWorld = AxisDirection(gizmo, axis);
+			const mathUtils::Vec3 axisWorld = GizmoAxisDirection(gizmo, axis);
 			mathUtils::Vec3 startHit{};
-			if (!IntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), gizmo.pivotWorld, axisWorld, startHit))
+			if (!GizmoIntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), gizmo.pivotWorld, axisWorld, startHit))
 			{
 				return false;
 			}
@@ -267,7 +231,7 @@ export namespace rendern
 						continue;
 					}
 					dragLightIndices_.push_back(lightIndex);
-					dragStartLightDirections_.push_back(SafeNormalizeOr(light.direction, mathUtils::Vec3(0.0f, -1.0f, 0.0f)));
+					dragStartLightDirections_.push_back(GizmoSafeNormalizeOr(light.direction, mathUtils::Vec3(0.0f, -1.0f, 0.0f)));
 				}
 				if (dragLightIndices_.empty())
 				{
@@ -331,7 +295,7 @@ export namespace rendern
 			}
 
 			mathUtils::Vec3 currentHit{};
-			if (!IntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), dragPivotWorld_, dragAxisWorld_, currentHit))
+			if (!GizmoIntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), dragPivotWorld_, dragAxisWorld_, currentHit))
 			{
 				return false;
 			}
@@ -365,7 +329,7 @@ export namespace rendern
 					}
 
 					mathUtils::Vec3 dir = RotateAroundAxis(dragStartLightDirections_[i], dragAxisWorld_, mathUtils::DegToRad(angleDeg));
-					scene.lights[static_cast<std::size_t>(lightIndex)].direction = SafeNormalizeOr(dir, dragStartLightDirections_[i]);
+					scene.lights[static_cast<std::size_t>(lightIndex)].direction = GizmoSafeNormalizeOr(dir, dragStartLightDirections_[i]);
 				}
 
 				scene.editorRotateGizmo.hoveredAxis = dragAxis_;

@@ -5,6 +5,8 @@ module;
 #include <assimp/scene.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include <cstdint>
 #include <cmath>
 #include <filesystem>
@@ -14,6 +16,7 @@ module;
 #include <string>
 #include <sstream>
 #include <string_view>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -28,27 +31,10 @@ import :math_utils;
 import :file_system;
 import :animation_clip;
 
+#include "AssimpImportShared.inl"
+
 namespace
 {
-    [[nodiscard]] mathUtils::Mat4 AiToMat4(const aiMatrix4x4& m)
-    {
-        mathUtils::Mat4 out{ 1.0f };
-        out(0, 0) = m.a1; out(0, 1) = m.a2; out(0, 2) = m.a3; out(0, 3) = m.a4;
-        out(1, 0) = m.b1; out(1, 1) = m.b2; out(1, 2) = m.b3; out(1, 3) = m.b4;
-        out(2, 0) = m.c1; out(2, 1) = m.c2; out(2, 2) = m.c3; out(2, 3) = m.c4;
-        out(3, 0) = m.d1; out(3, 1) = m.d2; out(3, 2) = m.d3; out(3, 3) = m.d4;
-        return out;
-    }
-
-    [[nodiscard]] mathUtils::Vec3 AiToVec3(const aiVector3D& v) noexcept
-    {
-        return mathUtils::Vec3(v.x, v.y, v.z);
-    }
-
-    [[nodiscard]] mathUtils::Vec4 AiToQuatVec4(const aiQuaternion& q) noexcept
-    {
-        return mathUtils::Vec4(q.x, q.y, q.z, q.w);
-    }
 
     struct RawVertexInfluence
     {
@@ -101,7 +87,7 @@ namespace
         }
         for (auto it = chain.rbegin(); it != chain.rend(); ++it)
         {
-            global = global * AiToMat4((*it)->mTransformation);
+            global = global * rendern::assimp_detail::AiToMat4((*it)->mTransformation);
         }
         return global;
     }
@@ -116,7 +102,7 @@ namespace
             return;
         }
 
-        const mathUtils::Mat4 nodeGlobal = parentGlobal * AiToMat4(node->mTransformation);
+        const mathUtils::Mat4 nodeGlobal = parentGlobal * rendern::assimp_detail::AiToMat4(node->mTransformation);
         for (unsigned meshSlot = 0; meshSlot < node->mNumMeshes; ++meshSlot)
         {
             outMeshOwnerGlobals.try_emplace(node->mMeshes[meshSlot], nodeGlobal);
@@ -180,7 +166,7 @@ namespace
             rendern::SkeletonBone bone{};
             bone.name = nodeName;
             bone.parentIndex = parentIndex;
-            bone.bindLocalTransform = AiToMat4(node->mTransformation);
+            bone.bindLocalTransform = rendern::assimp_detail::AiToMat4(node->mTransformation);
             if (const auto it = inverseBindByName.find(nodeName); it != inverseBindByName.end())
             {
                 bone.inverseBindMatrix = it->second;
@@ -371,7 +357,7 @@ namespace
                 const aiVectorKey& key = src->mPositionKeys[keyIndex];
                 dst.translationKeys.push_back(rendern::TranslationKey{
                     .timeTicks = static_cast<float>(key.mTime),
-                    .value = AiToVec3(key.mValue)
+                    .value = rendern::assimp_detail::AiToVec3(key.mValue)
                     });
             }
 
@@ -381,7 +367,7 @@ namespace
                 const aiQuatKey& key = src->mRotationKeys[keyIndex];
                 dst.rotationKeys.push_back(rendern::RotationKey{
                     .timeTicks = static_cast<float>(key.mTime),
-                    .value = rendern::NormalizeQuat(AiToQuatVec4(key.mValue))
+                    .value = rendern::NormalizeQuat(rendern::assimp_detail::AiToQuatVec4(key.mValue))
                     });
             }
 
@@ -391,7 +377,7 @@ namespace
                 const aiVectorKey& key = src->mScalingKeys[keyIndex];
                 dst.scaleKeys.push_back(rendern::ScaleKey{
                     .timeTicks = static_cast<float>(key.mTime),
-                    .value = AiToVec3(key.mValue)
+                    .value = rendern::assimp_detail::AiToVec3(key.mValue)
                     });
             }
 
@@ -913,7 +899,7 @@ export namespace rendern
                 weightedBoneNames.insert(boneName);
                 
                 const mathUtils::Mat4 adjustedInverseBind =
-                    AiToMat4(bone->mOffsetMatrix) *
+                    rendern::assimp_detail::AiToMat4(bone->mOffsetMatrix) *
                     mathUtils::Inverse(meshOwnerGlobal) *
                     commonMeshGlobal;
                 if (const auto [it, inserted] = inverseBindByName.try_emplace(boneName, adjustedInverseBind); !inserted)

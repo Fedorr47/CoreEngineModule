@@ -3,3 +3,4 @@
 /build
 /out
 *.pdb
+/src.zip

@@ -25,6 +25,8 @@ import :math_utils;
 import :file_system;
 import :scene;
 
+#include "AssimpImportShared.inl"
+
 export namespace rendern
 {
     struct ImportedSubmeshInfo
@@ -75,239 +77,6 @@ export namespace rendern
         std::vector<ImportedSceneNode> nodes;
     };
 
-    inline mathUtils::Mat4 AiToMat4(const aiMatrix4x4& m)
-    {
-        mathUtils::Mat4 out{ 1.0f };
-        out(0, 0) = m.a1; out(0, 1) = m.a2; out(0, 2) = m.a3; out(0, 3) = m.a4;
-        out(1, 0) = m.b1; out(1, 1) = m.b2; out(1, 2) = m.b3; out(1, 3) = m.b4;
-        out(2, 0) = m.c1; out(2, 1) = m.c2; out(2, 2) = m.c3; out(2, 3) = m.c4;
-        out(3, 0) = m.d1; out(3, 1) = m.d2; out(3, 2) = m.d3; out(3, 3) = m.d4;
-        return out;
-    }
-        
-    std::filesystem::path NormalizeLexically(const std::filesystem::path& p)
-    {
-        std::error_code ec;
-        const auto weak = std::filesystem::weakly_canonical(p, ec);
-        if (!ec)
-        {
-            return weak;
-        }
-        return p.lexically_normal();
-    }
-
-    std::string NormalizeNameForCompare(std::string_view s)
-    {
-        std::filesystem::path p{ std::string(s) };
-        std::string out = p.filename().string();
-        if (out.empty())
-        {
-            out = std::string(s);
-        }
-
-        for (char& c : out)
-        {
-            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        }
-        return out;
-    }
-
-    std::string MakeAssetRelativePath(const std::filesystem::path& absolutePath)
-    {
-        namespace fs = std::filesystem;
-        const fs::path assetRoot = NormalizeLexically(corefs::FindAssetRoot());
-        const fs::path absNorm = NormalizeLexically(absolutePath);
-
-        std::error_code ec;
-        fs::path rel = fs::relative(absNorm, assetRoot, ec);
-        if (!ec && !rel.empty())
-        {
-            return rel.generic_string();
-        }
-
-        return absNorm.generic_string();
-    }
-
-    std::optional<std::filesystem::path> TryResolveTexturePath(
-        const std::filesystem::path& modelAbsPath,
-        std::string_view rawTexturePath)
-    {
-        namespace fs = std::filesystem;
-        if (rawTexturePath.empty())
-        {
-            return std::nullopt;
-        }
-
-        fs::path raw{ std::string(rawTexturePath) };
-
-        std::vector<fs::path> candidates;
-        if (raw.is_absolute())
-        {
-            candidates.push_back(raw);
-        }
-        else
-        {
-            const fs::path modelDir = modelAbsPath.parent_path();
-            const fs::path assetRoot = corefs::FindAssetRoot();
-            const std::string modelStem = modelAbsPath.stem().string();
-
-            candidates.push_back(modelDir / raw);
-            candidates.push_back(assetRoot / raw);
-
-            if (raw.has_filename())
-            {
-                const fs::path filenameOnly = raw.filename();
-
-                candidates.push_back(assetRoot / "textures" / filenameOnly);
-                candidates.push_back(modelDir / filenameOnly);
-
-                // FBX embedded-media / .fbm style fallback
-                candidates.push_back(modelDir / (modelStem + ".fbm") / filenameOnly);
-                candidates.push_back(assetRoot / "models" / (modelStem + ".fbm") / filenameOnly);
-            }
-        }
-
-        for (const fs::path& c : candidates)
-        {
-            std::error_code ec;
-            if (fs::exists(c, ec) && !ec)
-            {
-                return NormalizeLexically(c);
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::optional<ImportedMaterialTextureRef> ResolveExternalTextureRefNoCopy(
-        const std::filesystem::path& modelAbsPath,
-        std::string_view rawTexturePath)
-    {
-        const auto resolved = TryResolveTexturePath(modelAbsPath, rawTexturePath);
-        if (!resolved)
-        {
-            return std::nullopt;
-        }
-
-        ImportedMaterialTextureRef out{};
-        out.path = MakeAssetRelativePath(*resolved);
-        out.embedded = false;
-        return out;
-    }
-
-    std::optional<std::uint32_t> TryFindEmbeddedTextureIndex(
-        const aiScene* scene,
-        std::string_view rawTexturePath)
-    {
-        if (!scene || scene->mNumTextures == 0)
-        {
-            return std::nullopt;
-        }
-
-        const std::string wanted = NormalizeNameForCompare(rawTexturePath);
-        if (!wanted.empty())
-        {
-            for (std::uint32_t i = 0; i < scene->mNumTextures; ++i)
-            {
-                const aiTexture* tex = scene->mTextures[i];
-                if (!tex)
-                {
-                    continue;
-                }
-
-                const std::string texName = NormalizeNameForCompare(tex->mFilename.C_Str());
-                if (!texName.empty() && texName == wanted)
-                {
-                    return i;
-                }
-            }
-        }
-
-        // Conservative fallback:
-        // if the scene has exactly one embedded texture, use it.
-        if (scene->mNumTextures == 1)
-        {
-            return 0u;
-        }
-
-        return std::nullopt;
-    }
-
-        std::string SanitizeFilename(std::string s)
-        {
-            for (char& c : s)
-            {
-                const bool ok =
-                    (c >= 'a' && c <= 'z') ||
-                    (c >= 'A' && c <= 'Z') ||
-                    (c >= '0' && c <= '9') ||
-                    c == '_' || c == '-' || c == '.';
-                if (!ok)
-                {
-                    c = '_';
-                }
-            }
-            if (s.empty())
-            {
-                s = "asset";
-            }
-            return s;
-        }
-
-        std::uint64_t HashStringStable(std::string_view s)
-        {
-            std::uint64_t h = 14695981039346656037ull;
-            for (const unsigned char c : s)
-            {
-                h ^= static_cast<std::uint64_t>(c);
-                h *= 1099511628211ull;
-            }
-            return h;
-        }
-
-        std::string Hex64(std::uint64_t value)
-        {
-            char buf[17]{};
-            std::snprintf(buf, sizeof(buf), "%016llx", static_cast<unsigned long long>(value));
-            return std::string(buf);
-        }
-
-        std::string NormalizeExt(std::string ext);
-
-        std::string MakeModelImportKey(const std::filesystem::path& modelAbsPath)
-        {
-            namespace fs = std::filesystem;
-            const fs::path absNorm = NormalizeLexically(modelAbsPath);
-            const fs::path assetRoot = NormalizeLexically(corefs::FindAssetRoot());
-
-            std::error_code ec;
-            fs::path rel = fs::relative(absNorm, assetRoot, ec);
-            const std::string stableId = (!ec && !rel.empty())
-                ? rel.generic_string()
-                : absNorm.generic_string();
-
-            return SanitizeFilename(modelAbsPath.stem().string()) + "_" + Hex64(HashStringStable(stableId));
-        }
-
-        std::string MakeImportedTextureFilename(
-            const std::filesystem::path& modelAbsPath,
-            std::string_view slotName,
-            std::string_view sourceTag,
-            std::string_view extension)
-        {
-            const std::string ext = NormalizeExt(std::string(extension));
-            return SanitizeFilename(
-                modelAbsPath.stem().string() + "_" +
-                std::string(slotName) + "_" +
-                std::string(sourceTag) + "." +
-                ext);
-        }
-
-        std::filesystem::path MakeImportedDirForModel(const std::filesystem::path& modelAbsPath)
-        {
-            const std::filesystem::path assetRoot = corefs::FindAssetRoot();
-            return assetRoot / "imported" / MakeModelImportKey(modelAbsPath);
-        }
-
         struct ImportedTextureWriteTracker
         {
             std::unordered_set<std::string> writtenPaths;
@@ -334,7 +103,7 @@ export namespace rendern
         void CopyFileIfDifferent(const std::filesystem::path& src, const std::filesystem::path& dst, ImportedTextureWriteTracker* tracker = nullptr)
         {
             namespace fs = std::filesystem;
-            const std::string key = NormalizeLexically(dst).generic_string();
+            const std::string key = rendern::assimp_detail::NormalizeLexically(dst).generic_string();
             std::size_t attempt = 1;
             if (tracker)
             {
@@ -382,7 +151,7 @@ export namespace rendern
 
         void WriteBytesToFile(const std::filesystem::path& path, const void* data, std::size_t size, ImportedTextureWriteTracker* tracker = nullptr)
         {
-            const std::string key = NormalizeLexically(path).generic_string();
+            const std::string key = rendern::assimp_detail::NormalizeLexically(path).generic_string();
             std::size_t attempt = 1;
             if (tracker)
             {
@@ -459,21 +228,18 @@ export namespace rendern
             WriteBytesToFile(path, bytes.data(), bytes.size(), tracker);
         }
 
-        std::string NormalizeExt(std::string ext)
+        std::optional<ImportedMaterialTextureRef> ResolveExternalTextureRefNoCopy(
+            const std::filesystem::path& modelAbsPath,
+            std::string_view rawTexturePath)
         {
-            if (!ext.empty() && ext[0] == '.')
+            if (auto resolved = rendern::assimp_detail::TryResolveTexturePath(modelAbsPath, rawTexturePath))
             {
-                ext.erase(ext.begin());
+                ImportedMaterialTextureRef out{};
+                out.path = rendern::assimp_detail::MakeAssetRelativePath(*resolved);
+                out.embedded = false;
+                return out;
             }
-            for (char& c : ext)
-            {
-                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-            }
-            if (ext.empty())
-            {
-                ext = "bin";
-            }
-            return ext;
+            return std::nullopt;
         }
 
         std::optional<std::string> CopyExternalTextureToImportedFolder(
@@ -482,18 +248,18 @@ export namespace rendern
             std::string_view slotName,
             ImportedTextureWriteTracker* tracker = nullptr)
         {
-            const auto resolved = TryResolveTexturePath(modelAbsPath, rawTexturePath);
+            const auto resolved = rendern::assimp_detail::TryResolveTexturePath(modelAbsPath, rawTexturePath);
             if (!resolved)
             {
                 return std::nullopt;
             }
 
-            const std::filesystem::path dstDir = MakeImportedDirForModel(modelAbsPath);
+            const std::filesystem::path dstDir = rendern::assimp_detail::MakeImportedDirForModel(modelAbsPath);
 
             const std::string sourceTag =
-                Hex64(HashStringStable(resolved->generic_string()));
+                rendern::assimp_detail::Hex64(rendern::assimp_detail::HashStringStable(resolved->generic_string()));
 
-            const std::string filename = MakeImportedTextureFilename(
+            const std::string filename = rendern::assimp_detail::MakeImportedTextureFilename(
                 modelAbsPath,
                 slotName,
                 sourceTag,
@@ -501,7 +267,7 @@ export namespace rendern
 
             const std::filesystem::path dst = dstDir / filename;
             CopyFileIfDifferent(*resolved, dst, tracker);
-            return MakeAssetRelativePath(dst);
+            return rendern::assimp_detail::MakeAssetRelativePath(dst);
         }
 
         std::string ExportEmbeddedTextureToImportedFolder(
@@ -522,18 +288,18 @@ export namespace rendern
                 throw std::runtime_error("Embedded texture is null");
             }
 
-            const std::filesystem::path outDir = MakeImportedDirForModel(modelAbsPath);
+            const std::filesystem::path outDir = rendern::assimp_detail::MakeImportedDirForModel(modelAbsPath);
             std::filesystem::path outPath;
 
             if (tex->mHeight == 0)
             {
-                std::string ext = NormalizeExt(tex->achFormatHint);
+                std::string ext = rendern::assimp_detail::NormalizeExt(tex->achFormatHint);
                 if (ext == "bin")
                 {
                     ext = "png";
                 }
 
-                const std::string filename = MakeImportedTextureFilename(
+                const std::string filename = rendern::assimp_detail::MakeImportedTextureFilename(
                     modelAbsPath,
                     slotName,
                     "embedded_" + std::to_string(embeddedIndex),
@@ -544,7 +310,7 @@ export namespace rendern
             }
             else
             {
-                const std::string filename = MakeImportedTextureFilename(
+                const std::string filename = rendern::assimp_detail::MakeImportedTextureFilename(
                     modelAbsPath,
                     slotName,
                     "embedded_" + std::to_string(embeddedIndex),
@@ -554,7 +320,7 @@ export namespace rendern
                 WriteUncompressedAiTextureAsTga(outPath, tex, tracker);
             }
 
-            return MakeAssetRelativePath(outPath);
+            return rendern::assimp_detail::MakeAssetRelativePath(outPath);
         }
 
         std::optional<ImportedMaterialTextureRef> ReadAndNormalizeTextureRef(
@@ -628,7 +394,7 @@ export namespace rendern
 
             // Fallback: maybe importer exposed a weird external-looking string,
             // but the texture is actually embedded in the file.
-            if (auto embeddedIdx = TryFindEmbeddedTextureIndex(scene, raw))
+            if (auto embeddedIdx = rendern::assimp_detail::TryFindEmbeddedTextureIndex(scene, raw))
             {
                 ImportedMaterialTextureRef out{};
                 out.embedded = true;
@@ -639,7 +405,8 @@ export namespace rendern
                         scene,
                         modelAbsPath,
                         *embeddedIdx,
-                        slotName);
+                        slotName,
+                        tracker);
                 }
                 else
                 {
@@ -664,7 +431,7 @@ export namespace rendern
         {
             path = corefs::ResolveAsset(path);
         }
-        path = NormalizeLexically(path);
+        path = rendern::assimp_detail::NormalizeLexically(path);
 
         unsigned flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals;
         if (flipUVs)
@@ -754,7 +521,7 @@ export namespace rendern
                 ImportedSceneNode dst{};
                 dst.name = (node->mName.length > 0) ? std::string(node->mName.C_Str()) : std::string("Node_") + std::to_string(out.nodes.size());
                 dst.parent = parent;
-                dst.localTransform = convertTransform(AiToMat4(node->mTransformation));
+                dst.localTransform = convertTransform(rendern::assimp_detail::AiToMat4(node->mTransformation));
                 dst.submeshes.reserve(node->mNumMeshes);
                 for (unsigned i = 0; i < node->mNumMeshes; ++i)
                 {

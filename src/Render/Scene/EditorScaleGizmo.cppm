@@ -10,6 +10,8 @@ import :picking;
 import :geometry;
 import :math_utils;
 
+#include "SceneImpl/EditorGizmoMathShared.inl"
+
 import std;
 
 namespace
@@ -18,115 +20,13 @@ namespace
 	constexpr float kPlaneHandleOuterFraction = 0.40f;
 	constexpr float kMinScaleComponent = 0.001f;
 
-	static mathUtils::Vec3 SafeNormalizeOr(const mathUtils::Vec3& v, const mathUtils::Vec3& fallback) noexcept
-	{
-		if (mathUtils::Length(v) < 1e-5f)
-		{
-			return fallback;
-		}
-		return mathUtils::Normalize(v);
-	}
 
-	static bool PointInTriangle2D(const mathUtils::Vec2& p,
-		const mathUtils::Vec2& a,
-		const mathUtils::Vec2& b,
-		const mathUtils::Vec2& c) noexcept
-	{
-		const float c0 = mathUtils::Cross2D(b - a, p - a);
-		const float c1 = mathUtils::Cross2D(c - b, p - b);
-		const float c2 = mathUtils::Cross2D(a - c, p - c);
-		const bool hasNeg = (c0 < 0.0f) || (c1 < 0.0f) || (c2 < 0.0f);
-		const bool hasPos = (c0 > 0.0f) || (c1 > 0.0f) || (c2 > 0.0f);
-		return !(hasNeg && hasPos);
-	}
 
-	static bool PointInQuad2D(const mathUtils::Vec2& p,
-		const mathUtils::Vec2& a,
-		const mathUtils::Vec2& b,
-		const mathUtils::Vec2& c,
-		const mathUtils::Vec2& d) noexcept
-	{
-		return PointInTriangle2D(p, a, b, c) || PointInTriangle2D(p, a, c, d);
-	}
 
-	static bool IsAxisHandle(rendern::GizmoAxis axis) noexcept
-	{
-		return axis == rendern::GizmoAxis::X || axis == rendern::GizmoAxis::Y || axis == rendern::GizmoAxis::Z;
-	}
 
-	static bool IsPlaneHandle(rendern::GizmoAxis axis) noexcept
-	{
-		return axis == rendern::GizmoAxis::XY || axis == rendern::GizmoAxis::XZ || axis == rendern::GizmoAxis::YZ;
-	}
 
-	static mathUtils::Vec3 AxisDirection(const rendern::ScaleGizmoState& gizmo, rendern::GizmoAxis axis) noexcept
-	{
-		switch (axis)
-		{
-		case rendern::GizmoAxis::X: return gizmo.axisXWorld;
-		case rendern::GizmoAxis::Y: return gizmo.axisYWorld;
-		case rendern::GizmoAxis::Z: return gizmo.axisZWorld;
-		default: return mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-		}
-	}
 
-	static void GetPlaneBasis(const rendern::ScaleGizmoState& gizmo,
-		rendern::GizmoAxis axis,
-		mathUtils::Vec3& basisA,
-		mathUtils::Vec3& basisB,
-		mathUtils::Vec3& planeNormal) noexcept
-	{
-		switch (axis)
-		{
-		case rendern::GizmoAxis::XY:
-			basisA = gizmo.axisXWorld;
-			basisB = gizmo.axisYWorld;
-			planeNormal = mathUtils::Normalize(mathUtils::Cross(basisA, basisB));
-			break;
-		case rendern::GizmoAxis::XZ:
-			basisA = gizmo.axisXWorld;
-			basisB = gizmo.axisZWorld;
-			planeNormal = mathUtils::Normalize(mathUtils::Cross(basisA, basisB));
-			break;
-		case rendern::GizmoAxis::YZ:
-			basisA = gizmo.axisYWorld;
-			basisB = gizmo.axisZWorld;
-			planeNormal = mathUtils::Normalize(mathUtils::Cross(basisA, basisB));
-			break;
-		default:
-			basisA = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-			basisB = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-			planeNormal = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-			break;
-		}
-	}
 
-	static bool ProjectWorldToScreen(const rendern::Scene& scene,
-		const mathUtils::Vec3& worldPos,
-		float viewportW,
-		float viewportH,
-		mathUtils::Vec2& outScreen) noexcept
-	{
-		if (viewportW <= 1.0f || viewportH <= 1.0f)
-		{
-			return false;
-		}
-
-		const float aspect = viewportW / viewportH;
-		const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-		const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
-		const mathUtils::Vec4 clip = (proj * view) * mathUtils::Vec4(worldPos, 1.0f);
-		if (std::fabs(clip.w) < 1e-6f || clip.w <= 0.0f)
-		{
-			return false;
-		}
-
-		const float ndcX = clip.x / clip.w;
-		const float ndcY = clip.y / clip.w;
-		outScreen.x = (ndcX * 0.5f + 0.5f) * viewportW;
-		outScreen.y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewportH;
-		return true;
-	}
 
 	static bool BuildPlaneHandleQuad(const rendern::Scene& scene,
 		const rendern::ScaleGizmoState& gizmo,
@@ -141,7 +41,7 @@ namespace
 		mathUtils::Vec3 basisA{};
 		mathUtils::Vec3 basisB{};
 		mathUtils::Vec3 planeNormal{};
-		GetPlaneBasis(gizmo, axis, basisA, basisB, planeNormal);
+		GizmoPlaneBasis(gizmo, axis, basisA, basisB, planeNormal);
 		if (mathUtils::Length(planeNormal) < 1e-5f)
 		{
 			return false;
@@ -154,10 +54,10 @@ namespace
 		const mathUtils::Vec3 w2 = gizmo.pivotWorld + basisA * outer + basisB * outer;
 		const mathUtils::Vec3 w3 = gizmo.pivotWorld + basisA * inner + basisB * outer;
 
-		return ProjectWorldToScreen(scene, w0, viewportW, viewportH, p0)
-			&& ProjectWorldToScreen(scene, w1, viewportW, viewportH, p1)
-			&& ProjectWorldToScreen(scene, w2, viewportW, viewportH, p2)
-			&& ProjectWorldToScreen(scene, w3, viewportW, viewportH, p3);
+		return GizmoProjectWorldToScreen(scene, w0, viewportW, viewportH, p0)
+			&& GizmoProjectWorldToScreen(scene, w1, viewportW, viewportH, p1)
+			&& GizmoProjectWorldToScreen(scene, w2, viewportW, viewportH, p2)
+			&& GizmoProjectWorldToScreen(scene, w3, viewportW, viewportH, p3);
 	}
 
 	static rendern::GizmoAxis HitTestUniformHandle(const rendern::Scene& scene,
@@ -168,7 +68,7 @@ namespace
 		float viewportH) noexcept
 	{
 		mathUtils::Vec2 pivotScreen{};
-		if (!ProjectWorldToScreen(scene, gizmo.pivotWorld, viewportW, viewportH, pivotScreen))
+		if (!GizmoProjectWorldToScreen(scene, gizmo.pivotWorld, viewportW, viewportH, pivotScreen))
 		{
 			return rendern::GizmoAxis::None;
 		}
@@ -202,7 +102,7 @@ namespace
 				continue;
 			}
 
-			if (PointInQuad2D(mouse, p0, p1, p2, p3))
+			if (GizmoPointInQuad2D(mouse, p0, p1, p2, p3))
 			{
 				return axis;
 			}
@@ -226,7 +126,7 @@ namespace
 		auto TestAxis = [&](rendern::GizmoAxis axis, const mathUtils::Vec3& dir) noexcept
 			{
 				mathUtils::Vec2 handleScreen{};
-				if (!ProjectWorldToScreen(scene, gizmo.pivotWorld + dir * gizmo.axisLengthWorld, viewportW, viewportH, handleScreen))
+				if (!GizmoProjectWorldToScreen(scene, gizmo.pivotWorld + dir * gizmo.axisLengthWorld, viewportW, viewportH, handleScreen))
 				{
 					return;
 				}
@@ -267,25 +167,6 @@ namespace
 		return HitTestAxisHandle(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
 	}
 
-	static bool IntersectRayPlane(const geometry::Ray& ray,
-		const mathUtils::Vec3& planePoint,
-		const mathUtils::Vec3& planeNormal,
-		mathUtils::Vec3& outPoint) noexcept
-	{
-		const float denom = mathUtils::Dot(planeNormal, ray.dir);
-		if (std::fabs(denom) < 1e-6f)
-		{
-			return false;
-		}
-		const float t = mathUtils::Dot(planePoint - ray.origin, planeNormal) / denom;
-		if (t < 0.0f)
-		{
-			return false;
-		}
-
-		outPoint = ray.origin + ray.dir * t;
-		return true;
-	}
 
 	static mathUtils::Vec3 ComputeAxisDragPlaneNormal(const mathUtils::Vec3& axisWorld, const mathUtils::Vec3& viewDir) noexcept
 	{
@@ -349,9 +230,9 @@ export namespace rendern
 			const mathUtils::Mat4& nodeWorld = levelInst.GetNodeWorldMatrix(selectedNode);
 			gizmo.visible = true;
 			gizmo.pivotWorld = sum * (1.0f / static_cast<float>(count));
-			gizmo.axisXWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
-			gizmo.axisYWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
-			gizmo.axisZWorld = SafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
+			gizmo.axisXWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(1.0f, 0.0f, 0.0f)), mathUtils::Vec3(1.0f, 0.0f, 0.0f));
+			gizmo.axisYWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 1.0f, 0.0f)), mathUtils::Vec3(0.0f, 1.0f, 0.0f));
+			gizmo.axisZWorld = GizmoSafeNormalizeOr(mathUtils::TransformVector(nodeWorld, mathUtils::Vec3(0.0f, 0.0f, 1.0f)), mathUtils::Vec3(0.0f, 0.0f, 1.0f));
 
 			const float distToCamera = mathUtils::Length(scene.camera.position - gizmo.pivotWorld);
 			gizmo.axisLengthWorld = std::clamp(distToCamera * 0.18f, 0.35f, 4.0f);
@@ -417,22 +298,22 @@ export namespace rendern
 				planeNormal = viewDir;
 				dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
 			}
-			else if (IsAxisHandle(axis))
+			else if (GizmoIsAxisHandle(axis))
 			{
-				dragAxisWorld_ = AxisDirection(gizmo, axis);
+				dragAxisWorld_ = GizmoAxisDirection(gizmo, axis);
 				planeNormal = ComputeAxisDragPlaneNormal(dragAxisWorld_, viewDir);
 			}
-			else if (IsPlaneHandle(axis))
+			else if (GizmoIsPlaneHandle(axis))
 			{
 				dragAxisWorld_ = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-				GetPlaneBasis(gizmo, axis, basisA, basisB, planeNormal);
+				GizmoPlaneBasis(gizmo, axis, basisA, basisB, planeNormal);
 			}
 			if (mathUtils::Length(planeNormal) < 1e-5f)
 			{
 				return false;
 			}
 
-			if (!IntersectRayPlane(ray, gizmo.pivotWorld, planeNormal, startHit))
+			if (!GizmoIntersectRayPlane(ray, gizmo.pivotWorld, planeNormal, startHit))
 			{
 				return false;
 			}
@@ -485,7 +366,7 @@ export namespace rendern
 			}
 
 			mathUtils::Vec3 currentHit{};
-			if (!IntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), dragPivotWorld_, dragPlaneNormal_, currentHit))
+			if (!GizmoIntersectRayPlane(BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH), dragPivotWorld_, dragPlaneNormal_, currentHit))
 			{
 				return false;
 			}
@@ -506,13 +387,13 @@ export namespace rendern
 					uniformFactor = std::max(0.1f, std::round(uniformFactor * 10.0f) / 10.0f);
 				}
 			}
-			else if (IsAxisHandle(dragAxis_))
+			else if (GizmoIsAxisHandle(dragAxis_))
 			{
 				const float axisDelta = mathUtils::Dot(currentHit - dragStartWorldHit_, dragAxisWorld_);
 				axisFactor = 1.0f + (axisDelta / dragReferenceLengthWorld_);
 				axisFactor = std::max(axisFactor, kMinScaleComponent);
 			}
-			else if (IsPlaneHandle(dragAxis_))
+			else if (GizmoIsPlaneHandle(dragAxis_))
 			{
 				const mathUtils::Vec3 worldDelta = currentHit - dragStartWorldHit_;
 				const float axisDeltaA = mathUtils::Dot(worldDelta, dragBasisAWorld_);
@@ -546,7 +427,7 @@ export namespace rendern
 				{
 					scale = mathUtils::MaxVec3(startScale * uniformFactor, mathUtils::Vec3(kMinScaleComponent, kMinScaleComponent, kMinScaleComponent));
 				}
-				else if (IsAxisHandle(dragAxis_))
+				else if (GizmoIsAxisHandle(dragAxis_))
 				{
 					switch (dragAxis_)
 					{
@@ -556,7 +437,7 @@ export namespace rendern
 					default: return false;
 					}
 				}
-				else if (IsPlaneHandle(dragAxis_))
+				else if (GizmoIsPlaneHandle(dragAxis_))
 				{
 					switch (dragAxis_)
 					{
