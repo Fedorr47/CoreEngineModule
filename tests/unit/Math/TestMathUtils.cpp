@@ -55,11 +55,11 @@ TEST(MathUtils, Vec2Operations)
 	EXPECT_FLOAT_EQ(divided.x, 0.5f);
 	EXPECT_FLOAT_EQ(divided.y, 1.0f);
 
-	float DotProduct = Dot(vector2_1, vector2_2);
-	EXPECT_FLOAT_EQ(DotProduct, 11.0f);
+	float dotProduct = Dot(vector2_1, vector2_2);
+	EXPECT_FLOAT_EQ(dotProduct, 11.0f);
 
-	Vec3 CrossProduct2 = Cross2(vector2_1, vector2_2);
-	EXPECT_FLOAT_EQ(CrossProduct2.z, -2.0f);
+	Vec3 crossProduct2 = Cross2(vector2_1, vector2_2);
+	EXPECT_FLOAT_EQ(crossProduct2.z, -2.0f);
 }
 
 TEST(MathUtils, Vec3Operations)
@@ -94,29 +94,29 @@ TEST(MathUtils, Vec3Operations)
 	EXPECT_FLOAT_EQ(divided.y, 1.0f);
 	EXPECT_FLOAT_EQ(divided.z, 1.5f);
 
-	float DotProduct = Dot(vector3_1, vector3_2);
-	EXPECT_FLOAT_EQ(DotProduct, 32.0f);
+	float dotProduct = Dot(vector3_1, vector3_2);
+	EXPECT_FLOAT_EQ(dotProduct, 32.0f);
 
-	Vec3 CrossProduct = Cross(vector3_1, vector3_2);
-	EXPECT_FLOAT_EQ(CrossProduct.x, -3.0f);
-	EXPECT_FLOAT_EQ(CrossProduct.y, 6.0f);
-	EXPECT_FLOAT_EQ(CrossProduct.z, -3.0f);
+	Vec3 crossProduct = Cross(vector3_1, vector3_2);
+	EXPECT_FLOAT_EQ(crossProduct.x, -3.0f);
+	EXPECT_FLOAT_EQ(crossProduct.y, 6.0f);
+	EXPECT_FLOAT_EQ(crossProduct.z, -3.0f);
 }
 
-TEST(MathUtils, Vec3_CrossProduct)
+TEST(MathUtils, Vec3CrossProductProducesOrthogonalVector)
 {
 	Vec3 vector3_1{ 1.0f, 0.0f, 0.0f };
 	Vec3 vector3_2{ 0.0f, 1.0f, 0.0f };
 
-	Vec3 CrossProduct = Cross(vector3_1, vector3_2);
-	EXPECT_FLOAT_EQ(CrossProduct.x, 0.0f);
-	EXPECT_FLOAT_EQ(CrossProduct.y, 0.0f);
-	EXPECT_FLOAT_EQ(CrossProduct.z, 1.0f);
+	Vec3 crossProduct = Cross(vector3_1, vector3_2);
+	EXPECT_FLOAT_EQ(crossProduct.x, 0.0f);
+	EXPECT_FLOAT_EQ(crossProduct.y, 0.0f);
+	EXPECT_FLOAT_EQ(crossProduct.z, 1.0f);
 
-	float DotProduct = Dot(CrossProduct, vector3_1);
-	EXPECT_FLOAT_EQ(DotProduct, 0.0f);
-	DotProduct = Dot(CrossProduct, vector3_2);
-	EXPECT_FLOAT_EQ(DotProduct, 0.0f);
+	float dotProduct = Dot(crossProduct, vector3_1);
+	EXPECT_FLOAT_EQ(dotProduct, 0.0f);
+	dotProduct = Dot(crossProduct, vector3_2);
+	EXPECT_FLOAT_EQ(dotProduct, 0.0f);
 }
 
 TEST(MathUtils, Normalize)
@@ -147,13 +147,13 @@ TEST(MathUtils, DegRad)
 
 	degrees = 90.0f;
 	radians = DegToRad(degrees);
-	EXPECT_NEAR(radians, Pi/2.0f, kEpsTrig);
+	EXPECT_NEAR(radians, Pi / 2.0f, kEpsTrig);
 	converted_back = RadToDeg(radians);
 	EXPECT_FLOAT_EQ(converted_back, degrees);
 
 	degrees = 45.0f;
 	radians = DegToRad(degrees);
-	EXPECT_NEAR(radians, Pi/4.0f, kEpsTrig);
+	EXPECT_NEAR(radians, Pi / 4.0f, kEpsTrig);
 	converted_back = RadToDeg(radians);
 	EXPECT_FLOAT_EQ(converted_back, degrees);
 }
@@ -164,7 +164,7 @@ TEST(MathUtils, Mat4Identity)
 	ExpectIdentityNear(identity);
 }
 
-TEST(MathUtils, Mat4Transponse)
+TEST(MathUtils, Mat4Transpose)
 {
 	Mat4 matrix{};
 
@@ -258,7 +258,35 @@ TEST(MathUtils, Mat4Inverse)
 	Mat4 inv = Inverse(matrix);
 
 	ExpectMat4Near(inv, invTest);
-
 	ExpectIdentityNear(matrix * inv);
 	ExpectIdentityNear(inv * matrix);
+}
+
+TEST(MathUtils, LookAtRHFacingNegativeZMatchesIdentity)
+{
+	const Mat4 view = LookAtRH(Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), Vec3(0.0f, 1.0f, 0.0f));
+	ExpectIdentityNear(view);
+}
+
+TEST(MathUtils, TransformPointAppliesTranslationButTransformVectorDoesNot)
+{
+	Mat4 transform(1.0f);
+	transform = Translate(transform, Vec3(3.0f, -2.0f, 5.0f));
+
+	ExpectVec3Near(TransformPoint(transform, Vec3(1.0f, 2.0f, 3.0f)), Vec3(4.0f, 0.0f, 8.0f));
+	ExpectVec3Near(TransformVector(transform, Vec3(1.0f, 2.0f, 3.0f)), Vec3(1.0f, 2.0f, 3.0f));
+}
+
+TEST(MathUtils, PerspectiveRHZOProducesExpectedMatrixTerms)
+{
+	const float fovY = DegToRad(90.0f);
+	const float aspect = 2.0f;
+	const float nearZ = 0.1f;
+	const float farZ = 100.0f;
+
+	const Mat4 proj = PerspectiveRH_ZO(fovY, aspect, nearZ, farZ);
+	EXPECT_NEAR(proj[0][0], 0.5f, 1e-5f);
+	EXPECT_NEAR(proj[1][1], 1.0f, 1e-5f);
+	EXPECT_NEAR(proj[2][3], -1.0f, 1e-5f);
+	EXPECT_NEAR(proj[3][2], -(farZ * nearZ) / (farZ - nearZ), 1e-5f);
 }
