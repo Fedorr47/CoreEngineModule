@@ -188,6 +188,16 @@ namespace appLifecycle
         app.frameTimer.Tick();
         const float deltaSeconds = static_cast<float>(app.frameTimer.GetDeltaTime());
 
+        auto& mainViewportStats = app.mainViewportStats;
+        const float statsLerpAlpha = std::clamp(deltaSeconds * 6.0f, 0.0f, 1.0f);
+        mainViewportStats.smoothedDeltaSeconds = std::lerp(
+            mainViewportStats.smoothedDeltaSeconds,
+            std::max(deltaSeconds, 1.0e-4f),
+            statsLerpAlpha);
+
+        app.rendererSettings.mainWindowFrameTimeMs = mainViewportStats.smoothedDeltaSeconds * 1000.0f;
+        app.rendererSettings.mainWindowFps = 1.0f / std::max(mainViewportStats.smoothedDeltaSeconds, 1.0e-4f);
+
         const AssetStreamingStats streamingStats = app.assets->GetStreamingStats();
         const bool hasPendingStreaming = streamingStats.HasPendingWork();
         const float targetProgress01 = streamingStats.Completion01();

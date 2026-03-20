@@ -15,6 +15,11 @@ namespace appLifecycle
         float completedHoldSeconds = 0.0f;
     };
 
+    struct MainViewportStatsState
+    {
+        float smoothedDeltaSeconds = 1.0f / 60.0f;
+    };
+
     struct AppConfig
     {
         int windowWidth = 1280;
@@ -62,6 +67,7 @@ namespace appLifecycle
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
         GameTimer frameTimer{};
         LoadingOverlayState loadingOverlay{};
+        MainViewportStatsState mainViewportStats{};
 
         bool initialized = false;
     };

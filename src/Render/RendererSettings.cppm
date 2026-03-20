@@ -103,6 +103,11 @@ export namespace rendern
 		std::uint32_t loadingOverlayTotalUnits{ 0u };
 		std::uint32_t loadingOverlayCompletedUnits{ 0u };
 
+		bool showMainWindowFpsStats{ true };
+		float mainWindowFps{ 0.0f };
+		float mainWindowFrameTimeMs{ 0.0f };
+		float mainWindowStatsTextScale{ 1.75f };
+
 		float reflectionCaptureFovPadDeg{ 0.0f };
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};

@@ -161,6 +161,35 @@ auto AddProbeCenterMarker = [&](const mathUtils::Vec3& p, float s, std::uint32_t
 			rgba);
 	};
 
+if (settings_.showMainWindowFpsStats)
+{
+	char statsBuffer[96]{};
+	const float fps = std::max(0.0f, settings_.mainWindowFps);
+	const float frameTimeMs = std::max(0.0f, settings_.mainWindowFrameTimeMs);
+	std::snprintf(statsBuffer, sizeof(statsBuffer), "FPS %.1f | %.2f ms", fps, frameTimeMs);
+
+	std::uint32_t statsColor = debugText::PackRGBA8(120, 255, 140, 255);
+	if (fps < 50.0f)
+	{
+		statsColor = debugText::PackRGBA8(255, 210, 80, 255);
+	}
+	if (fps < 30.0f)
+	{
+		statsColor = debugText::PackRGBA8(255, 110, 110, 255);
+	}
+
+	textList.AddOutlinedTextAlignedPx(
+		18.0f,
+		18.0f,
+		statsBuffer,
+		debugText::TextAlignH::Left,
+		debugText::TextAlignV::Top,
+		statsColor,
+		debugText::PackRGBA8(0, 0, 0, 220),
+		std::max(0.75f, settings_.mainWindowStatsTextScale),
+		2.0f);
+}
+
 auto ResolveGizmoAxisColor = [&](GizmoAxis activeAxis, GizmoAxis hoveredAxis, GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
 	{
 		if (activeAxis == axis)

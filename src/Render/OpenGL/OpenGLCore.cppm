@@ -43,6 +43,19 @@ namespace
 		}
 	}
 
+	static void SetTextureAnisotropy(GLenum target) noexcept
+	{
+	#if defined(GL_TEXTURE_MAX_ANISOTROPY_EXT) && defined(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+		if (GLEW_EXT_texture_filter_anisotropic)
+		{
+			GLfloat maxAniso = 1.0f;
+			glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+			const GLfloat wanted = std::min<GLfloat>(16.0f, std::max<GLfloat>(1.0f, maxAniso));
+			glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, wanted);
+		}
+	#endif
+	}
+
 	static void SetDefaultTextureParameters(bool generateMips)
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -51,6 +64,7 @@ namespace
 		if (generateMips)
 		{
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			SetTextureAnisotropy(GL_TEXTURE_2D);
 		}
 		else
 		{
@@ -69,6 +83,7 @@ namespace
 		if (generateMips)
 		{
 			glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			SetTextureAnisotropy(GL_TEXTURE_CUBE_MAP);
 		}
 		else
 		{

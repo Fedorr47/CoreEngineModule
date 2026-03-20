@@ -118,7 +118,10 @@ void CreateRootSignature()
             s.AddressV = addrV;
             s.AddressW = addrW;
             s.MipLODBias = 0.0f;
-            s.MaxAnisotropy = 1;
+            s.MaxAnisotropy =
+                (filter == D3D12_FILTER_ANISOTROPIC || filter == D3D12_FILTER_COMPARISON_ANISOTROPIC)
+                ? 16u
+                : 1u;
             s.ComparisonFunc = cmp;
             s.BorderColor = borderColor;
             s.MinLOD = 0.0f;
@@ -127,7 +130,7 @@ void CreateRootSignature()
             return s;
         };
 
-    // s0: linear wrap
+    // s0: anisotropic wrap for material textures
     samplers[0] = MakeStaticSampler(
         0,
         D3D12_FILTER_ANISOTROPIC,

@@ -271,6 +271,9 @@ namespace rendern::ui
 
         ImGui::Separator();
         ImGui::Text("Debug draw");
+        ImGui::Checkbox("Main window FPS stats", &rs.showMainWindowFpsStats);
+        ImGui::SliderFloat("FPS text scale", &rs.mainWindowStatsTextScale, 0.75f, 4.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::TextDisabled("Current: %.1f FPS / %.2f ms", rs.mainWindowFps, rs.mainWindowFrameTimeMs);
         ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         if (rs.drawGameplayMovementDebug)
