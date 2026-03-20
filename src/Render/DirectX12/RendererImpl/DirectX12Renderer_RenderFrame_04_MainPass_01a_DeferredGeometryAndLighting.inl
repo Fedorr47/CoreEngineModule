@@ -173,7 +173,6 @@
 			constexpr std::uint32_t kFlagUseEmissiveTex = 1u << 6;
 			constexpr std::uint32_t kFlagUseSpecularTex = 1u << 10;
 			constexpr std::uint32_t kFlagUseGlossTex = 1u << 11;
-			constexpr std::uint32_t kFlagUseHeightTex = 1u << 12;
 
 			for (const Batch& batch : mainBatches)
 			{
@@ -227,10 +226,6 @@
 				if (batch.material.glossDescIndex != 0)
 				{
 					flags |= kFlagUseGlossTex;
-				}
-				if (batch.material.heightDescIndex != 0 && std::abs(batch.material.heightScale) > 1e-6f)
-				{
-					flags |= kFlagUseHeightTex;
 				}
 
 				const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeDeferredGBufferReflectionMeta(
@@ -289,7 +284,12 @@
 					0.0f,
 					0.0f
 				};
-				constants.uParallaxParams = { batch.material.heightScale, 0.0f, 0.0f, 0.0f };
+				constants.uParallaxParams = {
+					batch.material.heightScale,
+					8.0f,
+					24.0f,
+					0.0f
+				};
 
 				// IA (instanced)
 				ctx.commandList.BindInputLayout(batch.mesh->layoutInstanced);
@@ -351,10 +351,6 @@
 				{
 					flags |= kFlagUseGlossTex;
 				}
-				if (draw.material.heightDescIndex != 0 && std::abs(draw.material.heightScale) > 1e-6f)
-				{
-					flags |= kFlagUseHeightTex;
-				}
 
 				const auto [envSourceForGBuffer, probeIdxNForGBuffer] = ComputeDeferredGBufferReflectionMeta(
 					draw.materialHandle,
@@ -408,7 +404,12 @@
 					0.0f,
 					0.0f
 				};
-				constants.uParallaxParams = { draw.material.heightScale, 0.0f, 0.0f, 0.0f };
+				constants.uParallaxParams = {
+					draw.material.heightScale,
+					8.0f,
+					24.0f,
+					0.0f
+				};
 				const mathUtils::Mat4 modelT = mathUtils::Transpose(draw.model);
 				std::memcpy(constants.uModel.data(), mathUtils::ValuePtr(modelT), sizeof(float) * 16);
 				constants.uSkinning = {

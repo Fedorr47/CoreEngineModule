@@ -316,15 +316,14 @@ export namespace rendern
 		std::array<float, 4> uEnvProbeBoxMin{};
 		std::array<float, 4> uEnvProbeBoxMax{};
 
-		// Bindless material texture descriptor indices (DX12 SM6 deferred).
-		// Packed as float4 to keep the constant buffer simple across backends.
-		// x=ao, y=emissive, z=specular, w=gloss
+		// Bindless / auxiliary material texture descriptor indices.
+		// x=albedo, y=normal, z=metalness, w=roughness
 		std::array<float, 4> uTexIndices0{};
 		// x=ao, y=emissive, z=specular, w=gloss
 		std::array<float, 4> uTexIndices1{};
-		// x=height, y/z/w unused
+		// x=height, yzw unused
 		std::array<float, 4> uTexIndices2{};
-		// x=heightScale, y/z/w reserved
+		// x=heightScale, y=minSteps, z=maxSteps, w=reserved
 		std::array<float, 4> uParallaxParams{};
 	};
 	static_assert(sizeof(PerBatchConstants) == 336);

@@ -315,6 +315,7 @@
         "roughness": 0.8,
         "ao": 1.0,
         "emissiveStrength": 1.0,
+        "heightScale": 0.2,
         "flags": [ "useShadow" ],
         "textures": {
             "albedo": "brick_albedo",

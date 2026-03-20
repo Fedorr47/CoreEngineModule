@@ -285,7 +285,6 @@ export namespace rendern
 		float roughness{ 0.75f }; // 0..1
 		float ao{ 1.0f };         // 0..1
 		float emissiveStrength{ 1.0f };
-		float heightScale{ 0.035f }; // tangent-space parallax scale (0 disables)
 
 		// Cross-backend binding: if non-zero, renderer binds this descriptor at slot t0.
 		rhi::TextureDescIndex albedoDescIndex{ 0 };
@@ -299,7 +298,11 @@ export namespace rendern
 		rhi::TextureDescIndex emissiveDescIndex{ 0 };
 		rhi::TextureDescIndex specularDescIndex{ 0 };
 		rhi::TextureDescIndex glossDescIndex{ 0 };
-		rhi::TextureDescIndex heightDescIndex{ 0 }; // bindless-only height map for parallax/POM
+		rhi::TextureDescIndex heightDescIndex{ 0 };
+
+		// Height/parallax scale in UV-space world impression units.
+		// 0 disables parallax sampling even if a height map is bound.
+		float heightScale{ 0.0f };
 	};
 
 	enum class EnvSource : std::uint8_t

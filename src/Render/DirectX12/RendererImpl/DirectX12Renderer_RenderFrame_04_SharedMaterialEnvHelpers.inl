@@ -10,7 +10,6 @@ constexpr std::uint32_t kMaterialFlagEnvForceMip0 = 1u << 8;
 constexpr std::uint32_t kMaterialFlagEnvFlipZ = 1u << 9;
 constexpr std::uint32_t kMaterialFlagUseSpecularTex = 1u << 10;
 constexpr std::uint32_t kMaterialFlagUseGlossTex = 1u << 11;
-constexpr std::uint32_t kMaterialFlagUseHeightTex = 1u << 12;
 
 auto ResolveMainPassMaterialPerm = [&](const auto& material, const auto& materialHandle) -> MaterialPerm
 	{
@@ -107,7 +106,12 @@ auto FillMainPassMaterialTextureIndices = [&](auto& constants, const auto& mater
 			0.0f,
 			0.0f
 		};
-		constants.uParallaxParams = { material.heightScale, 0.0f, 0.0f, 0.0f };
+		constants.uParallaxParams = {
+			material.heightScale,
+			8.0f,
+			24.0f,
+			0.0f
+		};
 	};
 
 auto BindMainPassMaterialTextures = [&](auto& commandList, const auto& material, const ResolvedMaterialEnvBinding& env)
@@ -168,10 +172,6 @@ auto BuildMainPassMaterialFlags = [&](const auto& material, bool useTex, bool us
 		if (material.glossDescIndex != 0)
 		{
 			flags |= kMaterialFlagUseGlossTex;
-		}
-		if (material.heightDescIndex != 0 && std::abs(material.heightScale) > 1e-6f)
-		{
-			flags |= kMaterialFlagUseHeightTex;
 		}
 		if (settings_.enableReflectionCapture && env.usingReflectionProbeEnv)
 		{
