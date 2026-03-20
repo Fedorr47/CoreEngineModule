@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "Win32AppShell.h"
 #include "DebugUiHost.h"
 #include "EditorViewportInteraction.h"
@@ -15,9 +17,13 @@ namespace appLifecycle
         float completedHoldSeconds = 0.0f;
     };
 
-    struct MainViewportStatsState
+    struct FrameStatsOverlayState
     {
-        float smoothedDeltaSeconds = 1.0f / 60.0f;
+        double accumulatedSeconds = 0.0;
+        std::uint32_t accumulatedFrames = 0u;
+        float displayFps = 0.0f;
+        float displayMs = 0.0f;
+        bool initialized = false;
     };
 
     struct AppConfig
@@ -66,8 +72,9 @@ namespace appLifecycle
         appEditor::EditorViewportInteraction editorViewportInteraction{};
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
         GameTimer frameTimer{};
+        GameTimer statsTimer{};
         LoadingOverlayState loadingOverlay{};
-        MainViewportStatsState mainViewportStats{};
+        FrameStatsOverlayState frameStatsOverlay{};
 
         bool initialized = false;
     };

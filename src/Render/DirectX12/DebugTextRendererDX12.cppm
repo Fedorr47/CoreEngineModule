@@ -35,6 +35,7 @@ export namespace rendern::debugText
 	constexpr Glyph5x7 kGlyph_Dot{ { 0,0,0,0,0,0b00100,0b00100 } };
 	constexpr Glyph5x7 kGlyph_Dash{ { 0,0,0,0b11111,0,0,0 } };
 	constexpr Glyph5x7 kGlyph_Colon{ { 0,0b00100,0b00100,0,0b00100,0b00100,0 } };
+	constexpr Glyph5x7 kGlyph_Pipe{ { 0b00100,0b00100,0b00100,0b00100,0b00100,0b00100,0b00100 } };
 	constexpr Glyph5x7 kGlyph_Slash{ { 0b00001,0b00010,0b00100,0b01000,0b10000,0,0 } };
 	constexpr Glyph5x7 kGlyph_Plus{
 		{ 0,0b00100,0b00100,0b11111,0b00100,0b00100,0 }
@@ -110,6 +111,7 @@ export namespace rendern::debugText
 		case '.': return kGlyph_Dot;
 		case '-': return kGlyph_Dash;
 		case ':': return kGlyph_Colon;
+		case '|': return kGlyph_Pipe;
 		case '/': return kGlyph_Slash;
 		case '+': return kGlyph_Plus;
 		case '(': return kGlyph_LParen;

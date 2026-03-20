@@ -12,6 +12,7 @@ module;
 // D3D-style clip-space helpers (Z in [0..1]).
 
 #include <array>
+#include <cstdio>
 #include <iostream>
 #include <algorithm>
 #include <filesystem>

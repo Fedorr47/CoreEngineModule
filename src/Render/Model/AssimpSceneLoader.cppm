@@ -68,6 +68,7 @@ export namespace rendern
         std::optional<ImportedMaterialTextureRef> emissive;
         std::optional<ImportedMaterialTextureRef> specular;
         std::optional<ImportedMaterialTextureRef> gloss;
+        std::optional<ImportedMaterialTextureRef> height;
     };
 
     struct ImportedModelScene
@@ -489,6 +490,8 @@ export namespace rendern
             if (!info.emissive) info.emissive = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_EMISSION_COLOR, "emissive", materializeTextures, &textureWriteTracker);
             info.specular = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_SPECULAR, "specular", materializeTextures, &textureWriteTracker);
             info.gloss = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_SHININESS, "gloss", materializeTextures, &textureWriteTracker);
+            info.height = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_DISPLACEMENT, "height", materializeTextures, &textureWriteTracker);
+            if (!info.height) info.height = ReadAndNormalizeTextureRef(scene, path, mat, aiTextureType_HEIGHT, "height", materializeTextures, &textureWriteTracker);
             out.materials.push_back(std::move(info));
         }
 

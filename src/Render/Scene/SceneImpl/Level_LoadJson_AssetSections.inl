@@ -260,6 +260,7 @@ inline void ParseMaterialSection_(LevelAsset& out, const JsonObject& jsonObject)
 			def.material.params.roughness = GetFloatOpt(md, "roughness", def.material.params.roughness);
 			def.material.params.ao = GetFloatOpt(md, "ao", def.material.params.ao);
 			def.material.params.emissiveStrength = GetFloatOpt(md, "emissiveStrength", def.material.params.emissiveStrength);
+			def.material.params.heightScale = GetFloatOpt(md, "heightScale", GetFloatOpt(md, "parallaxScale", GetFloatOpt(md, "displacementScale", def.material.params.heightScale)));
 
 			if (auto* flagsV = TryGet(md, "flags"))
 			{

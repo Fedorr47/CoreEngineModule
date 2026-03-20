@@ -40,6 +40,11 @@ bool TryParseMaterialTextureSlot_(std::string_view slotName, MaterialTextureSlot
 		outSlot = MaterialTextureSlot::Gloss;
 		return true;
 	}
+	if (slotName == "height" || slotName == "heightMap" || slotName == "displacement" || slotName == "disp")
+	{
+		outSlot = MaterialTextureSlot::Height;
+		return true;
+	}
 	return false;
 }
 
@@ -71,6 +76,7 @@ void ResolveTextureBindings(AssetManager& assets, BindlessTable& bindless, Scene
 		case MaterialTextureSlot::Emissive:  m.params.emissiveDescIndex = idx; break;
 		case MaterialTextureSlot::Specular:  m.params.specularDescIndex = idx; break;
 		case MaterialTextureSlot::Gloss:     m.params.glossDescIndex = idx; break;
+		case MaterialTextureSlot::Height:    m.params.heightDescIndex = idx; break;
 		}
 	}
 

@@ -161,6 +161,8 @@ namespace appLifecycle
 
         app.frameTimer.SetMaxDelta(0.05);
         app.frameTimer.Reset();
+        app.statsTimer.SetMaxDelta(10.0);
+        app.statsTimer.Reset();
         app.initialized = true;
     }
 
@@ -185,18 +187,51 @@ namespace appLifecycle
 
         appRuntime::DriveAssetStreaming(*app.assets, *app.levelInstance, *app.bindless, app.scene, app.config.uploadBudget);
 
+        app.statsTimer.Tick();
+        const double rawFrameDeltaSeconds = app.statsTimer.GetDeltaTime();
+
         app.frameTimer.Tick();
         const float deltaSeconds = static_cast<float>(app.frameTimer.GetDeltaTime());
 
-        auto& mainViewportStats = app.mainViewportStats;
-        const float statsLerpAlpha = std::clamp(deltaSeconds * 6.0f, 0.0f, 1.0f);
-        mainViewportStats.smoothedDeltaSeconds = std::lerp(
-            mainViewportStats.smoothedDeltaSeconds,
-            std::max(deltaSeconds, 1.0e-4f),
-            statsLerpAlpha);
+        auto& frameStats = app.frameStatsOverlay;
+        if (rawFrameDeltaSeconds > 0.0)
+        {
+            frameStats.accumulatedSeconds += rawFrameDeltaSeconds;
+            ++frameStats.accumulatedFrames;
 
-        app.rendererSettings.mainWindowFrameTimeMs = mainViewportStats.smoothedDeltaSeconds * 1000.0f;
-        app.rendererSettings.mainWindowFps = 1.0f / std::max(mainViewportStats.smoothedDeltaSeconds, 1.0e-4f);
+            if (!frameStats.initialized)
+            {
+                frameStats.displayFps = static_cast<float>(1.0 / rawFrameDeltaSeconds);
+                frameStats.displayMs = static_cast<float>(rawFrameDeltaSeconds * 1000.0);
+                frameStats.initialized = true;
+            }
+
+            if (frameStats.accumulatedSeconds >= 0.25 || frameStats.accumulatedFrames >= 32u)
+            {
+                const double sampleSeconds = std::max(frameStats.accumulatedSeconds, 1e-6);
+                const float sampleFps = static_cast<float>(static_cast<double>(frameStats.accumulatedFrames) / sampleSeconds);
+                const float sampleMs = static_cast<float>((sampleSeconds * 1000.0) / static_cast<double>(frameStats.accumulatedFrames));
+
+                if (!std::isfinite(frameStats.displayFps) || !std::isfinite(frameStats.displayMs)
+                    || frameStats.displayFps <= 0.0f || frameStats.displayMs <= 0.0f)
+                {
+                    frameStats.displayFps = sampleFps;
+                    frameStats.displayMs = sampleMs;
+                }
+                else
+                {
+                    constexpr float kStatsBlend = 0.35f;
+                    frameStats.displayFps = std::lerp(frameStats.displayFps, sampleFps, kStatsBlend);
+                    frameStats.displayMs = std::lerp(frameStats.displayMs, sampleMs, kStatsBlend);
+                }
+
+                frameStats.accumulatedSeconds = 0.0;
+                frameStats.accumulatedFrames = 0u;
+            }
+        }
+
+        app.rendererSettings.mainViewportFpsDisplay = frameStats.displayFps;
+        app.rendererSettings.mainViewportFrameMsDisplay = frameStats.displayMs;
 
         const AssetStreamingStats streamingStats = app.assets->GetStreamingStats();
         const bool hasPendingStreaming = streamingStats.HasPendingWork();

@@ -210,6 +210,7 @@ export namespace rendern
 		rhi::TextureDescIndex emissiveDescIndex{};
 		rhi::TextureDescIndex specularDescIndex{};
 		rhi::TextureDescIndex glossDescIndex{};
+		rhi::TextureDescIndex heightDescIndex{};
 
 		mathUtils::Vec4 baseColor{};
 		float shadowBias{}; // texels
@@ -219,6 +220,7 @@ export namespace rendern
 		float roughness{};
 		float ao{};
 		float emissiveStrength{};
+		float heightScale{};
 
 		// Legacy (kept for batching stability with OpenGL fallback / old materials)
 		float shininess{};
@@ -245,12 +247,14 @@ export namespace rendern
 				lhs.emissiveDescIndex == rhs.emissiveDescIndex &&
 				lhs.specularDescIndex == rhs.specularDescIndex &&
 				lhs.glossDescIndex == rhs.glossDescIndex &&
+				lhs.heightDescIndex == rhs.heightDescIndex &&
 				lhs.baseColor == rhs.baseColor &&
 				lhs.shadowBias == rhs.shadowBias &&
 				lhs.metallic == rhs.metallic &&
 				lhs.roughness == rhs.roughness &&
 				lhs.ao == rhs.ao &&
 				lhs.emissiveStrength == rhs.emissiveStrength &&
+				lhs.heightScale == rhs.heightScale &&
 				lhs.shininess == rhs.shininess &&
 				lhs.specStrength == rhs.specStrength;
 		}
@@ -316,10 +320,14 @@ export namespace rendern
 		// Packed as float4 to keep the constant buffer simple across backends.
 		// x=ao, y=emissive, z=specular, w=gloss
 		std::array<float, 4> uTexIndices0{};
-		// x=ao, y=emissive, z,w unused
+		// x=ao, y=emissive, z=specular, w=gloss
 		std::array<float, 4> uTexIndices1{};
+		// x=height, y/z/w unused
+		std::array<float, 4> uTexIndices2{};
+		// x=heightScale, y/z/w reserved
+		std::array<float, 4> uParallaxParams{};
 	};
-	static_assert(sizeof(PerBatchConstants) == 304);
+	static_assert(sizeof(PerBatchConstants) == 336);
 
 	struct alignas(16) SkinnedPerDrawConstants
 	{
@@ -336,10 +344,12 @@ export namespace rendern
 		std::array<float, 4>  uEnvProbeBoxMax{};
 		std::array<float, 4>  uTexIndices0{};
 		std::array<float, 4>  uTexIndices1{};
+		std::array<float, 4>  uTexIndices2{};
+		std::array<float, 4>  uParallaxParams{};
 		std::array<float, 16> uModel{};
 		std::array<float, 4>  uSkinning{};
 	};
-	static_assert(sizeof(SkinnedPerDrawConstants) == 384);
+	static_assert(sizeof(SkinnedPerDrawConstants) == 416);
 
 	struct alignas(16) SkinnedSingleMatrixPassConstants
 	{

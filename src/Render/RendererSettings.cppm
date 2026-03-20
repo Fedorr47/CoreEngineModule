@@ -78,6 +78,12 @@ export namespace rendern
 		bool drawGameplayMovementDebugOnlyControlled{ true };
 		bool drawGameplayMovementDebugLabels{ true };
 		bool drawGameplayMovementDebugText{ true };
+
+		bool drawMainViewportFpsStats{ true };
+		float mainViewportFpsTextScale{ 1.35f };
+		float mainViewportFpsDisplay{ 0.0f };
+		float mainViewportFrameMsDisplay{ 0.0f };
+
 		float gameplayMovementVelocityScale{ 0.35f };
 		float gameplayMovementTargetVelocityScale{ 0.35f };
 		float gameplayMovementDesiredMoveScale{ 1.4f };
@@ -102,11 +108,6 @@ export namespace rendern
 
 		std::uint32_t loadingOverlayTotalUnits{ 0u };
 		std::uint32_t loadingOverlayCompletedUnits{ 0u };
-
-		bool showMainWindowFpsStats{ true };
-		float mainWindowFps{ 0.0f };
-		float mainWindowFrameTimeMs{ 0.0f };
-		float mainWindowStatsTextScale{ 1.75f };
 
 		float reflectionCaptureFovPadDeg{ 0.0f };
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";

@@ -45,6 +45,9 @@ export namespace hashUtils
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.roughnessDescIndex)));
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.aoDescIndex)));
 			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.emissiveDescIndex)));
+			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.specularDescIndex)));
+			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.glossDescIndex)));
+			HashCombine(seed, HashU32(static_cast<std::uint32_t>(key.heightDescIndex)));
 
 			HashCombine(seed, HashU32(FloatBits(key.baseColor.x)));
 			HashCombine(seed, HashU32(FloatBits(key.baseColor.y)));
@@ -57,6 +60,7 @@ export namespace hashUtils
 			HashCombine(seed, HashU32(FloatBits(key.roughness)));
 			HashCombine(seed, HashU32(FloatBits(key.ao)));
 			HashCombine(seed, HashU32(FloatBits(key.emissiveStrength)));
+			HashCombine(seed, HashU32(FloatBits(key.heightScale)));
 
 			// Legacy
 			HashCombine(seed, HashU32(FloatBits(key.shininess)));

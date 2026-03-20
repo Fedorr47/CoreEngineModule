@@ -129,181 +129,199 @@
       "debugName": "Running Backward"
     }
   },
-  "textures": {
-    "Ship_AO": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship Ao_Blender.jpg",
-      "srgb": false,
-      "mips": true,
-      "flipY": false
+    "textures": {
+        "Ship_AO": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship Ao_Blender.jpg",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "Ship_Albedo": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship_color_4.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "Ship_Emissive": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship_emi.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "Ship_Metalness": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship_metalness.jpg",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "Ship_Normal": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship_nmap_2_Tris.jpg",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "Ship_Roughness": {
+            "kind": "tex2d",
+            "path": "textures/Intergalactic Spaceship_rough.jpg",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "Skybox": {
+            "kind": "cube",
+            "source": "cross",
+            "cross": "textures/skybox/Cubemap_Sky_03-512x512.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "brick_albedo": {
+            "kind": "tex2d",
+            "path": "textures/red_brick_diff_4k.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "brick_normal": {
+            "kind": "tex2d",
+            "path": "textures/red_brick_nor_gl_4k.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false,
+            "normalMap": true
+        },
+        "brick_roughness": {
+            "kind": "tex2d",
+            "path": "textures/red_brick_rough_4k.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "brick_height": {
+            "kind": "tex2d",
+            "path": "textures/red_brick_disp_4k.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false
+        },
+        "models_Character_fbx__mat_0__albedo": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_Character_fbx__mat_0__normal": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false,
+            "normalMap": true
+        },
+        "models_Character_fbx__mat_1__albedo": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_Character_fbx__mat_1__emissive": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_Character_fbx__mat_1__normal": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false,
+            "normalMap": true
+        },
+        "models_character_fbx__mat_0__albedo": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_character_fbx__mat_0__normal": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false,
+            "normalMap": true
+        },
+        "models_character_fbx__mat_1__albedo": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_character_fbx__mat_1__emissive": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "models_character_fbx__mat_1__normal": {
+            "kind": "tex2d",
+            "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png",
+            "srgb": false,
+            "mips": true,
+            "flipY": false,
+            "normalMap": true
+        },
+        "watermelon_albedo": {
+            "kind": "tex2d",
+            "path": "textures/watermelon_albedo.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "watermelon_normal": {
+            "kind": "tex2d",
+            "path": "textures/watermelon_normal.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        },
+        "watermelon_roughness": {
+            "kind": "tex2d",
+            "path": "textures/watermelon_roughness.jpg",
+            "srgb": true,
+            "mips": true,
+            "flipY": false
+        }
     },
-    "Ship_Albedo": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship_color_4.jpg",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "Ship_Emissive": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship_emi.jpg",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "Ship_Metalness": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship_metalness.jpg",
-      "srgb": false,
-      "mips": true,
-      "flipY": false
-    },
-    "Ship_Normal": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship_nmap_2_Tris.jpg",
-      "srgb": false,
-      "mips": true,
-      "flipY": false
-    },
-    "Ship_Roughness": {
-      "kind": "tex2d",
-      "path": "textures/Intergalactic Spaceship_rough.jpg",
-      "srgb": false,
-      "mips": true,
-      "flipY": false
-    },
-    "Skybox": {
-      "kind": "cube",
-      "source": "cross",
-      "cross": "textures/skybox/Cubemap_Sky_03-512x512.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "brick": {
-      "kind": "tex2d",
-      "path": "textures/brick.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_0__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_0__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    },
-    "models_Character_fbx__mat_1__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_1__emissive": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_1__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    },
-    "models_character_fbx__mat_0__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_character_fbx__mat_0__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    },
-    "models_character_fbx__mat_1__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_character_fbx__mat_1__emissive": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_character_fbx__mat_1__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    },
-    "watermelon_albedo": {
-      "kind": "tex2d",
-      "path": "textures/watermelon_albedo.jpg",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "watermelon_normal": {
-      "kind": "tex2d",
-      "path": "textures/watermelon_normal.jpg",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "watermelon_roughness": {
-      "kind": "tex2d",
-      "path": "textures/watermelon_roughness.jpg",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    }
-  },
   "materials": {
     "cube": {
-      "baseColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "shininess": 64.0,
-      "specStrength": 0.5,
-      "shadowBias": 0.0015,
-      "metallic": 0.0,
-      "roughness": 0.75,
-      "ao": 1.0,
-      "emissiveStrength": 1.0,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {
-        "albedo": "brick"
-      }
+        "baseColor": [ 1.0, 1.0, 1.0, 1.0 ],
+        "shininess": 64.0,
+        "specStrength": 0.5,
+        "shadowBias": 0.0015,
+        "metallic": 0.0,
+        "roughness": 0.8,
+        "ao": 1.0,
+        "emissiveStrength": 1.0,
+        "flags": [ "useShadow" ],
+        "textures": {
+            "albedo": "brick_albedo",
+            "normal": "brick_normal",
+            "roughness": "brick_roughness",
+            "height": "brick_height"
+        }
     },
     "glass": {
       "baseColor": [

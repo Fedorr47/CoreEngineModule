@@ -2,6 +2,30 @@
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
 
+if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0f)
+{
+	char fpsText[96]{};
+	std::snprintf(
+		fpsText,
+		sizeof(fpsText),
+		"FPS %.1f | %.2f ms",
+		settings_.mainViewportFpsDisplay,
+		settings_.mainViewportFrameMsDisplay);
+
+	const float fpsScale = std::clamp(settings_.mainViewportFpsTextScale, 0.5f, 3.0f);
+	const float outlinePx = std::clamp(fpsScale * 0.6f, 1.0f, 3.0f);
+	textList.AddOutlinedTextAlignedPx(
+		12.0f,
+		12.0f,
+		fpsText,
+		debugText::TextAlignH::Left,
+		debugText::TextAlignV::Top,
+		debugText::PackRGBA8(255, 255, 255, 255),
+		debugText::PackRGBA8(0, 0, 0, 210),
+		fpsScale,
+		outlinePx);
+}
+
 auto ProjectWorldToScreenPx = [&](const mathUtils::Vec3& worldPos, mathUtils::Vec2& outPx) -> bool
 	{
 		const mathUtils::Vec4 clip = cameraViewProj * mathUtils::Vec4(worldPos, 1.0f);
@@ -160,35 +184,6 @@ auto AddProbeCenterMarker = [&](const mathUtils::Vec3& p, float s, std::uint32_t
 			mathUtils::Vec3(p.x, p.y, p.z + s),
 			rgba);
 	};
-
-if (settings_.showMainWindowFpsStats)
-{
-	char statsBuffer[96]{};
-	const float fps = std::max(0.0f, settings_.mainWindowFps);
-	const float frameTimeMs = std::max(0.0f, settings_.mainWindowFrameTimeMs);
-	std::snprintf(statsBuffer, sizeof(statsBuffer), "FPS %.1f | %.2f ms", fps, frameTimeMs);
-
-	std::uint32_t statsColor = debugText::PackRGBA8(120, 255, 140, 255);
-	if (fps < 50.0f)
-	{
-		statsColor = debugText::PackRGBA8(255, 210, 80, 255);
-	}
-	if (fps < 30.0f)
-	{
-		statsColor = debugText::PackRGBA8(255, 110, 110, 255);
-	}
-
-	textList.AddOutlinedTextAlignedPx(
-		18.0f,
-		18.0f,
-		statsBuffer,
-		debugText::TextAlignH::Left,
-		debugText::TextAlignV::Top,
-		statsColor,
-		debugText::PackRGBA8(0, 0, 0, 220),
-		std::max(0.75f, settings_.mainWindowStatsTextScale),
-		2.0f);
-}
 
 auto ResolveGizmoAxisColor = [&](GizmoAxis activeAxis, GizmoAxis hoveredAxis, GizmoAxis axis, std::uint32_t baseColor) -> std::uint32_t
 	{

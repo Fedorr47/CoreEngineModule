@@ -98,6 +98,10 @@ cbuffer PerBatchCB : register(b0)
     float4 uTexIndices0;
    // x=ao, y=emissive, z=specular, w=gloss
     float4 uTexIndices1;
+    // x=height
+    float4 uTexIndices2;
+    // x=heightScale
+    float4 uParallaxParams;
     float4x4 uModel;
     // x=paletteOffset, y=boneCount
     float4 uSkinning;
@@ -118,6 +122,7 @@ static const uint FLAG_ENV_FLIP_Z = 1u << 8;
 static const uint FLAG_ENV_FORCE_MIP0 = 1u << 9;
 static const uint FLAG_USE_SPECULAR_TEX = 1u << 10;
 static const uint FLAG_USE_GLOSS_TEX = 1u << 11;
+static const uint FLAG_USE_HEIGHT_TEX = 1u << 12;
 
 // Planar reflection clip-plane (used only in a dedicated planar PSO)
 // We pack the plane as:
@@ -322,24 +327,73 @@ float3x3 BuildCotangentFrame(float3 N, float3 worldPos, float2 uv)
 	return float3x3(T, B, N);
 }
 
-float3 GetNormalMapped(float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float2 uv)
+float3x3 BuildSurfaceTBN(float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float2 uv)
 {
-	float3x3 TBN;
 	const float tangentLen2 = dot(tangentW, tangentW);
 	const float bitangentLen2 = dot(bitangentW, bitangentW);
 	if (tangentLen2 > 1e-8f && bitangentLen2 > 1e-8f)
 	{
 		float3 T = normalize(tangentW - N * dot(N, tangentW));
 		float3 B = normalize(bitangentW - N * dot(N, bitangentW));
-		TBN = float3x3(T, B, N);
-	}
-	else
-	{
-		TBN = BuildCotangentFrame(N, worldPos, uv);
+		return float3x3(T, B, N);
 	}
 
+	return BuildCotangentFrame(N, worldPos, uv);
+}
+
+float3 GetNormalMapped(float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float2 uv)
+{
+	const float3x3 TBN = BuildSurfaceTBN(N, tangentW, bitangentW, worldPos, uv);
 	float3 nTS = gNormal.Sample(gLinear, uv).xyz * 2.0f - 1.0f;
 	return normalize(mul(nTS, TBN));
+}
+
+float2 ApplyParallaxOcclusion(float2 uv, float heightScale, uint heightIdx, float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float3 viewDirW)
+{
+	if (heightIdx == 0u || abs(heightScale) <= 1e-6f)
+	{
+		return uv;
+	}
+
+	const float3x3 TBN = BuildSurfaceTBN(N, tangentW, bitangentW, worldPos, uv);
+	const float3 viewTS = mul(viewDirW, transpose(TBN));
+	const float vz = abs(viewTS.z);
+	if (vz <= 1e-4f)
+	{
+		return uv;
+	}
+
+	const float ndotv = saturate(vz);
+	const float layerCount = lerp(24.0f, 8.0f, ndotv);
+	const float layerDepth = 1.0f / layerCount;
+	const float2 deltaUV = (viewTS.xy / viewTS.z) * heightScale / layerCount;
+
+	float2 currentUV = uv;
+	float2 previousUV = uv;
+	float currentLayerDepth = 0.0f;
+	float currentHeight = gBindlessTex[NonUniformResourceIndex(heightIdx)].Sample(gLinear, currentUV).r;
+	float previousHeight = currentHeight;
+
+	[loop]
+	for (int step = 0; step < 32; ++step)
+	{
+		if (currentLayerDepth >= currentHeight)
+		{
+			break;
+		}
+
+		previousUV = currentUV;
+		previousHeight = currentHeight;
+		currentUV -= deltaUV;
+		currentLayerDepth += layerDepth;
+		currentHeight = gBindlessTex[NonUniformResourceIndex(heightIdx)].Sample(gLinear, currentUV).r;
+	}
+
+	const float afterDepth = currentHeight - currentLayerDepth;
+	const float beforeDepth = previousHeight - (currentLayerDepth - layerDepth);
+	const float denom = afterDepth - beforeDepth;
+	const float weight = abs(denom) > 1e-6f ? saturate(afterDepth / denom) : 0.0f;
+	return lerp(currentUV, previousUV, weight);
 }
 
 float SlopeScaleTerm(float NdotL)
@@ -1063,13 +1117,23 @@ float4 PSMain(VSOut IN) : SV_Target0
 	const bool useEnv = (flags & FLAG_USE_ENV) != 0;
 	const bool envFlipZ = (flags & FLAG_ENV_FLIP_Z) != 0;
 	const bool envForceMip0 = (flags & FLAG_ENV_FORCE_MIP0) != 0;
+	const uint heightIdx = (uint) uTexIndices2.x;
+	const bool useHeightTex = ((flags & FLAG_USE_HEIGHT_TEX) != 0u) && (heightIdx != 0u);
+	const float heightScale = uParallaxParams.x;
+
+	float2 uvMat = IN.uv;
+	if (useHeightTex && abs(heightScale) > 1e-6f)
+	{
+		const float3 Vw = normalize(uCameraAmbient.xyz - IN.worldPos);
+		uvMat = ApplyParallaxOcclusion(IN.uv, heightScale, heightIdx, normalize(IN.nrmW), IN.tangentW, IN.bitangentW, IN.worldPos, Vw);
+	}
 
 	float3 baseColor = uBaseColor.rgb;
 	float alphaOut = uBaseColor.a;
 
 	if (useTex)
 	{
-		const float4 tex = gAlbedo.Sample(gLinear, IN.uv);
+		const float4 tex = gAlbedo.Sample(gLinear, uvMat);
 		baseColor *= tex.rgb;
 		alphaOut *= tex.a;
 	}
@@ -1087,23 +1151,23 @@ float4 PSMain(VSOut IN) : SV_Target0
 	float metallic = saturate(uPbrParams.x);
 	if (useMetalTex)
 	{
-		metallic = gMetalness.Sample(gLinear, IN.uv).r;
+		metallic = gMetalness.Sample(gLinear, uvMat).r;
 	}
 	
 	float roughness = saturate(uPbrParams.y);
 	if (useRoughTex)
 	{
-		roughness = gRoughness.Sample(gLinear, IN.uv).r;
+		roughness = gRoughness.Sample(gLinear, uvMat).r;
 	}
 	else if (useLegacyGlossTex)
 	{
-		roughness = 1.0f - gBindlessTex[NonUniformResourceIndex(glossIdx)].Sample(gLinear, IN.uv).r;
+		roughness = 1.0f - gBindlessTex[NonUniformResourceIndex(glossIdx)].Sample(gLinear, uvMat).r;
 	}
 	
 	float ao = saturate(uPbrParams.z);
 	if (useAOTex)
 	{
-		ao *= gAO.Sample(gLinear, IN.uv).r;
+		ao *= gAO.Sample(gLinear, uvMat).r;
 	}
 
 	const float emissiveStrength = max(uPbrParams.w, 0.0f);
@@ -1112,7 +1176,7 @@ float4 PSMain(VSOut IN) : SV_Target0
 	float3 N = normalize(IN.nrmW);
 	if (useNormal)
 	{
-		N = GetNormalMapped(N, IN.tangentW, IN.bitangentW, IN.worldPos, IN.uv);
+		N = GetNormalMapped(N, IN.tangentW, IN.bitangentW, IN.worldPos, uvMat);
 	}
 
 	const float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
@@ -1148,7 +1212,7 @@ float4 PSMain(VSOut IN) : SV_Target0
 	float oneMinusReflectivity = 1.0f - metallic;
 	if (useLegacySpecularTex)
 	{
-		const float3 legacySpec = saturate(gBindlessTex[NonUniformResourceIndex(specularIdx)].Sample(gLinear, IN.uv).rgb);
+		const float3 legacySpec = saturate(gBindlessTex[NonUniformResourceIndex(specularIdx)].Sample(gLinear, uvMat).rgb);
 		
 		// aiTextureType_SPECULAR from legacy FBX/Phong content is usually a spec mask / intensity map,
 		// not a physically authored F0 texture. Remap it into a conservative dielectric range so
@@ -1353,7 +1417,7 @@ float4 PSMain(VSOut IN) : SV_Target0
 	float3 emissive = 0.0f;
 	if (useEmissiveTex)
 	{
-		emissive = gEmissive.Sample(gLinear, IN.uv).rgb * emissiveStrength;
+		emissive = gEmissive.Sample(gLinear, uvMat).rgb * emissiveStrength;
 	}
 
 	const float3 color = ambient + Lo + emissive;

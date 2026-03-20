@@ -25,8 +25,12 @@ cbuffer PerBatch : register(b0)
 
     // x=albedo, y=normal, z=metalness, w=roughness
 	float4 uTexIndices0;
-    // x=ao, y=emissive
+    // x=ao, y=emissive, z=specular, w=gloss
 	float4 uTexIndices1;
+	// x=height
+	float4 uTexIndices2;
+	// x=heightScale
+	float4 uParallaxParams;
 };
 
 // we output a tiny "env selector" target so deferred lighting can choose betwee
@@ -101,6 +105,68 @@ float3x3 CotangentFrame(float3 N, float3 p, float2 uv)
 	return float3x3(T * invMax, B * invMax, N);
 }
 
+float3x3 BuildSurfaceTBN(float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float2 uv)
+{
+	const float tangentLen2 = dot(tangentW, tangentW);
+	const float bitangentLen2 = dot(bitangentW, bitangentW);
+	if (tangentLen2 > 1e-8f && bitangentLen2 > 1e-8f)
+	{
+		float3 T = normalize(tangentW - N * dot(N, tangentW));
+		float3 B = normalize(bitangentW - N * dot(N, bitangentW));
+		return float3x3(T, B, N);
+	}
+
+	return CotangentFrame(N, worldPos, uv);
+}
+
+float2 ApplyParallaxOcclusion(float2 uv, float heightScale, uint heightIdx, float3 N, float3 tangentW, float3 bitangentW, float3 worldPos, float3 viewDirW)
+{
+	if (heightIdx == 0u || abs(heightScale) <= 1e-6f)
+	{
+		return uv;
+	}
+
+	const float3x3 TBN = BuildSurfaceTBN(N, tangentW, bitangentW, worldPos, uv);
+	const float3 viewTS = mul(viewDirW, transpose(TBN));
+	const float vz = abs(viewTS.z);
+	if (vz <= 1e-4f)
+	{
+		return uv;
+	}
+
+	const float ndotv = saturate(vz);
+	const float layerCount = lerp(24.0f, 8.0f, ndotv);
+	const float layerDepth = 1.0f / layerCount;
+	const float2 deltaUV = (viewTS.xy / viewTS.z) * heightScale / layerCount;
+
+	float2 currentUV = uv;
+	float2 previousUV = uv;
+	float currentLayerDepth = 0.0f;
+	float currentHeight = gBindlessTex[NonUniformResourceIndex(heightIdx)].Sample(gLinear, currentUV).r;
+	float previousHeight = currentHeight;
+
+	[loop]
+	for (int step = 0; step < 32; ++step)
+	{
+		if (currentLayerDepth >= currentHeight)
+		{
+			break;
+		}
+
+		previousUV = currentUV;
+		previousHeight = currentHeight;
+		currentUV -= deltaUV;
+		currentLayerDepth += layerDepth;
+		currentHeight = gBindlessTex[NonUniformResourceIndex(heightIdx)].Sample(gLinear, currentUV).r;
+	}
+
+	const float afterDepth = currentHeight - currentLayerDepth;
+	const float beforeDepth = previousHeight - (currentLayerDepth - layerDepth);
+	const float denom = afterDepth - beforeDepth;
+	const float weight = abs(denom) > 1e-6f ? saturate(afterDepth / denom) : 0.0f;
+	return lerp(currentUV, previousUV, weight);
+}
+
 struct PSOut
 {
 	float4 rt0 : SV_Target0; // albedo.rgb, roughness
@@ -116,6 +182,7 @@ static const uint kFlagUseMetalTex = 1u << 3;
 static const uint kFlagUseRoughTex = 1u << 4;
 static const uint kFlagUseAOTex = 1u << 5;
 static const uint kFlagUseEmissive = 1u << 6;
+static const uint kFlagUseHeightTex = 1u << 12;
 
 PSOut PS_GBuffer(VSOut IN)
 {
@@ -130,50 +197,47 @@ PSOut PS_GBuffer(VSOut IN)
 
 	const uint aoIdx = (uint) uTexIndices1.x;
 	const uint emissiveIdx = (uint) uTexIndices1.y;
+	const uint heightIdx = (uint) uTexIndices2.x;
+	const float heightScale = uParallaxParams.x;
+
+	float2 uvMat = IN.uv;
+	if ((flags & kFlagUseHeightTex) != 0u && heightIdx != 0u && abs(heightScale) > 1e-6f)
+	{
+		const float3 V = normalize(uCameraAmbient.xyz - IN.worldPos);
+		uvMat = ApplyParallaxOcclusion(IN.uv, heightScale, heightIdx, normalize(IN.nrmW), IN.tangentW, IN.bitangentW, IN.worldPos, V);
+	}
 
 	float3 albedo = uBaseColor.rgb;
 	if ((flags & kFlagUseTex) != 0u && albedoIdx != 0u)
 	{
         // Non-uniform indexing (bindless)
-		float4 t = gBindlessTex[NonUniformResourceIndex(albedoIdx)].Sample(gLinear, IN.uv);
+		float4 t = gBindlessTex[NonUniformResourceIndex(albedoIdx)].Sample(gLinear, uvMat);
 		albedo *= t.rgb;
 	}
 
 	float metallic = saturate(uPbrParams.x);
 	if ((flags & kFlagUseMetalTex) != 0u && metalIdx != 0u)
 	{
-		metallic = gBindlessTex[NonUniformResourceIndex(metalIdx)].Sample(gLinear, IN.uv).r;
+		metallic = gBindlessTex[NonUniformResourceIndex(metalIdx)].Sample(gLinear, uvMat).r;
 	}
 
 	float roughness = saturate(uPbrParams.y);
 	if ((flags & kFlagUseRoughTex) != 0u && roughIdx != 0u)
 	{
-		roughness = gBindlessTex[NonUniformResourceIndex(roughIdx)].Sample(gLinear, IN.uv).r;
+		roughness = gBindlessTex[NonUniformResourceIndex(roughIdx)].Sample(gLinear, uvMat).r;
 	}
 
 	float ao = saturate(uPbrParams.z);
 	if ((flags & kFlagUseAOTex) != 0u && aoIdx != 0u)
 	{
-		ao = gBindlessTex[NonUniformResourceIndex(aoIdx)].Sample(gLinear, IN.uv).r;
+		ao = gBindlessTex[NonUniformResourceIndex(aoIdx)].Sample(gLinear, uvMat).r;
 	}
 
 	float3 N = normalize(IN.nrmW);
 	if ((flags & kFlagUseNormal) != 0u && normalIdx != 0u)
 	{
-		float3 nTS = gBindlessTex[NonUniformResourceIndex(normalIdx)].Sample(gLinear, IN.uv).xyz * 2.0f - 1.0f;
-		float3x3 TBN;
-		const float tangentLen2 = dot(IN.tangentW, IN.tangentW);
-		const float bitangentLen2 = dot(IN.bitangentW, IN.bitangentW);
-		if (tangentLen2 > 1e-8f && bitangentLen2 > 1e-8f)
-		{
-			float3 T = normalize(IN.tangentW - N * dot(N, IN.tangentW));
-			float3 B = normalize(IN.bitangentW - N * dot(N, IN.bitangentW));
-			TBN = float3x3(T, B, N);
-		}
-		else
-		{
-			TBN = CotangentFrame(N, IN.worldPos, IN.uv);
-		}
+		float3 nTS = gBindlessTex[NonUniformResourceIndex(normalIdx)].Sample(gLinear, uvMat).xyz * 2.0f - 1.0f;
+		const float3x3 TBN = BuildSurfaceTBN(N, IN.tangentW, IN.bitangentW, IN.worldPos, uvMat);
 		N = normalize(mul(nTS, TBN));
 	}
 
@@ -181,7 +245,7 @@ PSOut PS_GBuffer(VSOut IN)
 	float3 emissive = 0.0f;
 	if ((flags & kFlagUseEmissive) != 0u && emissiveIdx != 0u)
 	{
-		emissive = gBindlessTex[NonUniformResourceIndex(emissiveIdx)].Sample(gLinear, IN.uv).rgb * emissiveStrength;
+		emissive = gBindlessTex[NonUniformResourceIndex(emissiveIdx)].Sample(gLinear, uvMat).rgb * emissiveStrength;
 	}
 
     // Encode to gbuffer

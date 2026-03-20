@@ -104,6 +104,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 			else if (slot == "emissive") pb.slot = MaterialTextureSlot::Emissive;
 			else if (slot == "specular" || slot == "spec") pb.slot = MaterialTextureSlot::Specular;
 			else if (slot == "gloss" || slot == "glossiness") pb.slot = MaterialTextureSlot::Gloss;
+			else if (slot == "height" || slot == "heightMap" || slot == "displacement" || slot == "disp") pb.slot = MaterialTextureSlot::Height;
 			else
 			{
 				throw std::runtime_error("Level JSON: unknown material texture slot: " + slot);

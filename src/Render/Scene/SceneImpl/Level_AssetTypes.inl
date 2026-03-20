@@ -124,7 +124,8 @@ enum class MaterialTextureSlot : std::uint8_t
 	AO,
 	Emissive,
 	Specular,
-	Gloss
+	Gloss,
+	Height
 };
 
 struct PendingMaterialBinding

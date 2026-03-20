@@ -465,6 +465,8 @@ inline void WriteMaterialsSection_(std::ostringstream& ss, const LevelAsset& lev
 			WriteJsonFloat(ss, p.ao);
 			ss << ", \"emissiveStrength\": ";
 			WriteJsonFloat(ss, p.emissiveStrength);
+			ss << ", \"heightScale\": ";
+			WriteJsonFloat(ss, p.heightScale);
 			if (md.material.envSource == EnvSource::ReflectionCapture)
 			{
 				ss << ", \"envSource\": \"reflectionCapture\"";
