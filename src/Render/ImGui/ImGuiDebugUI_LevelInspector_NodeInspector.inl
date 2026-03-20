@@ -840,28 +840,35 @@ namespace rendern::ui::level_ui_detail
 
         if (ImGui::Button("Duplicate"))
         {
-            rendern::Transform t = node.transform;
+            const rendern::LevelNode sourceNode = node;
+
+            rendern::Transform t = sourceNode.transform;
             t.position.x += 1.0f;
 
-            const int newIdx = levelInst.AddNode(level, scene, assets, node.mesh, node.material, node.parent, t, node.name);
-            if (!node.model.empty())
+            const int newIdx = levelInst.AddNode(level, scene, assets, sourceNode.mesh, sourceNode.material, sourceNode.parent, t, sourceNode.name);
+            rendern::LevelNode& dup = level.nodes[static_cast<std::size_t>(newIdx)];
+            dup.visible = sourceNode.visible;
+
+            if (!sourceNode.model.empty())
             {
-                levelInst.SetNodeModel(level, scene, assets, newIdx, node.model);
-                for (const auto& [submeshIndex, materialId] : node.materialOverrides)
+                levelInst.SetNodeModel(level, scene, assets, newIdx, sourceNode.model);
+                for (const auto& [submeshIndex, materialId] : sourceNode.materialOverrides)
                 {
                     levelInst.SetNodeMaterialOverride(level, scene, assets, newIdx, submeshIndex, materialId);
                 }
             }
-            if (!node.skinnedMesh.empty())
+            if (!sourceNode.skinnedMesh.empty())
             {
-                levelInst.SetNodeSkinnedMesh(level, scene, assets, newIdx, node.skinnedMesh);
-                rendern::LevelNode& dup = level.nodes[static_cast<std::size_t>(newIdx)];
-                dup.animation = node.animation;
-                dup.animationClip = node.animationClip;
-                dup.animationController = node.animationController;
-                dup.animationAutoplay = node.animationAutoplay;
-                dup.animationLoop = node.animationLoop;
-                dup.animationPlayRate = node.animationPlayRate;
+                levelInst.SetNodeSkinnedMesh(level, scene, assets, newIdx, sourceNode.skinnedMesh);
+                rendern::LevelNode& duplicatedNode = level.nodes[static_cast<std::size_t>(newIdx)];
+                duplicatedNode.animation = sourceNode.animation;
+                duplicatedNode.animationClip = sourceNode.animationClip;
+                duplicatedNode.animationController = sourceNode.animationController;
+                duplicatedNode.animationInPlace = sourceNode.animationInPlace;
+                duplicatedNode.animationRootMotionBone = sourceNode.animationRootMotionBone;
+                duplicatedNode.animationAutoplay = sourceNode.animationAutoplay;
+                duplicatedNode.animationLoop = sourceNode.animationLoop;
+                duplicatedNode.animationPlayRate = sourceNode.animationPlayRate;
             }
             st.selectedNode = newIdx;
             st.selectedParticleEmitter = -1;
