@@ -15,6 +15,8 @@ module;
 #include <functional>
 #include <mutex>
 #include <algorithm>
+#include <condition_variable>
+#include <exception>
 
 export module core:resource_manager_core;
 
@@ -242,8 +244,12 @@ public:
 	}
 	{
 		Id key{ id };
+		std::shared_ptr<InFlightLoad> inFlight{};
+		bool shouldLoad = false;
 
 		// Fast path: return an alive cached resource.
+		// Otherwise either join an already-running load for the same key,
+		// or publish a new in-flight record and become the loader.
 		{
 			std::scoped_lock lock(mutex_);
 			if (auto it = cache_.find(key); it != cache_.end())
@@ -254,16 +260,76 @@ public:
 				}
 				cache_.erase(it);
 			}
+
+			if (auto it = inFlight_.find(key); it != inFlight_.end())
+			{
+				inFlight = it->second;
+			}
+			else
+			{
+				inFlight = std::make_shared<InFlightLoad>();
+				inFlight_.emplace(key, inFlight);
+				shouldLoad = true;
+			}
 		}
 
-		// Slow path: load outside the lock.
-		Handle resource = ResourceTraits<ResourceType>::Load(key, std::forward<Args>(args)...);
-
+		if (shouldLoad)
 		{
-			std::scoped_lock lock(mutex_);
-			cache_[std::move(key)] = resource;
+			try
+			{
+				Handle resource = ResourceTraits<ResourceType>::Load(key, std::forward<Args>(args)...);
+
+				{
+					std::scoped_lock readyLock(inFlight->mutex);
+					inFlight->resource = resource;
+					inFlight->completed = true;
+				}
+
+				{
+					std::scoped_lock cacheLock(mutex_);
+					cache_[key] = resource;
+					if (auto it = inFlight_.find(key); it != inFlight_.end() && it->second == inFlight)
+					{
+						inFlight_.erase(it);
+					}
+				}
+
+				inFlight->cv.notify_all();
+				return resource;
+			}
+			catch (...)
+			{
+				{
+					std::scoped_lock readyLock(inFlight->mutex);
+					inFlight->error = std::current_exception();
+					inFlight->completed = true;
+				}
+
+				{
+					std::scoped_lock cacheLock(mutex_);
+					if (auto it = inFlight_.find(key); it != inFlight_.end() && it->second == inFlight)
+					{
+						inFlight_.erase(it);
+					}
+				}
+
+				inFlight->cv.notify_all();
+				std::rethrow_exception(inFlight->error);
+			}
 		}
-		return resource;
+
+		std::unique_lock waitLock(inFlight->mutex);
+		inFlight->cv.wait(waitLock, [&inFlight]()
+			{
+				return inFlight->completed;
+			});
+
+		if (inFlight->error)
+		{
+			std::rethrow_exception(inFlight->error);
+		}
+
+		return inFlight->resource;
 	}
 
 	Handle Find(const Id& id) const
@@ -299,8 +365,18 @@ public:
 	}
 
 private:
+	struct InFlightLoad
+	{
+		std::mutex mutex{};
+		std::condition_variable cv{};
+		bool completed{ false };
+		Handle resource{};
+		std::exception_ptr error{};
+	};
+
 	mutable std::mutex mutex_{};
 	std::unordered_map<Id, WeakHandle> cache_;
+	std::unordered_map<Id, std::shared_ptr<InFlightLoad>> inFlight_;
 };
 
 export class ResourceManager
