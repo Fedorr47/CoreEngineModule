@@ -949,7 +949,8 @@
           0.01,
           0.01
         ]
-      }
+      },
+      "animationInPlace": true
     },
     {
       "name": "Ground1",

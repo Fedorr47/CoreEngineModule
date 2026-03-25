@@ -2851,6 +2851,214 @@
           "op": "false"
         }
       ]
+    },
+    {
+      "from": "Idle",
+      "to": "StrafeLeftRun",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": "<",
+          "value": -0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ]
+    },
+    {
+      "from": "Idle",
+      "to": "StrafeLeftWalk",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": "<",
+          "value": -0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ]
+    },
+    {
+      "from": "Idle",
+      "to": "StrafeRightRun",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": ">",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ]
+    },
+    {
+      "from": "Idle",
+      "to": "StrafeRightWalk",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": ">",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ]
+    },
+    {
+      "from": "IdleRelaxed",
+      "to": "StrafeLeftRun",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": "<",
+          "value": -0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ]
+    },
+    {
+      "from": "IdleRelaxed",
+      "to": "StrafeLeftWalk",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": "<",
+          "value": -0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ]
+    },
+    {
+      "from": "IdleRelaxed",
+      "to": "StrafeRightRun",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": ">",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ]
+    },
+    {
+      "from": "IdleRelaxed",
+      "to": "StrafeRightWalk",
+      "blendDuration": 0.12,
+      "conditions": [
+        {
+          "parameter": "MoveX",
+          "op": ">",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": "<=",
+          "value": 0.1
+        },
+        {
+          "parameter": "MoveY",
+          "op": ">=",
+          "value": -0.1
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ]
     }
   ],
   "notifyAsset": "animNotifies/fsm_test_locomotion_notifies.phaseB.json",
