@@ -66,8 +66,8 @@ export namespace rendern
 
     struct GameplayKeyboardMouseBindings
     {
-        GameplayAxisKeyBinding moveX{ 'L', 'J' };
-        GameplayAxisKeyBinding moveY{ 'K', 'I' };
+        GameplayAxisKeyBinding moveX{ 'D', 'A' };
+        GameplayAxisKeyBinding moveY{ 'S', 'W' };
         GameplayButtonKeyBinding run{ 0x10 };
         GameplayButtonKeyBinding jump{ 0x20 };
         GameplayButtonKeyBinding attack{ 0x01 };

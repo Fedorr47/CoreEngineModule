@@ -32,6 +32,18 @@
     "Jump": {
       "type": "trigger",
       "default": false
+    },
+    "TurnInPlaceLeft": {
+      "type": "bool",
+      "default": false
+    },
+    "TurnInPlaceRight": {
+      "type": "bool",
+      "default": false
+    },
+    "TurnDeltaYaw": {
+      "type": "float",
+      "default": 0.0
     }
   },
   "states": {
@@ -525,26 +537,16 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": "<",
-          "value": -0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
+          "parameter": "TurnInPlaceLeft",
           "op": "true"
+        },
+        {
+          "parameter": "TurnDeltaYaw",
+          "op": "<",
+          "value": -75.0
         }
       ],
-      "priority": 40
+      "priority": 41
     },
     {
       "from": "Idle",
@@ -552,23 +554,13 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": "<",
-          "value": -0.1
+          "parameter": "TurnInPlaceLeft",
+          "op": "true"
         },
         {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
+          "parameter": "TurnDeltaYaw",
           "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
-          "op": "false"
+          "value": -75.0
         }
       ],
       "priority": 40
@@ -579,26 +571,16 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": ">",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
+          "parameter": "TurnInPlaceRight",
           "op": "true"
+        },
+        {
+          "parameter": "TurnDeltaYaw",
+          "op": ">",
+          "value": 75.0
         }
       ],
-      "priority": 40
+      "priority": 41
     },
     {
       "from": "Idle",
@@ -606,23 +588,13 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": ">",
-          "value": 0.1
+          "parameter": "TurnInPlaceRight",
+          "op": "true"
         },
         {
-          "parameter": "MoveY",
+          "parameter": "TurnDeltaYaw",
           "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
-          "op": "false"
+          "value": 75.0
         }
       ],
       "priority": 40
@@ -665,26 +637,16 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": "<",
-          "value": -0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
+          "parameter": "TurnInPlaceLeft",
           "op": "true"
+        },
+        {
+          "parameter": "TurnDeltaYaw",
+          "op": "<",
+          "value": -75.0
         }
       ],
-      "priority": 40
+      "priority": 41
     },
     {
       "from": "IdleRelaxed",
@@ -692,23 +654,13 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": "<",
-          "value": -0.1
+          "parameter": "TurnInPlaceLeft",
+          "op": "true"
         },
         {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
+          "parameter": "TurnDeltaYaw",
           "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
-          "op": "false"
+          "value": -75.0
         }
       ],
       "priority": 40
@@ -719,26 +671,16 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": ">",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
+          "parameter": "TurnInPlaceRight",
           "op": "true"
+        },
+        {
+          "parameter": "TurnDeltaYaw",
+          "op": ">",
+          "value": 75.0
         }
       ],
-      "priority": 40
+      "priority": 41
     },
     {
       "from": "IdleRelaxed",
@@ -746,23 +688,13 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "MoveX",
-          "op": ">",
-          "value": 0.1
+          "parameter": "TurnInPlaceRight",
+          "op": "true"
         },
         {
-          "parameter": "MoveY",
+          "parameter": "TurnDeltaYaw",
           "op": "<=",
-          "value": 0.1
-        },
-        {
-          "parameter": "MoveY",
-          "op": ">=",
-          "value": -0.1
-        },
-        {
-          "parameter": "IsRunning",
-          "op": "false"
+          "value": 75.0
         }
       ],
       "priority": 40

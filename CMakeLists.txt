@@ -316,8 +316,8 @@ set(COMMON_MODULES
   Gameplay/Character/CharacterMovement.cppm
   Gameplay/Combat/CombatSystem.cppm
   Gameplay/Interaction/InteractionSystem.cppm
-  Gameplay/Animation/GameplayAnimationBridge.cppm
-  Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
+  Animation/Gameplay/GameplayAnimationBridge.cppm
+  Animation/Gameplay/GameplayAnimationBridgeSystem.cppm
   Gameplay/Graph/GameplayGraph.cppm
   Gameplay/Graph/GameplayGraphAssets.cppm
   Gameplay/Runtime/GameplayRuntimeCommon.cppm
@@ -359,15 +359,15 @@ set(COMMON_MODULES
 
   Render/Scene/CameraController.cppm
 
-  Render/Animation/Animator.cppm
-  Render/Animation/AnimationController.cppm
+  Animation/Runtime/Animator.cppm
+  Animation/Runtime/AnimationController.cppm
 
   Render/Model/ObjLoader.cppm
   Render/Model/AssimpLoader.cppm
   Render/Model/AssimpSceneLoader.cppm
   Render/Model/Mesh/Mesh.cppm
-  Render/Model/Skeleton.cppm
-  Render/Model/AnimationClip.cppm
+  Animation/Assets/Skeleton.cppm
+  Animation/Assets/AnimationClip.cppm
   Render/Model/SkinnedMesh.cppm
 
   Render/Decoders/TextureDecoderSTB.cppm

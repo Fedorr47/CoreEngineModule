@@ -63,12 +63,12 @@ export namespace rendern
 
 namespace rendern
 {
-#include "SceneImpl/Level_LoadJson_Animation.inl"
+#include "../../Animation/Serialization/Level_LoadJson_Animation.inl"
 #include "SceneImpl/Level_LoadJson_AssetSections.inl"
 #include "SceneImpl/Level_LoadJson_SceneSections.inl"
 #include "SceneImpl/Level_LoadJson.inl"
 #include "SceneImpl/Level_InstantiateRuntime.inl"
-#include "SceneImpl/Level_SaveJson_Animation.inl"
+#include "../../Animation/Serialization/Level_SaveJson_Animation.inl"
 #include "SceneImpl/Level_SaveJson_Support.inl"
 #include "SceneImpl/Level_SaveJson_AssetSections.inl"
 #include "SceneImpl/Level_SaveJson_SceneSections.inl"
