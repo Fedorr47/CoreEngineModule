@@ -100,9 +100,7 @@ export namespace rendern
             command->moveInputX = intent->moveX;
             command->moveInputY = intent->moveY;
             command->wantsRun = intent->runHeld;
-            command->wantsJump = intent->jumpPressed;
-            command->wantsAttack = intent->attackPressed;
-            command->wantsInteract = intent->interactPressed;
+            command->actionIntentMask = intent->actionIntentMask;
 
             mathUtils::Vec3 desiredMove = moveRight * intent->moveX + moveForward * intent->moveY;
             desiredMove.y = 0.0f;

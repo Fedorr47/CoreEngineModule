@@ -62,7 +62,7 @@ export namespace rendern
             }
 
             const bool jumping = action != nullptr &&
-                (action->current == GameplayActionKind::Jump || action->requested == GameplayActionKind::Jump);
+                (action->current == GameplayActionKind::Jump || GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump);
 
             float speedScale = 1.0f;
             if (command->moveInputY < -0.1f)

@@ -124,8 +124,10 @@
             }
 
             SetGameplayGraphBool(instance.parameters, "hasActionRequest", false);
+            SetGameplayGraphBool(instance.parameters, "hasBufferedAction", false);
             SetGameplayGraphBool(instance.parameters, "actionBusy", false);
             SetGameplayGraphInt(instance.parameters, "requestedActionKind", 0);
+            SetGameplayGraphInt(instance.parameters, "bufferedActionKind", 0);
             SetGameplayGraphInt(instance.parameters, "currentAction", 0);
 
             graphInstances_.insert_or_assign(entity, std::move(instance));
@@ -137,15 +139,19 @@
             if (action == nullptr)
             {
                 SetGameplayGraphBool(graph.parameters, "hasActionRequest", false);
+                SetGameplayGraphBool(graph.parameters, "hasBufferedAction", false);
                 SetGameplayGraphBool(graph.parameters, "actionBusy", false);
                 SetGameplayGraphInt(graph.parameters, "requestedActionKind", 0);
+                SetGameplayGraphInt(graph.parameters, "bufferedActionKind", 0);
                 SetGameplayGraphInt(graph.parameters, "currentAction", 0);
                 return;
             }
 
-            SetGameplayGraphBool(graph.parameters, "hasActionRequest", action->requested != GameplayActionKind::None);
+            SetGameplayGraphBool(graph.parameters, "hasActionRequest", HasGameplayPendingActionRequest(*action));
+            SetGameplayGraphBool(graph.parameters, "hasBufferedAction", HasGameplayBufferedActionRequest(*action));
             SetGameplayGraphBool(graph.parameters, "actionBusy", action->busy);
-            SetGameplayGraphInt(graph.parameters, "requestedActionKind", static_cast<int>(action->requested));
+            SetGameplayGraphInt(graph.parameters, "requestedActionKind", static_cast<int>(GetGameplayRequestedActionKind(*action)));
+            SetGameplayGraphInt(graph.parameters, "bufferedActionKind", static_cast<int>(GetGameplayBufferedActionKind(*action)));
             SetGameplayGraphInt(graph.parameters, "currentAction", static_cast<int>(action->current));
         }
 
@@ -248,20 +254,18 @@
         void BeginActionState_(const EntityHandle entity, GameplayGraphInstance& graph)
         {
             GameplayActionComponent* action = world_.TryGetAction(entity);
-            if (action == nullptr || action->requested == GameplayActionKind::None)
+            if (action == nullptr || !HasGameplayPendingActionRequest(*action))
             {
                 return;
             }
 
-            action->busy = true;
-            if (action->current == GameplayActionKind::None)
-            {
-                action->current = action->requested;
-            }
+            PrimeGameplayActionState(*action);
 
-            SetGameplayGraphBool(graph.parameters, "hasActionRequest", true);
+            SetGameplayGraphBool(graph.parameters, "hasActionRequest", HasGameplayPendingActionRequest(*action));
+            SetGameplayGraphBool(graph.parameters, "hasBufferedAction", HasGameplayBufferedActionRequest(*action));
             SetGameplayGraphBool(graph.parameters, "actionBusy", action->busy);
-            SetGameplayGraphInt(graph.parameters, "requestedActionKind", static_cast<int>(action->requested));
+            SetGameplayGraphInt(graph.parameters, "requestedActionKind", static_cast<int>(GetGameplayRequestedActionKind(*action)));
+            SetGameplayGraphInt(graph.parameters, "bufferedActionKind", static_cast<int>(GetGameplayBufferedActionKind(*action)));
             SetGameplayGraphInt(graph.parameters, "currentAction", static_cast<int>(action->current));
         }
 

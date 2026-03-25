@@ -237,19 +237,12 @@ export namespace rendern
             notifyState.actionStartedThisFrame = true;
             if (action != nullptr)
             {
-                action->busy = true;
-                GameplayActionKind startedKind = action->requested;
+                GameplayActionKind startedKind = GetGameplayRequestedActionKind(*action);
                 if (startedKind == GameplayActionKind::None)
                 {
                     startedKind = detail::InferGameplayActionKindFromNotifyId_(gameplayEventId);
                 }
-                if (startedKind != GameplayActionKind::None)
-                {
-                    action->current = startedKind;
-                }
-
-                action->requested = GameplayActionKind::None;
-                action->requestDispatched = false;
+                CommitGameplayActionState(*action, startedKind);
             }
         }
 
@@ -260,10 +253,7 @@ export namespace rendern
             notifyState.actionFinishedThisFrame = true;
             if (action != nullptr)
             {
-                action->busy = false;
-                action->current = GameplayActionKind::None;
-                action->requested = GameplayActionKind::None;
-                action->requestDispatched = false;
+                FinishGameplayActionState(*action);
             }
         }
     }
@@ -362,10 +352,13 @@ export namespace rendern
         AnimationControllerRuntime& controller,
         GameplayActionComponent& action)
     {
-        const bool hasRequest = action.requested != GameplayActionKind::None;
-        const bool requestAttack = action.requested == GameplayActionKind::LightAttack;
-        const bool requestInteract = action.requested == GameplayActionKind::Interact;
-        const bool requestJump = action.requested == GameplayActionKind::Jump;
+        const GameplayActionKind requestedKind = GetGameplayRequestedActionKind(action);
+        const GameplayActionKind bufferedKind = GetGameplayBufferedActionKind(action);
+        const bool hasRequest = requestedKind != GameplayActionKind::None;
+        const bool hasBufferedRequest = bufferedKind != GameplayActionKind::None;
+        const bool requestAttack = requestedKind == GameplayActionKind::LightAttack;
+        const bool requestInteract = requestedKind == GameplayActionKind::Interact;
+        const bool requestJump = requestedKind == GameplayActionKind::Jump;
         const bool isAttacking = action.busy && action.current == GameplayActionKind::LightAttack;
         const bool isInteracting = action.busy && action.current == GameplayActionKind::Interact;
         const bool isJumping = action.busy && action.current == GameplayActionKind::Jump;
@@ -379,6 +372,11 @@ export namespace rendern
             controller,
             { "ActionBusy", "Busy", "IsBusy", "bBusy" },
             action.busy);
+
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "HasBufferedAction", "BufferedActionRequested", "bHasBufferedAction" },
+            hasBufferedRequest);
 
         detail::SetAnimationBoolParameterByAliases_(
             controller,
@@ -413,16 +411,21 @@ export namespace rendern
         detail::SetAnimationNumericParameterByAliases_(
             controller,
             { "RequestedAction", "RequestedActionKind", "ActionRequestKind", "ActionKindRequested" },
-            static_cast<int>(action.requested));
+            static_cast<int>(requestedKind));
+
+        detail::SetAnimationNumericParameterByAliases_(
+            controller,
+            { "BufferedAction", "BufferedActionKind", "QueuedActionKind" },
+            static_cast<int>(bufferedKind));
 
         detail::SetAnimationNumericParameterByAliases_(
             controller,
             { "CurrentAction", "CurrentActionKind", "ActiveAction", "ActionKind" },
             static_cast<int>(action.current));
 
-        if (!action.requestDispatched && hasRequest)
+        if (!action.pendingDispatched && hasRequest)
         {
-            switch (action.requested)
+            switch (requestedKind)
             {
             case GameplayActionKind::LightAttack:
                 detail::FireAnimationTriggerByAliases_(
@@ -444,7 +447,7 @@ export namespace rendern
                 break;
             }
 
-            action.requestDispatched = true;
+            action.pendingDispatched = true;
         }
     }
 }

@@ -56,9 +56,18 @@ export namespace rendern
         [[maybe_unused]] const float moveMagnitude = NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
 
         outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
-        outIntent.jumpPressed = ReadGameplayPressedButton(input, bindings.jump);
-        outIntent.attackPressed = ReadGameplayPressedButton(input, bindings.attack);
-        outIntent.interactPressed = ReadGameplayPressedButton(input, bindings.interact);
+        if (ReadGameplayPressedButton(input, bindings.jump))
+        {
+            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::Jump);
+        }
+        if (ReadGameplayPressedButton(input, bindings.attack))
+        {
+            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::LightAttack);
+        }
+        if (ReadGameplayPressedButton(input, bindings.interact))
+        {
+            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::Interact);
+        }
     }
 
     inline void UpdateGameplayIntentSources(

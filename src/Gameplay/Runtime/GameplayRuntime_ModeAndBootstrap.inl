@@ -38,10 +38,7 @@
 
                 if (GameplayActionComponent* action = world_.TryGetAction(entity))
                 {
-                    action->requested = GameplayActionKind::None;
-                    action->current = GameplayActionKind::None;
-                    action->busy = false;
-                    action->requestDispatched = false;
+                    ResetGameplayActionState(*action);
                 }
 
                 if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))

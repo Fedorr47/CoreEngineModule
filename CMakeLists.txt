@@ -316,8 +316,8 @@ set(COMMON_MODULES
   Gameplay/Character/CharacterMovement.cppm
   Gameplay/Combat/CombatSystem.cppm
   Gameplay/Interaction/InteractionSystem.cppm
-  Animation/Gameplay/GameplayAnimationBridge.cppm
-  Animation/Gameplay/GameplayAnimationBridgeSystem.cppm
+  Gameplay/Animation/GameplayAnimationBridge.cppm
+  Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
   Gameplay/Graph/GameplayGraph.cppm
   Gameplay/Graph/GameplayGraphAssets.cppm
   Gameplay/Runtime/GameplayRuntimeCommon.cppm
@@ -509,4 +509,4 @@ if (WITH_TESTS)
   endif()
 
   add_subdirectory(tests)
-  endif()
+endif()
