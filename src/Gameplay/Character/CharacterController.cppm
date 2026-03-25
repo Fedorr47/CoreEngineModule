@@ -57,6 +57,20 @@ export namespace rendern
         return mathUtils::RadToDeg(std::atan2(forward.x, forward.z));
     }
 
+
+    [[nodiscard]] inline float ExtractGameplayYawDegreesFromDirection(const mathUtils::Vec3& direction) noexcept
+    {
+        mathUtils::Vec3 planar = direction;
+        planar.y = 0.0f;
+        if (mathUtils::Length(planar) <= 1e-6f)
+        {
+            return 0.0f;
+        }
+
+        planar = mathUtils::Normalize(planar);
+        return mathUtils::RadToDeg(std::atan2(planar.x, planar.z));
+    }
+
     inline void BuildGameplayCharacterCommands(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
@@ -103,17 +117,36 @@ export namespace rendern
 
             if (movementState != nullptr)
             {
+                movementState->cameraFacingYawDegrees = cameraYawDegrees;
+
                 if (ctx.mode == GameplayRuntimeMode::Game && ctx.scene != nullptr)
                 {
-                    movementState->desiredFacingYawDegrees = cameraYawDegrees;
+                    movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
+                    if (movementState->jumping && movementState->jumpMovementLocked)
+                    {
+                        if (mathUtils::Length(movementState->jumpLockedVelocity) > 1e-6f)
+                        {
+                            movementState->desiredFacingYawDegrees =
+                                ExtractGameplayYawDegreesFromDirection(movementState->jumpLockedVelocity);
+                        }
+                    }
+                    else if (command->moveInputY > 0.1f && mathUtils::Length(command->moveWorld) > 1e-6f)
+                    {
+                        movementState->desiredFacingYawDegrees =
+                            ExtractGameplayYawDegreesFromDirection(command->moveWorld);
+                    }
+                    else if (command->moveMagnitude > 0.1f)
+                    {
+                        movementState->desiredFacingYawDegrees = cameraYawDegrees;
+                    }
                 }
                 else
                 {
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
                     if (command->moveInputY > 0.1f && mathUtils::Length(command->moveWorld) > 1e-6f)
                     {
-                        movementState->desiredFacingYawDegrees = mathUtils::RadToDeg(
-                            std::atan2(command->moveWorld.x, command->moveWorld.z));
+                        movementState->desiredFacingYawDegrees =
+                            ExtractGameplayYawDegreesFromDirection(command->moveWorld);
                     }
                 }
             }

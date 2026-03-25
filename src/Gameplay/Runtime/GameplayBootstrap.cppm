@@ -5,6 +5,7 @@ module;
 export module core:gameplay_bootstrap;
 
 import :gameplay;
+import :math_utils;
 import :level;
 import :scene;
 
@@ -77,9 +78,13 @@ export namespace rendern
                 .grounded = true,
                 .jumping = false,
                 .falling = false,
+                .jumpMovementLocked = false,
+                .turningInPlace = false,
                 .facingYawDegrees = node.transform.rotationDegrees.y,
                 .desiredFacingYawDegrees = node.transform.rotationDegrees.y,
-                .previousFacingYawDegrees = node.transform.rotationDegrees.y
+                .previousFacingYawDegrees = node.transform.rotationDegrees.y,
+                .cameraFacingYawDegrees = node.transform.rotationDegrees.y,
+                .jumpLockedVelocity = mathUtils::Vec3(0.0f, 0.0f, 0.0f)
             });
         world.AddLocomotion(entity);
         world.AddAction(entity);

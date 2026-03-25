@@ -23,8 +23,12 @@
                     movementState->grounded = true;
                     movementState->jumping = false;
                     movementState->falling = false;
+                    movementState->jumpMovementLocked = false;
+                    movementState->turningInPlace = false;
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
                     movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                    movementState->cameraFacingYawDegrees = movementState->facingYawDegrees;
+                    movementState->jumpLockedVelocity = {};
                 }
 
                 if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))

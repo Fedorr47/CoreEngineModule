@@ -70,6 +70,8 @@ export namespace rendern
         float maxRunSpeed{ 4.5f };
         float acceleration{ 12.0f };
         float deceleration{ 16.0f };
+        float backwardSpeedScale{ 0.72f };
+        float airDeceleration{ 2.5f };
     };
 
     struct GameplayCharacterMovementStateComponent
@@ -77,9 +79,13 @@ export namespace rendern
         bool grounded{ true };
         bool jumping{ false };
         bool falling{ false };
+        bool jumpMovementLocked{ false };
+        bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };
         float desiredFacingYawDegrees{ 0.0f };
         float previousFacingYawDegrees{ 0.0f };
+        float cameraFacingYawDegrees{ 0.0f };
+        mathUtils::Vec3 jumpLockedVelocity{ 0.0f, 0.0f, 0.0f };
     };
 
     struct GameplayFollowCameraComponent
