@@ -174,7 +174,7 @@ export namespace rendern
             const bool isMoving = planarSpeed > 1e-4f;
             const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
             const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
-            const mathUtils::Vec3 actorRight(actorForward.z, 0.0f, -actorForward.x);
+            const mathUtils::Vec3 actorRight(-actorForward.z, 0.0f, actorForward.x);
 
             locomotion->forwardSpeed = mathUtils::Dot(motor->velocity, actorForward);
             locomotion->rightSpeed = mathUtils::Dot(motor->velocity, actorRight);
