@@ -429,7 +429,7 @@ bool DuplicateEditorNodeSelection(LevelAsset& asset,
 
 	auto DuplicateSubtree = [&](auto&& self, int sourceNodeIndex, int duplicateParentIndex, bool applyRootOffset) -> int
 		{
-			const LevelNode& sourceNode = asset.nodes[static_cast<std::size_t>(sourceNodeIndex)];
+			const LevelNode sourceNode = asset.nodes[static_cast<std::size_t>(sourceNodeIndex)];
 			Transform duplicatedTransform = sourceNode.transform;
 			if (applyRootOffset)
 			{

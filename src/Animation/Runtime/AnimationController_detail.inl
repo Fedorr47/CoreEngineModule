@@ -341,29 +341,55 @@
 						return a.clipIndex < b.clipIndex;
 					});
 
-				sample.primaryClipIndex = candidates[0].clipIndex;
-				sample.secondaryClipIndex = (candidates.size() > 1) ? candidates[1].clipIndex : -1;
-				sample.tertiaryClipIndex = (candidates.size() > 2) ? candidates[2].clipIndex : -1;
-				sample.secondaryAlpha = (candidates.size() > 1) ? candidates[1].weight : 0.0f;
-				sample.tertiaryAlpha = (candidates.size() > 2) ? candidates[2].weight : 0.0f;
+				std::vector<BlendCandidate> uniqueCandidates;
+				uniqueCandidates.reserve(candidates.size());
+				for (const BlendCandidate& candidate : candidates)
+				{
+					const bool alreadyAdded = std::any_of(
+						uniqueCandidates.begin(),
+						uniqueCandidates.end(),
+						[&candidate](const BlendCandidate& existing)
+						{
+							return existing.clipIndex == candidate.clipIndex;
+						});
+					if (alreadyAdded)
+					{
+						continue;
+					}
+					uniqueCandidates.push_back(candidate);
+					if (uniqueCandidates.size() >= 3)
+					{
+						break;
+					}
+				}
 
-				const float primaryWeight = std::max(0.0f, 1.0f - sample.secondaryAlpha - sample.tertiaryAlpha);
-				const float normalizedSum = primaryWeight + sample.secondaryAlpha + sample.tertiaryAlpha;
-				if (normalizedSum > kEpsilon)
+				if (uniqueCandidates.empty())
 				{
-					sample.secondaryAlpha /= normalizedSum;
-					sample.tertiaryAlpha /= normalizedSum;
+					return sample;
 				}
-				if (sample.primaryClipIndex == sample.secondaryClipIndex)
+
+				float uniqueTotalWeight = 0.0f;
+				for (const BlendCandidate& candidate : uniqueCandidates)
 				{
-					sample.secondaryClipIndex = -1;
-					sample.secondaryAlpha = 0.0f;
+					uniqueTotalWeight += candidate.weight;
 				}
-				if (sample.primaryClipIndex == sample.tertiaryClipIndex || sample.secondaryClipIndex == sample.tertiaryClipIndex)
+				if (uniqueTotalWeight <= kEpsilon)
 				{
-					sample.tertiaryClipIndex = -1;
-					sample.tertiaryAlpha = 0.0f;
+					sample.primaryClipIndex = uniqueCandidates.front().clipIndex;
+					return sample;
 				}
+
+				for (BlendCandidate& candidate : uniqueCandidates)
+				{
+					candidate.weight /= uniqueTotalWeight;
+				}
+
+				sample.primaryClipIndex = uniqueCandidates[0].clipIndex;
+				sample.secondaryClipIndex = (uniqueCandidates.size() > 1) ? uniqueCandidates[1].clipIndex : -1;
+				sample.tertiaryClipIndex = (uniqueCandidates.size() > 2) ? uniqueCandidates[2].clipIndex : -1;
+				sample.secondaryAlpha = (uniqueCandidates.size() > 1) ? uniqueCandidates[1].weight : 0.0f;
+				sample.tertiaryAlpha = (uniqueCandidates.size() > 2) ? uniqueCandidates[2].weight : 0.0f;
+
 				if (sample.secondaryAlpha <= kEpsilon)
 				{
 					sample.secondaryClipIndex = -1;
@@ -374,6 +400,7 @@
 					sample.tertiaryClipIndex = -1;
 					sample.tertiaryAlpha = 0.0f;
 				}
+
 				return sample;
 			}
 
