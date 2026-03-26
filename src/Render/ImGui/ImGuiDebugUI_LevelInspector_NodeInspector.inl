@@ -329,8 +329,56 @@ namespace rendern::ui::level_ui_detail
 
                             if (usingController)
                             {
+                                if (ImGui::Button("Open Animation Graph"))
+                                {
+                                    st.animationGraphWindowOpen = true;
+                                    st.animationGraphRequestFocus = true;
+                                    if (skinnedItem->controller.stateMachineAsset != nullptr)
+                                    {
+                                        st.animationGraphSelectedStateName = skinnedItem->controller.currentStateName;
+                                    }
+                                }
+                                ImGui::SameLine();
+                                ImGui::TextDisabled("Separate graph window");
+                            }
+
+                            if (usingController)
+                            {
                                 ImGui::Text("Controller state: %s", skinnedItem->controller.currentStateName.c_str());
-                                if (skinnedItem->controller.currentStateUsesBlend1D)
+                                if (skinnedItem->controller.currentStateUsesBlend2D)
+                                {
+                                    ImGui::TextDisabled(
+                                        "Blend2D: %s = %.3f, %s = %.3f",
+                                        skinnedItem->controller.currentBlendParameterName.c_str(),
+                                        skinnedItem->controller.currentBlendParameterValue,
+                                        skinnedItem->controller.currentBlendParameterNameY.c_str(),
+                                        skinnedItem->controller.currentBlendParameterValueY);
+                                    if (!skinnedItem->controller.currentBlendTertiaryClipName.empty())
+                                    {
+                                        ImGui::TextDisabled(
+                                            "State blend: %s / %s / %s (w1=%.2f, w2=%.2f)",
+                                            skinnedItem->controller.currentBlendPrimaryClipName.c_str(),
+                                            skinnedItem->controller.currentBlendSecondaryClipName.c_str(),
+                                            skinnedItem->controller.currentBlendTertiaryClipName.c_str(),
+                                            skinnedItem->controller.blendSecondaryAlpha,
+                                            skinnedItem->controller.blendTertiaryAlpha);
+                                    }
+                                    else if (!skinnedItem->controller.currentBlendSecondaryClipName.empty())
+                                    {
+                                        ImGui::TextDisabled(
+                                            "State blend: %s -> %s (%.2f)",
+                                            skinnedItem->controller.currentBlendPrimaryClipName.c_str(),
+                                            skinnedItem->controller.currentBlendSecondaryClipName.c_str(),
+                                            skinnedItem->controller.blendSecondaryAlpha);
+                                    }
+                                    else if (!skinnedItem->controller.currentBlendPrimaryClipName.empty())
+                                    {
+                                        ImGui::TextDisabled(
+                                            "State blend clip: %s",
+                                            skinnedItem->controller.currentBlendPrimaryClipName.c_str());
+                                    }
+                                }
+                                else if (skinnedItem->controller.currentStateUsesBlend1D)
                                 {
                                     ImGui::TextDisabled(
                                         "Blend1D: %s = %.3f",

@@ -18,6 +18,14 @@ namespace rendern::ui::level_ui_detail
         char saveStatusBuf[512]{};
         std::string cachedSourcePath;
         bool saveStatusIsError = false;
+
+        bool animationGraphWindowOpen = true;
+        bool animationGraphRequestFocus = false;
+        std::string animationGraphSelectedStateName;
+        ImVec2 animationGraphFsmPan{ 24.0f, 24.0f };
+        ImVec2 animationGraphAssetPan{ 24.0f, 24.0f };
+        std::unordered_map<std::string, ImVec2> animationGraphFsmNodePositions;
+        std::unordered_map<std::string, ImVec2> animationGraphAssetNodePositions;
     };
 
     struct DerivedLists

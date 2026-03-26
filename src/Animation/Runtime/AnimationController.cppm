@@ -69,6 +69,14 @@ export namespace rendern
 		float value{ 0.0f };
 	};
 
+	struct AnimationBlend2DPoint
+	{
+		std::string clipName;
+		std::string clipSourceAssetId;
+		float x{ 0.0f };
+		float y{ 0.0f };
+	};
+
 	struct AnimationNotifyDesc
 	{
 		std::string id;
@@ -83,6 +91,9 @@ export namespace rendern
 		std::string clipSourceAssetId;
 		std::string blendParameter;
 		std::vector<AnimationBlend1DPoint> blend1D;
+		std::string blendParameterX;
+		std::string blendParameterY;
+		std::vector<AnimationBlend2DPoint> blend2D;
 		std::vector<AnimationNotifyDesc> notifies;
 		std::vector<std::string> tags;
 		bool looping{ true };
@@ -161,16 +172,24 @@ export namespace rendern
 		const AnimationControllerAsset* stateMachineAsset{ nullptr };
 		int currentStateIndex{ -1 };
 		std::vector<int> resolvedStateClipIndices;
-		std::vector<std::vector<int>> resolvedStateBlendClipIndices;
+		std::vector<std::vector<int>> resolvedStateBlend1DClipIndices;
+		std::vector<std::vector<int>> resolvedStateBlend2DClipIndices;
 
 		bool currentStateUsesBlend1D{ false };
+		bool currentStateUsesBlend2D{ false };
 		std::string currentBlendParameterName;
 		float currentBlendParameterValue{ 0.0f };
+		std::string currentBlendParameterNameY;
+		float currentBlendParameterValueY{ 0.0f };
 		std::string currentBlendPrimaryClipName;
 		std::string currentBlendSecondaryClipName;
+		std::string currentBlendTertiaryClipName;
 		AnimatorState blendSecondaryAnimator{};
+		AnimatorState blendTertiaryAnimator{};
 		int blendSecondaryClipIndex{ -1 };
+		int blendTertiaryClipIndex{ -1 };
 		float blendSecondaryAlpha{ 0.0f };
+		float blendTertiaryAlpha{ 0.0f };
 
 		bool transitionActive{ false };
 		int transitionSourceStateIndex{ -1 };
@@ -179,8 +198,11 @@ export namespace rendern
 		float transitionDurationSeconds{ 0.0f };
 		AnimatorState transitionSourceAnimator{};
 		AnimatorState transitionSourceBlendSecondaryAnimator{};
+		AnimatorState transitionSourceBlendTertiaryAnimator{};
 		int transitionSourceSecondaryClipIndex{ -1 };
+		int transitionSourceTertiaryClipIndex{ -1 };
 		float transitionSourceSecondaryAlpha{ 0.0f };
+		float transitionSourceTertiaryAlpha{ 0.0f };
 
 		int legacyClipIndex{ -1 };
 		bool autoplay{ true };

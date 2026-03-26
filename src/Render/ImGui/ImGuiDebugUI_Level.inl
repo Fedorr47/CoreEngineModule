@@ -82,5 +82,7 @@ namespace rendern::ui
         st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
 
         ImGui::End();
+
+        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, st);
     }
 }

@@ -118,6 +118,7 @@ namespace rendern::ui
             ImGui::DockBuilderSplitNode(dockRightBottom, ImGuiDir_Left, 0.52f, &dockRightBottomLeft, &dockRightBottomRight);
 
             ImGui::DockBuilderDockWindow("Level Editor", dockLeft);
+            ImGui::DockBuilderDockWindow("Animation Graph", dockLeft);
             ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRightTop);
             ImGui::DockBuilderDockWindow("Reflections", dockRightBottomLeft);
             ImGui::DockBuilderDockWindow("Lights", dockRightBottomRight);

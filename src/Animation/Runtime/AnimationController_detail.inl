@@ -154,6 +154,47 @@
 			return ResolveClipIndexByName(clips, state.clipName);
 		}
 
+		[[nodiscard]] inline int ResolveClipIndexForBlend2DPoint(
+			const AnimationControllerRuntime& runtime,
+			const AnimationBlend2DPoint& point) noexcept
+		{
+			if (runtime.clips == nullptr)
+			{
+				return -1;
+			}
+
+			const std::vector<AnimationClip>& clips = *runtime.clips;
+			const bool hasSourceIds =
+				runtime.clipSourceAssetIds != nullptr &&
+				runtime.clipSourceAssetIds->size() == clips.size();
+			const bool useSourceFilter = !point.clipSourceAssetId.empty() && hasSourceIds;
+
+			if (useSourceFilter)
+			{
+				if (!point.clipName.empty())
+				{
+					for (std::size_t i = 0; i < clips.size(); ++i)
+					{
+						if ((*runtime.clipSourceAssetIds)[i] == point.clipSourceAssetId &&
+							clips[i].name == point.clipName)
+						{
+							return static_cast<int>(i);
+						}
+					}
+				}
+
+				for (std::size_t i = 0; i < clips.size(); ++i)
+				{
+					if ((*runtime.clipSourceAssetIds)[i] == point.clipSourceAssetId)
+					{
+						return static_cast<int>(i);
+					}
+				}
+			}
+
+			return ResolveClipIndexByName(clips, point.clipName);
+		}
+
 		inline void SetAnimatorNormalizedTime(AnimatorState& animator, float normalizedTime) noexcept
 		{
 			const float durationSeconds = ClipDurationSeconds(animator.clip);
@@ -170,10 +211,15 @@
 			const AnimationStateDesc* state{ nullptr };
 			int primaryClipIndex{ -1 };
 			int secondaryClipIndex{ -1 };
+			int tertiaryClipIndex{ -1 };
 			float secondaryAlpha{ 0.0f };
+			float tertiaryAlpha{ 0.0f };
 			bool usesBlend1D{ false };
+			bool usesBlend2D{ false };
 			std::string parameterName;
 			float parameterValue{ 0.0f };
+			std::string parameterNameY;
+			float parameterValueY{ 0.0f };
 		};
 
 		[[nodiscard]] inline StateSampleConfig BuildStateSampleConfig(
@@ -195,6 +241,142 @@
 				? runtime.resolvedStateClipIndices[static_cast<std::size_t>(stateIndex)]
 				: -1;
 
+			if (!state.blend2D.empty() && !state.blendParameterX.empty() && !state.blendParameterY.empty())
+			{
+				sample.usesBlend2D = true;
+				sample.parameterName = state.blendParameterX;
+				sample.parameterNameY = state.blendParameterY;
+				if (auto it = runtime.parameters.values.find(state.blendParameterX); it != runtime.parameters.values.end())
+				{
+					sample.parameterValue = GetParameterAsFloat(it->second);
+				}
+				if (auto it = runtime.parameters.values.find(state.blendParameterY); it != runtime.parameters.values.end())
+				{
+					sample.parameterValueY = GetParameterAsFloat(it->second);
+				}
+
+				const std::vector<int>* resolvedIndices =
+					(static_cast<std::size_t>(stateIndex) < runtime.resolvedStateBlend2DClipIndices.size())
+					? &runtime.resolvedStateBlend2DClipIndices[static_cast<std::size_t>(stateIndex)]
+					: nullptr;
+				if (resolvedIndices == nullptr || resolvedIndices->empty())
+				{
+					return sample;
+				}
+
+				struct BlendCandidate
+				{
+					int clipIndex{ -1 };
+					float weight{ 0.0f };
+					float distanceSq{ 0.0f };
+				};
+
+				std::vector<BlendCandidate> candidates;
+				candidates.reserve(state.blend2D.size());
+				constexpr float kEpsilon = 1e-6f;
+				for (std::size_t pointIndex = 0; pointIndex < state.blend2D.size() && pointIndex < resolvedIndices->size(); ++pointIndex)
+				{
+					const int clipIndex = (*resolvedIndices)[pointIndex];
+					if (clipIndex < 0)
+					{
+						continue;
+					}
+					const AnimationBlend2DPoint& point = state.blend2D[pointIndex];
+					const float dx = sample.parameterValue - point.x;
+					const float dy = sample.parameterValueY - point.y;
+					const float distanceSq = dx * dx + dy * dy;
+					if (distanceSq <= kEpsilon)
+					{
+						sample.primaryClipIndex = clipIndex;
+						sample.secondaryClipIndex = -1;
+						sample.tertiaryClipIndex = -1;
+						sample.secondaryAlpha = 0.0f;
+						sample.tertiaryAlpha = 0.0f;
+						return sample;
+					}
+					candidates.push_back(BlendCandidate{ clipIndex, 1.0f / std::sqrt(distanceSq), distanceSq });
+				}
+
+				if (candidates.empty())
+				{
+					return sample;
+				}
+
+				std::sort(candidates.begin(), candidates.end(), [](const BlendCandidate& a, const BlendCandidate& b)
+					{
+						if (std::fabs(a.distanceSq - b.distanceSq) > 1e-6f)
+						{
+							return a.distanceSq < b.distanceSq;
+						}
+						return a.clipIndex < b.clipIndex;
+					});
+
+				if (candidates.size() > 3)
+				{
+					candidates.resize(3);
+				}
+
+				float totalWeight = 0.0f;
+				for (const BlendCandidate& candidate : candidates)
+				{
+					totalWeight += candidate.weight;
+				}
+				if (totalWeight <= kEpsilon)
+				{
+					sample.primaryClipIndex = candidates.front().clipIndex;
+					return sample;
+				}
+
+				for (BlendCandidate& candidate : candidates)
+				{
+					candidate.weight /= totalWeight;
+				}
+
+				std::sort(candidates.begin(), candidates.end(), [](const BlendCandidate& a, const BlendCandidate& b)
+					{
+						if (std::fabs(a.weight - b.weight) > 1e-6f)
+						{
+							return a.weight > b.weight;
+						}
+						return a.clipIndex < b.clipIndex;
+					});
+
+				sample.primaryClipIndex = candidates[0].clipIndex;
+				sample.secondaryClipIndex = (candidates.size() > 1) ? candidates[1].clipIndex : -1;
+				sample.tertiaryClipIndex = (candidates.size() > 2) ? candidates[2].clipIndex : -1;
+				sample.secondaryAlpha = (candidates.size() > 1) ? candidates[1].weight : 0.0f;
+				sample.tertiaryAlpha = (candidates.size() > 2) ? candidates[2].weight : 0.0f;
+
+				const float primaryWeight = std::max(0.0f, 1.0f - sample.secondaryAlpha - sample.tertiaryAlpha);
+				const float normalizedSum = primaryWeight + sample.secondaryAlpha + sample.tertiaryAlpha;
+				if (normalizedSum > kEpsilon)
+				{
+					sample.secondaryAlpha /= normalizedSum;
+					sample.tertiaryAlpha /= normalizedSum;
+				}
+				if (sample.primaryClipIndex == sample.secondaryClipIndex)
+				{
+					sample.secondaryClipIndex = -1;
+					sample.secondaryAlpha = 0.0f;
+				}
+				if (sample.primaryClipIndex == sample.tertiaryClipIndex || sample.secondaryClipIndex == sample.tertiaryClipIndex)
+				{
+					sample.tertiaryClipIndex = -1;
+					sample.tertiaryAlpha = 0.0f;
+				}
+				if (sample.secondaryAlpha <= kEpsilon)
+				{
+					sample.secondaryClipIndex = -1;
+					sample.secondaryAlpha = 0.0f;
+				}
+				if (sample.tertiaryAlpha <= kEpsilon)
+				{
+					sample.tertiaryClipIndex = -1;
+					sample.tertiaryAlpha = 0.0f;
+				}
+				return sample;
+			}
+
 			if (state.blendParameter.empty() || state.blend1D.empty())
 			{
 				return sample;
@@ -208,8 +390,8 @@
 			}
 
 			const std::vector<int>* resolvedIndices =
-				(static_cast<std::size_t>(stateIndex) < runtime.resolvedStateBlendClipIndices.size())
-				? &runtime.resolvedStateBlendClipIndices[static_cast<std::size_t>(stateIndex)]
+				(static_cast<std::size_t>(stateIndex) < runtime.resolvedStateBlend1DClipIndices.size())
+				? &runtime.resolvedStateBlend1DClipIndices[static_cast<std::size_t>(stateIndex)]
 				: nullptr;
 			if (resolvedIndices == nullptr || resolvedIndices->empty())
 			{
@@ -272,19 +454,31 @@
 		inline void ResolveStateClipIndices(AnimationControllerRuntime& runtime)
 		{
 			runtime.resolvedStateClipIndices.clear();
-			runtime.resolvedStateBlendClipIndices.clear();
+			runtime.resolvedStateBlend1DClipIndices.clear();
+			runtime.resolvedStateBlend2DClipIndices.clear();
 			if (runtime.stateMachineAsset == nullptr || runtime.clips == nullptr)
 			{
 				return;
 			}
 			runtime.resolvedStateClipIndices.resize(runtime.stateMachineAsset->states.size(), -1);
-			runtime.resolvedStateBlendClipIndices.resize(runtime.stateMachineAsset->states.size());
+			runtime.resolvedStateBlend1DClipIndices.resize(runtime.stateMachineAsset->states.size());
+			runtime.resolvedStateBlend2DClipIndices.resize(runtime.stateMachineAsset->states.size());
 			for (std::size_t i = 0; i < runtime.stateMachineAsset->states.size(); ++i)
 			{
 				const AnimationStateDesc& state = runtime.stateMachineAsset->states[i];
-				if (!state.blend1D.empty())
+				if (!state.blend2D.empty())
 				{
-					auto& resolvedBlend = runtime.resolvedStateBlendClipIndices[i];
+					auto& resolvedBlend = runtime.resolvedStateBlend2DClipIndices[i];
+					resolvedBlend.reserve(state.blend2D.size());
+					for (const AnimationBlend2DPoint& point : state.blend2D)
+					{
+						resolvedBlend.push_back(ResolveClipIndexForBlend2DPoint(runtime, point));
+					}
+					runtime.resolvedStateClipIndices[i] = resolvedBlend.empty() ? -1 : resolvedBlend.front();
+				}
+				else if (!state.blend1D.empty())
+				{
+					auto& resolvedBlend = runtime.resolvedStateBlend1DClipIndices[i];
 					resolvedBlend.reserve(state.blend1D.size());
 					for (const AnimationBlend1DPoint& point : state.blend1D)
 					{
@@ -438,14 +632,31 @@
 		inline void EvaluateAnimatorPairToLocalPose(
 			AnimatorState& primaryAnimator,
 			AnimatorState* secondaryAnimator,
-			float secondaryAlpha)
+			float secondaryAlpha,
+			AnimatorState* tertiaryAnimator = nullptr,
+			float tertiaryAlpha = 0.0f)
 		{
 			EvaluateAnimatorLocalPose(primaryAnimator);
+			const float primaryWeight = std::max(0.0f, 1.0f - secondaryAlpha - tertiaryAlpha);
+			float accumulatedWeight = primaryWeight;
+
 			if (secondaryAnimator != nullptr && IsAnimatorReady(*secondaryAnimator) && secondaryAnimator->clip != nullptr && secondaryAlpha > 1e-6f)
 			{
 				EvaluateAnimatorLocalPose(*secondaryAnimator);
 				const std::vector<LocalBoneTransform> primaryPose = primaryAnimator.localPose;
-				BlendLocalPoses(primaryAnimator.localPose, primaryPose, secondaryAnimator->localPose, secondaryAlpha);
+				const float denom = std::max(primaryWeight + secondaryAlpha, 1e-6f);
+				const float alpha01 = std::clamp(secondaryAlpha / denom, 0.0f, 1.0f);
+				BlendLocalPoses(primaryAnimator.localPose, primaryPose, secondaryAnimator->localPose, alpha01);
+				accumulatedWeight = primaryWeight + secondaryAlpha;
+			}
+
+			if (tertiaryAnimator != nullptr && IsAnimatorReady(*tertiaryAnimator) && tertiaryAnimator->clip != nullptr && tertiaryAlpha > 1e-6f)
+			{
+				EvaluateAnimatorLocalPose(*tertiaryAnimator);
+				const std::vector<LocalBoneTransform> blendedPose = primaryAnimator.localPose;
+				const float denom = std::max(accumulatedWeight + tertiaryAlpha, 1e-6f);
+				const float alpha012 = std::clamp(tertiaryAlpha / denom, 0.0f, 1.0f);
+				BlendLocalPoses(primaryAnimator.localPose, blendedPose, tertiaryAnimator->localPose, alpha012);
 			}
 		}
 
@@ -716,10 +927,14 @@
 		inline void SyncRuntimeBlendMetadata(AnimationControllerRuntime& runtime, const StateSampleConfig& sample)
 		{
 			runtime.currentStateUsesBlend1D = sample.usesBlend1D;
+			runtime.currentStateUsesBlend2D = sample.usesBlend2D;
 			runtime.currentBlendParameterName = sample.parameterName;
 			runtime.currentBlendParameterValue = sample.parameterValue;
+			runtime.currentBlendParameterNameY = sample.parameterNameY;
+			runtime.currentBlendParameterValueY = sample.parameterValueY;
 			runtime.currentBlendPrimaryClipName.clear();
 			runtime.currentBlendSecondaryClipName.clear();
+			runtime.currentBlendTertiaryClipName.clear();
 			if (const AnimationClip* primaryClip = ResolveClipByIndex(runtime.clips, sample.primaryClipIndex))
 			{
 				runtime.currentBlendPrimaryClipName = primaryClip->name;
@@ -728,8 +943,14 @@
 			{
 				runtime.currentBlendSecondaryClipName = secondaryClip->name;
 			}
+			if (const AnimationClip* tertiaryClip = ResolveClipByIndex(runtime.clips, sample.tertiaryClipIndex))
+			{
+				runtime.currentBlendTertiaryClipName = tertiaryClip->name;
+			}
 			runtime.blendSecondaryClipIndex = sample.secondaryClipIndex;
+			runtime.blendTertiaryClipIndex = sample.tertiaryClipIndex;
 			runtime.blendSecondaryAlpha = sample.secondaryAlpha;
+			runtime.blendTertiaryAlpha = sample.tertiaryAlpha;
 		}
 
 		inline void SyncActiveStateAnimators(
@@ -770,19 +991,46 @@
 			{
 				runtime.blendSecondaryAnimator = {};
 			}
+
+			const bool useTertiary = sample.tertiaryClipIndex >= 0 && sample.tertiaryAlpha > 1e-6f;
+			if (useTertiary)
+			{
+				const AnimationClip* tertiaryClip = ResolveClipByIndex(runtime.clips, sample.tertiaryClipIndex);
+				SyncAnimatorClip(
+					runtime.blendTertiaryAnimator,
+					runtime.skeleton,
+					tertiaryClip,
+					sample.state != nullptr ? sample.state->looping : runtime.looping,
+					sample.state != nullptr ? sample.state->playRate : runtime.playRate,
+					runtime.paused,
+					resetTime,
+					normalizedTime,
+					true);
+			}
+			else
+			{
+				runtime.blendTertiaryAnimator = {};
+			}
 			SyncRuntimeBlendMetadata(runtime, sample);
 		}
 
 		inline void ClearActiveBlendMetadata(AnimationControllerRuntime& runtime)
 		{
 			runtime.currentStateUsesBlend1D = false;
+			runtime.currentStateUsesBlend2D = false;
 			runtime.currentBlendParameterName.clear();
 			runtime.currentBlendParameterValue = 0.0f;
+			runtime.currentBlendParameterNameY.clear();
+			runtime.currentBlendParameterValueY = 0.0f;
 			runtime.currentBlendPrimaryClipName.clear();
 			runtime.currentBlendSecondaryClipName.clear();
+			runtime.currentBlendTertiaryClipName.clear();
 			runtime.blendSecondaryAnimator = {};
+			runtime.blendTertiaryAnimator = {};
 			runtime.blendSecondaryClipIndex = -1;
+			runtime.blendTertiaryClipIndex = -1;
 			runtime.blendSecondaryAlpha = 0.0f;
+			runtime.blendTertiaryAlpha = 0.0f;
 		}
 
 		inline void ApplyRuntimeState(AnimationControllerRuntime& runtime, int stateIndex, bool resetStateTracking = true)
@@ -812,12 +1060,18 @@
 				? runtime.resolvedStateClipIndices[static_cast<std::size_t>(stateIndex)]
 				: -1;
 			runtime.currentStateUsesBlend1D = !state.blendParameter.empty() && !state.blend1D.empty();
-			runtime.currentBlendParameterName = state.blendParameter;
+			runtime.currentStateUsesBlend2D = !state.blendParameterX.empty() && !state.blendParameterY.empty() && !state.blend2D.empty();
+			runtime.currentBlendParameterName = runtime.currentStateUsesBlend2D ? state.blendParameterX : state.blendParameter;
 			runtime.currentBlendParameterValue = 0.0f;
+			runtime.currentBlendParameterNameY = runtime.currentStateUsesBlend2D ? state.blendParameterY : std::string{};
+			runtime.currentBlendParameterValueY = 0.0f;
 			runtime.currentBlendPrimaryClipName.clear();
 			runtime.currentBlendSecondaryClipName.clear();
+			runtime.currentBlendTertiaryClipName.clear();
 			runtime.blendSecondaryClipIndex = -1;
+			runtime.blendTertiaryClipIndex = -1;
 			runtime.blendSecondaryAlpha = 0.0f;
+			runtime.blendTertiaryAlpha = 0.0f;
 			if (resetStateTracking)
 			{
 				runtime.previousStateNormalizedTime = 0.0f;
@@ -839,8 +1093,11 @@
 			runtime.transitionDurationSeconds = 0.0f;
 			runtime.transitionSourceAnimator = {};
 			runtime.transitionSourceBlendSecondaryAnimator = {};
+			runtime.transitionSourceBlendTertiaryAnimator = {};
 			runtime.transitionSourceSecondaryClipIndex = -1;
+			runtime.transitionSourceTertiaryClipIndex = -1;
 			runtime.transitionSourceSecondaryAlpha = 0.0f;
+			runtime.transitionSourceTertiaryAlpha = 0.0f;
 		}
 	}
 

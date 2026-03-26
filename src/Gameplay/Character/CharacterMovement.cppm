@@ -183,8 +183,18 @@ export namespace rendern
             locomotion->isRunning = isMoving && command->wantsRun;
 
             const float normalizationSpeed = std::max(command->wantsRun ? motor->maxRunSpeed : motor->maxWalkSpeed, 1.0f);
-            locomotion->moveX = std::clamp(locomotion->rightSpeed / normalizationSpeed, -1.0f, 1.0f);
-            locomotion->moveY = std::clamp(locomotion->forwardSpeed / normalizationSpeed, -1.0f, 1.0f);
+            const bool hasMoveIntent = command->moveMagnitude > 1e-4f && mathUtils::Length(command->moveWorld) > 1e-6f;
+            if (hasMoveIntent)
+            {
+                const mathUtils::Vec3 moveIntent = command->moveWorld * command->moveMagnitude;
+                locomotion->moveX = std::clamp(mathUtils::Dot(moveIntent, actorRight), -1.0f, 1.0f);
+                locomotion->moveY = std::clamp(mathUtils::Dot(moveIntent, actorForward), -1.0f, 1.0f);
+            }
+            else
+            {
+                locomotion->moveX = std::clamp(locomotion->rightSpeed / normalizationSpeed, -1.0f, 1.0f);
+                locomotion->moveY = std::clamp(locomotion->forwardSpeed / normalizationSpeed, -1.0f, 1.0f);
+            }
 
             float turnDeltaYawDegrees = 0.0f;
             if (movementState != nullptr)

@@ -144,6 +144,10 @@ std::shared_ptr<SkinnedAssetBundle> GetOrLoadBaseSkinnedAssetBundle_(const Level
 			for (const AnimationStateDesc& state : controllerIt->second.states)
 			{
 				appendUnique(state.clipSourceAssetId);
+					for (const AnimationBlend2DPoint& point : state.blend2D)
+					{
+						appendUnique(point.clipSourceAssetId);
+					}
 			}
 		}
 	}

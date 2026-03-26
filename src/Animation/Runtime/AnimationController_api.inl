@@ -162,7 +162,8 @@
 		runtime.stateMachineAsset = nullptr;
 		runtime.currentStateIndex = -1;
 		runtime.resolvedStateClipIndices.clear();
-		runtime.resolvedStateBlendClipIndices.clear();
+		runtime.resolvedStateBlend1DClipIndices.clear();
+		runtime.resolvedStateBlend2DClipIndices.clear();
 		detail::ResetBlendState(runtime);
 		detail::ClearActiveBlendMetadata(runtime);
 		runtime.legacyClipIndex = clipIndex;
@@ -292,6 +293,10 @@
 				{
 					AdvanceAnimator(runtime.blendSecondaryAnimator, deltaSeconds);
 				}
+				if (runtime.blendTertiaryClipIndex >= 0 && IsAnimatorReady(runtime.blendTertiaryAnimator))
+				{
+					AdvanceAnimator(runtime.blendTertiaryAnimator, deltaSeconds);
+				}
 				if (runtime.transitionActive)
 				{
 					runtime.transitionElapsedSeconds += deltaSeconds;
@@ -299,6 +304,10 @@
 					if (runtime.transitionSourceSecondaryClipIndex >= 0 && IsAnimatorReady(runtime.transitionSourceBlendSecondaryAnimator))
 					{
 						AdvanceAnimator(runtime.transitionSourceBlendSecondaryAnimator, deltaSeconds);
+					}
+					if (runtime.transitionSourceTertiaryClipIndex >= 0 && IsAnimatorReady(runtime.transitionSourceBlendTertiaryAnimator))
+					{
+						AdvanceAnimator(runtime.transitionSourceBlendTertiaryAnimator, deltaSeconds);
 					}
 				}
 			}
@@ -387,8 +396,11 @@
 					runtime.transitionSourceAnimator = animator;
 					runtime.transitionSourceAnimator.paused = runtime.paused;
 					runtime.transitionSourceBlendSecondaryAnimator = runtime.blendSecondaryAnimator;
+					runtime.transitionSourceBlendTertiaryAnimator = runtime.blendTertiaryAnimator;
 					runtime.transitionSourceSecondaryClipIndex = runtime.blendSecondaryClipIndex;
+					runtime.transitionSourceTertiaryClipIndex = runtime.blendTertiaryClipIndex;
 					runtime.transitionSourceSecondaryAlpha = runtime.blendSecondaryAlpha;
+					runtime.transitionSourceTertiaryAlpha = runtime.blendTertiaryAlpha;
 					runtime.transitionSourceStateIndex = runtime.currentStateIndex;
 					runtime.transitionSourceStateName = runtime.currentStateName;
 					runtime.transitionElapsedSeconds = 0.0f;
@@ -418,7 +430,9 @@
 			detail::EvaluateAnimatorPairToLocalPose(
 				animator,
 				(runtime.blendSecondaryClipIndex >= 0) ? &runtime.blendSecondaryAnimator : nullptr,
-				runtime.blendSecondaryAlpha);
+				runtime.blendSecondaryAlpha,
+				(runtime.blendTertiaryClipIndex >= 0) ? &runtime.blendTertiaryAnimator : nullptr,
+				runtime.blendTertiaryAlpha);
 
 			if (runtime.transitionActive)
 			{
@@ -432,7 +446,9 @@
 					detail::EvaluateAnimatorPairToLocalPose(
 						runtime.transitionSourceAnimator,
 						(runtime.transitionSourceSecondaryClipIndex >= 0) ? &runtime.transitionSourceBlendSecondaryAnimator : nullptr,
-						runtime.transitionSourceSecondaryAlpha);
+						runtime.transitionSourceSecondaryAlpha,
+						(runtime.transitionSourceTertiaryClipIndex >= 0) ? &runtime.transitionSourceBlendTertiaryAnimator : nullptr,
+						runtime.transitionSourceTertiaryAlpha);
 
 					const float alpha = std::clamp(
 						runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds,

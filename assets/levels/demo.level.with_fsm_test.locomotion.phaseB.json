@@ -74,14 +74,14 @@
       "debugName": "left strafe walking"
     },
     "left_turn": {
-      "path": "animations/left turn.fbx",
+      "path": "animations/right turn.fbx",
       "flipUVs": true,
-      "debugName": "left turn"
+      "debugName": "right turn"
     },
     "left_turn_90": {
-      "path": "animations/left turn 90.fbx",
+      "path": "animations/right turn 90.fbx",
       "flipUVs": true,
-      "debugName": "left turn 90"
+      "debugName": "right turn 90"
     },
     "left_strafe": {
       "path": "animations/right strafe.fbx",
@@ -94,14 +94,14 @@
       "debugName": "right strafe walking"
     },
     "right_turn": {
-      "path": "animations/right turn.fbx",
+      "path": "animations/left turn.fbx",
       "flipUVs": true,
-      "debugName": "right turn"
+      "debugName": "left turn"
     },
     "right_turn_90": {
-      "path": "animations/right turn 90.fbx",
+      "path": "animations/left turn 90.fbx",
       "flipUVs": true,
-      "debugName": "right turn 90"
+      "debugName": "left turn 90"
     },
     "running": {
       "path": "animations/running.fbx",

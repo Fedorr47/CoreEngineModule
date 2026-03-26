@@ -279,6 +279,62 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 					stateDesc.clipName = stateDesc.blend1D.front().clipName;
 				}
 			}
+			if (auto* blendV = TryGet(sd, "blend2D"))
+			{
+				const JsonObject& bd = blendV->AsObject();
+				stateDesc.blendParameterX = GetStringOpt(bd, "parameterX");
+				stateDesc.blendParameterY = GetStringOpt(bd, "parameterY");
+				if (stateDesc.blendParameterX.empty())
+				{
+					throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D.parameterX is required");
+				}
+				if (stateDesc.blendParameterY.empty())
+				{
+					throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D.parameterY is required");
+				}
+				for (const std::string_view parameterName : { std::string_view(stateDesc.blendParameterX), std::string_view(stateDesc.blendParameterY) })
+				{
+					if (const AnimationParameterDesc* paramDesc = FindAnimationParameterDesc(def, parameterName))
+					{
+						if (paramDesc->defaultValue.type == AnimationParameterType::Trigger)
+						{
+							throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D parameters must not be trigger");
+						}
+					}
+					else
+					{
+						throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D parameter references unknown parameter");
+					}
+				}
+				auto* pointsV = TryGet(bd, "points");
+				if (pointsV == nullptr || !pointsV->IsArray())
+				{
+					throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D.points must be array");
+				}
+				for (const JsonValue& pointV : pointsV->AsArray())
+				{
+					const JsonObject& pd = pointV.AsObject();
+					AnimationBlend2DPoint point;
+					point.clipName = GetStringOpt(pd, "clip");
+					point.clipSourceAssetId = GetStringOpt(pd, "clipSourceAssetId");
+					if (point.clipName.empty() && point.clipSourceAssetId.empty())
+					{
+						throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D.points[] requires clip or clipSourceAssetId");
+					}
+					point.x = GetFloatOpt(pd, "x", 0.0f);
+					point.y = GetFloatOpt(pd, "y", 0.0f);
+					stateDesc.blend2D.push_back(std::move(point));
+				}
+				if (stateDesc.blend2D.empty())
+				{
+					throw std::runtime_error(contextPrefix + ".states." + stateName + ".blend2D.points must not be empty");
+				}
+				if (stateDesc.clipName.empty())
+				{
+					stateDesc.clipName = stateDesc.blend2D.front().clipName;
+					stateDesc.clipSourceAssetId = stateDesc.blend2D.front().clipSourceAssetId;
+				}
+			}
 			if (auto* notifiesV = TryGet(sd, "notifies"))
 			{
 				if (!notifiesV->IsArray())
@@ -287,9 +343,9 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 				}
 				stateDesc.notifies = ParseAnimationNotifyArray_(notifiesV->AsArray(), contextPrefix + ".states." + stateName + ".notifies[]");
 			}
-			if (stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() && stateDesc.blend1D.empty())
+			if (stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() && stateDesc.blend1D.empty() && stateDesc.blend2D.empty())
 			{
-				throw std::runtime_error(contextPrefix + ".states." + stateName + " must define clip, clipSourceAssetId, or blend1D");
+				throw std::runtime_error(contextPrefix + ".states." + stateName + " must define clip, clipSourceAssetId, blend1D, or blend2D");
 			}
 			def.states.push_back(std::move(stateDesc));
 		}
