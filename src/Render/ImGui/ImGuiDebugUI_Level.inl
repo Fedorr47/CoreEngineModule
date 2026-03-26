@@ -49,6 +49,17 @@ namespace rendern::ui
         level_ui_detail::SyncSavePathWithSource(level, st);
         level_ui_detail::DrawFilePanel(level, scene, st);
 
+        const bool canHotkey = !ImGui::GetIO().WantTextInput;
+        const bool ctrlD = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_D);
+        if (ctrlD && scene.editorSelectedLight < 0 && scene.editorSelectedParticleEmitter < 0)
+        {
+            if (levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f)))
+            {
+                st.selectedNode = scene.editorSelectedNode;
+                st.selectedParticleEmitter = -1;
+            }
+        }
+
         level_ui_detail::DerivedLists derived{};
         level_ui_detail::BuildDerivedLists(level, derived);
 

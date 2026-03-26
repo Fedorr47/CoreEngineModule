@@ -886,7 +886,7 @@ namespace rendern::ui::level_ui_detail
 
         ImGui::Spacing();
 
-        if (ImGui::Button("Duplicate"))
+        if (ImGui::Button("Duplicate (Ctrl+D)"))
         {
             levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
             st.selectedNode = scene.editorSelectedNode;
