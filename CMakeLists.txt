@@ -1,14 +1,14 @@
-cmake_minimum_required(VERSION 3.30 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.3.0 FATAL_ERROR)
 
 # ------------------------------------------------------------
 # Experimental: import std;
+# Must be set BEFORE project()/enable_language(CXX)
 # ------------------------------------------------------------
 option(ENABLE_IMPORT_STD "Enable CMake experimental support for `import std;`" ON)
 
-if (ENABLE_IMPORT_STD AND NOT DEFINED CMAKE_EXPERIMENTAL_CXX_IMPORT_STD)
+if(ENABLE_IMPORT_STD)
   set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
-    "d0edc3af-4c50-42ea-a356-e2862fe7a444"
-    CACHE STRING "" FORCE)
+          "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
 endif()
 
 # Modules dyn-deps (needed for correct build order with Ninja/MSVC)
@@ -24,10 +24,27 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Modules
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
-if (ENABLE_IMPORT_STD)
-  # Enable `import std;` support for targets created after this line
-  set(CMAKE_CXX_MODULE_STD 1)
+
+if(ENABLE_IMPORT_STD)
+  message(STATUS "CMAKE_CXX_COMPILER_IMPORT_STD=${CMAKE_CXX_COMPILER_IMPORT_STD}")
+
+  if(NOT DEFINED CMAKE_CXX_COMPILER_IMPORT_STD)
+    message(FATAL_ERROR
+            "Current toolchain does not expose CMAKE_CXX_COMPILER_IMPORT_STD. "
+            "Check that Rider uses CMake 4.3.0+, Ninja, and a compatible MSVC toolset.")
+  endif()
+
+  if(NOT "23" IN_LIST CMAKE_CXX_COMPILER_IMPORT_STD)
+    message(FATAL_ERROR
+            "Current C++ toolchain does not provide `import std;` for C++23.")
+  endif()
 endif()
+
+function(core_enable_import_std target_name)
+  if(ENABLE_IMPORT_STD)
+    set_property(TARGET ${target_name} PROPERTY CXX_MODULE_STD ON)
+  endif()
+endfunction()
 
 option(USE_SUBMODULES "Prefer extern/* submodules if present" ON)
 option(WITH_TESTS "Build tests" ON)
@@ -38,7 +55,7 @@ option(WITH_TESTS "Build tests" ON)
 set(CORE_RENDER_BACKEND "GL" CACHE STRING "Render backend: GL or DX12")
 set_property(CACHE CORE_RENDER_BACKEND PROPERTY STRINGS "GL" "DX12")
 
-if (CORE_RENDER_BACKEND STREQUAL "DX12" AND NOT WIN32)
+if(CORE_RENDER_BACKEND STREQUAL "DX12" AND NOT WIN32)
   message(FATAL_ERROR "DX12 backend is Windows-only")
 endif()
 
@@ -47,131 +64,125 @@ endif()
 # ------------------------------------------------------------
 # We use EnTT only for Level runtime objects at first (hybrid approach).
 FetchContent_Declare(entt
-  GIT_REPOSITORY https://github.com/skypjack/entt.git
-  GIT_TAG v3.13.1
+        GIT_REPOSITORY https://github.com/skypjack/entt.git
+        GIT_TAG v3.13.1
 )
 # Avoid building EnTT tests/docs when fetched as a subproject.
 set(ENTT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ENTT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(entt)
 
-if (CORE_RENDER_BACKEND STREQUAL "GL")
-# ------------------------------------------------------------
-# GLFW
-# ------------------------------------------------------------
-if (USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/glfw/CMakeLists.txt")
-  add_subdirectory(extern/glfw EXCLUDE_FROM_ALL)
-else()
-  FetchContent_Declare(glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
-  )
-  set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-  set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(glfw)
-endif()
-
-if (TARGET glfw AND NOT TARGET GLFW::glfw)
-  add_library(GLFW::glfw ALIAS glfw)
-endif()
-
-
-endif()
-
-if (CORE_RENDER_BACKEND STREQUAL "GL")
-# ------------------------------------------------------------
-# GLM (header-only)
-# ------------------------------------------------------------
-if (USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/glm/CMakeLists.txt")
-  add_subdirectory(extern/glm EXCLUDE_FROM_ALL)
-else()
-  FetchContent_Declare(glm
-    GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1
-  )
-  FetchContent_MakeAvailable(glm)
-endif()
-
-if (NOT TARGET glm::glm)
-  add_library(glm::glm INTERFACE IMPORTED)
-  if (DEFINED glm_SOURCE_DIR AND EXISTS "${glm_SOURCE_DIR}/glm/glm.hpp")
-    set_target_properties(glm::glm PROPERTIES
-      INTERFACE_INCLUDE_DIRECTORIES "${glm_SOURCE_DIR}"
-    )
+if(CORE_RENDER_BACKEND STREQUAL "GL")
+  # ------------------------------------------------------------
+  # GLFW
+  # ------------------------------------------------------------
+  if(USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/glfw/CMakeLists.txt")
+    add_subdirectory(extern/glfw EXCLUDE_FROM_ALL)
   else()
-    message(FATAL_ERROR "glm::glm target not found and glm_SOURCE_DIR is unknown")
+    FetchContent_Declare(glfw
+            GIT_REPOSITORY https://github.com/glfw/glfw.git
+            GIT_TAG        3.4
+    )
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(glfw)
+  endif()
+
+  if(TARGET glfw AND NOT TARGET GLFW::glfw)
+    add_library(GLFW::glfw ALIAS glfw)
   endif()
 endif()
 
+if(CORE_RENDER_BACKEND STREQUAL "GL")
+  # ------------------------------------------------------------
+  # GLM (header-only)
+  # ------------------------------------------------------------
+  if(USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/glm/CMakeLists.txt")
+    add_subdirectory(extern/glm EXCLUDE_FROM_ALL)
+  else()
+    FetchContent_Declare(glm
+            GIT_REPOSITORY https://github.com/g-truc/glm.git
+            GIT_TAG        1.0.1
+    )
+    FetchContent_MakeAvailable(glm)
+  endif()
 
+  if(NOT TARGET glm::glm)
+    add_library(glm::glm INTERFACE IMPORTED)
+    if(DEFINED glm_SOURCE_DIR AND EXISTS "${glm_SOURCE_DIR}/glm/glm.hpp")
+      set_target_properties(glm::glm PROPERTIES
+              INTERFACE_INCLUDE_DIRECTORIES "${glm_SOURCE_DIR}"
+      )
+    else()
+      message(FATAL_ERROR "glm::glm target not found and glm_SOURCE_DIR is unknown")
+    endif()
+  endif()
 endif()
 
 # ------------------------------------------------------------
 # OpenGL (only needed for GL backend)
 # ------------------------------------------------------------
 set(OPENGL_TARGET "")
-if (CORE_RENDER_BACKEND STREQUAL "GL")
+if(CORE_RENDER_BACKEND STREQUAL "GL")
   find_package(OpenGL REQUIRED)
-  if (TARGET OpenGL::GL)
+  if(TARGET OpenGL::GL)
     set(OPENGL_TARGET OpenGL::GL)
-  elseif (TARGET OpenGL::OpenGL)
+  elseif(TARGET OpenGL::OpenGL)
     set(OPENGL_TARGET OpenGL::OpenGL)
   else()
     message(FATAL_ERROR "No suitable OpenGL target found (expected OpenGL::GL or OpenGL::OpenGL)")
   endif()
 endif()
 
-if (CORE_RENDER_BACKEND STREQUAL "GL")
-# ------------------------------------------------------------
-# GLEW (build/find ALWAYS, link only for GL)
-# ------------------------------------------------------------
-set(GLEW_USE_STATIC_LIBS TRUE)
-find_package(GLEW QUIET)
+if(CORE_RENDER_BACKEND STREQUAL "GL")
+  # ------------------------------------------------------------
+  # GLEW (build/find ALWAYS, link only for GL)
+  # ------------------------------------------------------------
+  set(GLEW_USE_STATIC_LIBS TRUE)
+  find_package(GLEW QUIET)
 
-set(GLEW_HEADERS_DIR "")
+  set(GLEW_HEADERS_DIR "")
 
-if (GLEW_FOUND AND TARGET GLEW::GLEW)
-  # ok
-else()
-  FetchContent_Declare(glew_src
-    URL https://github.com/nigels-com/glew/releases/download/glew-2.3.0/glew-2.3.0.tgz
-    SOURCE_SUBDIR build/cmake
-  )
-  set(ONLY_LIBS ON  CACHE BOOL "" FORCE)
-  set(BUILD_UTILS OFF CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(glew_src)
+  if(GLEW_FOUND AND TARGET GLEW::GLEW)
+    # ok
+  else()
+    FetchContent_Declare(glew_src
+            URL https://github.com/nigels-com/glew/releases/download/glew-2.3.0/glew-2.3.0.tgz
+            SOURCE_SUBDIR build/cmake
+    )
+    set(ONLY_LIBS ON CACHE BOOL "" FORCE)
+    set(BUILD_UTILS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(glew_src)
 
-  if (TARGET glew_s AND NOT TARGET GLEW::GLEW)
-    add_library(GLEW::GLEW ALIAS glew_s)
-  elseif (TARGET glew AND NOT TARGET GLEW::GLEW)
-    add_library(GLEW::GLEW ALIAS glew)
-  elseif (TARGET libglew_static AND NOT TARGET GLEW::GLEW)
-    add_library(GLEW::GLEW ALIAS libglew_static)
-  elseif (TARGET libglew_shared AND NOT TARGET GLEW::GLEW)
-    add_library(GLEW::GLEW ALIAS libglew_shared)
+    if(TARGET glew_s AND NOT TARGET GLEW::GLEW)
+      add_library(GLEW::GLEW ALIAS glew_s)
+    elseif(TARGET glew AND NOT TARGET GLEW::GLEW)
+      add_library(GLEW::GLEW ALIAS glew)
+    elseif(TARGET libglew_static AND NOT TARGET GLEW::GLEW)
+      add_library(GLEW::GLEW ALIAS libglew_static)
+    elseif(TARGET libglew_shared AND NOT TARGET GLEW::GLEW)
+      add_library(GLEW::GLEW ALIAS libglew_shared)
+    endif()
+
+    if(DEFINED glew_src_SOURCE_DIR AND EXISTS "${glew_src_SOURCE_DIR}/include/GL/glew.h")
+      set(GLEW_HEADERS_DIR "${glew_src_SOURCE_DIR}/include")
+    endif()
   endif()
 
-  if (DEFINED glew_src_SOURCE_DIR AND EXISTS "${glew_src_SOURCE_DIR}/include/GL/glew.h")
-    set(GLEW_HEADERS_DIR "${glew_src_SOURCE_DIR}/include")
+  # If you are in GL backend, GLEW must exist.
+  if(CORE_RENDER_BACKEND STREQUAL "GL" AND NOT TARGET GLEW::GLEW)
+    message(FATAL_ERROR "GLEW target not available for GL backend.")
   endif()
-endif()
-
-# Если ты в GL бекенде — GLEW обязан быть.
-if (CORE_RENDER_BACKEND STREQUAL "GL" AND NOT TARGET GLEW::GLEW)
-  message(FATAL_ERROR "GLEW target not available for GL backend.")
-endif()
-
-
 endif()
 
 # ------------------------------------------------------------
 # STB
 # ------------------------------------------------------------
 FetchContent_Declare(stb
-  GIT_REPOSITORY https://github.com/nothings/stb.git
-  GIT_TAG master
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG master
 )
 FetchContent_MakeAvailable(stb)
 
@@ -182,8 +193,8 @@ target_include_directories(stb_headers INTERFACE "${stb_SOURCE_DIR}")
 # Assimp
 # ------------------------------------------------------------
 FetchContent_Declare(assimp
-  GIT_REPOSITORY https://github.com/assimp/assimp.git
-  GIT_TAG v6.0.4
+        GIT_REPOSITORY https://github.com/assimp/assimp.git
+        GIT_TAG v6.0.4
 )
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -192,15 +203,14 @@ set(ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(assimp)
 
-if (TARGET assimp AND NOT TARGET assimp::assimp)
+if(TARGET assimp AND NOT TARGET assimp::assimp)
   add_library(assimp::assimp ALIAS assimp)
 endif()
-
 
 # ------------------------------------------------------------
 # ImGui (DX12 + Win32 only)
 # ------------------------------------------------------------
-if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
+if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   set(IMGUI_DIR "")
   set(_want_imgui_tag "v1.91.0-docking")
   set(_imgui_submodule_dir "${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui")
@@ -210,50 +220,50 @@ if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   #   ImGuiConfigFlags_DockingEnable not found
   # because upstream master without docking doesn't define it.
   set(_imgui_submodule_is_docking FALSE)
-  if (USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp" AND EXISTS "${_imgui_submodule_dir}/imgui.h")
+  if(USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp" AND EXISTS "${_imgui_submodule_dir}/imgui.h")
     file(READ "${_imgui_submodule_dir}/imgui.h" _imgui_h_contents)
     string(FIND "${_imgui_h_contents}" "ImGuiConfigFlags_DockingEnable" _dock_flag_pos)
-    if (NOT _dock_flag_pos EQUAL -1)
+    if(NOT _dock_flag_pos EQUAL -1)
       set(_imgui_submodule_is_docking TRUE)
     endif()
   endif()
 
-  if (_imgui_submodule_is_docking)
+  if(_imgui_submodule_is_docking)
     set(IMGUI_DIR "${_imgui_submodule_dir}")
   else()
-    if (USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp")
+    if(USE_SUBMODULES AND EXISTS "${_imgui_submodule_dir}/imgui.cpp")
       message(WARNING "extern/imgui is present but NOT the docking branch; ignoring it and fetching ${_want_imgui_tag} instead.")
     endif()
     FetchContent_Declare(imgui
-      GIT_REPOSITORY https://github.com/ocornut/imgui.git
-      GIT_TAG        ${_want_imgui_tag}
+            GIT_REPOSITORY https://github.com/ocornut/imgui.git
+            GIT_TAG        ${_want_imgui_tag}
     )
     FetchContent_MakeAvailable(imgui)
     set(IMGUI_DIR "${imgui_SOURCE_DIR}")
   endif()
 
   # Hard error if we still didn't get docking.
-  if (EXISTS "${IMGUI_DIR}/imgui.h")
+  if(EXISTS "${IMGUI_DIR}/imgui.h")
     file(READ "${IMGUI_DIR}/imgui.h" _imgui_h_final)
     string(FIND "${_imgui_h_final}" "ImGuiConfigFlags_DockingEnable" _dock_flag_final_pos)
-    if (_dock_flag_final_pos EQUAL -1)
+    if(_dock_flag_final_pos EQUAL -1)
       message(FATAL_ERROR "Dear ImGui must be built from the docking branch/tag (e.g. ${_want_imgui_tag}).")
     endif()
   endif()
 
   add_library(imgui STATIC
-    "${IMGUI_DIR}/imgui.cpp"
-    "${IMGUI_DIR}/imgui_draw.cpp"
-    "${IMGUI_DIR}/imgui_tables.cpp"
-    "${IMGUI_DIR}/imgui_widgets.cpp"
-    "${IMGUI_DIR}/imgui_demo.cpp"
-    "${IMGUI_DIR}/backends/imgui_impl_win32.cpp"
-    "${IMGUI_DIR}/backends/imgui_impl_dx12.cpp"
+          "${IMGUI_DIR}/imgui.cpp"
+          "${IMGUI_DIR}/imgui_draw.cpp"
+          "${IMGUI_DIR}/imgui_tables.cpp"
+          "${IMGUI_DIR}/imgui_widgets.cpp"
+          "${IMGUI_DIR}/imgui_demo.cpp"
+          "${IMGUI_DIR}/backends/imgui_impl_win32.cpp"
+          "${IMGUI_DIR}/backends/imgui_impl_dx12.cpp"
   )
 
   target_include_directories(imgui PUBLIC
-    "${IMGUI_DIR}"
-    "${IMGUI_DIR}/backends"
+          "${IMGUI_DIR}"
+          "${IMGUI_DIR}/backends"
   )
 
   # Also allow imgui.cpp to see a project-level imconfig.h (if you have one in the repo root),
@@ -278,129 +288,129 @@ endif()
 # ------------------------------------------------------------
 add_library(CoreEngineModuleLib STATIC)
 target_compile_features(CoreEngineModuleLib PUBLIC cxx_std_23)
+core_enable_import_std(CoreEngineModuleLib)
 
 target_compile_definitions(CoreEngineModuleLib
-  PUBLIC
-    $<$<STREQUAL:${CORE_RENDER_BACKEND},DX12>:CORE_USE_DX12=1>
-    $<$<STREQUAL:${CORE_RENDER_BACKEND},GL>:CORE_USE_GL=1>
+        PUBLIC
+        $<$<STREQUAL:${CORE_RENDER_BACKEND},DX12>:CORE_USE_DX12=1>
+        $<$<STREQUAL:${CORE_RENDER_BACKEND},GL>:CORE_USE_GL=1>
 )
 
 # If you vendor d3dx12.h in extern/, allow includes like "d3dx12.h" or "extern/d3dx12.h"
 target_include_directories(CoreEngineModuleLib
-  PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}"
+        PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 set(COMMON_MODULES
-  Core/Core.ixx
+        Core/Core.ixx
 
-  Core/Math/MathUtils.cppm
-  Core/Math/Geometry.cppm
+        Core/Math/MathUtils.cppm
+        Core/Math/Geometry.cppm
 
-  Core/Hash/HashUtils.cppm
+        Core/Hash/HashUtils.cppm
 
-  Input/Input.cppm
-  Input/InputCore.cppm
-  Input/ControllerBase.cppm
-  Input/Win32Input.cppm
+        Input/Input.cppm
+        Input/InputCore.cppm
+        Input/ControllerBase.cppm
+        Input/Win32Input.cppm
 
-  ECS/EnTTHelpers.cppm
+        ECS/EnTTHelpers.cppm
 
-  Gameplay/GameplayWorld.cppm
-  Gameplay/GameplayWorld_impl.cppm
-  Gameplay/Input/GameplayInput.cppm
-  Gameplay/Camera/GameplayFollowCamera.cppm
-  Gameplay/Character/CharacterController.cppm
-  Gameplay/Character/CharacterMovement.cppm
-  Gameplay/Combat/CombatSystem.cppm
-  Gameplay/Interaction/InteractionSystem.cppm
-  Gameplay/Animation/GameplayAnimationBridge.cppm
-  Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
-  Gameplay/Graph/GameplayGraph.cppm
-  Gameplay/Graph/GameplayGraphAssets.cppm
-  Gameplay/Runtime/GameplayRuntimeCommon.cppm
-  Gameplay/Runtime/GameplayBootstrap.cppm
-  Gameplay/Runtime/GameplaySceneSync.cppm
-  Gameplay/Runtime/GameplayRuntime.cppm
+        Gameplay/GameplayWorld.cppm
+        Gameplay/GameplayWorld_impl.cppm
+        Gameplay/Input/GameplayInput.cppm
+        Gameplay/Camera/GameplayFollowCamera.cppm
+        Gameplay/Character/CharacterController.cppm
+        Gameplay/Character/CharacterMovement.cppm
+        Gameplay/Combat/CombatSystem.cppm
+        Gameplay/Interaction/InteractionSystem.cppm
+        Gameplay/Animation/GameplayAnimationBridge.cppm
+        Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
+        Gameplay/Graph/GameplayGraph.cppm
+        Gameplay/Graph/GameplayGraphAssets.cppm
+        Gameplay/Runtime/GameplayRuntimeCommon.cppm
+        Gameplay/Runtime/GameplayBootstrap.cppm
+        Gameplay/Runtime/GameplaySceneSync.cppm
+        Gameplay/Runtime/GameplayRuntime.cppm
 
-  Timer/GameTimer.ixx
-  Timer/GameTimer.cppm
+        Timer/GameTimer.ixx
+        Timer/GameTimer.cppm
 
-  Render/Render.ixx
-  Render/RenderCore.cppm
-  Render/RHI.cppm
-  Render/RenderGraph.cppm
-  Render/Debug/DebugDraw.cppm
-  Render/Debug/DebugText.cppm
-  Render/Bindless.cppm
-  Render/GpuMemory.cppm
-  Render/RendererSettings.cppm
-  Render/Renderer.cppm
-  
-  Render/Sync.cppm
-  Render/FileSystem.cppm
+        Render/Render.ixx
+        Render/RenderCore.cppm
+        Render/RHI.cppm
+        Render/RenderGraph.cppm
+        Render/Debug/DebugDraw.cppm
+        Render/Debug/DebugText.cppm
+        Render/Bindless.cppm
+        Render/GpuMemory.cppm
+        Render/RendererSettings.cppm
+        Render/Renderer.cppm
 
-  Render/Shader/ShaderFiles.cppm
-  Render/Shader/ShaderSystem.cppm
+        Render/Sync.cppm
+        Render/FileSystem.cppm
 
-  Render/Scene/SceneBridge.cppm
-  Render/Scene/Scene.cppm
-  Render/Scene/Level.cppm
-  Render/Scene/LevelECS.cppm
-  Render/Scene/LevelECS_impl.cppm
-  Render/Scene/EditorGizmo.cppm
-  Render/Scene/EditorRotateGizmo.cppm
-  Render/Scene/EditorScaleGizmo.cppm
+        Render/Shader/ShaderFiles.cppm
+        Render/Shader/ShaderSystem.cppm
 
-  Render/Scene/Picking.cppm
-  Render/Scene/Visibility.cppm
+        Render/Scene/SceneBridge.cppm
+        Render/Scene/Scene.cppm
+        Render/Scene/Level.cppm
+        Render/Scene/LevelECS.cppm
+        Render/Scene/LevelECS_impl.cppm
+        Render/Scene/EditorGizmo.cppm
+        Render/Scene/EditorRotateGizmo.cppm
+        Render/Scene/EditorScaleGizmo.cppm
 
-  Render/Scene/CameraController.cppm
+        Render/Scene/Picking.cppm
+        Render/Scene/Visibility.cppm
 
-  Animation/Runtime/Animator.cppm
-  Animation/Runtime/AnimationController.cppm
+        Render/Scene/CameraController.cppm
 
-  Render/Model/ObjLoader.cppm
-  Render/Model/AssimpLoader.cppm
-  Render/Model/AssimpSceneLoader.cppm
-  Render/Model/Mesh/Mesh.cppm
-  Animation/Assets/Skeleton.cppm
-  Animation/Assets/AnimationClip.cppm
-  Render/Model/SkinnedMesh.cppm
+        Animation/Runtime/Animator.cppm
+        Animation/Runtime/AnimationController.cppm
 
-  Render/Decoders/TextureDecoderSTB.cppm
+        Render/Model/ObjLoader.cppm
+        Render/Model/AssimpLoader.cppm
+        Render/Model/AssimpSceneLoader.cppm
+        Render/Model/Mesh/Mesh.cppm
+        Animation/Assets/Skeleton.cppm
+        Animation/Assets/AnimationClip.cppm
+        Render/Model/SkinnedMesh.cppm
 
-  Assets/ResourceManager.ixx
-  Assets/ResourceManager_core.cppm
-  Assets/ResourceManager_texture.cppm
-  Assets/ResourceManager_mesh.cppm
-  Assets/AssetManager.cppm
+        Render/Decoders/TextureDecoderSTB.cppm
+
+        Assets/ResourceManager.ixx
+        Assets/ResourceManager_core.cppm
+        Assets/ResourceManager_texture.cppm
+        Assets/ResourceManager_mesh.cppm
+        Assets/AssetManager.cppm
 )
 
 set(GL_MODULES
-  Render/OpenGL/RenderGL.ixx
-  Render/OpenGL/OpenGLCore.cppm
-  Render/OpenGL/OpenGLRHI.cppm
-  Render/OpenGL/OpenGLRenderer.cppm
-  Render/OpenGL/OpenGLRenderer.cppm
+        Render/OpenGL/RenderGL.ixx
+        Render/OpenGL/OpenGLCore.cppm
+        Render/OpenGL/OpenGLRHI.cppm
+        Render/OpenGL/OpenGLRenderer.cppm
 )
 
 set(DX12_MODULES
-  Render/DirectX12/RenderDX12.ixx
-  Render/DirectX12/DirectX12Core.cppm
-  Render/DirectX12/DirectX12RHI.cppm
-  Render/DirectX12/DirectX12Renderer.cppm
-  Render/DirectX12/DebugDrawRendererDX12.cppm
-  Render/DirectX12/DebugTextRendererDX12.cppm
-  Render/DirectX12/DirectX12TextureUploader.cppm
-  Render/DirectX12/CommonDX12Structs.cppm
-  Render/ImGui/ImGuiDebugUI.cppm
+        Render/DirectX12/RenderDX12.ixx
+        Render/DirectX12/DirectX12Core.cppm
+        Render/DirectX12/DirectX12RHI.cppm
+        Render/DirectX12/DirectX12Renderer.cppm
+        Render/DirectX12/DebugDrawRendererDX12.cppm
+        Render/DirectX12/DebugTextRendererDX12.cppm
+        Render/DirectX12/DirectX12TextureUploader.cppm
+        Render/DirectX12/CommonDX12Structs.cppm
+        Render/ImGui/ImGuiDebugUI.cppm
 )
 
 set(CORE_MODULES ${COMMON_MODULES})
-if (CORE_RENDER_BACKEND STREQUAL "DX12")
+if(CORE_RENDER_BACKEND STREQUAL "DX12")
   list(APPEND CORE_MODULES ${DX12_MODULES})
 else()
   list(APPEND CORE_MODULES ${GL_MODULES})
@@ -413,46 +423,46 @@ foreach(f IN LISTS CORE_MODULES)
 endforeach()
 
 target_sources(CoreEngineModuleLib
-  PUBLIC
-    FILE_SET cxx_modules TYPE CXX_MODULES
-      FILES ${CORE_MODULES_ABS}
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES
+        FILES ${CORE_MODULES_ABS}
 )
 
 target_sources(CoreEngineModuleLib
-  PRIVATE
-    "${SRC_DIR}/App/Win32AppShell.cpp"
-    "${SRC_DIR}/App/DebugUiHost.cpp"
-    "${SRC_DIR}/App/AppBootstrap.cpp"
-    "${SRC_DIR}/App/AppLifecycle.cpp"
+        PRIVATE
+        "${SRC_DIR}/App/Win32AppShell.cpp"
+        "${SRC_DIR}/App/DebugUiHost.cpp"
+        "${SRC_DIR}/App/AppBootstrap.cpp"
+        "${SRC_DIR}/App/AppLifecycle.cpp"
 )
 
 # Common deps
 target_link_libraries(CoreEngineModuleLib
-  PUBLIC
-    stb_headers
-    assimp::assimp
+        PUBLIC
+        stb_headers
+        assimp::assimp
 )
 
 # GL-only deps (link AFTER CoreEngineModuleLib exists)
-if (CORE_RENDER_BACKEND STREQUAL "GL")
-  if (GLEW_HEADERS_DIR)
+if(CORE_RENDER_BACKEND STREQUAL "GL")
+  if(GLEW_HEADERS_DIR)
     target_include_directories(CoreEngineModuleLib PUBLIC "${GLEW_HEADERS_DIR}")
   endif()
 
   target_link_libraries(CoreEngineModuleLib PUBLIC GLFW::glfw glm::glm GLEW::GLEW ${OPENGL_TARGET})
 
   target_compile_definitions(CoreEngineModuleLib
-    PUBLIC
-      $<$<TARGET_EXISTS:glew_s>:GLEW_STATIC>
-      $<$<TARGET_EXISTS:libglew_static>:GLEW_STATIC>
+          PUBLIC
+          $<$<TARGET_EXISTS:glew_s>:GLEW_STATIC>
+          $<$<TARGET_EXISTS:libglew_static>:GLEW_STATIC>
   )
 endif()
 
 # DX12-only deps
-if (WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
+if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   target_include_directories(CoreEngineModuleLib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/extern")
   target_link_libraries(CoreEngineModuleLib PUBLIC d3d12 dxgi dxguid)
-  if (TARGET imgui)
+  if(TARGET imgui)
     target_link_libraries(CoreEngineModuleLib PUBLIC imgui)
   endif()
 endif()
@@ -461,32 +471,33 @@ endif()
 # App
 # ------------------------------------------------------------
 add_executable(app src/main.cpp)
+target_compile_features(app PRIVATE cxx_std_23)
+core_enable_import_std(app)
 
 add_custom_command(TARGET app POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-          "${CMAKE_SOURCE_DIR}/assets"
-          "$<TARGET_FILE_DIR:app>/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:app>/assets"
 )
 
-target_compile_features(app PRIVATE cxx_std_23)
 target_link_libraries(app PRIVATE CoreEngineModuleLib)
 
-if (CORE_RENDER_BACKEND STREQUAL "DX12")
+if(CORE_RENDER_BACKEND STREQUAL "DX12")
   # Put ImGui include dirs BEFORE project/extern include dirs to avoid picking up a stray imgui.h from elsewhere.
   target_include_directories(app SYSTEM BEFORE PRIVATE ${IMGUI_INCLUDE_DIRS})
 endif()
 
-if (WIN32)
+if(WIN32)
   find_library(D3DCOMPILER_LIB NAMES d3dcompiler_47 d3dcompiler REQUIRED)
   target_link_libraries(CoreEngineModuleLib PRIVATE ${D3DCOMPILER_LIB})
 endif()
 
 # EnTT (header-only) include propagation
-if (TARGET EnTT::EnTT)
+if(TARGET EnTT::EnTT)
   target_link_libraries(CoreEngineModuleLib PUBLIC EnTT::EnTT)
 else()
   # Fallback: just include directory if alias target is not present for some reason.
-  if (DEFINED entt_SOURCE_DIR)
+  if(DEFINED entt_SOURCE_DIR)
     target_include_directories(CoreEngineModuleLib PUBLIC "${entt_SOURCE_DIR}/src")
   endif()
 endif()
@@ -494,15 +505,15 @@ endif()
 # ------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------
-if (WITH_TESTS)
+if(WITH_TESTS)
   enable_testing()
 
-  if (USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/googletest/CMakeLists.txt")
+  if(USE_SUBMODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/googletest/CMakeLists.txt")
     add_subdirectory(extern/googletest EXCLUDE_FROM_ALL)
   else()
     FetchContent_Declare(googletest
-      GIT_REPOSITORY https://github.com/google/googletest.git
-      GIT_TAG        v1.14.0
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG        v1.14.0
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)

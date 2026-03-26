@@ -300,7 +300,7 @@ export namespace rendern
         detail::SetAnimationFloatParameterByAliases_(
             controller,
             { "MoveX", "InputX", "LocomotionX", "DirectionX", "Strafe", "StrafeX" },
-            locomotion.moveX);
+            -locomotion.moveX);
 
         detail::SetAnimationFloatParameterByAliases_(
             controller,
@@ -320,7 +320,7 @@ export namespace rendern
         detail::SetAnimationFloatParameterByAliases_(
             controller,
             { "RightSpeed", "MoveRight", "SignedRightSpeed", "LocomotionRightSpeed" },
-            locomotion.rightSpeed);
+            -locomotion.rightSpeed);
 
         detail::SetAnimationFloatParameterByAliases_(
             controller,
