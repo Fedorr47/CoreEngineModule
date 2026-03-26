@@ -268,12 +268,12 @@
 				{
 					int clipIndex{ -1 };
 					float weight{ 0.0f };
-					float distanceSq{ 0.0f };
+					float minDistanceSq{ 0.0f };
 				};
 
-				std::vector<BlendCandidate> candidates;
-				candidates.reserve(state.blend2D.size());
 				constexpr float kEpsilon = 1e-6f;
+				std::unordered_map<int, BlendCandidate> aggregatedCandidates;
+				aggregatedCandidates.reserve(state.blend2D.size());
 				for (std::size_t pointIndex = 0; pointIndex < state.blend2D.size() && pointIndex < resolvedIndices->size(); ++pointIndex)
 				{
 					const int clipIndex = (*resolvedIndices)[pointIndex];
@@ -294,19 +294,39 @@
 						sample.tertiaryAlpha = 0.0f;
 						return sample;
 					}
-					candidates.push_back(BlendCandidate{ clipIndex, 1.0f / std::sqrt(distanceSq), distanceSq });
+
+					const float weight = 1.0f / std::sqrt(distanceSq);
+					auto [it, inserted] = aggregatedCandidates.try_emplace(
+						clipIndex,
+						BlendCandidate{ clipIndex, weight, distanceSq });
+					if (!inserted)
+					{
+						it->second.weight += weight;
+						it->second.minDistanceSq = std::min(it->second.minDistanceSq, distanceSq);
+					}
 				}
 
-				if (candidates.empty())
+				if (aggregatedCandidates.empty())
 				{
 					return sample;
 				}
 
+				std::vector<BlendCandidate> candidates;
+				candidates.reserve(aggregatedCandidates.size());
+				for (const auto& [_, candidate] : aggregatedCandidates)
+				{
+					candidates.push_back(candidate);
+				}
+
 				std::sort(candidates.begin(), candidates.end(), [](const BlendCandidate& a, const BlendCandidate& b)
 					{
-						if (std::fabs(a.distanceSq - b.distanceSq) > 1e-6f)
+						if (std::fabs(a.weight - b.weight) > 1e-6f)
 						{
-							return a.distanceSq < b.distanceSq;
+							return a.weight > b.weight;
+						}
+						if (std::fabs(a.minDistanceSq - b.minDistanceSq) > 1e-6f)
+						{
+							return a.minDistanceSq < b.minDistanceSq;
 						}
 						return a.clipIndex < b.clipIndex;
 					});
@@ -332,64 +352,29 @@
 					candidate.weight /= totalWeight;
 				}
 
-				std::sort(candidates.begin(), candidates.end(), [](const BlendCandidate& a, const BlendCandidate& b)
-					{
-						if (std::fabs(a.weight - b.weight) > 1e-6f)
-						{
-							return a.weight > b.weight;
-						}
-						return a.clipIndex < b.clipIndex;
-					});
+				sample.primaryClipIndex = candidates[0].clipIndex;
+				sample.secondaryClipIndex = (candidates.size() > 1) ? candidates[1].clipIndex : -1;
+				sample.tertiaryClipIndex = (candidates.size() > 2) ? candidates[2].clipIndex : -1;
+				sample.secondaryAlpha = (candidates.size() > 1) ? candidates[1].weight : 0.0f;
+				sample.tertiaryAlpha = (candidates.size() > 2) ? candidates[2].weight : 0.0f;
 
-				std::vector<BlendCandidate> uniqueCandidates;
-				uniqueCandidates.reserve(candidates.size());
-				for (const BlendCandidate& candidate : candidates)
+				const float primaryWeight = std::max(0.0f, 1.0f - sample.secondaryAlpha - sample.tertiaryAlpha);
+				const float normalizedSum = primaryWeight + sample.secondaryAlpha + sample.tertiaryAlpha;
+				if (normalizedSum > kEpsilon)
 				{
-					const bool alreadyAdded = std::any_of(
-						uniqueCandidates.begin(),
-						uniqueCandidates.end(),
-						[&candidate](const BlendCandidate& existing)
-						{
-							return existing.clipIndex == candidate.clipIndex;
-						});
-					if (alreadyAdded)
-					{
-						continue;
-					}
-					uniqueCandidates.push_back(candidate);
-					if (uniqueCandidates.size() >= 3)
-					{
-						break;
-					}
+					sample.secondaryAlpha /= normalizedSum;
+					sample.tertiaryAlpha /= normalizedSum;
 				}
-
-				if (uniqueCandidates.empty())
+				if (sample.primaryClipIndex == sample.secondaryClipIndex)
 				{
-					return sample;
+					sample.secondaryClipIndex = -1;
+					sample.secondaryAlpha = 0.0f;
 				}
-
-				float uniqueTotalWeight = 0.0f;
-				for (const BlendCandidate& candidate : uniqueCandidates)
+				if (sample.primaryClipIndex == sample.tertiaryClipIndex || sample.secondaryClipIndex == sample.tertiaryClipIndex)
 				{
-					uniqueTotalWeight += candidate.weight;
+					sample.tertiaryClipIndex = -1;
+					sample.tertiaryAlpha = 0.0f;
 				}
-				if (uniqueTotalWeight <= kEpsilon)
-				{
-					sample.primaryClipIndex = uniqueCandidates.front().clipIndex;
-					return sample;
-				}
-
-				for (BlendCandidate& candidate : uniqueCandidates)
-				{
-					candidate.weight /= uniqueTotalWeight;
-				}
-
-				sample.primaryClipIndex = uniqueCandidates[0].clipIndex;
-				sample.secondaryClipIndex = (uniqueCandidates.size() > 1) ? uniqueCandidates[1].clipIndex : -1;
-				sample.tertiaryClipIndex = (uniqueCandidates.size() > 2) ? uniqueCandidates[2].clipIndex : -1;
-				sample.secondaryAlpha = (uniqueCandidates.size() > 1) ? uniqueCandidates[1].weight : 0.0f;
-				sample.tertiaryAlpha = (uniqueCandidates.size() > 2) ? uniqueCandidates[2].weight : 0.0f;
-
 				if (sample.secondaryAlpha <= kEpsilon)
 				{
 					sample.secondaryClipIndex = -1;
@@ -400,7 +385,6 @@
 					sample.tertiaryClipIndex = -1;
 					sample.tertiaryAlpha = 0.0f;
 				}
-
 				return sample;
 			}
 
