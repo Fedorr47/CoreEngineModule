@@ -325,6 +325,185 @@ int ImportModelSceneAsNodes(LevelAsset& asset,
 	return firstImportedNode;
 }
 
+bool DuplicateEditorNodeSelection(LevelAsset& asset,
+	Scene& scene,
+	AssetManager& assets,
+	const mathUtils::Vec3& rootLocalOffset = mathUtils::Vec3(1.0f, 0.0f, 0.0f))
+{
+	std::vector<int> sourceSelection = scene.editorSelectedNodes;
+	if (sourceSelection.empty() && IsNodeAlive(asset, scene.editorSelectedNode))
+	{
+		sourceSelection.push_back(scene.editorSelectedNode);
+	}
+
+	std::size_t write = 0;
+	for (std::size_t i = 0; i < sourceSelection.size(); ++i)
+	{
+		const int nodeIndex = sourceSelection[i];
+		if (!IsNodeAlive(asset, nodeIndex))
+		{
+			continue;
+		}
+
+		bool duplicate = false;
+		for (std::size_t j = 0; j < write; ++j)
+		{
+			if (sourceSelection[j] == nodeIndex)
+			{
+				duplicate = true;
+				break;
+			}
+		}
+		if (!duplicate)
+		{
+			sourceSelection[write++] = nodeIndex;
+		}
+	}
+	sourceSelection.resize(write);
+
+	if (sourceSelection.empty())
+	{
+		return false;
+	}
+
+	const int sourcePrimary = IsNodeAlive(asset, scene.editorSelectedNode)
+		? scene.editorSelectedNode
+		: sourceSelection.back();
+	const std::size_t sourceNodeCount = asset.nodes.size();
+
+	std::vector<std::vector<int>> sourceChildren(sourceNodeCount);
+	for (std::size_t i = 0; i < sourceNodeCount; ++i)
+	{
+		const LevelNode& node = asset.nodes[i];
+		if (!node.alive)
+		{
+			continue;
+		}
+		const int parentIndex = node.parent;
+		if (parentIndex >= 0 && static_cast<std::size_t>(parentIndex) < sourceNodeCount)
+		{
+			sourceChildren[static_cast<std::size_t>(parentIndex)].push_back(static_cast<int>(i));
+		}
+	}
+
+	std::unordered_map<int, int> sourceToDuplicate;
+	sourceToDuplicate.reserve(sourceSelection.size() * 2u);
+
+	auto IsSelectedSourceNode = [&](int nodeIndex) noexcept
+		{
+			for (const int selectedIndex : sourceSelection)
+			{
+				if (selectedIndex == nodeIndex)
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+
+	std::vector<int> rootSourceNodes;
+	rootSourceNodes.reserve(sourceSelection.size());
+	for (const int nodeIndex : sourceSelection)
+	{
+		bool hasSelectedAncestor = false;
+		int parentIndex = asset.nodes[static_cast<std::size_t>(nodeIndex)].parent;
+		while (parentIndex >= 0 && static_cast<std::size_t>(parentIndex) < sourceNodeCount)
+		{
+			if (!asset.nodes[static_cast<std::size_t>(parentIndex)].alive)
+			{
+				break;
+			}
+			if (IsSelectedSourceNode(parentIndex))
+			{
+				hasSelectedAncestor = true;
+				break;
+			}
+			parentIndex = asset.nodes[static_cast<std::size_t>(parentIndex)].parent;
+		}
+
+		if (!hasSelectedAncestor)
+		{
+			rootSourceNodes.push_back(nodeIndex);
+		}
+	}
+
+	auto DuplicateSubtree = [&](auto&& self, int sourceNodeIndex, int duplicateParentIndex, bool applyRootOffset) -> int
+		{
+			const LevelNode& sourceNode = asset.nodes[static_cast<std::size_t>(sourceNodeIndex)];
+			Transform duplicatedTransform = sourceNode.transform;
+			if (applyRootOffset)
+			{
+				duplicatedTransform.position = duplicatedTransform.position + rootLocalOffset;
+			}
+
+			const int duplicateIndex = AddNode(
+				asset,
+				scene,
+				assets,
+				sourceNode.mesh,
+				sourceNode.material,
+				duplicateParentIndex,
+				duplicatedTransform,
+				sourceNode.name);
+
+			LevelNode duplicatedNode = sourceNode;
+			duplicatedNode.parent = duplicateParentIndex;
+			duplicatedNode.transform = duplicatedTransform;
+			duplicatedNode.alive = true;
+			asset.nodes[static_cast<std::size_t>(duplicateIndex)] = std::move(duplicatedNode);
+
+			EnsureEntityForNode_(asset, duplicateIndex);
+			EnsureDrawForNode_(asset, scene, assets, duplicateIndex);
+			SyncEntityRenderableForNode_(asset, scene, duplicateIndex);
+
+			sourceToDuplicate[sourceNodeIndex] = duplicateIndex;
+
+			for (const int childSourceIndex : sourceChildren[static_cast<std::size_t>(sourceNodeIndex)])
+			{
+				self(self, childSourceIndex, duplicateIndex, false);
+			}
+
+			return duplicateIndex;
+		};
+
+	for (const int rootSourceNode : rootSourceNodes)
+	{
+		const int duplicateParentIndex = asset.nodes[static_cast<std::size_t>(rootSourceNode)].parent;
+		DuplicateSubtree(DuplicateSubtree, rootSourceNode, duplicateParentIndex, true);
+	}
+
+	std::vector<int> duplicatedSelection;
+	duplicatedSelection.reserve(sourceSelection.size());
+	for (const int sourceNodeIndex : sourceSelection)
+	{
+		if (const auto it = sourceToDuplicate.find(sourceNodeIndex); it != sourceToDuplicate.end())
+		{
+			duplicatedSelection.push_back(it->second);
+		}
+	}
+
+	if (duplicatedSelection.empty())
+	{
+		return false;
+	}
+
+	scene.EditorClearSelection();
+	scene.editorSelectedNodes = duplicatedSelection;
+	if (const auto it = sourceToDuplicate.find(sourcePrimary); it != sourceToDuplicate.end())
+	{
+		scene.editorSelectedNode = it->second;
+	}
+	else
+	{
+		scene.editorSelectedNode = duplicatedSelection.back();
+	}
+
+	SyncEditorRuntimeBindings(asset, scene);
+	ValidateRuntimeMappingsDebug(asset, scene);
+	transformsDirty_ = true;
+	return true;
+}
+
 // Delete selected node and all its children. (tombstone - keeps indices stable)
 void DeleteSubtree(LevelAsset& asset, Scene& scene, int rootNodeIndex)
 {

@@ -858,7 +858,7 @@ namespace rendern::ui::level_ui_detail
         if (ImGui::Combo("Translate Space", &translateSpace, kTranslateSpaceModes, IM_ARRAYSIZE(kTranslateSpaceModes)))
             scene.editorTranslateSpace = static_cast<rendern::GizmoSpace>(translateSpace);
 
-        ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport. Hold Shift to snap by 0.5.");
+        ImGui::TextUnformatted("LMB drag axis X/Y/Z or plane handle XY/XZ/YZ in the main viewport. Hold Shift to snap by 0.5. Hold Ctrl while starting a translate drag to duplicate the current node selection.");
         ImGui::Text("Translate space: %s", scene.editorTranslateSpace == rendern::GizmoSpace::World ? "World" : "Local");
         ImGui::Text("Visible: %s", scene.editorTranslateGizmo.visible ? "Yes" : "No");
         ImGui::Text("Hovered axis: %d", static_cast<int>(scene.editorTranslateGizmo.hoveredAxis));
@@ -888,37 +888,8 @@ namespace rendern::ui::level_ui_detail
 
         if (ImGui::Button("Duplicate"))
         {
-            const rendern::LevelNode sourceNode = node;
-
-            rendern::Transform t = sourceNode.transform;
-            t.position.x += 1.0f;
-
-            const int newIdx = levelInst.AddNode(level, scene, assets, sourceNode.mesh, sourceNode.material, sourceNode.parent, t, sourceNode.name);
-            rendern::LevelNode& dup = level.nodes[static_cast<std::size_t>(newIdx)];
-            dup.visible = sourceNode.visible;
-
-            if (!sourceNode.model.empty())
-            {
-                levelInst.SetNodeModel(level, scene, assets, newIdx, sourceNode.model);
-                for (const auto& [submeshIndex, materialId] : sourceNode.materialOverrides)
-                {
-                    levelInst.SetNodeMaterialOverride(level, scene, assets, newIdx, submeshIndex, materialId);
-                }
-            }
-            if (!sourceNode.skinnedMesh.empty())
-            {
-                levelInst.SetNodeSkinnedMesh(level, scene, assets, newIdx, sourceNode.skinnedMesh);
-                rendern::LevelNode& duplicatedNode = level.nodes[static_cast<std::size_t>(newIdx)];
-                duplicatedNode.animation = sourceNode.animation;
-                duplicatedNode.animationClip = sourceNode.animationClip;
-                duplicatedNode.animationController = sourceNode.animationController;
-                duplicatedNode.animationInPlace = sourceNode.animationInPlace;
-                duplicatedNode.animationRootMotionBone = sourceNode.animationRootMotionBone;
-                duplicatedNode.animationAutoplay = sourceNode.animationAutoplay;
-                duplicatedNode.animationLoop = sourceNode.animationLoop;
-                duplicatedNode.animationPlayRate = sourceNode.animationPlayRate;
-            }
-            st.selectedNode = newIdx;
+            levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
+            st.selectedNode = scene.editorSelectedNode;
             st.selectedParticleEmitter = -1;
         }
         ImGui::SameLine();

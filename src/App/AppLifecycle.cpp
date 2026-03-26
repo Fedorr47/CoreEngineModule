@@ -284,7 +284,7 @@ namespace appLifecycle
             appEditor::ApplyGizmoModeHotkeys(app.editorViewportInteraction, app.scene, app.win32Input.State());
             appEditor::SyncEditorGizmoVisuals(app.editorViewportInteraction, *app.levelAsset, *app.levelInstance, app.scene);
             appEditor::UpdateViewportGizmoHover(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, app.scene, app.win32Input.State());
-            appEditor::HandleViewportMouseInteraction(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, *app.levelAsset, *app.levelInstance, app.scene, app.win32Input.State());
+            appEditor::HandleViewportMouseInteraction(app.editorViewportInteraction, app.window.hwnd, app.window.width, app.window.height, *app.levelAsset, *app.levelInstance, *app.assets, app.scene, app.win32Input.State());
         }
 
         if (app.gameplayRuntime)

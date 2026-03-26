@@ -376,6 +376,7 @@ namespace appEditor
         int viewportHeight,
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
+        AssetManager& assets,
         rendern::Scene& scene,
         const rendern::InputState& input)
     {
@@ -448,7 +449,24 @@ namespace appEditor
             }
             else if (input.KeyPressed(VK_LBUTTON))
             {
-                gizmoConsumed = interaction.translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
+                if (ctrlDown && scene.editorSelectedLights.empty())
+                {
+                    gizmoConsumed = interaction.translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                    if (gizmoConsumed)
+                    {
+                        interaction.translateGizmo.EndDrag(scene);
+                        if (levelInstance.DuplicateEditorNodeSelection(levelAsset, scene, assets, mathUtils::Vec3(0.0f, 0.0f, 0.0f)))
+                        {
+                            SyncTransformsAndCurrentGizmoVisual(interaction, levelAsset, levelInstance, scene);
+                            gizmoConsumed = interaction.translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                        }
+                    }
+                }
+                else
+                {
+                    gizmoConsumed = interaction.translateGizmo.TryBeginDrag(levelAsset, levelInstance, scene, mouseXF, mouseYF, viewportWidthF, viewportHeightF);
+                }
             }
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)

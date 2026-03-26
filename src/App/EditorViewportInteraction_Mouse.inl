@@ -160,6 +160,7 @@
         int viewportHeight,
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
+        AssetManager& assets,
         rendern::Scene& scene,
         const rendern::InputState& input)
     {
@@ -187,9 +188,56 @@
 
         if (scene.editorGizmoMode == rendern::GizmoMode::Translate)
         {
-            gizmoConsumed = HasParticleEmitterSelection(scene)
-                ? HandleParticleEmitterTranslateInteraction(levelAsset, levelInstance, scene, mouseState, input, transformChanged)
-                : HandleStandardGizmoInteraction(interaction.translateGizmo, levelAsset, levelInstance, scene, mouseState, input, transformChanged);
+            if (HasParticleEmitterSelection(scene))
+            {
+                gizmoConsumed = HandleParticleEmitterTranslateInteraction(levelAsset, levelInstance, scene, mouseState, input, transformChanged);
+            }
+            else if (interaction.translateGizmo.IsDragging())
+            {
+                gizmoConsumed = HandleStandardGizmoInteraction(interaction.translateGizmo, levelAsset, levelInstance, scene, mouseState, input, transformChanged);
+            }
+            else if (input.KeyPressed(VK_LBUTTON))
+            {
+                const bool ctrlDown = input.KeyDown(VK_CONTROL) || input.KeyDown(VK_LCONTROL) || input.KeyDown(VK_RCONTROL);
+                if (ctrlDown && scene.editorSelectedLights.empty())
+                {
+                    gizmoConsumed = interaction.translateGizmo.TryBeginDrag(
+                        levelAsset,
+                        levelInstance,
+                        scene,
+                        mouseState.xFloat,
+                        mouseState.yFloat,
+                        mouseState.widthFloat,
+                        mouseState.heightFloat);
+                    if (gizmoConsumed)
+                    {
+                        interaction.translateGizmo.EndDrag(scene);
+                        if (levelInstance.DuplicateEditorNodeSelection(levelAsset, scene, assets, mathUtils::Vec3(0.0f, 0.0f, 0.0f)))
+                        {
+                            SyncTransformsAndCurrentGizmoVisual(interaction, levelAsset, levelInstance, scene);
+                            gizmoConsumed = interaction.translateGizmo.TryBeginDrag(
+                                levelAsset,
+                                levelInstance,
+                                scene,
+                                mouseState.xFloat,
+                                mouseState.yFloat,
+                                mouseState.widthFloat,
+                                mouseState.heightFloat);
+                        }
+                    }
+                }
+                else
+                {
+                    gizmoConsumed = interaction.translateGizmo.TryBeginDrag(
+                        levelAsset,
+                        levelInstance,
+                        scene,
+                        mouseState.xFloat,
+                        mouseState.yFloat,
+                        mouseState.widthFloat,
+                        mouseState.heightFloat);
+                }
+            }
         }
         else if (scene.editorGizmoMode == rendern::GizmoMode::Rotate)
         {
