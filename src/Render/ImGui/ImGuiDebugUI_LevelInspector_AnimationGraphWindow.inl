@@ -576,8 +576,8 @@ namespace rendern::ui::level_ui_detail
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, avail), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, avail), IM_COL32(24, 24, 28, 255), 4.0f);
 
-        ImGui::InvisibleButton("##AnimationGraphFsmCanvasButton", avail);
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
+        const bool fsmCanvasHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+        if (fsmCanvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
             st.animationGraphFsmPan = AddImVec2(st.animationGraphFsmPan, ImGui::GetIO().MouseDelta);
         }
@@ -782,8 +782,8 @@ namespace rendern::ui::level_ui_detail
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, avail), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, avail), IM_COL32(24, 24, 28, 255), 4.0f);
 
-        ImGui::InvisibleButton("##AnimationGraphAssetCanvasButton", avail);
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
+        const bool assetCanvasHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+        if (assetCanvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
             st.animationGraphAssetPan = AddImVec2(st.animationGraphAssetPan, ImGui::GetIO().MouseDelta);
         }
