@@ -228,7 +228,7 @@ export namespace rendern
                     .request = GameplayActionRequest{
                         .kind = Kind::LightAttack,
                         .source = Source::Combat,
-                        .priority = 100
+                        .priority = 10
                     },
                     .group = Group::Combat,
                     .gates = static_cast<std::uint32_t>(Gate::RequireGrounded)

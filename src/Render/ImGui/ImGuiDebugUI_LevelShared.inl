@@ -21,7 +21,11 @@ namespace rendern::ui::level_ui_detail
 
         bool animationGraphWindowOpen = true;
         bool animationGraphRequestFocus = false;
+        bool animationGraphFsmFocusSelection = true;
+        bool animationGraphShowTransitionLabels = false;
         std::string animationGraphSelectedStateName;
+        float animationGraphFsmZoom = 1.0f;
+        float animationGraphAssetZoom = 1.0f;
         ImVec2 animationGraphFsmPan{ 24.0f, 24.0f };
         ImVec2 animationGraphAssetPan{ 24.0f, 24.0f };
         std::unordered_map<std::string, ImVec2> animationGraphFsmNodePositions;
