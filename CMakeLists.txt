@@ -311,6 +311,8 @@ set(COMMON_MODULES
         Core/Math/Geometry.cppm
 
         Core/Hash/HashUtils.cppm
+        Core/Json/JsonUtils.cppm
+
         Core/String/StringUtils.cppm
 
 

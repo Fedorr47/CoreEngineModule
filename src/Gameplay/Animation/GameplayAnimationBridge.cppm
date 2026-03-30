@@ -173,11 +173,6 @@ export namespace rendern
 
             return GameplayActionKind::None;
         }
-
-        [[nodiscard]] inline std::string BuildCanonicalGameplayEventId_(std::string_view animationEventId)
-        {
-            return CanonicalizeAnimationNameToken_(animationEventId);
-        }
     }
 
     inline void ResetGameplayAnimationNotifyFrame(GameplayAnimationNotifyStateComponent& notifyState)

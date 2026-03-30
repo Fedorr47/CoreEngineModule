@@ -53,7 +53,7 @@
         }
 
         const geometry::Ray ray = rendern::BuildMouseRay(scene, mouseX, mouseY, viewportW, viewportH);
-        const mathUtils::Vec3 axisWorld = rendern::TranslateGizmoAxisDirection(gizmo, axis);
+        const mathUtils::Vec3 axisWorld = rendern::TranslateGizmoGizmoAxisDirection(gizmo, axis);
         mathUtils::Vec3 viewDir = scene.camera.target - scene.camera.position;
         if (mathUtils::Length(viewDir) <= 1e-5f)
         {

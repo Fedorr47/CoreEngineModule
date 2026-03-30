@@ -174,24 +174,6 @@ export namespace rendern
         std::uint32_t gates{ 0u };
     };
 
-    [[nodiscard]] constexpr const char* ToString(const GameplayActionPolicyGroup group) noexcept
-    {
-        switch (group)
-        {
-        case GameplayActionPolicyGroup::Input:
-            return "Input";
-        case GameplayActionPolicyGroup::Combat:
-            return "Combat";
-        case GameplayActionPolicyGroup::Interaction:
-            return "Interaction";
-        case GameplayActionPolicyGroup::Any:
-            return "Any";
-        case GameplayActionPolicyGroup::None:
-        default:
-            return "None";
-        }
-    }
-
     namespace detail
     {
         [[nodiscard]] constexpr bool GameplayActionPolicyGroupMatches_(const GameplayActionPolicyGroup requestedGroup, const GameplayActionPolicyGroup entryGroup) noexcept
@@ -284,11 +266,6 @@ export namespace rendern
         intentMask |= GameplayActionIntentMask(kind);
     }
 
-    inline void RemoveGameplayActionIntent(std::uint32_t& intentMask, const GameplayActionKind kind) noexcept
-    {
-        intentMask &= ~GameplayActionIntentMask(kind);
-    }
-
     [[nodiscard]] constexpr bool HasGameplayActionIntent(const std::uint32_t intentMask, const GameplayActionKind kind) noexcept
     {
         const std::uint32_t mask = GameplayActionIntentMask(kind);
@@ -373,13 +350,11 @@ export namespace rendern
 
     inline bool QueueGameplayActionRequest(GameplayActionComponent& action, GameplayActionRequest request) noexcept;
 
-    [[nodiscard]] inline const GameplayActionPolicyEntry* FindGameplayActionPolicy(
-        const GameplayActionKind intentKind,
-        const GameplayActionPolicyGroup group = GameplayActionPolicyGroup::Any) noexcept
+    [[nodiscard]] inline const GameplayActionPolicyEntry* FindGameplayActionPolicy(const GameplayActionPolicyGroup group, const GameplayActionKind kind) noexcept
     {
         for (const GameplayActionPolicyEntry& entry : detail::kGameplayActionPolicyTable)
         {
-            if (entry.intentKind != intentKind)
+            if (entry.intentKind != kind)
             {
                 continue;
             }

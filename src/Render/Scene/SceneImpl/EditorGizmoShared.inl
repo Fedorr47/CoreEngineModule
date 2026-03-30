@@ -1,15 +1,7 @@
-	template <typename TGizmoState>
-	static void HideGizmoState(TGizmoState& gizmo) noexcept
-	{
-		gizmo.visible = false;
-		gizmo.hoveredAxis = rendern::GizmoAxis::None;
-		gizmo.activeAxis = rendern::GizmoAxis::None;
-	}
-
 	static bool TryGetPrimaryAliveNode(const rendern::LevelAsset& asset,
-		const rendern::LevelInstance& levelInst,
-		const rendern::Scene& scene,
-		int& outPrimaryNode) noexcept
+	const rendern::LevelInstance& levelInst,
+	const rendern::Scene& scene,
+	int& outPrimaryNode) noexcept
 	{
 		const int primaryNode = scene.editorSelectedNode;
 		if (!levelInst.IsNodeAlive(asset, primaryNode))
@@ -21,12 +13,12 @@
 		return true;
 	}
 
-	static bool TryComputeSelectionPivotWorld(const rendern::LevelAsset& asset,
-		const rendern::LevelInstance& levelInst,
-		const rendern::Scene& scene,
-		mathUtils::Vec3& outPivotWorld,
-		int& outPrimaryNode) noexcept
+static bool TryComputeSelectionPivotWorld(const rendern::LevelAsset& asset,
+	const rendern::LevelInstance& levelInst,
+	const rendern::Scene& scene,
+	mathUtils::Vec3& outPivotWorld) noexcept
 	{
+		int outPrimaryNode = -1;
 		if (!TryGetPrimaryAliveNode(asset, levelInst, scene, outPrimaryNode))
 		{
 			return false;
@@ -54,19 +46,18 @@
 		return true;
 	}
 
-	static bool CollectAliveSelectedNodes(const rendern::LevelAsset& asset,
-		const rendern::LevelInstance& levelInst,
-		rendern::Scene& scene,
-		std::vector<int>& outNodes)
+static bool CollectAliveSelectedNodes(const rendern::LevelAsset& asset,
+	const rendern::LevelInstance& levelInst,
+	rendern::Scene& scene,
+	std::vector<int>& outNodes) noexcept
 	{
-		outNodes.clear();
-
 		int primaryNode = -1;
 		if (!TryGetPrimaryAliveNode(asset, levelInst, scene, primaryNode))
 		{
 			return false;
 		}
 
+		outNodes.clear();
 		if (scene.editorSelectedNodes.empty())
 		{
 			scene.editorSelectedNodes.push_back(primaryNode);

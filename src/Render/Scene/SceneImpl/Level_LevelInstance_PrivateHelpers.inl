@@ -39,20 +39,6 @@ rhi::TextureDescIndex GetOrCreateTextureDesc_(
 	return index;
 }
 
-MaterialHandle GetMaterialHandle_(std::string_view materialId) const noexcept
-{
-	if (materialId.empty())
-	{
-		return {};
-	}
-
-	auto it = materialHandles_.find(std::string(materialId));
-	if (it == materialHandles_.end())
-	{
-		return {};
-	}
-	return it->second;
-}
 
 MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, const std::string& meshId) const
 {
@@ -794,22 +780,6 @@ void RebuildParticleEmitters_(const LevelAsset& asset, Scene& scene)
 	}
 }
 
-void RemoveParticlesOwnedByEmitter_(Scene& scene, int emitterIndex)
-{
-	for (Particle& particle : scene.particles)
-	{
-		if (particle.ownerEmitter == emitterIndex)
-		{
-			particle.alive = false;
-		}
-	}
-	scene.particles.erase(
-		std::remove_if(scene.particles.begin(), scene.particles.end(), [](const Particle& particle)
-			{
-				return !particle.alive;
-			}),
-		scene.particles.end());
-}
 
 void ValidateRuntimeMappings_(const LevelAsset& asset, const Scene& scene) const noexcept
 {

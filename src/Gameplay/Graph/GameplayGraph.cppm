@@ -148,13 +148,6 @@ export namespace rendern
         entry.floatValue = value;
     }
 
-    inline void SetGameplayGraphTrigger(GameplayGraphParameterStore& store, std::string_view name)
-    {
-        GameplayGraphValue& entry = store.values[std::string(name)];
-        entry.type = GameplayGraphValueType::Trigger;
-        entry.boolValue = true;
-    }
-
     inline void SetGameplayGraphString(GameplayGraphParameterStore& store, std::string_view name, std::string value)
     {
         GameplayGraphValue& entry = store.values[std::string(name)];
@@ -241,13 +234,21 @@ export namespace rendern
         return it->second.stringValue;
     }
 
-    [[nodiscard]] inline bool ConsumeGameplayGraphTrigger(GameplayGraphParameterStore& store, std::string_view name)
+    inline void SetGameplayGraphTrigger(GameplayGraphParameterStore& store, std::string_view name)
     {
-        auto it = store.values.find(std::string(name));
+        GameplayGraphValue& entry = store.values[std::string(name)];
+        entry.type = GameplayGraphValueType::Trigger;
+        entry.boolValue = true;
+    }
+
+    [[nodiscard]] inline bool ConsumeGameplayGraphTrigger(GameplayGraphParameterStore& store, std::string_view name) noexcept
+    {
+        const auto it = store.values.find(std::string(name));
         if (it == store.values.end())
         {
             return false;
         }
+
         GameplayGraphValue& value = it->second;
         if (value.type != GameplayGraphValueType::Trigger || !value.boolValue)
         {
@@ -262,12 +263,11 @@ export namespace rendern
         instance.eventsThisFrame.push_back(GameplayGraphEvent{ .id = std::move(eventId) });
     }
 
-    [[nodiscard]] inline bool GameplayGraphHasEvent(const GameplayGraphInstance& instance, std::string_view eventId)
+    [[nodiscard]] inline bool GameplayGraphHasEvent(const GameplayGraphInstance& instance, std::string_view canonicalEventId) noexcept
     {
-        const std::string canonicalTarget = CanonicalizeGameplayGraphToken(eventId);
-        for (const GameplayGraphEvent& event : instance.eventsThisFrame)
+        for (const GameplayGraphEvent& eventDesc : instance.eventsThisFrame)
         {
-            if (CanonicalizeGameplayGraphToken(event.id) == canonicalTarget)
+            if (CanonicalizeGameplayGraphToken(eventDesc.id) == canonicalEventId)
             {
                 return true;
             }
