@@ -7,6 +7,7 @@ export module core:debug_draw;
 import std;
 
 import :math_utils;
+import :debug_color_utils;
 
 export namespace rendern::debugDraw
 {
@@ -20,10 +21,7 @@ export namespace rendern::debugDraw
 	// Memory layout on little-endian is: RR GG BB AA.
 	constexpr std::uint32_t PackRGBA8(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255) noexcept
 	{
-		return static_cast<std::uint32_t>(r)
-			| (static_cast<std::uint32_t>(g) << 8)
-			| (static_cast<std::uint32_t>(b) << 16)
-			| (static_cast<std::uint32_t>(a) << 24);
+		return debugColor::PackRGBA8(r, g, b, a);
 	}
 
 	struct DebugDrawList
@@ -39,20 +37,8 @@ export namespace rendern::debugDraw
 			screenOverlayLineVertices.clear();
 		}
 
-		void ReserveLines(std::size_t lineCount)
-		{
-			lineVertices.reserve(lineCount * 2);
-		}
 
-		void ReserveOverlayLines(std::size_t lineCount)
-		{
-			overlayLineVertices.reserve(lineCount * 2);
-		}
 
-		void ReserveScreenOverlayLines(std::size_t lineCount)
-		{
-			screenOverlayLineVertices.reserve(lineCount * 2);
-		}
 
 		std::size_t VertexCount() const noexcept
 		{

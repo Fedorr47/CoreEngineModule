@@ -380,17 +380,6 @@ namespace
 		return out;
 	}
 
-	std::string ToLowerAscii(std::string s)
-	{
-		for (char& c : s)
-		{
-			if (c >= 'A' && c <= 'Z')
-			{
-				c = static_cast<char>(c - 'A' + 'a');
-			}
-		}
-		return s;
-	}
 
 	rendern::EnvSource ParseEnvSourceOrThrow(const JsonValue& v, std::string_view materialId)
 	{
@@ -399,7 +388,7 @@ namespace
 			throw std::runtime_error("Level JSON: materials." + std::string(materialId) + ".envSource must be a string");
 		}
 
-		const std::string s = ToLowerAscii(v.AsString());
+		const std::string s = stringUtils::ToLowerAsciiCopy(v.AsString());
 		if (s == "skybox")
 		{
 			return rendern::EnvSource::Skybox;
@@ -428,7 +417,7 @@ namespace
 				throw std::runtime_error("Level JSON: material.flags entries must be strings");
 			}
 			const std::string& s = it.AsString();
-			const std::string norm = ToLowerAscii(s);
+			const std::string norm = stringUtils::ToLowerAsciiCopy(s);
 			if (norm == "useshadow" || norm == "use_shadow") flags |= rendern::MaterialPerm::UseShadow;
 			else if (norm == "transparent") flags |= rendern::MaterialPerm::Transparent;
 			else if (norm == "skinning") flags |= rendern::MaterialPerm::Skinning;

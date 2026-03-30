@@ -1,6 +1,5 @@
 	namespace detail
 	{
-
 		template<typename T>
 		concept AnimationReadableType =
 			std::same_as<std::remove_cvref_t<T>, bool> ||
@@ -108,8 +107,7 @@
 			}
 			return clip->durationTicks / clip->ticksPerSecond;
 		}
-
-
+		
 		[[nodiscard]] inline int ResolveClipIndexForState(
 			const AnimationControllerRuntime& runtime,
 			const AnimationStateDesc& state) noexcept
@@ -671,35 +669,6 @@
 			}
 		}
 
-		[[nodiscard]] inline char ToLowerAscii(char c) noexcept
-		{
-			return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-		}
-
-		[[nodiscard]] inline bool ContainsInsensitive(std::string_view text, std::string_view needle) noexcept
-		{
-			if (needle.empty() || needle.size() > text.size())
-			{
-				return false;
-			}
-			for (std::size_t i = 0; i + needle.size() <= text.size(); ++i)
-			{
-				bool match = true;
-				for (std::size_t j = 0; j < needle.size(); ++j)
-				{
-					if (ToLowerAscii(text[i + j]) != ToLowerAscii(needle[j]))
-					{
-						match = false;
-						break;
-					}
-				}
-				if (match)
-				{
-					return true;
-				}
-			}
-			return false;
-		}
 
 		[[nodiscard]] inline int GetBoneDepth(const Skeleton& skeleton, std::size_t boneIndex) noexcept
 		{
@@ -781,11 +750,11 @@
 
 					int score = 0;
 					const std::string_view boneName = channel.boneName;
-					if (ContainsInsensitive(boneName, "hips")) score += 200;
-					if (ContainsInsensitive(boneName, "pelvis")) score += 180;
-					if (ContainsInsensitive(boneName, "root")) score += 120;
-					if (ContainsInsensitive(boneName, "master")) score += 80;
-					if (ContainsInsensitive(boneName, "ctrl")) score -= 10;
+					if (stringUtils::ContainsInsensitive(boneName, "hips")) score += 200;
+					if (stringUtils::ContainsInsensitive(boneName, "pelvis")) score += 180;
+					if (stringUtils::ContainsInsensitive(boneName, "root")) score += 120;
+					if (stringUtils::ContainsInsensitive(boneName, "master")) score += 80;
+					if (stringUtils::ContainsInsensitive(boneName, "ctrl")) score -= 10;
 					const std::size_t boneIndex = static_cast<std::size_t>(channel.boneIndex);
 					score -= GetBoneDepth(skeleton, boneIndex) * 4;
 					return score;

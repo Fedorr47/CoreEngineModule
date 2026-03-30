@@ -27,6 +27,7 @@ import :resource_manager;
 import :render_bindless; 
 import :file_system; 
 import :math_utils;
+import :string_utils;
 import :assimp_scene_loader;
 import :assimp_loader;
 import :animator;

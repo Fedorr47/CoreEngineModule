@@ -19,6 +19,7 @@ export module core:animation_controller;
 import :animation_clip;
 import :animator;
 import :skeleton;
+import :string_utils;
 
 export namespace rendern
 {

@@ -38,36 +38,6 @@ export namespace FILE_UTILS
 		return stringStream.str();
 	}
 
-	TextFile LoadTextFile(const fs::path& path)
-	{
-		TextFile outputFile;
-		outputFile.text = ReadAllText(path);
-		outputFile.dpendencies = { fs::weakly_canonical(path) };
-		return outputFile;
-	}
-
-	BinaryFile ReadBinaryFile(const fs::path& path)
-	{
-		BinaryFile outputFile;
-
-		std::ifstream file(path, std::ios::binary);
-		if (!file)
-		{
-			throw std::runtime_error("Filed to open binary file:" + path.string());
-		}
-
-		file.seekg(0, std::ios::end);
-		const std::size_t size = static_cast<std::size_t>(file.tellg());
-		file.seekg(0, std::ios::beg);
-
-		if (size)
-		{
-			outputFile.data.resize(size);
-			file.read(reinterpret_cast<char*>(outputFile.data.data()), static_cast<std::streamsize>(size));
-		}
-
-		return outputFile;
-	}
 }
 
 export namespace corefs

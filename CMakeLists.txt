@@ -311,6 +311,8 @@ set(COMMON_MODULES
         Core/Math/Geometry.cppm
 
         Core/Hash/HashUtils.cppm
+        Core/String/StringUtils.cppm
+
 
         Input/Input.cppm
         Input/InputCore.cppm
@@ -343,6 +345,7 @@ set(COMMON_MODULES
         Render/RenderCore.cppm
         Render/RHI.cppm
         Render/RenderGraph.cppm
+        Render/Debug/DebugColorUtils.cppm
         Render/Debug/DebugDraw.cppm
         Render/Debug/DebugText.cppm
         Render/Bindless.cppm

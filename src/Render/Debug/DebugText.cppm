@@ -5,6 +5,7 @@ module;
 export module core:debug_text;
 
 import std;
+import :debug_color_utils;
 
 export namespace rendern::debugText
 {
@@ -32,10 +33,7 @@ export namespace rendern::debugText
 	// Memory layout on little-endian is: RR GG BB AA.
 	constexpr std::uint32_t PackRGBA8(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255) noexcept
 	{
-		return static_cast<std::uint32_t>(r)
-			| (static_cast<std::uint32_t>(g) << 8)
-			| (static_cast<std::uint32_t>(b) << 16)
-			| (static_cast<std::uint32_t>(a) << 24);
+		return debugColor::PackRGBA8(r, g, b, a);
 	}
 
 	struct DebugTextItem
@@ -61,10 +59,6 @@ export namespace rendern::debugText
 			items.reserve(itemCount);
 		}
 
-		std::size_t ItemCount() const noexcept
-		{
-			return items.size();
-		}
 
 		bool Empty() const noexcept
 		{
