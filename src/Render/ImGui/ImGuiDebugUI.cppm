@@ -28,6 +28,7 @@ import :assimp_scene_loader;
 import :animator;
 import :animation_clip;
 import :animation_controller;
+import :gameplay_runtime;
 
 export namespace rendern::ui
 {
@@ -41,7 +42,7 @@ export namespace rendern::ui
     // - add/remove objects (recursive delete)
     // - choose mesh/material
     // - edit transform (position/rotation/scale)
-    void DrawLevelEditorUI(rendern::LevelAsset& level, rendern::LevelInstance& levelInst, AssetManager& assets, rendern::Scene& scene, rendern::CameraController& camCtl);
+    void DrawLevelEditorUI(rendern::LevelAsset& level, rendern::LevelInstance& levelInst, AssetManager& assets, rendern::Scene& scene, rendern::CameraController& camCtl, rendern::GameplayRuntime* gameplayRuntime = nullptr);
 }
 
 // Implementation is split into .inl files for readability.
@@ -119,9 +120,9 @@ namespace rendern::ui
 
             ImGui::DockBuilderDockWindow("Level Editor", dockLeft);
             ImGui::DockBuilderDockWindow("Animation Graph", dockLeft);
-            ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRightTop);
-            ImGui::DockBuilderDockWindow("Reflections", dockRightBottomLeft);
-            ImGui::DockBuilderDockWindow("Lights", dockRightBottomLeft);
+            ImGui::DockBuilderDockWindow("Renderer / Shadows", dockLeft);
+            ImGui::DockBuilderDockWindow("Reflections", dockLeft);
+            ImGui::DockBuilderDockWindow("Lights", dockLeft);
 
             ImGui::DockBuilderFinish(dockId);
         }
@@ -150,7 +151,8 @@ namespace rendern::ui
         rendern::LevelInstance& levelInst [[maybe_unused]],
         AssetManager& assets [[maybe_unused]],
         rendern::Scene& scene [[maybe_unused]],
-        rendern::CameraController& camCtl [[maybe_unused]])
+        rendern::CameraController& camCtl [[maybe_unused]],
+        rendern::GameplayRuntime* gameplayRuntime [[maybe_unused]])
     {
     }
 }

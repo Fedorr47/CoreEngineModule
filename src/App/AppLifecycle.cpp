@@ -326,7 +326,8 @@ namespace appLifecycle
             *app.levelAsset,
             *app.levelInstance,
             *app.assets,
-            app.gameplayMode);
+            app.gameplayMode,
+            app.gameplayRuntime.get());
 
         app.renderer->SetSettings(app.rendererSettings);
         app.renderer->RenderFrame(*app.swapChain, app.scene, /*imguiDrawData=*/nullptr);

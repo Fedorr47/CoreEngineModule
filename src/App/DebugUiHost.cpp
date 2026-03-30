@@ -53,7 +53,8 @@ namespace appUi
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
-        rendern::GameplayRuntimeMode& runtimeMode)
+        rendern::GameplayRuntimeMode& runtimeMode,
+        rendern::GameplayRuntime* gameplayRuntime)
     {
         if (!appWin32::g_imguiInitialized || !appWin32::g_showDebugWindow || !appWin32::g_debugWindow || !appWin32::g_debugWindow->hwnd)
         {
@@ -83,7 +84,7 @@ namespace appUi
 
         //if (runtimeMode == rendern::GameplayRuntimeMode::Editor)
         //{
-            rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
+            rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController, gameplayRuntime);
         //}
         /*
         else
@@ -162,7 +163,8 @@ namespace appUi
         rendern::LevelAsset&,
         rendern::LevelInstance&,
         AssetManager&,
-        rendern::GameplayRuntimeMode&)
+        rendern::GameplayRuntimeMode&,
+        rendern::GameplayRuntime*)
     {
         return nullptr;
     }
