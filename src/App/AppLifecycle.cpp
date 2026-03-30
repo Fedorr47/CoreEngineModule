@@ -92,6 +92,115 @@ namespace appLifecycle
         }
     }
 
+    static float AnimationRuntimeGetNormalizedTime(const rendern::AnimatorState& animator)
+    {
+        if (animator.clip == nullptr || animator.clip->ticksPerSecond <= 0.0f)
+        {
+            return 0.0f;
+        }
+
+        const float durationSeconds = animator.clip->durationTicks / animator.clip->ticksPerSecond;
+        if (durationSeconds <= 1e-6f)
+        {
+            return 0.0f;
+        }
+
+        const float normalized = animator.timeSeconds / durationSeconds;
+        if (animator.looping)
+        {
+            const float wrapped = normalized - std::floor(normalized);
+            return std::clamp(wrapped, 0.0f, 1.0f);
+        }
+
+        return std::clamp(normalized, 0.0f, 1.0f);
+    }
+
+    static void UpdateAnimationRuntimeDebug(AppState& app)
+    {
+        app.scene.animationRuntimeDebug.Clear();
+
+        if (!app.gameplayRuntime || !app.rendererSettings.drawAnimationRuntimeOverlay || app.gameplayMode != rendern::GameplayRuntimeMode::Game)
+        {
+            return;
+        }
+
+        if (!app.levelAsset || !app.levelInstance)
+        {
+            return;
+        }
+
+        const rendern::EntityHandle controlledEntity = app.gameplayRuntime->GetControlledEntity();
+        const auto& entities = app.gameplayRuntime->GetNodeBoundEntities();
+        app.scene.animationRuntimeDebug.samples.reserve(entities.size());
+
+        for (const rendern::EntityHandle entity : entities)
+        {
+            if (app.rendererSettings.drawAnimationRuntimeOverlayOnlyControlled
+                && controlledEntity != rendern::kNullEntity
+                && entity != controlledEntity)
+            {
+                continue;
+            }
+
+            const auto& world = app.gameplayRuntime->GetWorld();
+            const rendern::GameplayTransformComponent* transform = world.TryGetTransform(entity);
+            const rendern::GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(entity);
+            const rendern::GameplayAnimationLinkComponent* animationLink = world.TryGetAnimationLink(entity);
+            const rendern::GameplayAnimationStateComponent* animState = world.TryGetAnimationState(entity);
+            const rendern::GameplayAnimationNotifyStateComponent* notifyState = world.TryGetAnimationNotifyState(entity);
+            if (transform == nullptr || nodeLink == nullptr || animationLink == nullptr || animState == nullptr)
+            {
+                continue;
+            }
+
+            if (nodeLink->nodeIndex < 0 || static_cast<std::size_t>(nodeLink->nodeIndex) >= app.levelAsset->nodes.size())
+            {
+                continue;
+            }
+
+            const rendern::LevelNode& node = app.levelAsset->nodes[static_cast<std::size_t>(nodeLink->nodeIndex)];
+            rendern::SkinnedDrawItem* skinnedItem = app.levelInstance->GetSkinnedDrawItem(app.scene, animationLink->skinnedDrawIndex);
+            if (skinnedItem == nullptr)
+            {
+                continue;
+            }
+
+            const rendern::AnimationControllerRuntime& runtime = skinnedItem->controller;
+            const float secondaryWeight = std::clamp(runtime.blendSecondaryAlpha, 0.0f, 1.0f);
+            const float tertiaryWeight = std::clamp(runtime.blendTertiaryAlpha, 0.0f, 1.0f);
+            const float primaryWeight = std::max(0.0f, 1.0f - secondaryWeight - tertiaryWeight);
+            const float transitionAlpha = (runtime.transitionDurationSeconds > 1e-6f)
+                ? std::clamp(runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds, 0.0f, 1.0f)
+                : (runtime.transitionActive ? 1.0f : 0.0f);
+
+            rendern::AnimationRuntimeDebugSample sample{};
+            sample.entity = entity;
+            sample.origin = transform->position;
+            sample.nodeName = node.name;
+            sample.controllerAssetId = animState->controllerAssetId;
+            sample.currentStateName = animState->currentStateName;
+            sample.previousStateName = animState->previousStateName;
+            sample.requestedStateName = runtime.requestedStateName;
+            sample.modeName = animState->modeName;
+            sample.primaryClipName = animState->primaryClipName;
+            sample.secondaryClipName = animState->secondaryClipName;
+            sample.tertiaryClipName = animState->tertiaryClipName;
+            sample.blendParameterNameX = animState->blendParameterNameX;
+            sample.blendParameterNameY = animState->blendParameterNameY;
+            sample.blendParameterValueX = animState->blendParameterValueX;
+            sample.blendParameterValueY = animState->blendParameterValueY;
+            sample.lastNotifyId = notifyState != nullptr ? notifyState->lastNotifyId : std::string{};
+            sample.normalizedTime = AnimationRuntimeGetNormalizedTime(skinnedItem->animator);
+            sample.primaryWeight = primaryWeight;
+            sample.secondaryWeight = secondaryWeight;
+            sample.tertiaryWeight = tertiaryWeight;
+            sample.transitionAlpha = transitionAlpha;
+            sample.transitionActive = runtime.transitionActive;
+            sample.controlled = entity == controlledEntity;
+            app.scene.animationRuntimeDebug.samples.push_back(std::move(sample));
+        }
+    }
+
     void InitializeApp(AppState& app, int argc, char** argv)
     {
         app.requestedBackend = appBootstrap::ParseBackendFromArgs(argc, argv);
@@ -274,6 +383,11 @@ namespace appLifecycle
                 : rendern::GameplayRuntimeMode::Editor;
         }
 
+        if (app.win32Input.State().KeyPressed(VK_F6))
+        {
+            app.rendererSettings.drawAnimationRuntimeOverlay = !app.rendererSettings.drawAnimationRuntimeOverlay;
+        }
+
         if (app.gameplayMode == rendern::GameplayRuntimeMode::Game)
         {
             ResetEditorInteractionState(app);
@@ -316,6 +430,7 @@ namespace appLifecycle
         }
 
         UpdateGameplayMovementDebug(app);
+        UpdateAnimationRuntimeDebug(app);
         app.scene.UpdateParticles(deltaSeconds);
 
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
@@ -326,8 +441,7 @@ namespace appLifecycle
             *app.levelAsset,
             *app.levelInstance,
             *app.assets,
-            app.gameplayMode,
-            app.gameplayRuntime.get());
+            app.gameplayMode);
 
         app.renderer->SetSettings(app.rendererSettings);
         app.renderer->RenderFrame(*app.swapChain, app.scene, /*imguiDrawData=*/nullptr);

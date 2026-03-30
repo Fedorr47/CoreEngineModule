@@ -291,6 +291,15 @@ namespace rendern::ui
             ImGui::SliderFloat("Movement label scale", &rs.gameplayMovementLabelScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderFloat("Movement text scale", &rs.gameplayMovementTextScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
         }
+        ImGui::Checkbox("Animation runtime overlay", &rs.drawAnimationRuntimeOverlay);
+        if (rs.drawAnimationRuntimeOverlay)
+        {
+            ImGui::Checkbox("Animation overlay: controlled only", &rs.drawAnimationRuntimeOverlayOnlyControlled);
+            ImGui::SliderFloat("Animation overlay text scale", &rs.animationRuntimeOverlayTextScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SliderFloat("Animation overlay X", &rs.animationRuntimeOverlayAnchorXPx, 0.0f, 4096.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SliderFloat("Animation overlay Y", &rs.animationRuntimeOverlayAnchorYPx, 0.0f, 4096.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::TextDisabled("Hotkey: F6 toggles overlay in-game.");
+        }
         ImGui::Checkbox("Planar mirror normals", &rs.drawPlanarMirrorNormals);
         if (rs.drawPlanarMirrorNormals)
         {

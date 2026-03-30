@@ -123,6 +123,43 @@ export namespace rendern
 		}
 	};
 
+	struct AnimationRuntimeDebugSample
+	{
+		EnTT_helpers::EntityHandle entity{ EnTT_helpers::kNullEntity };
+		mathUtils::Vec3 origin{ 0.0f, 0.0f, 0.0f };
+		std::string nodeName{};
+		std::string controllerAssetId{};
+		std::string currentStateName{};
+		std::string previousStateName{};
+		std::string requestedStateName{};
+		std::string modeName{};
+		std::string primaryClipName{};
+		std::string secondaryClipName{};
+		std::string tertiaryClipName{};
+		std::string blendParameterNameX{};
+		std::string blendParameterNameY{};
+		std::string lastNotifyId{};
+		float blendParameterValueX{ 0.0f };
+		float blendParameterValueY{ 0.0f };
+		float normalizedTime{ 0.0f };
+		float primaryWeight{ 0.0f };
+		float secondaryWeight{ 0.0f };
+		float tertiaryWeight{ 0.0f };
+		float transitionAlpha{ 0.0f };
+		bool transitionActive{ false };
+		bool controlled{ false };
+	};
+
+	struct AnimationRuntimeDebugState
+	{
+		std::vector<AnimationRuntimeDebugSample> samples;
+
+		void Clear()
+		{
+			samples.clear();
+		}
+	};
+
 	struct Particle
 	{
 		mathUtils::Vec3 position{ 0.0f, 0.0f, 0.0f };
@@ -405,6 +442,7 @@ export namespace rendern
 
 		DebugRay debugPickRay{};
 		GameplayMovementDebugState gameplayMovementDebug{};
+		AnimationRuntimeDebugState animationRuntimeDebug{};
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };

@@ -329,8 +329,7 @@ namespace rendern::ui::level_ui_detail
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st,
-        rendern::GameplayRuntime* gameplayRuntime)
+        LevelEditorUIState& st)
     {
         AnimationGraphContext ctx{};
         if (!NodeAlive(level, st.selectedNode))
@@ -356,6 +355,91 @@ namespace rendern::ui::level_ui_detail
         ctx.skinnedItem = skinnedItem;
         ctx.controllerAsset = skinnedItem->controller.stateMachineAsset;
         return ctx;
+    }
+
+    [[nodiscard]] static AnimationGraphContext GetAnimationGraphContextForNodeIndex(
+        rendern::LevelAsset& level,
+        rendern::LevelInstance& levelInst,
+        rendern::Scene& scene,
+        int nodeIndex)
+    {
+        AnimationGraphContext ctx{};
+        if (!NodeAlive(level, nodeIndex))
+        {
+            return ctx;
+        }
+
+        rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(nodeIndex)];
+        if (node.skinnedMesh.empty())
+        {
+            return ctx;
+        }
+
+        const int drawIndex = levelInst.GetNodeSkinnedDrawIndex(nodeIndex);
+        rendern::SkinnedDrawItem* skinnedItem = levelInst.GetSkinnedDrawItem(scene, drawIndex);
+        if (skinnedItem == nullptr)
+        {
+            return ctx;
+        }
+
+        ctx.nodeIndex = nodeIndex;
+        ctx.node = &node;
+        ctx.skinnedItem = skinnedItem;
+        ctx.controllerAsset = skinnedItem->controller.stateMachineAsset;
+        return ctx;
+    }
+
+    [[nodiscard]] static std::vector<int> BuildAnimationRuntimeNodeCandidates(
+        rendern::LevelAsset& level,
+        rendern::LevelInstance& levelInst)
+    {
+        std::vector<int> result;
+        result.reserve(level.nodes.size());
+        for (std::size_t i = 0; i < level.nodes.size(); ++i)
+        {
+            const rendern::LevelNode& node = level.nodes[i];
+            if (!node.alive || node.skinnedMesh.empty())
+            {
+                continue;
+            }
+            const int nodeIndex = static_cast<int>(i);
+            if (levelInst.GetNodeSkinnedDrawIndex(nodeIndex) >= 0)
+            {
+                result.push_back(nodeIndex);
+            }
+        }
+        return result;
+    }
+
+    [[nodiscard]] static AnimationGraphContext GetAnimationRuntimeContext(
+        rendern::LevelAsset& level,
+        rendern::LevelInstance& levelInst,
+        rendern::Scene& scene,
+        LevelEditorUIState& st)
+    {
+        if (st.animationRuntimePinnedNodeIndex >= 0)
+        {
+            AnimationGraphContext pinned = GetAnimationGraphContextForNodeIndex(level, levelInst, scene, st.animationRuntimePinnedNodeIndex);
+            if (pinned.node != nullptr && pinned.skinnedItem != nullptr)
+            {
+                return pinned;
+            }
+            st.animationRuntimePinnedNodeIndex = -1;
+        }
+
+        AnimationGraphContext selected = GetAnimationGraphContext(level, levelInst, scene, st);
+        if (selected.node != nullptr && selected.skinnedItem != nullptr)
+        {
+            return selected;
+        }
+
+        const std::vector<int> candidates = BuildAnimationRuntimeNodeCandidates(level, levelInst);
+        if (!candidates.empty())
+        {
+            return GetAnimationGraphContextForNodeIndex(level, levelInst, scene, candidates.front());
+        }
+
+        return {};
     }
 
     static void EnsureAnimationGraphFsmLayout(
@@ -1654,214 +1738,6 @@ namespace rendern::ui::level_ui_detail
         }
     }
 
-    [[nodiscard]] static const char* GameplayActionKindText(const rendern::GameplayActionKind kind) noexcept
-    {
-        switch (kind)
-        {
-        case rendern::GameplayActionKind::LightAttack: return "LightAttack";
-        case rendern::GameplayActionKind::Interact: return "Interact";
-        case rendern::GameplayActionKind::Jump: return "Jump";
-        case rendern::GameplayActionKind::None:
-        default: return "None";
-        }
-    }
-
-    [[nodiscard]] static rendern::EntityHandle FindGameplayEntityForNode(const rendern::GameplayRuntime& gameplayRuntime, const int nodeIndex) noexcept
-    {
-        const rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
-        for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
-        {
-            const rendern::GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(entity);
-            if (nodeLink != nullptr && nodeLink->nodeIndex == nodeIndex)
-            {
-                return entity;
-            }
-        }
-        return rendern::kNullEntity;
-    }
-
-    static void DrawAnimationGameplaySyncSummary(
-        const rendern::GameplayRuntime* gameplayRuntime,
-        const int nodeIndex,
-        const rendern::AnimationControllerRuntime& runtime)
-    {
-        if (gameplayRuntime == nullptr)
-        {
-            ImGui::TextDisabled("Gameplay runtime unavailable.");
-            return;
-        }
-
-        const rendern::EntityHandle entity = FindGameplayEntityForNode(*gameplayRuntime, nodeIndex);
-        if (entity == rendern::kNullEntity)
-        {
-            ImGui::TextDisabled("No gameplay entity is bound to this node.");
-            return;
-        }
-
-        const rendern::GameplayWorld& world = gameplayRuntime->GetWorld();
-        const rendern::GameplayAnimationStateComponent* animState = world.TryGetAnimationState(entity);
-        const rendern::GameplayActionComponent* action = world.TryGetAction(entity);
-        const rendern::GameplayLocomotionComponent* locomotion = world.TryGetLocomotion(entity);
-        const rendern::GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(entity);
-        const rendern::GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(entity);
-        const rendern::GameplayAnimationNotifyStateComponent* notifyState = world.TryGetAnimationNotifyState(entity);
-
-        ImGui::Text("Gameplay entity: %u", static_cast<unsigned>(entity));
-
-        if (animState != nullptr)
-        {
-            const bool stateMismatch = !animState->currentStateName.empty() && animState->currentStateName != runtime.currentStateName;
-            const bool modeMismatch = !animState->modeName.empty() &&
-                ((animState->usesBlend2D && !runtime.currentStateUsesBlend2D) ||
-                 (animState->usesBlend1D && !runtime.currentStateUsesBlend1D && !runtime.currentStateUsesBlend2D) ||
-                 (!animState->usesBlend1D && !animState->usesBlend2D && (runtime.currentStateUsesBlend1D || runtime.currentStateUsesBlend2D)));
-
-            ImGui::SeparatorText("Gameplay Animation State");
-            ImGui::Text("Current: %s", animState->currentStateName.c_str());
-            if (!animState->previousStateName.empty())
-            {
-                ImGui::TextDisabled("Previous: %s", animState->previousStateName.c_str());
-            }
-            ImGui::Text("Mode: %s", animState->modeName.c_str());
-            ImGui::Text("Clips: %s | %s | %s",
-                animState->primaryClipName.empty() ? "-" : animState->primaryClipName.c_str(),
-                animState->secondaryClipName.empty() ? "-" : animState->secondaryClipName.c_str(),
-                animState->tertiaryClipName.empty() ? "-" : animState->tertiaryClipName.c_str());
-            if (animState->usesBlend2D)
-            {
-                ImGui::Text("Blend: %s=%.2f   %s=%.2f",
-                    animState->blendParameterNameX.c_str(), animState->blendParameterValueX,
-                    animState->blendParameterNameY.c_str(), animState->blendParameterValueY);
-            }
-            else if (animState->usesBlend1D)
-            {
-                ImGui::Text("Blend: %s=%.2f",
-                    animState->blendParameterNameX.c_str(), animState->blendParameterValueX);
-            }
-            ImGui::Text("Normalized time: %.2f", animState->stateNormalizedTime);
-            ImGui::Text("Transition active: %s", animState->transitionActive ? "true" : "false");
-            if (animState->enteredThisFrame || animState->changedThisFrame)
-            {
-                ImGui::TextColored(ImVec4(0.92f, 0.80f, 0.38f, 1.0f),
-                    "Frame flags: entered=%s changed=%s",
-                    animState->enteredThisFrame ? "true" : "false",
-                    animState->changedThisFrame ? "true" : "false");
-            }
-
-            if (stateMismatch || modeMismatch)
-            {
-                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f),
-                    "Runtime mismatch: controller=%s / gameplay=%s",
-                    runtime.currentStateName.c_str(),
-                    animState->currentStateName.c_str());
-            }
-            else
-            {
-                ImGui::TextColored(ImVec4(0.55f, 0.88f, 0.55f, 1.0f), "Animation runtime and gameplay state are in sync.");
-            }
-        }
-        else
-        {
-            ImGui::TextDisabled("GameplayAnimationStateComponent missing.");
-        }
-
-        if (command != nullptr || locomotion != nullptr || action != nullptr || movementState != nullptr)
-        {
-            ImGui::SeparatorText("Gameplay Movement / Action");
-            if (command != nullptr)
-            {
-                ImGui::Text("Move input: x=%.2f y=%.2f magnitude=%.2f", command->moveInputX, command->moveInputY, command->moveMagnitude);
-                ImGui::Text("Run requested: %s", command->wantsRun ? "true" : "false");
-                ImGui::Text("Action intent mask: 0x%08X", command->actionIntentMask);
-            }
-            if (locomotion != nullptr)
-            {
-                ImGui::Text("Locomotion: move=(%.2f, %.2f) planar=%.2f", locomotion->moveX, locomotion->moveY, locomotion->planarSpeed);
-                ImGui::Text("Speeds: forward=%.2f right=%.2f", locomotion->forwardSpeed, locomotion->rightSpeed);
-                ImGui::Text("Flags: moving=%s running=%s turnL=%s turnR=%s",
-                    locomotion->isMoving ? "true" : "false",
-                    locomotion->isRunning ? "true" : "false",
-                    locomotion->wantsTurnInPlaceLeft ? "true" : "false",
-                    locomotion->wantsTurnInPlaceRight ? "true" : "false");
-            }
-            if (movementState != nullptr)
-            {
-                ImGui::Text("Movement state: grounded=%s jumping=%s falling=%s turnInPlace=%s",
-                    movementState->grounded ? "true" : "false",
-                    movementState->jumping ? "true" : "false",
-                    movementState->falling ? "true" : "false",
-                    movementState->turningInPlace ? "true" : "false");
-            }
-            if (action != nullptr)
-            {
-                ImGui::Text("Action: current=%s busy=%s pending=%s buffered=%s",
-                    GameplayActionKindText(action->current),
-                    action->busy ? "true" : "false",
-                    GameplayActionKindText(action->pending.kind),
-                    GameplayActionKindText(action->buffered.kind));
-            }
-        }
-
-        if (notifyState != nullptr)
-        {
-            ImGui::SeparatorText("Gameplay Notify State");
-            ImGui::Text("Last notify: %s", notifyState->lastNotifyId.empty() ? "-" : notifyState->lastNotifyId.c_str());
-            if (!notifyState->lastStateName.empty() || !notifyState->lastClipName.empty())
-            {
-                ImGui::Text("State/Clip: %s / %s",
-                    notifyState->lastStateName.empty() ? "-" : notifyState->lastStateName.c_str(),
-                    notifyState->lastClipName.empty() ? "-" : notifyState->lastClipName.c_str());
-            }
-            ImGui::Text("Flags: any=%s footstep=%s actionStart=%s actionFinish=%s hitOpen=%s hitClose=%s active=%s",
-                notifyState->anyThisFrame ? "true" : "false",
-                notifyState->footstepThisFrame ? "true" : "false",
-                notifyState->actionStartedThisFrame ? "true" : "false",
-                notifyState->actionFinishedThisFrame ? "true" : "false",
-                notifyState->hitWindowOpenedThisFrame ? "true" : "false",
-                notifyState->hitWindowClosedThisFrame ? "true" : "false",
-                notifyState->hitWindowActive ? "true" : "false");
-        }
-
-        const auto& recentGameplayEvents = gameplayRuntime->GetRecentGameplayEvents();
-        if (!recentGameplayEvents.empty())
-        {
-            ImGui::SeparatorText("Recent Routed Gameplay Events");
-            const std::size_t firstEvent = recentGameplayEvents.size() > 8 ? recentGameplayEvents.size() - 8 : 0;
-            for (std::size_t i = firstEvent; i < recentGameplayEvents.size(); ++i)
-            {
-                const rendern::GameplayEventRecord& ev = recentGameplayEvents[i];
-                if (ev.nodeIndex != nodeIndex)
-                {
-                    continue;
-                }
-                ImGui::BulletText("%s -> %s (%s @ %.2f)",
-                    ev.animationEventId.c_str(),
-                    ev.gameplayEventId.c_str(),
-                    ev.stateName.c_str(),
-                    ev.normalizedTime);
-            }
-        }
-
-        const auto& recentNotifyEvents = gameplayRuntime->GetRecentNotifyEvents();
-        if (!recentNotifyEvents.empty())
-        {
-            ImGui::SeparatorText("Recent Consumed Notify Events");
-            const std::size_t firstNotify = recentNotifyEvents.size() > 8 ? recentNotifyEvents.size() - 8 : 0;
-            for (std::size_t i = firstNotify; i < recentNotifyEvents.size(); ++i)
-            {
-                const rendern::GameplayAnimationNotifyRecord& notify = recentNotifyEvents[i];
-                if (notify.nodeIndex != nodeIndex)
-                {
-                    continue;
-                }
-                ImGui::BulletText("%s (%s @ %.2f)",
-                    notify.event.id.c_str(),
-                    notify.event.stateName.c_str(),
-                    notify.event.normalizedTime);
-            }
-        }
-    }
-
     static void DrawAnimationGraphRuntimeSummary(const rendern::AnimationControllerRuntime& runtime)
     {
         ImGui::Text("Current state: %s", runtime.currentStateName.c_str());
@@ -1908,12 +1784,348 @@ namespace rendern::ui::level_ui_detail
         }
     }
 
+    [[nodiscard]] static float AnimationRuntimeGetNormalizedTime(const rendern::AnimatorState& animator) noexcept
+    {
+        if (animator.clip == nullptr || animator.clip->ticksPerSecond <= 0.0f)
+        {
+            return 0.0f;
+        }
+        const float durationSeconds = animator.clip->durationTicks / animator.clip->ticksPerSecond;
+        if (durationSeconds <= 1e-6f)
+        {
+            return 0.0f;
+        }
+        const float normalized = animator.timeSeconds / durationSeconds;
+        if (animator.looping)
+        {
+            const float wrapped = normalized - std::floor(normalized);
+            return std::clamp(wrapped, 0.0f, 1.0f);
+        }
+        return std::clamp(normalized, 0.0f, 1.0f);
+    }
+
+    [[nodiscard]] static const rendern::AnimationStateDesc* FindAnimationRuntimeStateDesc(
+        const rendern::AnimationControllerRuntime& runtime) noexcept
+    {
+        if (runtime.stateMachineAsset == nullptr ||
+            runtime.currentStateIndex < 0 ||
+            static_cast<std::size_t>(runtime.currentStateIndex) >= runtime.stateMachineAsset->states.size())
+        {
+            return nullptr;
+        }
+        return &runtime.stateMachineAsset->states[static_cast<std::size_t>(runtime.currentStateIndex)];
+    }
+
+    static void DrawAnimationRuntimeWeightedClips(const rendern::AnimationControllerRuntime& runtime)
+    {
+        const float secondaryWeight = std::clamp(runtime.blendSecondaryAlpha, 0.0f, 1.0f);
+        const float tertiaryWeight = std::clamp(runtime.blendTertiaryAlpha, 0.0f, 1.0f);
+        const float primaryWeight = std::max(0.0f, 1.0f - secondaryWeight - tertiaryWeight);
+
+        if (runtime.currentBlendPrimaryClipName.empty() &&
+            runtime.currentBlendSecondaryClipName.empty() &&
+            runtime.currentBlendTertiaryClipName.empty())
+        {
+            ImGui::TextDisabled("No active clip blend metadata.");
+            return;
+        }
+
+        if (ImGui::BeginTable("##AnimationRuntimeWeights", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("Clip");
+            ImGui::TableSetupColumn("Weight", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+            ImGui::TableSetupColumn("Role", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+            ImGui::TableHeadersRow();
+
+            auto DrawRow = [&](const char* role, const std::string& clipName, float weight)
+            {
+                if (clipName.empty())
+                {
+                    return;
+                }
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(clipName.c_str());
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%.2f", weight);
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextUnformatted(role);
+            };
+
+            DrawRow("Primary", runtime.currentBlendPrimaryClipName, primaryWeight);
+            DrawRow("Secondary", runtime.currentBlendSecondaryClipName, secondaryWeight);
+            DrawRow("Tertiary", runtime.currentBlendTertiaryClipName, tertiaryWeight);
+            ImGui::EndTable();
+        }
+    }
+
+    static void DrawAnimationRuntimeParameters(const rendern::AnimationControllerRuntime& runtime)
+    {
+        if (runtime.parameters.values.empty())
+        {
+            ImGui::TextDisabled("No controller parameters.");
+            return;
+        }
+
+        if (ImGui::BeginTable("##AnimationRuntimeParams", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("Parameter");
+            ImGui::TableSetupColumn("Value");
+            ImGui::TableHeadersRow();
+            for (const auto& [name, value] : runtime.parameters.values)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(name.c_str());
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(AnimationGraphConditionValueText(value).c_str());
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    static void DrawAnimationRuntimeWindow(
+        rendern::LevelAsset& level,
+        rendern::LevelInstance& levelInst,
+        rendern::Scene& scene,
+        LevelEditorUIState& st)
+    {
+        if (!st.animationRuntimeWindowOpen)
+        {
+            return;
+        }
+
+        if (!ImGui::Begin("Animation Runtime", &st.animationRuntimeWindowOpen))
+        {
+            ImGui::End();
+            return;
+        }
+
+        const std::vector<int> candidates = BuildAnimationRuntimeNodeCandidates(level, levelInst);
+        if (candidates.empty())
+        {
+            ImGui::TextDisabled("No skinned runtime targets found.");
+            ImGui::End();
+            return;
+        }
+
+        bool pinTarget = st.animationRuntimePinnedNodeIndex >= 0;
+        if (ImGui::Checkbox("Pin target", &pinTarget))
+        {
+            if (!pinTarget)
+            {
+                st.animationRuntimePinnedNodeIndex = -1;
+            }
+            else if (NodeAlive(level, st.selectedNode))
+            {
+                const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(st.selectedNode)];
+                if (!selectedNode.skinnedMesh.empty())
+                {
+                    st.animationRuntimePinnedNodeIndex = st.selectedNode;
+                }
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Use current selection") && NodeAlive(level, st.selectedNode))
+        {
+            const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(st.selectedNode)];
+            if (!selectedNode.skinnedMesh.empty())
+            {
+                st.animationRuntimePinnedNodeIndex = st.selectedNode;
+            }
+        }
+
+        const char* previewText = "Auto target";
+        if (st.animationRuntimePinnedNodeIndex >= 0 && NodeAlive(level, st.animationRuntimePinnedNodeIndex))
+        {
+            previewText = level.nodes[static_cast<std::size_t>(st.animationRuntimePinnedNodeIndex)].name.c_str();
+        }
+        if (ImGui::BeginCombo("Target", previewText))
+        {
+            const bool autoSelected = st.animationRuntimePinnedNodeIndex < 0;
+            if (ImGui::Selectable("Auto target", autoSelected))
+            {
+                st.animationRuntimePinnedNodeIndex = -1;
+            }
+            for (const int nodeIndex : candidates)
+            {
+                const bool selected = st.animationRuntimePinnedNodeIndex == nodeIndex;
+                const rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(nodeIndex)];
+                if (ImGui::Selectable(node.name.c_str(), selected))
+                {
+                    st.animationRuntimePinnedNodeIndex = nodeIndex;
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        AnimationGraphContext ctx = GetAnimationRuntimeContext(level, levelInst, scene, st);
+        if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
+        {
+            ImGui::TextDisabled("No runtime animation target available.");
+            ImGui::End();
+            return;
+        }
+
+        if (ImGui::Button("Select in editor"))
+        {
+            st.selectedNode = ctx.nodeIndex;
+            scene.EditorSetSelectionSingle(ctx.nodeIndex);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Open graph"))
+        {
+            st.selectedNode = ctx.nodeIndex;
+            scene.EditorSetSelectionSingle(ctx.nodeIndex);
+            st.animationGraphWindowOpen = true;
+            st.animationGraphRequestFocus = true;
+            st.animationGraphSelectedStateName = ctx.skinnedItem->controller.currentStateName;
+        }
+
+        const rendern::AnimationControllerRuntime& runtime = ctx.skinnedItem->controller;
+        const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
+        const float normalizedTime = AnimationRuntimeGetNormalizedTime(ctx.skinnedItem->animator);
+        const float transitionAlpha = (runtime.transitionDurationSeconds > 1e-6f)
+            ? std::clamp(runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds, 0.0f, 1.0f)
+            : (runtime.transitionActive ? 1.0f : 0.0f);
+
+        ImGui::SeparatorText("Target");
+        ImGui::Text("Node: %s", ctx.node->name.c_str());
+        ImGui::TextDisabled("Skinned mesh: %s", ctx.node->skinnedMesh.c_str());
+        if (runtime.stateMachineAsset != nullptr)
+        {
+            ImGui::TextDisabled("Controller: %s", runtime.stateMachineAsset->id.c_str());
+        }
+        else if (!runtime.controllerAssetId.empty())
+        {
+            ImGui::TextDisabled("Controller: %s", runtime.controllerAssetId.c_str());
+        }
+
+        ImGui::SeparatorText("Live State");
+        ImGui::Text("Current state: %s", runtime.currentStateName.empty() ? "<none>" : runtime.currentStateName.c_str());
+        ImGui::Text("Requested state: %s", runtime.requestedStateName.empty() ? "<none>" : runtime.requestedStateName.c_str());
+        ImGui::Text("Mode: %s", runtime.currentStateUsesBlend2D ? "Blend2D" : (runtime.currentStateUsesBlend1D ? "Blend1D" : "Clip"));
+        ImGui::Text("Normalized time: %.3f", normalizedTime);
+        ImGui::Text("Playback speed: %.3f", ctx.skinnedItem->animator.playRate);
+        ImGui::Text("Looping: %s", ctx.skinnedItem->animator.looping ? "true" : "false");
+        if (runtime.transitionActive)
+        {
+            ImGui::Text("Transition: %s -> %s (alpha %.2f)",
+                runtime.transitionSourceStateName.c_str(),
+                runtime.currentStateName.c_str(),
+                transitionAlpha);
+        }
+        else
+        {
+            ImGui::Text("The last transition: %s -> %s (alpha %.2f)",
+                runtime.transitionSourceStateName.c_str(),
+                runtime.currentStateName.c_str(),
+                transitionAlpha);
+        }
+
+        ImGui::SeparatorText("Active Clips");
+        DrawAnimationRuntimeWeightedClips(runtime);
+
+        if (currentState != nullptr)
+        {
+            if (runtime.currentStateUsesBlend2D)
+            {
+                ImGui::SeparatorText("Live Blend2D");
+                ImGui::Text("Inputs: %s = %.3f, %s = %.3f",
+                    runtime.currentBlendParameterName.c_str(),
+                    runtime.currentBlendParameterValue,
+                    runtime.currentBlendParameterNameY.c_str(),
+                    runtime.currentBlendParameterValueY);
+                const float savedZoom = st.animationGraphBlend2DZoom;
+                const ImVec2 savedPan = st.animationGraphBlend2DPan;
+                st.animationGraphBlend2DZoom = st.animationRuntimeBlend2DZoom;
+                st.animationGraphBlend2DPan = st.animationRuntimeBlend2DPan;
+                DrawAnimationGraphBlend2DPreview(*currentState, runtime, st);
+                st.animationRuntimeBlend2DZoom = st.animationGraphBlend2DZoom;
+                st.animationRuntimeBlend2DPan = st.animationGraphBlend2DPan;
+                st.animationGraphBlend2DZoom = savedZoom;
+                st.animationGraphBlend2DPan = savedPan;
+            }
+            else if (runtime.currentStateUsesBlend1D)
+            {
+                ImGui::SeparatorText("Live Blend1D");
+                ImGui::Text("Input: %s = %.3f",
+                    runtime.currentBlendParameterName.c_str(),
+                    runtime.currentBlendParameterValue);
+                DrawAnimationGraphBlend1DPreview(*currentState, runtime);
+            }
+            else if (!runtime.currentBlendPrimaryClipName.empty())
+            {
+                ImGui::Text("Active clip: %s", runtime.currentBlendPrimaryClipName.c_str());
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Controller Parameters", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawAnimationRuntimeParameters(runtime);
+        }
+
+        const auto& recentNotifies = rendern::PeekAnimationControllerNotifyEvents(runtime);
+        if (ImGui::CollapsingHeader("Recent Notifies", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (recentNotifies.empty())
+            {
+                ImGui::TextDisabled("No recent notify events.");
+            }
+            else
+            {
+                const std::size_t firstNotify = recentNotifies.size() > 10 ? recentNotifies.size() - 10 : 0;
+                for (std::size_t i = firstNotify; i < recentNotifies.size(); ++i)
+                {
+                    const rendern::AnimationNotifyEvent& notify = recentNotifies[i];
+                    ImGui::BulletText(
+                        "#%llu %s (%s @ %.2f)",
+                        static_cast<unsigned long long>(notify.sequence),
+                        notify.id.c_str(),
+                        notify.stateName.c_str(),
+                        notify.normalizedTime);
+                }
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Transition Candidates"))
+        {
+            if (runtime.debugTransitionCandidates.empty())
+            {
+                ImGui::TextDisabled("No transition diagnostics.");
+            }
+            else
+            {
+                for (const std::string& candidate : runtime.debugTransitionCandidates)
+                {
+                    ImGui::BulletText("%s", candidate.c_str());
+                }
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Gameplay Events"))
+        {
+            if (runtime.recentRoutedGameplayEvents.empty())
+            {
+                ImGui::TextDisabled("No routed gameplay events.");
+            }
+            else
+            {
+                for (const std::string& eventId : runtime.recentRoutedGameplayEvents)
+                {
+                    ImGui::BulletText("%s", eventId.c_str());
+                }
+            }
+        }
+
+        ImGui::End();
+    }
+
     void DrawAnimationGraphWindow(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st,
-        rendern::GameplayRuntime* gameplayRuntime)
+        LevelEditorUIState& st)
     {
         if (!st.animationGraphWindowOpen)
         {
@@ -1932,7 +2144,7 @@ namespace rendern::ui::level_ui_detail
             return;
         }
 
-        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene, st, gameplayRuntime);
+        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene, st);
         if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
         {
             ImGui::TextDisabled("Select a skinned node to inspect its animation graph.");
@@ -1982,11 +2194,6 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::BeginTabItem("Assets"))
             {
                 DrawAnimationGraphAssetCanvas(level, *ctx.node, *ctx.controllerAsset, st);
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem("Runtime"))
-            {
-                DrawAnimationGameplaySyncSummary(gameplayRuntime, ctx.nodeIndex, ctx.skinnedItem->controller);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Bindings"))

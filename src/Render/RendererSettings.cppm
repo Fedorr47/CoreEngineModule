@@ -79,6 +79,12 @@ export namespace rendern
 		bool drawGameplayMovementDebugLabels{ true };
 		bool drawGameplayMovementDebugText{ true };
 
+		bool drawAnimationRuntimeOverlay{ true };
+		bool drawAnimationRuntimeOverlayOnlyControlled{ true };
+		float animationRuntimeOverlayTextScale{ 1.10f };
+		float animationRuntimeOverlayAnchorXPx{ 12.0f };
+		float animationRuntimeOverlayAnchorYPx{ 54.0f };
+
 		bool drawMainViewportFpsStats{ true };
 		float mainViewportFpsTextScale{ 1.35f };
 		float mainViewportFpsDisplay{ 0.0f };

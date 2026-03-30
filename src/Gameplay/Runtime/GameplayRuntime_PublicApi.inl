@@ -156,16 +156,6 @@
             return nodeBoundEntities_;
         }
 
-        [[nodiscard]] const std::vector<GameplayAnimationNotifyRecord>& GetRecentNotifyEvents() const noexcept
-        {
-            return recentNotifyEvents_;
-        }
-
-        [[nodiscard]] const std::vector<GameplayEventRecord>& GetRecentGameplayEvents() const noexcept
-        {
-            return recentGameplayEvents_;
-        }
-
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
             const int nodeIndex,

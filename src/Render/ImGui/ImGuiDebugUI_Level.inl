@@ -10,8 +10,7 @@ namespace rendern::ui
         rendern::LevelInstance& levelInst,
         AssetManager& assets,
         rendern::Scene& scene,
-        rendern::CameraController& camCtl,
-        rendern::GameplayRuntime* gameplayRuntime)
+        rendern::CameraController& camCtl)
     {
         ImGui::Begin("Level Editor");
 
@@ -95,6 +94,7 @@ namespace rendern::ui
 
         ImGui::End();
 
-        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, st, gameplayRuntime);
+        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, st);
+        level_ui_detail::DrawAnimationRuntimeWindow(level, levelInst, scene, st);
     }
 }

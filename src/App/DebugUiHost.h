@@ -2,8 +2,6 @@
 
 #include "Win32AppShell.h"
 
-namespace rendern { class GameplayRuntime; }
-
 namespace appUi
 {
     void InitializeImGui(HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount);
@@ -17,8 +15,7 @@ namespace appUi
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
-        rendern::GameplayRuntimeMode& runtimeMode,
-        rendern::GameplayRuntime* gameplayRuntime);
+        rendern::GameplayRuntimeMode& runtimeMode);
 
     rendern::InputCapture GetInputCaptureForImGui();
     void RenderImGuiToSwapChainIfEnabled(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);

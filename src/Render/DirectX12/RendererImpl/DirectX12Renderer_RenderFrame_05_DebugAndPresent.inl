@@ -26,6 +26,75 @@ if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0
 		outlinePx);
 }
 
+if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.samples.empty())
+{
+	const float overlayScale = std::clamp(settings_.animationRuntimeOverlayTextScale, 0.5f, 3.0f);
+	const float outlinePx = std::clamp(overlayScale * 0.6f, 1.0f, 3.0f);
+	float overlayX = std::max(0.0f, settings_.animationRuntimeOverlayAnchorXPx);
+	float overlayY = std::max(0.0f, settings_.animationRuntimeOverlayAnchorYPx);
+	const std::uint32_t colHeader = debugText::PackRGBA8(255, 245, 180, 255);
+	const std::uint32_t colBody = debugText::PackRGBA8(235, 235, 235, 255);
+	const std::uint32_t colOutline = debugText::PackRGBA8(0, 0, 0, 210);
+
+	for (const AnimationRuntimeDebugSample& sample : scene.animationRuntimeDebug.samples)
+	{
+		char buf[1024]{};
+		if (!sample.blendParameterNameY.empty() || std::fabs(sample.blendParameterValueY) > 1e-4f)
+		{
+			std::snprintf(
+				buf,
+				sizeof(buf),
+				"ANIM [%s]%s\n"
+				"state %s\n"
+				"mode %s  %s %.2f  %s %.2f\n"
+				"clips %s %.2f | %s %.2f | %s %.2f\n"
+				"time %.2f%s%s",
+				sample.nodeName.empty() ? "<unnamed>" : sample.nodeName.c_str(),
+				sample.controlled ? " *" : "",
+				sample.currentStateName.empty() ? "<none>" : sample.currentStateName.c_str(),
+				sample.modeName.empty() ? "Clip" : sample.modeName.c_str(),
+				sample.blendParameterNameX.empty() ? "X" : sample.blendParameterNameX.c_str(),
+				sample.blendParameterValueX,
+				sample.blendParameterNameY.empty() ? "Y" : sample.blendParameterNameY.c_str(),
+				sample.blendParameterValueY,
+				sample.primaryClipName.empty() ? "-" : sample.primaryClipName.c_str(),
+				sample.primaryWeight,
+				sample.secondaryClipName.empty() ? "-" : sample.secondaryClipName.c_str(),
+				sample.secondaryWeight,
+				sample.tertiaryClipName.empty() ? "-" : sample.tertiaryClipName.c_str(),
+				sample.tertiaryWeight,
+				sample.normalizedTime,
+				sample.transitionActive ? "\ntransition active" : "",
+				sample.lastNotifyId.empty() ? "" : (std::string("\nnotify ") + sample.lastNotifyId).c_str());
+		}
+		else
+		{
+			std::snprintf(
+				buf,
+				sizeof(buf),
+				"ANIM [%s]%s\n"
+				"state %s\n"
+				"mode %s\n"
+				"clip %s %.2f\n"
+				"time %.2f%s%s",
+				sample.nodeName.empty() ? "<unnamed>" : sample.nodeName.c_str(),
+				sample.controlled ? " *" : "",
+				sample.currentStateName.empty() ? "<none>" : sample.currentStateName.c_str(),
+				sample.modeName.empty() ? "Clip" : sample.modeName.c_str(),
+				sample.primaryClipName.empty() ? "-" : sample.primaryClipName.c_str(),
+				sample.primaryWeight,
+				sample.normalizedTime,
+				sample.transitionActive ? "\ntransition active" : "",
+				sample.lastNotifyId.empty() ? "" : (std::string("\nnotify ") + sample.lastNotifyId).c_str());
+		}
+
+		textList.AddOutlinedTextAlignedPx(overlayX, overlayY, buf, debugText::TextAlignH::Left, debugText::TextAlignV::Top, colBody, colOutline, overlayScale, outlinePx);
+		textList.AddOutlinedTextAlignedPx(overlayX, overlayY, std::string("ANIM [") + (sample.nodeName.empty() ? std::string("<unnamed>") : sample.nodeName) + "]" + (sample.controlled ? " *" : ""), debugText::TextAlignH::Left, debugText::TextAlignV::Top, colHeader, colOutline, overlayScale, outlinePx);
+		const debugText::TextExtentPx ext = debugText::DebugTextList::MeasureTextPx(buf, overlayScale);
+		overlayY += ext.height + 12.0f;
+	}
+}
+
 auto ProjectWorldToScreenPx = [&](const mathUtils::Vec3& worldPos, mathUtils::Vec2& outPx) -> bool
 	{
 		const mathUtils::Vec4 clip = cameraViewProj * mathUtils::Vec4(worldPos, 1.0f);
