@@ -89,6 +89,7 @@ export namespace rendern
         world.AddLocomotion(entity);
         world.AddAction(entity);
         world.AddAnimationNotifyState(entity);
+        world.AddAnimationState(entity);
 
         const int skinnedDrawIndex = levelInstance.GetNodeSkinnedDrawIndex(nodeIndex);
         if (skinnedDrawIndex >= 0)

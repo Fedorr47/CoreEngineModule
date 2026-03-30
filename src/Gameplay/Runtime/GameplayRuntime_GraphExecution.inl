@@ -129,6 +129,23 @@
             SetGameplayGraphInt(instance.parameters, "requestedActionKind", 0);
             SetGameplayGraphInt(instance.parameters, "bufferedActionKind", 0);
             SetGameplayGraphInt(instance.parameters, "currentAction", 0);
+            SetGameplayGraphString(instance.parameters, "currentAnimationController", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationState", {});
+            SetGameplayGraphString(instance.parameters, "previousAnimationState", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationMode", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationPrimaryClip", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationSecondaryClip", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationTertiaryClip", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationBlendParameterX", {});
+            SetGameplayGraphString(instance.parameters, "currentAnimationBlendParameterY", {});
+            SetGameplayGraphFloat(instance.parameters, "currentAnimationBlendValueX", 0.0f);
+            SetGameplayGraphFloat(instance.parameters, "currentAnimationBlendValueY", 0.0f);
+            SetGameplayGraphFloat(instance.parameters, "currentAnimationNormalizedTime", 0.0f);
+            SetGameplayGraphBool(instance.parameters, "currentAnimationUsesBlend1D", false);
+            SetGameplayGraphBool(instance.parameters, "currentAnimationUsesBlend2D", false);
+            SetGameplayGraphBool(instance.parameters, "currentAnimationTransitionActive", false);
+            SetGameplayGraphBool(instance.parameters, "currentAnimationEnteredThisFrame", false);
+            SetGameplayGraphBool(instance.parameters, "currentAnimationChangedThisFrame", false);
 
             graphInstances_.insert_or_assign(entity, std::move(instance));
         }

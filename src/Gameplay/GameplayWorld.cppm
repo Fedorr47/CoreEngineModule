@@ -536,6 +536,27 @@ export namespace rendern
         std::string lastClipName{};
     };
 
+    struct GameplayAnimationStateComponent
+    {
+        std::string controllerAssetId{};
+        std::string currentStateName{};
+        std::string previousStateName{};
+        std::string modeName{};
+        std::string primaryClipName{};
+        std::string secondaryClipName{};
+        std::string tertiaryClipName{};
+        std::string blendParameterNameX{};
+        std::string blendParameterNameY{};
+        float blendParameterValueX{ 0.0f };
+        float blendParameterValueY{ 0.0f };
+        float stateNormalizedTime{ 0.0f };
+        bool usesBlend1D{ false };
+        bool usesBlend2D{ false };
+        bool transitionActive{ false };
+        bool enteredThisFrame{ false };
+        bool changedThisFrame{ false };
+    };
+
     class GameplayWorld
     {
     public:
@@ -637,6 +658,13 @@ export namespace rendern
         [[nodiscard]] const GameplayAnimationNotifyStateComponent* TryGetAnimationNotifyState(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasAnimationNotifyState(EntityHandle entity) const noexcept;
         void RemoveAnimationNotifyState(EntityHandle entity);
+        
+        void AddAnimationState(EntityHandle entity, const GameplayAnimationStateComponent& value = {});
+        void SetAnimationState(EntityHandle entity, const GameplayAnimationStateComponent& value);
+        [[nodiscard]] GameplayAnimationStateComponent* TryGetAnimationState(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayAnimationStateComponent* TryGetAnimationState(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasAnimationState(EntityHandle entity) const noexcept;
+        void RemoveAnimationState(EntityHandle entity);
 
     private:
         struct Impl;

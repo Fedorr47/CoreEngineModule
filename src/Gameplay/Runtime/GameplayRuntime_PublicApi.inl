@@ -107,6 +107,7 @@
             SyncGameplayTransformsToRuntime(world_, nodeBoundEntities_, ctx);
             UpdateFollowCamera_(ctx, false);
             PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
+            SyncGameplayAnimationStateFromRuntime(world_, nodeBoundEntities_, ctx, &graphInstances_);
         }
 
         void PostAnimationUpdate(const GameplayUpdateContext& ctx)
@@ -115,6 +116,8 @@
             {
                 return;
             }
+
+            SyncGameplayAnimationStateFromRuntime(world_, nodeBoundEntities_, ctx, &graphInstances_);
 
             ConsumeGameplayAnimationEvents(
                 world_,
