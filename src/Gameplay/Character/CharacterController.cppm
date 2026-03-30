@@ -128,11 +128,6 @@ export namespace rendern
                                 ExtractGameplayYawDegreesFromDirection(movementState->jumpLockedVelocity);
                         }
                     }
-                    else if (command->moveInputY > 0.1f && mathUtils::Length(command->moveWorld) > 1e-6f)
-                    {
-                        movementState->desiredFacingYawDegrees =
-                            ExtractGameplayYawDegreesFromDirection(command->moveWorld);
-                    }
                     else if (command->moveMagnitude > 0.1f)
                     {
                         movementState->desiredFacingYawDegrees = cameraYawDegrees;

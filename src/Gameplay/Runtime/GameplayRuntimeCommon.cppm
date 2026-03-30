@@ -70,7 +70,7 @@ export namespace rendern
         GameplayAxisKeyBinding moveY{ 'S', 'W' };
         GameplayButtonKeyBinding run{ 0x10 };
         GameplayButtonKeyBinding jump{ 0x20 };
-        GameplayButtonKeyBinding attack{ 0x01 };
+        GameplayButtonKeyBinding attack{ 0x78 };
         GameplayButtonKeyBinding interact{ 'E' };
     };
 
