@@ -1,49 +1,15 @@
 module;
 
-#include <string>
-#include <vector>
 #include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <unordered_set>
-#include <stdexcept>
 
 export module core:file_system;
 
-export namespace FILE_UTILS
-{
-	namespace fs = std::filesystem;
-
-	struct TextFile
-	{
-		std::string text;
-		std::vector<fs::path> dpendencies;
-	};
-
-	struct BinaryFile
-	{
-		std::vector<std::byte> data;
-	};
-
-	std::string ReadAllText(const fs::path& path)
-	{
-		std::ifstream file(path, std::ios::binary | std::ios::in);
-		if (!file)
-		{
-			throw std::runtime_error("Filed to open text file:" + path.string());
-		}
-
-		std::ostringstream stringStream;
-		stringStream << file.rdbuf();
-		return stringStream.str();
-	}
-
-}
+export import :file_utils;
 
 export namespace corefs
 {
 	using namespace FILE_UTILS;
-
+	
 	fs::path FindAssetRoot()
 	{
 		static fs::path cached;

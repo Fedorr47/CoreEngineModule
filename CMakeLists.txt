@@ -312,6 +312,7 @@ set(COMMON_MODULES
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm
+        Core/IO/FileUtils.cppm
 
         Core/String/StringUtils.cppm
 
