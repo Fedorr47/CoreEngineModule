@@ -17,43 +17,43 @@ export namespace jsonUtils
     struct JsonValue
     {
         using Storage = std::variant<std::nullptr_t, bool, double, std::string, JsonArray, JsonObject>;
-        Storage v{};
+        Storage value_{};
 
-        bool IsNull() const noexcept { return std::holds_alternative<std::nullptr_t>(v); }
-        bool IsBool() const noexcept { return std::holds_alternative<bool>(v); }
-        bool IsNumber() const noexcept { return std::holds_alternative<double>(v); }
-        bool IsString() const noexcept { return std::holds_alternative<std::string>(v); }
-        bool IsArray() const noexcept { return std::holds_alternative<JsonArray>(v); }
-        bool IsObject() const noexcept { return std::holds_alternative<JsonObject>(v); }
+        bool IsNull() const noexcept { return std::holds_alternative<std::nullptr_t>(value_); }
+        bool IsBool() const noexcept { return std::holds_alternative<bool>(value_); }
+        bool IsNumber() const noexcept { return std::holds_alternative<double>(value_); }
+        bool IsString() const noexcept { return std::holds_alternative<std::string>(value_); }
+        bool IsArray() const noexcept { return std::holds_alternative<JsonArray>(value_); }
+        bool IsObject() const noexcept { return std::holds_alternative<JsonObject>(value_); }
 
         const JsonObject& AsObject() const
         {
             if (!IsObject()) throw std::runtime_error("JSON: expected object");
-            return std::get<JsonObject>(v);
+            return std::get<JsonObject>(value_);
         }
 
         const JsonArray& AsArray() const
         {
             if (!IsArray()) throw std::runtime_error("JSON: expected array");
-            return std::get<JsonArray>(v);
+            return std::get<JsonArray>(value_);
         }
 
         const std::string& AsString() const
         {
             if (!IsString()) throw std::runtime_error("JSON: expected string");
-            return std::get<std::string>(v);
+            return std::get<std::string>(value_);
         }
 
         double AsNumber() const
         {
             if (!IsNumber()) throw std::runtime_error("JSON: expected number");
-            return std::get<double>(v);
+            return std::get<double>(value_);
         }
 
         bool AsBool() const
         {
             if (!IsBool()) throw std::runtime_error("JSON: expected bool");
-            return std::get<bool>(v);
+            return std::get<bool>(value_);
         }
     };
 
@@ -141,16 +141,16 @@ export namespace jsonUtils
             case '[': return ParseArray();
             case '"':
             {
-                JsonValue v; v.v = ParseString(); return v;
+                JsonValue v; v.value_ = ParseString(); return v;
             }
             case 't':
-                if (Match("true")) { JsonValue v; v.v = true; return v; }
+                if (Match("true")) { JsonValue v; v.value_ = true; return v; }
                 break;
             case 'f':
-                if (Match("false")) { JsonValue v; v.v = false; return v; }
+                if (Match("false")) { JsonValue v; v.value_ = false; return v; }
                 break;
             case 'n':
-                if (Match("null")) { JsonValue v; v.v = nullptr; return v; }
+                if (Match("null")) { JsonValue v; v.value_ = nullptr; return v; }
                 break;
             default:
                 break;
@@ -158,7 +158,7 @@ export namespace jsonUtils
 
             if (Peek() == '-' || (Peek() >= '0' && Peek() <= '9'))
             {
-                JsonValue v; v.v = ParseNumber(); return v;
+                JsonValue v; v.value_ = ParseNumber(); return v;
             }
 
             Throw("unexpected token");
@@ -172,7 +172,7 @@ export namespace jsonUtils
             if (Peek() == '}')
             {
                 Get();
-                JsonValue v; v.v = std::move(obj); return v;
+                JsonValue v; v.value_ = std::move(obj); return v;
             }
 
             while (true)
@@ -189,7 +189,7 @@ export namespace jsonUtils
                 if (c != ',') Throw("expected ',' or '}'");
             }
 
-            JsonValue v; v.v = std::move(obj); return v;
+            JsonValue v; v.value_ = std::move(obj); return v;
         }
 
         [[nodiscard]] JsonValue ParseArray()
@@ -200,7 +200,7 @@ export namespace jsonUtils
             if (Peek() == ']')
             {
                 Get();
-                JsonValue v; v.v = std::move(arr); return v;
+                JsonValue v; v.value_ = std::move(arr); return v;
             }
 
             while (true)
@@ -213,7 +213,7 @@ export namespace jsonUtils
                 if (c != ',') Throw("expected ',' or ']'");
             }
 
-            JsonValue v; v.v = std::move(arr); return v;
+            JsonValue v; v.value_ = std::move(arr); return v;
         }
 
         [[nodiscard]] std::string ParseString()
