@@ -11,24 +11,12 @@ import std;
 
 #include "AppBootstrap.h"
 
+constexpr std::string_view FLAGS_LITERAL{"flags"};
+constexpr std::string_view COMMON_ARGUMENTS{"--"};
+constexpr std::array<std::string_view, 1> ValidArgumentNames{MAP_LITERAL};
+
 namespace appBootstrap
 {
-    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args)
-    {
-        rhi::Backend backendType = rhi::Backend::DirectX12;
-        for (int argIndex = 1; argIndex < argc; ++argIndex)
-        {
-            const std::string_view argValue = argv[argIndex];
-            ParseArgument(argv[argIndex], args);
-            if (argValue == "--null")
-            {
-                backendType = rhi::Backend::Null;
-            }
-        }
-
-        return backendType;
-    }
-    
     bool CheckNamedArgument(std::string_view argumentName)
     {
         return std::ranges::find(ValidArgumentNames, argumentName) != ValidArgumentNames.end();
@@ -36,25 +24,52 @@ namespace appBootstrap
     
     void ParseArgument(const std::string& argument, std::map<std::string, std::vector<std::string>>& args)
     {
-        size_t index = argument.find("=");
+        std::string_view value = argument;
+        if (value.find(COMMON_ARGUMENTS) == 0)
+        {
+            value = value.substr(COMMON_ARGUMENTS.length());
+        }
+
+        const size_t index = value.find('=');
         if (index != std::string::npos)
         {
-            std::string key = argument.substr(0, index);
+            const std::string_view key = value.substr(0, index);
             if (!CheckNamedArgument(key))
             {
-                throw std::runtime_error("Unknown argv key: " +  key);
+                std::cerr << "Invalid key: " << key << std::endl;
+                return;
             }
-            std::string value = argument.substr(index + 1);
-            args[key].emplace_back(std::move(value));
-        }
-        else if (argument.find("--") == 0)
-        {
-            args[std::string(FLAGS_LITERAL)].emplace_back(argument);
+
+            const std::string_view parsedValue = value.substr(index + 1);
+            if (parsedValue.empty())
+            {
+                std::cerr << "Empty value for key: " << key << std::endl;
+                return;
+            }
+
+            args[std::string(key)].emplace_back(parsedValue);
         }
         else
         {
-            throw std::runtime_error("Unknown argv argument: " +  argument);
+            std::cerr << "Invalid argument: " << argument << std::endl;
         }
+    }
+    
+    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args)
+    {
+        rhi::Backend backendType = rhi::Backend::DirectX12;
+        for (int argIndex = 1; argIndex < argc; ++argIndex)
+        {
+            const std::string_view argValue = argv[argIndex];
+            if (argValue == "--null")
+            {
+                backendType = rhi::Backend::Null;
+                continue;
+            }
+            ParseArgument(argv[argIndex], args);
+        }
+
+        return backendType;
     }
 
     bool CanUseDebugWindow([[maybe_unused]] rhi::Backend backend)

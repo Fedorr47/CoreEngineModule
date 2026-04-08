@@ -10,6 +10,8 @@
 
 namespace appLifecycle
 {
+    constexpr std::string_view DefaultStartupLevelName = "levels/demo.level.with_fsm_test.locomotion.phaseB.json";
+    
     struct LoadingOverlayState
     {
         bool visible = true;

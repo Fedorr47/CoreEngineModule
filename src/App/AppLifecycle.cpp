@@ -237,16 +237,37 @@ namespace appLifecycle
         app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, *app.jobSystem, app.renderQueue);
         app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
         
-        if (app.appArguments.contains(std::string(MAP_LITERAL)))
+        const std::string defaultLevelName = std::string(DefaultStartupLevelName);
+        const auto mapIt = app.appArguments.find(std::string(MAP_LITERAL));
+        const bool hasOverride =
+            mapIt != app.appArguments.end()
+            && !mapIt->second.empty()
+            && !mapIt->second.front().empty();
+        
+        if (!hasOverride)
         {
-            app.currentLevelName = app.appArguments[std::string(MAP_LITERAL)].front();
+            app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                rendern::LoadLevelAssetFromJson(defaultLevelName));
+            app.currentLevelName = defaultLevelName;
         }
         else
         {
-            app.currentLevelName = std::string("levels/demo.level.with_fsm_test.locomotion.phaseB.json");
-        }
-        app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson(app.currentLevelName));
+            const std::string& overrideLevelName = mapIt->second.front();
 
+            try
+            {
+                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                    rendern::LoadLevelAssetFromJson(overrideLevelName));
+                app.currentLevelName = overrideLevelName;
+            }
+            catch (const std::exception& e)
+            {
+                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                    rendern::LoadLevelAssetFromJson(defaultLevelName));
+                app.currentLevelName = defaultLevelName;
+            }
+        }
+        
         app.rendererSettings.drawLightGizmos = true;
         app.rendererSettings.loadingOverlayVisible = true;
         app.rendererSettings.loadingOverlayProgressBar = 0.0f;
