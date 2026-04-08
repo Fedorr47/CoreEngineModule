@@ -15,17 +15,18 @@ namespace appBootstrap
 {
     rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args)
     {
+        rhi::Backend backendType = rhi::Backend::DirectX12;
         for (int argIndex = 1; argIndex < argc; ++argIndex)
         {
             const std::string_view argValue = argv[argIndex];
             ParseArgument(argv[argIndex], args);
             if (argValue == "--null")
             {
-                return rhi::Backend::Null;
+                backendType = rhi::Backend::Null;
             }
         }
 
-        return rhi::Backend::DirectX12;
+        return backendType;
     }
     
     bool CheckNamedArgument(std::string_view argumentName)
