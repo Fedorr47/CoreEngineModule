@@ -246,6 +246,7 @@ namespace appLifecycle
         
         if (!hasOverride)
         {
+            std::cerr << "[Startup] Using default startup level: " << defaultLevelName << '\n';
             app.levelAsset = std::make_unique<rendern::LevelAsset>(
                 rendern::LoadLevelAssetFromJson(defaultLevelName));
             app.currentLevelName = defaultLevelName;
@@ -253,6 +254,7 @@ namespace appLifecycle
         else
         {
             const std::string& overrideLevelName = mapIt->second.front();
+            std::cerr << "[Startup] Trying startup level override: " << overrideLevelName << '\n';
 
             try
             {
@@ -262,11 +264,15 @@ namespace appLifecycle
             }
             catch (const std::exception& e)
             {
+                std::cerr << "[Startup] Override failed: " << e.what()
+          << ". Falling back to default: " << defaultLevelName << '\n';
+                
                 app.levelAsset = std::make_unique<rendern::LevelAsset>(
                     rendern::LoadLevelAssetFromJson(defaultLevelName));
                 app.currentLevelName = defaultLevelName;
             }
         }
+        std::cerr << "[Startup] Chosen startup level: " << app.currentLevelName << '\n';
         
         app.rendererSettings.drawLightGizmos = true;
         app.rendererSettings.loadingOverlayVisible = true;
