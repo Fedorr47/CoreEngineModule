@@ -203,7 +203,7 @@ namespace appLifecycle
 
     void InitializeApp(AppState& app, int argc, char** argv)
     {
-        app.requestedBackend = appBootstrap::ParseBackendFromArgs(argc, argv);
+        app.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, app.appArguments);
         app.canUseDebugWindow = appBootstrap::CanUseDebugWindow(app.requestedBackend);
 
         appBootstrap::CreatePrimaryWindowSet(
@@ -236,8 +236,16 @@ namespace appLifecycle
         app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, *app.jobSystem, app.renderQueue);
         app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, *app.jobSystem, app.renderQueue);
         app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
-
-        app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson("levels/demo.level.with_fsm_test.locomotion.phaseB.json"));
+        
+        if (app.appArguments.contains(std::string(MAP_LITERAL)))
+        {
+            app.currentLevelName = app.appArguments[std::string(MAP_LITERAL)].front();
+        }
+        else
+        {
+            app.currentLevelName = std::string("levels/demo.level.with_fsm_test.locomotion.phaseB.json");
+        }
+        app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson(app.currentLevelName));
 
         app.rendererSettings.drawLightGizmos = true;
         app.rendererSettings.loadingOverlayVisible = true;

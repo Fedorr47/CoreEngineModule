@@ -2,10 +2,17 @@
 
 #include "Win32AppShell.h"
 
+constexpr std::string_view MAP_LITERAL{"map"};
+constexpr std::string_view FLAGS_LITERAL{"flags"};
+constexpr std::array<std::string_view, 1> ValidArgumentNames{MAP_LITERAL};
+
 namespace appBootstrap
 {
-    rhi::Backend ParseBackendFromArgs(int argc, char** argv);
     bool CanUseDebugWindow([[maybe_unused]] rhi::Backend backend);
+    
+    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args);
+    void ParseArgument(const std::string& argument, std::map<std::string, std::vector<std::string>>& args);
+    bool CheckNamedArgument(const std::string_view argumentName);
 
     void CreatePrimaryWindowSet(
         int mainWidth,

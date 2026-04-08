@@ -13,11 +13,12 @@ import std;
 
 namespace appBootstrap
 {
-    rhi::Backend ParseBackendFromArgs(int argc, char** argv)
+    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args)
     {
         for (int argIndex = 1; argIndex < argc; ++argIndex)
         {
             const std::string_view argValue = argv[argIndex];
+            ParseArgument(argv[argIndex], args);
             if (argValue == "--null")
             {
                 return rhi::Backend::Null;
@@ -25,6 +26,34 @@ namespace appBootstrap
         }
 
         return rhi::Backend::DirectX12;
+    }
+    
+    bool CheckNamedArgument(std::string_view argumentName)
+    {
+        return std::ranges::find(ValidArgumentNames, argumentName) != ValidArgumentNames.end();
+    }
+    
+    void ParseArgument(const std::string& argument, std::map<std::string, std::vector<std::string>>& args)
+    {
+        size_t index = argument.find("=");
+        if (index != std::string::npos)
+        {
+            std::string key = argument.substr(0, index);
+            if (!CheckNamedArgument(key))
+            {
+                throw std::runtime_error("Unknown argv key: " +  key);
+            }
+            std::string value = argument.substr(index + 1);
+            args[key].emplace_back(std::move(value));
+        }
+        else if (argument.find("--") == 0)
+        {
+            args[std::string(FLAGS_LITERAL)].emplace_back(argument);
+        }
+        else
+        {
+            throw std::runtime_error("Unknown argv argument: " +  argument);
+        }
     }
 
     bool CanUseDebugWindow([[maybe_unused]] rhi::Backend backend)
