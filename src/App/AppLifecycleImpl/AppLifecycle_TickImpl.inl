@@ -167,18 +167,27 @@ static void UpdateEditorViewportInteraction(AppState& app)
     }
 }
 
+const rendern::GameplayUpdateContext BuildGameplayUpdateContext(
+    AppState& app, 
+    float deltaSeconds)
+{
+    rendern::GameplayUpdateContext gameplayCtx{};
+    gameplayCtx.deltaSeconds = deltaSeconds;
+    gameplayCtx.mode = app.gameplayMode;
+    gameplayCtx.input = &app.win32Input.State();
+    gameplayCtx.levelAsset = app.levelAsset.get();
+    gameplayCtx.levelInstance = app.levelInstance.get();
+    gameplayCtx.scene = &app.scene;
+    return gameplayCtx;
+}
+
 static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 {
-    if (app.gameplayRuntime)
+    const rendern::GameplayUpdateContext gameplayCtx = BuildGameplayUpdateContext(app, deltaSeconds);
+    auto* gameplayRuntime = app.gameplayRuntime.get();
+    
+    if (gameplayRuntime)
     {
-        rendern::GameplayUpdateContext gameplayCtx{};
-        gameplayCtx.deltaSeconds = deltaSeconds;
-        gameplayCtx.mode = app.gameplayMode;
-        gameplayCtx.input = &app.win32Input.State();
-        gameplayCtx.levelAsset = app.levelAsset.get();
-        gameplayCtx.levelInstance = app.levelInstance.get();
-        gameplayCtx.scene = &app.scene;
-
         app.gameplayRuntime->BeginFrame();
         app.gameplayRuntime->PreAnimationUpdate(gameplayCtx);
     }
@@ -187,13 +196,6 @@ static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 
     if (app.gameplayRuntime)
     {
-        rendern::GameplayUpdateContext gameplayCtx{};
-        gameplayCtx.deltaSeconds = deltaSeconds;
-        gameplayCtx.mode = app.gameplayMode;
-        gameplayCtx.input = &app.win32Input.State();
-        gameplayCtx.levelAsset = app.levelAsset.get();
-        gameplayCtx.levelInstance = app.levelInstance.get();
-        gameplayCtx.scene = &app.scene;
         app.gameplayRuntime->PostAnimationUpdate(gameplayCtx);
     }
     
