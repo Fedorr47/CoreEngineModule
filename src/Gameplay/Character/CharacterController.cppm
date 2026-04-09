@@ -17,7 +17,7 @@ export namespace rendern
     {
         mathUtils::Vec3 forward = camera.target - camera.position;
         forward.y = 0.0f;
-        if (mathUtils::Length(forward) <= 1e-6f)
+        if (mathUtils::Dot(forward, forward) <= mathUtils::kLengthEpsilonSq)
         {
             forward = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
         }
@@ -28,7 +28,7 @@ export namespace rendern
 
         const mathUtils::Vec3 worldUp(0.0f, 1.0f, 0.0f);
         mathUtils::Vec3 right = mathUtils::Cross(worldUp, forward);
-        if (mathUtils::Length(right) <= 1e-6f)
+        if (mathUtils::Dot(right, right) <= mathUtils::kLengthEpsilonSq)
         {
             right = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
         }
@@ -45,7 +45,7 @@ export namespace rendern
     {
         mathUtils::Vec3 forward = camera.target - camera.position;
         forward.y = 0.0f;
-        if (mathUtils::Length(forward) <= 1e-6f)
+        if (mathUtils::Dot(forward, forward) <= mathUtils::kLengthEpsilonSq)
         {
             forward = mathUtils::Vec3(0.0f, 0.0f, 1.0f);
         }
@@ -62,7 +62,7 @@ export namespace rendern
     {
         mathUtils::Vec3 planar = direction;
         planar.y = 0.0f;
-        if (mathUtils::Length(planar) <= 1e-6f)
+        if (mathUtils::Dot(planar, planar) <= mathUtils::kLengthEpsilonSq)
         {
             return 0.0f;
         }
@@ -104,9 +104,10 @@ export namespace rendern
 
             mathUtils::Vec3 desiredMove = moveRight * intent->moveX + moveForward * intent->moveY;
             desiredMove.y = 0.0f;
-            const float desiredLen = mathUtils::Length(desiredMove);
-            if (desiredLen > 1e-6f)
+            const float desiredLenSq = mathUtils::Dot(desiredMove, desiredMove);
+            if (desiredLenSq > mathUtils::kLengthEpsilonSq)
             {
+                const float desiredLen = std::sqrt(desiredLenSq);
                 command->moveWorld = desiredMove / desiredLen;
                 command->moveMagnitude = std::clamp(desiredLen, 0.0f, 1.0f);
             }
@@ -122,7 +123,7 @@ export namespace rendern
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
                     if (movementState->jumping && movementState->jumpMovementLocked)
                     {
-                        if (mathUtils::Length(movementState->jumpLockedVelocity) > 1e-6f)
+                        if (mathUtils::Dot(movementState->jumpLockedVelocity, movementState->jumpLockedVelocity) > mathUtils::kLengthEpsilonSq)
                         {
                             movementState->desiredFacingYawDegrees =
                                 ExtractGameplayYawDegreesFromDirection(movementState->jumpLockedVelocity);
@@ -136,7 +137,7 @@ export namespace rendern
                 else
                 {
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                    if (command->moveInputY > 0.1f && mathUtils::Length(command->moveWorld) > 1e-6f)
+                    if (command->moveInputY > 0.1f && mathUtils::Dot(command->moveWorld, command->moveWorld) > mathUtils::kLengthEpsilonSq)
                     {
                         movementState->desiredFacingYawDegrees =
                             ExtractGameplayYawDegreesFromDirection(command->moveWorld);

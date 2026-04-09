@@ -24,6 +24,11 @@ export namespace mathUtils
 
 	inline constexpr float Pi = pi_v<double>;
 	inline constexpr float TwoPi = Pi * 2;
+	
+	constexpr float kLengthEpsilon = 1e-6f;
+	constexpr float kLengthEpsilonSq = kLengthEpsilon * kLengthEpsilon;
+	constexpr float kMoveEpsilon = 1e-4f;
+	constexpr float kMoveEpsilonSq = kMoveEpsilon * kMoveEpsilon;
 
 	struct Vec2
 	{

@@ -30,12 +30,19 @@ export namespace rendern
         const float maxDelta) noexcept
     {
         const mathUtils::Vec3 delta = target - current;
-        const float deltaLen = mathUtils::Length(delta);
-        if (deltaLen <= maxDelta || maxDelta <= 1e-6f)
+        if (maxDelta <= mathUtils::kLengthEpsilon)
         {
             return target;
         }
 
+        const float deltaLenSq = mathUtils::Dot(delta, delta);
+        const float maxDeltaSq = maxDelta * maxDelta;
+        if (deltaLenSq <= maxDeltaSq)
+        {
+            return target;
+        }
+
+        const float deltaLen = std::sqrt(deltaLenSq);
         return current + (delta * (maxDelta / deltaLen));
     }
 
@@ -79,7 +86,7 @@ export namespace rendern
                 if (movementState != nullptr && !movementState->jumping)
                 {
                     mathUtils::Vec3 launchVelocity = motor->velocity;
-                    if (mathUtils::Length(targetVelocity) > 1e-4f)
+                    if (mathUtils::Dot(targetVelocity, targetVelocity) > mathUtils::kMoveEpsilonSq)
                     {
                         launchVelocity = targetVelocity;
                     }
@@ -94,9 +101,9 @@ export namespace rendern
             }
             else
             {
-                const float currentSpeed = mathUtils::Length(motor->velocity);
-                const float desiredSpeed = mathUtils::Length(targetVelocity);
-                const float rate = desiredSpeed > currentSpeed ? motor->acceleration : motor->deceleration;
+                const float currentSpeedSq = mathUtils::Dot(motor->velocity, motor->velocity);
+                const float desiredSpeedSq = mathUtils::Dot(targetVelocity, targetVelocity);
+                const float rate = desiredSpeedSq > currentSpeedSq ? motor->acceleration : motor->deceleration;
                 const float maxDelta = std::max(rate, 0.0f) * dt;
                 motor->velocity = MoveVelocityTowards_(motor->velocity, targetVelocity, maxDelta);
 
@@ -170,8 +177,9 @@ export namespace rendern
                 continue;
             }
 
-            const float planarSpeed = mathUtils::Length(motor->velocity);
-            const bool isMoving = planarSpeed > 1e-4f;
+            const float planarSpeedSq = mathUtils::Dot(motor->velocity, motor->velocity);
+            const float planarSpeed = std::sqrt(planarSpeedSq);
+            const bool isMoving = planarSpeedSq > mathUtils::kMoveEpsilonSq;
             const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
             const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
             const mathUtils::Vec3 actorRight(-actorForward.z, 0.0f, actorForward.x);
@@ -183,7 +191,8 @@ export namespace rendern
             locomotion->isRunning = isMoving && command->wantsRun;
 
             const float normalizationSpeed = std::max(command->wantsRun ? motor->maxRunSpeed : motor->maxWalkSpeed, 1.0f);
-            const bool hasMoveIntent = command->moveMagnitude > 1e-4f && mathUtils::Length(command->moveWorld) > 1e-6f;
+            const bool hasMoveIntent = command->moveMagnitude > mathUtils::kMoveEpsilon &&
+                mathUtils::Dot(command->moveWorld, command->moveWorld) > mathUtils::kLengthEpsilonSq;
             if (hasMoveIntent)
             {
                 const mathUtils::Vec3 moveIntent = command->moveWorld * command->moveMagnitude;
