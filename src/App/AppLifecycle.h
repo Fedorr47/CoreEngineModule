@@ -10,6 +10,8 @@
 
 namespace appLifecycle
 {
+    constexpr std::string_view DefaultStartupLevelName = "levels/demo.level.with_fsm_test.locomotion.phaseB.json";
+    
     struct LoadingOverlayState
     {
         bool visible = true;
@@ -52,6 +54,9 @@ namespace appLifecycle
 #if defined(CORE_USE_DX12)
         std::unique_ptr<rhi::IRHISwapChain> debugSwapChain;
 #endif
+        
+        std::map<std::string, std::vector<std::string>> appArguments{};
+        std::string currentLevelName{};
 
         StbTextureDecoder textureDecoder{};
         std::unique_ptr<rendern::JobSystemThreadPool> jobSystem;

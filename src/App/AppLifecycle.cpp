@@ -203,7 +203,7 @@ namespace appLifecycle
 
     void InitializeApp(AppState& app, int argc, char** argv)
     {
-        app.requestedBackend = appBootstrap::ParseBackendFromArgs(argc, argv);
+        app.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, app.appArguments);
         app.canUseDebugWindow = appBootstrap::CanUseDebugWindow(app.requestedBackend);
 
         appBootstrap::CreatePrimaryWindowSet(
@@ -236,9 +236,44 @@ namespace appLifecycle
         app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, *app.jobSystem, app.renderQueue);
         app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, *app.jobSystem, app.renderQueue);
         app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
+        
+        const std::string defaultLevelName = std::string(DefaultStartupLevelName);
+        const auto mapIt = app.appArguments.find(std::string(MAP_LITERAL));
+        const bool hasOverride =
+            mapIt != app.appArguments.end()
+            && !mapIt->second.empty()
+            && !mapIt->second.front().empty();
+        
+        if (!hasOverride)
+        {
+            std::cerr << "[Startup] Using default startup level: " << defaultLevelName << '\n';
+            app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                rendern::LoadLevelAssetFromJson(defaultLevelName));
+            app.currentLevelName = defaultLevelName;
+        }
+        else
+        {
+            const std::string& overrideLevelName = mapIt->second.front();
+            std::cerr << "[Startup] Trying startup level override: " << overrideLevelName << '\n';
 
-        app.levelAsset = std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson("levels/demo.level.with_fsm_test.locomotion.phaseB.json"));
-
+            try
+            {
+                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                    rendern::LoadLevelAssetFromJson(overrideLevelName));
+                app.currentLevelName = overrideLevelName;
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "[Startup] Override failed: " << e.what()
+          << ". Falling back to default: " << defaultLevelName << '\n';
+                
+                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                    rendern::LoadLevelAssetFromJson(defaultLevelName));
+                app.currentLevelName = defaultLevelName;
+            }
+        }
+        std::cerr << "[Startup] Chosen startup level: " << app.currentLevelName << '\n';
+        
         app.rendererSettings.drawLightGizmos = true;
         app.rendererSettings.loadingOverlayVisible = true;
         app.rendererSettings.loadingOverlayProgressBar = 0.0f;
