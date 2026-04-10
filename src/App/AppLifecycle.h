@@ -35,29 +35,38 @@ namespace appLifecycle
         std::wstring windowTitle = L"CoreEngineModule (DX12)";
         appRuntime::UploadBudget uploadBudget{};
     };
-
-
-    struct AppState
+    
+    struct AppLaunchState
     {
-        AppConfig config{};
         rhi::Backend requestedBackend = rhi::Backend::DirectX12;
         bool canUseDebugWindow = false;
-
-        appWin32::Win32Window window{};
+        std::map<std::string, std::vector<std::string>> appArguments{};
+        std::string currentLevelName{};
+    };
+    
+    struct AppWindowState
+    {
+        appWin32::Win32Window mainWindow{};
 #if defined(CORE_USE_DX12)
         appWin32::Win32Window debugWindow{};
 #endif
-
-        rendern::Win32Input win32Input{};
+        rendern::Win32Input input{};
+    };
+    
+    struct AppGraphicsState
+    {
         std::unique_ptr<rhi::IRHIDevice> device;
         std::unique_ptr<rhi::IRHISwapChain> swapChain;
 #if defined(CORE_USE_DX12)
         std::unique_ptr<rhi::IRHISwapChain> debugSwapChain;
 #endif
-        
-        std::map<std::string, std::vector<std::string>> appArguments{};
-        std::string currentLevelName{};
-
+        rendern::RendererSettings rendererSettings{};
+        std::unique_ptr<rendern::Renderer> renderer;
+        std::unique_ptr<rendern::BindlessTable> bindless;
+    };
+    
+    struct AppContentState
+    {
         StbTextureDecoder textureDecoder{};
         std::unique_ptr<rendern::JobSystemThreadPool> jobSystem;
         rendern::RenderQueueImmediate renderQueue{};
@@ -65,22 +74,36 @@ namespace appLifecycle
         std::unique_ptr<TextureIO> textureIO;
         std::unique_ptr<rendern::MeshIO> meshIO;
         std::unique_ptr<AssetManager> assets;
-
         std::unique_ptr<rendern::LevelAsset> levelAsset;
-        rendern::RendererSettings rendererSettings{};
-        std::unique_ptr<rendern::Renderer> renderer;
+    };
+    
+    struct AppRuntimeState
+    {
         rendern::Scene scene{};
-        std::unique_ptr<rendern::BindlessTable> bindless;
         std::unique_ptr<rendern::LevelInstance> levelInstance;
         std::unique_ptr<rendern::GameplayRuntime> gameplayRuntime;
         std::unique_ptr<rendern::CameraController> cameraController;
         appEditor::EditorViewportInteraction editorViewportInteraction{};
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
+    };
+    
+    struct AppFrameState
+    {
         GameTimer frameTimer{};
         GameTimer statsTimer{};
         LoadingOverlayState loadingOverlay{};
         FrameStatsOverlayState frameStatsOverlay{};
-
+    };
+    
+    struct AppState
+    {
+        AppConfig           config{};
+        AppLaunchState      launchState{};
+        AppWindowState      windowState{};
+        AppGraphicsState    graphicsState{};
+        AppContentState     contentState{};
+        AppRuntimeState     runtimeState{};
+        AppFrameState      frameState{};
         bool initialized = false;
     };
 

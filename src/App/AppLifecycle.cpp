@@ -32,45 +32,48 @@ namespace appLifecycle
 
     static void ResetEditorInteractionState(AppState& app)
     {
-        appEditor::EndAllGizmoDrags(app.editorViewportInteraction, app.scene);
-        appEditor::ClearAllGizmoHover(app.editorViewportInteraction, app.scene);
-        appEditor::ResetGizmoState(app.scene.editorTranslateGizmo);
-        appEditor::ResetGizmoState(app.scene.editorRotateGizmo);
-        appEditor::ResetGizmoState(app.scene.editorScaleGizmo);
-        app.scene.editorParticleEmitterTranslateDrag = {};
-        app.scene.EditorClearSelection();
+        auto& runtime = app.runtimeState;
+        appEditor::EndAllGizmoDrags(runtime.editorViewportInteraction, runtime.scene);
+        appEditor::ClearAllGizmoHover(runtime.editorViewportInteraction, runtime.scene);
+        appEditor::ResetGizmoState(runtime.scene.editorTranslateGizmo);
+        appEditor::ResetGizmoState(runtime.scene.editorRotateGizmo);
+        appEditor::ResetGizmoState(runtime.scene.editorScaleGizmo);
+        runtime.scene.editorParticleEmitterTranslateDrag = {};
+        runtime.scene.EditorClearSelection();
     }
 
     static void UpdateGameplayMovementDebug(AppState& app)
     {
-        app.scene.gameplayMovementDebug.Clear();
+        auto& runtimeState = app.runtimeState;
+        auto& graphicState = app.graphicsState;
+        runtimeState.scene.gameplayMovementDebug.Clear();
 
-        if (!app.gameplayRuntime || !app.rendererSettings.drawGameplayMovementDebug)
+        if (!runtimeState.gameplayRuntime || !graphicState.rendererSettings.drawGameplayMovementDebug)
         {
             return;
         }
 
-        const rendern::EntityHandle controlledEntity = app.gameplayRuntime->GetControlledEntity();
-        const auto& entities = app.gameplayRuntime->GetNodeBoundEntities();
-        app.scene.gameplayMovementDebug.samples.reserve(entities.size());
+        const rendern::EntityHandle controlledEntity = runtimeState.gameplayRuntime->GetControlledEntity();
+        const auto& entities = runtimeState.gameplayRuntime->GetNodeBoundEntities();
+        runtimeState.scene.gameplayMovementDebug.samples.reserve(entities.size());
 
         for (const rendern::EntityHandle entity : entities)
         {
-            if (app.rendererSettings.drawGameplayMovementDebugOnlyControlled
+            if (graphicState.rendererSettings.drawGameplayMovementDebugOnlyControlled
                 && controlledEntity != rendern::kNullEntity
                 && entity != controlledEntity)
             {
                 continue;
             }
 
-            const rendern::GameplayTransformComponent* transform = app.gameplayRuntime->GetWorld().TryGetTransform(entity);
-            const rendern::GameplayCharacterMotorComponent* motor = app.gameplayRuntime->GetWorld().TryGetCharacterMotor(entity);
+            const rendern::GameplayTransformComponent* transform = runtimeState.gameplayRuntime->GetWorld().TryGetTransform(entity);
+            const rendern::GameplayCharacterMotorComponent* motor = runtimeState.gameplayRuntime->GetWorld().TryGetCharacterMotor(entity);
             if (transform == nullptr || motor == nullptr)
             {
                 continue;
             }
 
-            const rendern::GameplayLocomotionComponent* locomotion = app.gameplayRuntime->GetWorld().TryGetLocomotion(entity);
+            const rendern::GameplayLocomotionComponent* locomotion = runtimeState.gameplayRuntime->GetWorld().TryGetLocomotion(entity);
             const bool isRunning = locomotion != nullptr && locomotion->isRunning;
             const float targetSpeed = isRunning ? motor->maxRunSpeed : motor->maxWalkSpeed;
 
@@ -88,7 +91,7 @@ namespace appLifecycle
             sample.rightSpeed = locomotion != nullptr ? locomotion->rightSpeed : 0.0f;
             sample.planarSpeed = locomotion != nullptr ? locomotion->planarSpeed : mathUtils::Length(motor->velocity);
             sample.controlled = entity == controlledEntity;
-            app.scene.gameplayMovementDebug.samples.push_back(sample);
+            runtimeState.scene.gameplayMovementDebug.samples.push_back(sample);
         }
     }
 
@@ -117,32 +120,37 @@ namespace appLifecycle
 
     static void UpdateAnimationRuntimeDebug(AppState& app)
     {
-        app.scene.animationRuntimeDebug.Clear();
+        auto& runtimeState = app.runtimeState;
+        auto& graphicState = app.graphicsState;
+        auto& contentState = app.contentState;
+        runtimeState.scene.animationRuntimeDebug.Clear();
 
-        if (!app.gameplayRuntime || !app.rendererSettings.drawAnimationRuntimeOverlay || app.gameplayMode != rendern::GameplayRuntimeMode::Game)
+        if (!runtimeState.gameplayRuntime 
+            || !graphicState.rendererSettings.drawAnimationRuntimeOverlay 
+            || runtimeState.gameplayMode != rendern::GameplayRuntimeMode::Game)
         {
             return;
         }
 
-        if (!app.levelAsset || !app.levelInstance)
+        if (!contentState.levelAsset || !runtimeState.levelInstance)
         {
             return;
         }
 
-        const rendern::EntityHandle controlledEntity = app.gameplayRuntime->GetControlledEntity();
-        const auto& entities = app.gameplayRuntime->GetNodeBoundEntities();
-        app.scene.animationRuntimeDebug.samples.reserve(entities.size());
+        const rendern::EntityHandle controlledEntity = runtimeState.gameplayRuntime->GetControlledEntity();
+        const auto& entities = runtimeState.gameplayRuntime->GetNodeBoundEntities();
+        runtimeState.scene.animationRuntimeDebug.samples.reserve(entities.size());
 
         for (const rendern::EntityHandle entity : entities)
         {
-            if (app.rendererSettings.drawAnimationRuntimeOverlayOnlyControlled
+            if (graphicState.rendererSettings.drawAnimationRuntimeOverlayOnlyControlled
                 && controlledEntity != rendern::kNullEntity
                 && entity != controlledEntity)
             {
                 continue;
             }
 
-            const auto& world = app.gameplayRuntime->GetWorld();
+            const auto& world = runtimeState.gameplayRuntime->GetWorld();
             const rendern::GameplayTransformComponent* transform = world.TryGetTransform(entity);
             const rendern::GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(entity);
             const rendern::GameplayAnimationLinkComponent* animationLink = world.TryGetAnimationLink(entity);
@@ -153,25 +161,25 @@ namespace appLifecycle
                 continue;
             }
 
-            if (nodeLink->nodeIndex < 0 || static_cast<std::size_t>(nodeLink->nodeIndex) >= app.levelAsset->nodes.size())
+            if (nodeLink->nodeIndex < 0 || static_cast<std::size_t>(nodeLink->nodeIndex) >= contentState.levelAsset->nodes.size())
             {
                 continue;
             }
 
-            const rendern::LevelNode& node = app.levelAsset->nodes[static_cast<std::size_t>(nodeLink->nodeIndex)];
-            rendern::SkinnedDrawItem* skinnedItem = app.levelInstance->GetSkinnedDrawItem(app.scene, animationLink->skinnedDrawIndex);
+            const rendern::LevelNode& node = contentState.levelAsset->nodes[static_cast<std::size_t>(nodeLink->nodeIndex)];
+            rendern::SkinnedDrawItem* skinnedItem = runtimeState.levelInstance->GetSkinnedDrawItem(runtimeState.scene, animationLink->skinnedDrawIndex);
             if (skinnedItem == nullptr)
             {
                 continue;
             }
 
-            const rendern::AnimationControllerRuntime& runtime = skinnedItem->controller;
-            const float secondaryWeight = std::clamp(runtime.blendSecondaryAlpha, 0.0f, 1.0f);
-            const float tertiaryWeight = std::clamp(runtime.blendTertiaryAlpha, 0.0f, 1.0f);
+            const rendern::AnimationControllerRuntime& runtimeController = skinnedItem->controller;
+            const float secondaryWeight = std::clamp(runtimeController.blendSecondaryAlpha, 0.0f, 1.0f);
+            const float tertiaryWeight = std::clamp(runtimeController.blendTertiaryAlpha, 0.0f, 1.0f);
             const float primaryWeight = std::max(0.0f, 1.0f - secondaryWeight - tertiaryWeight);
-            const float transitionAlpha = (runtime.transitionDurationSeconds > 1e-6f)
-                ? std::clamp(runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds, 0.0f, 1.0f)
-                : (runtime.transitionActive ? 1.0f : 0.0f);
+            const float transitionAlpha = (runtimeController.transitionDurationSeconds > 1e-6f)
+                ? std::clamp(runtimeController.transitionElapsedSeconds / runtimeController.transitionDurationSeconds, 0.0f, 1.0f)
+                : (runtimeController.transitionActive ? 1.0f : 0.0f);
 
             rendern::AnimationRuntimeDebugSample sample{};
             sample.entity = entity;
@@ -180,7 +188,7 @@ namespace appLifecycle
             sample.controllerAssetId = animState->controllerAssetId;
             sample.currentStateName = animState->currentStateName;
             sample.previousStateName = animState->previousStateName;
-            sample.requestedStateName = runtime.requestedStateName;
+            sample.requestedStateName = runtimeController.requestedStateName;
             sample.modeName = animState->modeName;
             sample.primaryClipName = animState->primaryClipName;
             sample.secondaryClipName = animState->secondaryClipName;
@@ -195,61 +203,73 @@ namespace appLifecycle
             sample.secondaryWeight = secondaryWeight;
             sample.tertiaryWeight = tertiaryWeight;
             sample.transitionAlpha = transitionAlpha;
-            sample.transitionActive = runtime.transitionActive;
+            sample.transitionActive = runtimeController.transitionActive;
             sample.controlled = entity == controlledEntity;
-            app.scene.animationRuntimeDebug.samples.push_back(std::move(sample));
+            runtimeState.scene.animationRuntimeDebug.samples.push_back(std::move(sample));
         }
     }
 
     void InitializeApp(AppState& app, int argc, char** argv)
     {
-        app.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, app.appArguments);
-        app.canUseDebugWindow = appBootstrap::CanUseDebugWindow(app.requestedBackend);
+        auto& runtimeState      = app.runtimeState;
+        auto& graphicState      = app.graphicsState;
+        auto& launchState       = app.launchState;
+        auto& windowState       = app.windowState;
+        auto& contentState      = app.contentState;
+        auto& frameState        = app.frameState;
+        
+        launchState.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, launchState.appArguments);
+        launchState.canUseDebugWindow = appBootstrap::CanUseDebugWindow(launchState.requestedBackend);
 
         appBootstrap::CreatePrimaryWindowSet(
             app.config.windowWidth,
             app.config.windowHeight,
             app.config.windowTitle,
-            app.canUseDebugWindow,
-            app.window
+            launchState.canUseDebugWindow,
+            windowState.mainWindow
 #if defined(CORE_USE_DX12)
-            , &app.debugWindow
+            , &windowState.debugWindow
 #endif
         );
 
-        appBootstrap::BindWin32Input(app.win32Input);
+        appBootstrap::BindWin32Input(windowState.input);
         appBootstrap::CreateDeviceAndSwapChain(
-            app.requestedBackend,
-            app.window.hwnd,
+            launchState.requestedBackend,
+            windowState.mainWindow.hwnd,
             app.config.windowWidth,
             app.config.windowHeight,
-            app.device,
-            app.swapChain);
+            graphicState.device,
+            graphicState.swapChain);
 
 #if defined(CORE_USE_DX12)
-        appBootstrap::CreateDebugSwapChainIfNeeded(app.requestedBackend, *app.device, app.debugWindow, app.debugSwapChain);
+        appBootstrap::CreateDebugSwapChainIfNeeded(
+            launchState.requestedBackend, 
+            *graphicState.device, 
+            windowState.debugWindow, 
+            graphicState.debugSwapChain);
 #endif
 
-        app.jobSystem = std::make_unique<rendern::JobSystemThreadPool>(ComputeStreamingWorkerCount());
+        contentState.jobSystem = std::make_unique<rendern::JobSystemThreadPool>(ComputeStreamingWorkerCount());
 
-        app.textureUploader = appBootstrap::CreateTextureUploader(app.device->GetBackend(), *app.device);
-        app.textureIO = std::make_unique<TextureIO>(app.textureDecoder, *app.textureUploader, *app.jobSystem, app.renderQueue);
-        app.meshIO = std::make_unique<rendern::MeshIO>(*app.device, *app.jobSystem, app.renderQueue);
-        app.assets = std::make_unique<AssetManager>(*app.textureIO, *app.meshIO);
+        contentState.textureUploader = appBootstrap::CreateTextureUploader(graphicState.device->GetBackend(), *graphicState.device);
+        contentState.textureIO = std::make_unique<TextureIO>(
+            contentState.textureDecoder, *contentState.textureUploader, *contentState.jobSystem, contentState.renderQueue);
+        contentState.meshIO = std::make_unique<rendern::MeshIO>(*graphicState.device, *contentState.jobSystem, contentState.renderQueue);
+        contentState.assets = std::make_unique<AssetManager>(*contentState.textureIO, *contentState.meshIO);
         
         const std::string defaultLevelName = std::string(DefaultStartupLevelName);
-        const auto mapIt = app.appArguments.find(std::string(MAP_LITERAL));
+        const auto mapIt = launchState.appArguments.find(std::string(MAP_LITERAL));
         const bool hasOverride =
-            mapIt != app.appArguments.end()
+            mapIt != launchState.appArguments.end()
             && !mapIt->second.empty()
             && !mapIt->second.front().empty();
         
         if (!hasOverride)
         {
             std::cerr << "[Startup] Using default startup level: " << defaultLevelName << '\n';
-            app.levelAsset = std::make_unique<rendern::LevelAsset>(
+            contentState.levelAsset = std::make_unique<rendern::LevelAsset>(
                 rendern::LoadLevelAssetFromJson(defaultLevelName));
-            app.currentLevelName = defaultLevelName;
+            launchState.currentLevelName = defaultLevelName;
         }
         else
         {
@@ -258,55 +278,62 @@ namespace appLifecycle
 
             try
             {
-                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                contentState.levelAsset = std::make_unique<rendern::LevelAsset>(
                     rendern::LoadLevelAssetFromJson(overrideLevelName));
-                app.currentLevelName = overrideLevelName;
+                launchState.currentLevelName = overrideLevelName;
             }
             catch (const std::exception& e)
             {
                 std::cerr << "[Startup] Override failed: " << e.what()
           << ". Falling back to default: " << defaultLevelName << '\n';
                 
-                app.levelAsset = std::make_unique<rendern::LevelAsset>(
+                contentState.levelAsset = std::make_unique<rendern::LevelAsset>(
                     rendern::LoadLevelAssetFromJson(defaultLevelName));
-                app.currentLevelName = defaultLevelName;
+                launchState.currentLevelName = defaultLevelName;
             }
         }
-        std::cerr << "[Startup] Chosen startup level: " << app.currentLevelName << '\n';
+        std::cerr << "[Startup] Chosen startup level: " << launchState.currentLevelName << '\n';
         
-        app.rendererSettings.drawLightGizmos = true;
-        app.rendererSettings.loadingOverlayVisible = true;
-        app.rendererSettings.loadingOverlayProgressBar = 0.0f;
-        app.renderer = std::make_unique<rendern::Renderer>(*app.device, app.rendererSettings);
+        graphicState.rendererSettings.drawLightGizmos = true;
+        graphicState.rendererSettings.loadingOverlayVisible = true;
+        graphicState.rendererSettings.loadingOverlayProgressBar = 0.0f;
+        graphicState.renderer = std::make_unique<rendern::Renderer>(*graphicState.device, graphicState.rendererSettings);
 
 #if defined(CORE_USE_DX12)
-        if (app.requestedBackend == rhi::Backend::DirectX12 && app.debugSwapChain && app.debugWindow.hwnd)
+        if (launchState.requestedBackend == rhi::Backend::DirectX12 
+            && graphicState.debugSwapChain 
+            && windowState.debugWindow.hwnd)
         {
-            appUi::InitializeImGui(app.debugWindow.hwnd, *app.device, app.debugSwapChain->GetDesc().backbufferFormat, /*backbufferCount=*/2);
+            appUi::InitializeImGui(
+                windowState.debugWindow.hwnd, 
+                *graphicState.device, 
+                graphicState.debugSwapChain->GetDesc().backbufferFormat, 
+                /*backbufferCount=*/2);
         }
 #endif
 
-        app.scene.Clear();
-        app.bindless = std::make_unique<rendern::BindlessTable>(*app.device);
-        app.levelInstance = std::make_unique<rendern::LevelInstance>(rendern::InstantiateLevel(
-            app.scene,
-            *app.assets,
-            *app.bindless,
-            *app.levelAsset,
+        runtimeState.scene.Clear();
+        graphicState.bindless = std::make_unique<rendern::BindlessTable>(*graphicState.device);
+        runtimeState.levelInstance = std::make_unique<rendern::LevelInstance>(rendern::InstantiateLevel(
+            runtimeState.scene,
+            *contentState.assets,
+            *graphicState.bindless,
+            *contentState.levelAsset,
             mathUtils::Mat4(1.0f)));
 
-        app.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
-        app.gameplayRuntime->Initialize(*app.levelAsset, *app.levelInstance, app.scene);
+        runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
+        runtimeState.gameplayRuntime->Initialize(
+            *contentState.levelAsset, *runtimeState.levelInstance, runtimeState.scene);
 
-        app.cameraController = std::make_unique<rendern::CameraController>();
-        app.cameraController->ResetFromCamera(app.scene.camera);
+        runtimeState.cameraController = std::make_unique<rendern::CameraController>();
+        runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
 
-        app.gameplayMode = rendern::GameplayRuntimeMode::Editor;
+        runtimeState.gameplayMode = rendern::GameplayRuntimeMode::Editor;
 
-        app.frameTimer.SetMaxDelta(0.05);
-        app.frameTimer.Reset();
-        app.statsTimer.SetMaxDelta(10.0);
-        app.statsTimer.Reset();
+        frameState.frameTimer.SetMaxDelta(0.05);
+        frameState.frameTimer.Reset();
+        frameState.statsTimer.SetMaxDelta(10.0);
+        frameState.statsTimer.Reset();
         app.initialized = true;
     }
     
@@ -324,8 +351,17 @@ namespace appLifecycle
         {
             return true;
         }
+        
+        auto& runtimeState      = app.runtimeState;
+        auto& graphicState      = app.graphicsState;
+        auto& contentState      = app.contentState;
 
-        appRuntime::DriveAssetStreaming(*app.assets, *app.levelInstance, *app.bindless, app.scene, app.config.uploadBudget);
+        appRuntime::DriveAssetStreaming(
+            *contentState.assets, 
+            *runtimeState.levelInstance, 
+            *graphicState.bindless, 
+            runtimeState.scene, 
+            app.config.uploadBudget);
         
         const float deltaSeconds = UpdateFrameTimingAndLoadingOverlay(app);
         UpdateInputAndCamera(app, deltaSeconds);
@@ -333,14 +369,14 @@ namespace appLifecycle
         UpdateGameplayAndAnimation(app, deltaSeconds);
         
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
-           *app.device,
-           app.rendererSettings,
-           app.scene,
-           *app.cameraController,
-           *app.levelAsset,
-           *app.levelInstance,
-           *app.assets,
-           app.gameplayMode);
+           *graphicState.device,
+           graphicState.rendererSettings,
+           runtimeState.scene,
+           *runtimeState.cameraController,
+           *contentState.levelAsset,
+           *runtimeState.levelInstance,
+           *contentState.assets,
+           runtimeState.gameplayMode);
 
         RenderMainViewport(app);
         RenderDebugWindowIfNeeded(app, imguiDrawData);
@@ -355,36 +391,41 @@ namespace appLifecycle
         {
             return;
         }
-
+        
+        auto& runtimeState      = app.runtimeState;
+        auto& graphicState      = app.graphicsState;
+        auto& windowState       = app.windowState;
+        auto& contentState      = app.contentState;
+        
         appRuntime::ShutdownRuntime(
-            *app.device,
-            *app.renderer,
-            *app.levelInstance,
-            *app.bindless,
-            *app.jobSystem,
-            *app.assets,
-            app.window
+            *graphicState.device,
+            *graphicState.renderer,
+            *runtimeState.levelInstance,
+            *graphicState.bindless,
+            *contentState.jobSystem,
+            *contentState.assets,
+            windowState.mainWindow
 #if defined(CORE_USE_DX12)
-            , &app.debugWindow
+            , &windowState.debugWindow
 #endif
         );
 
 #if defined(CORE_USE_DX12)
-        app.debugSwapChain.reset();
+        graphicState.debugSwapChain.reset();
 #endif
-        app.swapChain.reset();
-        app.renderer.reset();
-        app.gameplayRuntime.reset();
-        app.levelInstance.reset();
-        app.bindless.reset();
-        app.levelAsset.reset();
-        app.assets.reset();
-        app.meshIO.reset();
-        app.textureIO.reset();
-        app.textureUploader.reset();
-        app.jobSystem.reset();
-        app.device.reset();
-        app.cameraController.reset();
+        graphicState.swapChain.reset();
+        graphicState.renderer.reset();
+        graphicState.bindless.reset();
+        graphicState.device.reset();
+        runtimeState.gameplayRuntime.reset();
+        runtimeState.levelInstance.reset();
+        runtimeState.cameraController.reset();
+        contentState.levelAsset.reset();
+        contentState.assets.reset();
+        contentState.meshIO.reset();
+        contentState.textureIO.reset();
+        contentState.textureUploader.reset();
+        contentState.jobSystem.reset();
         app.initialized = false;
     }
 }
