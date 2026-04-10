@@ -97,7 +97,7 @@ namespace appBootstrap
 #endif
 
         appWin32::g_mainMenu = appWin32::CreateMainMenu(canUseDebugWindow, canUseDebugWindow);
-        outMainWindow = appWin32::CreateWindowWin32(mainWidth, mainHeight, mainTitle, /*show=*/true, appWin32::g_mainMenu);
+        appWin32::CreateWindowWin32(outMainWindow, mainWidth, mainHeight, mainTitle, /*show=*/true, appWin32::g_mainMenu);
         appWin32::g_window = &outMainWindow;
 
 #if defined(CORE_USE_DX12)
@@ -109,7 +109,7 @@ namespace appBootstrap
         appWin32::g_debugWindow = nullptr;
         if (canUseDebugWindow && outDebugWindow)
         {
-            *outDebugWindow = appWin32::CreateWindowWin32(900, 900, L"CoreEngineModule - Debug UI", /*show=*/appWin32::g_showDebugWindow);
+            appWin32::CreateWindowWin32(*outDebugWindow, 900, 900, L"CoreEngineModule - Debug UI", /*show=*/appWin32::g_showDebugWindow);
             appWin32::g_debugWindow = outDebugWindow;
         }
 

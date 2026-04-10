@@ -18,6 +18,16 @@ namespace appWin32
         bool minimized{ false };
         bool running{ true };
     };
+    
+    struct AppShellContext
+    {
+        Win32Window *mainWindow{nullptr};
+        Win32Window *debugWindow{nullptr};
+        rendern::Win32Input* input{nullptr};
+        HMENU mainMenu{nullptr};
+        bool ShowDebugWindow{false};
+        bool imguiInitialized{false};
+    };
 
     extern Win32Window* g_window; // main window
     extern rendern::Win32Input* g_input;
@@ -44,7 +54,8 @@ namespace appWin32
 
     HMENU CreateMainMenu(bool enableDebugItem, bool debugChecked);
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-    Win32Window CreateWindowWin32(int width, int height, const std::wstring& title, bool show = true, HMENU menu = nullptr);
+    void CreateWindowWin32(
+        Win32Window& window, int width, int height, const std::wstring& title, bool show = true, HMENU menu = nullptr);
     void PumpMessages(Win32Window& window);
     void TinySleep();
 } // namespace appWin32
