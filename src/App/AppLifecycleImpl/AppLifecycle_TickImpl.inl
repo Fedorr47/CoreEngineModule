@@ -1,7 +1,7 @@
 static bool PumpAndCheckRunning(AppState& app)
 {
-    appWin32::PumpMessages(app.window);
-    if (!app.window.running)
+    appWin32::PumpMessages(app.windowState.mainWindow);
+    if (!app.windowState.mainWindow.running)
     {
         return false;
     }
@@ -10,15 +10,15 @@ static bool PumpAndCheckRunning(AppState& app)
 
 static void ApplyPendingResize(AppState& app)
 {
-    appRuntime::ApplyPendingResize(app.window, app.swapChain.get());
+    appRuntime::ApplyPendingResize(app.windowState.mainWindow, app.graphicsState.swapChain.get());
 #if defined(CORE_USE_DX12)
-    appRuntime::ApplyPendingResize(app.debugWindow, app.debugSwapChain.get());
+    appRuntime::ApplyPendingResize(app.windowState.debugWindow, app.graphicsState.debugSwapChain.get());
 #endif
 }
 
 static bool ShouldSkipFrame(AppState& app)
 {
-    if (appRuntime::ShouldSkipMainViewportFrame(app.window))
+    if (appRuntime::ShouldSkipMainViewportFrame(app.windowState.mainWindow))
     {
         appWin32::TinySleep();
         return true;
@@ -28,13 +28,13 @@ static bool ShouldSkipFrame(AppState& app)
 
 static const float UpdateFrameTimingAndLoadingOverlay(AppState& app)
 {
-    app.statsTimer.Tick();
-    const double rawFrameDeltaSeconds = app.statsTimer.GetDeltaTime();
+    app.frameState.statsTimer.Tick();
+    const double rawFrameDeltaSeconds = app.frameState.statsTimer.GetDeltaTime();
 
-    app.frameTimer.Tick();
-    const float deltaSeconds = static_cast<float>(app.frameTimer.GetDeltaTime());
+    app.frameState.frameTimer.Tick();
+    const float deltaSeconds = static_cast<float>(app.frameState.frameTimer.GetDeltaTime());
 
-    FrameStatsOverlayState& frameStats = app.frameStatsOverlay;
+    FrameStatsOverlayState& frameStats = app.frameState.frameStatsOverlay;
     if (rawFrameDeltaSeconds > 0.0)
     {
         frameStats.accumulatedSeconds += rawFrameDeltaSeconds;
@@ -70,14 +70,14 @@ static const float UpdateFrameTimingAndLoadingOverlay(AppState& app)
             frameStats.accumulatedFrames = 0u;
         }
     }
-    app.rendererSettings.mainViewportFpsDisplay = frameStats.displayFps;
-    app.rendererSettings.mainViewportFrameMsDisplay = frameStats.displayMs;
+    app.graphicsState.rendererSettings.mainViewportFpsDisplay = frameStats.displayFps;
+    app.graphicsState.rendererSettings.mainViewportFrameMsDisplay = frameStats.displayMs;
 
-    const AssetStreamingStats streamingStats = app.assets->GetStreamingStats();
+    const AssetStreamingStats streamingStats = app.contentState.assets->GetStreamingStats();
     const bool hasPendingStreaming = streamingStats.HasPendingWork();
     const float targetProgress01 = streamingStats.Completion01();
 
-    auto& overlay = app.loadingOverlay;
+    auto& overlay = app.frameState.loadingOverlay;
     const float lerpAlpha = std::clamp(deltaSeconds * (hasPendingStreaming ? 4.0f : 10.0f), 0.0f, 1.0f);
     overlay.displayProgressBar = std::lerp(overlay.displayProgressBar, targetProgress01, lerpAlpha);
 
@@ -96,74 +96,76 @@ static const float UpdateFrameTimingAndLoadingOverlay(AppState& app)
         }
     }
 
-    app.rendererSettings.loadingOverlayVisible = overlay.visible;
-    app.rendererSettings.loadingOverlayProgressBar = overlay.visible
+    app.graphicsState.rendererSettings.loadingOverlayVisible = overlay.visible;
+    app.graphicsState.rendererSettings.loadingOverlayProgressBar = overlay.visible
         ? std::clamp(overlay.displayProgressBar, hasPendingStreaming ? 0.02f : 1.0f, 1.0f)
         : 0.0f;
 
-    app.rendererSettings.loadingOverlayTotalUnits = streamingStats.total.totalEntries;
-    app.rendererSettings.loadingOverlayCompletedUnits = streamingStats.total.loadedEntries + streamingStats.total.failedEntries;
+    app.graphicsState.rendererSettings.loadingOverlayTotalUnits = streamingStats.total.totalEntries;
+    app.graphicsState.rendererSettings.loadingOverlayCompletedUnits = streamingStats.total.loadedEntries + streamingStats.total.failedEntries;
     
     return deltaSeconds;
 }
 
 static void UpdateInputAndCamera(AppState& app, float deltaSeconds)
 {
-    app.win32Input.SetCaptureMode(appUi::GetInputCaptureForImGui());
-    app.win32Input.NewFrame(app.window.hwnd);
-    if (app.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+    app.windowState.input.SetCaptureMode(appUi::GetInputCaptureForImGui());
+    app.windowState.input.NewFrame(app.windowState.mainWindow.hwnd);
+    if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
     {
-        app.cameraController->Update(
+        app.runtimeState.cameraController->Update(
             deltaSeconds, 
-            app.win32Input.State(), 
-            app.scene.camera);
+            app.windowState.input.State(), 
+            app.runtimeState.scene.camera);
     }
 }
 
 static void UpdateEditorViewportInteraction(AppState& app)
 {
-    if (app.win32Input.State().KeyPressed(VK_F5))
+    if (app.windowState.input.State().KeyPressed(VK_F5))
     {
-        app.gameplayMode = (app.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+        app.runtimeState.gameplayMode = (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
             ? rendern::GameplayRuntimeMode::Game
             : rendern::GameplayRuntimeMode::Editor;
     }
 
-    if (app.win32Input.State().KeyPressed(VK_F6))
+    if (app.windowState.input.State().KeyPressed(VK_F6))
     {
-        app.rendererSettings.drawAnimationRuntimeOverlay = !app.rendererSettings.drawAnimationRuntimeOverlay;
+        app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay = 
+            !app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay;
     }
-    if (app.gameplayMode == rendern::GameplayRuntimeMode::Game)
+    if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Game)
     {
         ResetEditorInteractionState(app);
     }
     else
     {
         appEditor::ApplyGizmoModeHotkeys(
-            app.editorViewportInteraction, 
-            app.scene, 
-            app.win32Input.State());
+            app.runtimeState.editorViewportInteraction, 
+            app.runtimeState.scene, 
+            app.windowState.input.State());
         appEditor::SyncEditorGizmoVisuals(
-            app.editorViewportInteraction, 
-            *app.levelAsset, 
-            *app.levelInstance,
-            app.scene);
+            app.runtimeState.editorViewportInteraction, 
+            *app.contentState.levelAsset, 
+            *app.runtimeState.levelInstance,
+            app.runtimeState.scene);
         appEditor::UpdateViewportGizmoHover(
-            app.editorViewportInteraction, 
-            app.window.hwnd, app.window.width, 
-            app.window.height, 
-            app.scene, 
-            app.win32Input.State());
+            app.runtimeState.editorViewportInteraction, 
+            app.windowState.mainWindow.hwnd, 
+            app.windowState.mainWindow.width, 
+            app.windowState.mainWindow.height, 
+            app.runtimeState.scene, 
+            app.windowState.input.State());
         appEditor::HandleViewportMouseInteraction(
-            app.editorViewportInteraction, 
-            app.window.hwnd, 
-            app.window.width, 
-            app.window.height, 
-            *app.levelAsset, 
-            *app.levelInstance, 
-            *app.assets, 
-            app.scene, 
-            app.win32Input.State());
+            app.runtimeState.editorViewportInteraction, 
+            app.windowState.mainWindow.hwnd, 
+            app.windowState.mainWindow.width, 
+            app.windowState.mainWindow.height, 
+            *app.contentState.levelAsset, 
+            *app.runtimeState.levelInstance, 
+            *app.contentState.assets, 
+            app.runtimeState.scene, 
+            app.windowState.input.State());
     }
 }
 
@@ -173,49 +175,51 @@ const rendern::GameplayUpdateContext BuildGameplayUpdateContext(
 {
     rendern::GameplayUpdateContext gameplayCtx{};
     gameplayCtx.deltaSeconds = deltaSeconds;
-    gameplayCtx.mode = app.gameplayMode;
-    gameplayCtx.input = &app.win32Input.State();
-    gameplayCtx.levelAsset = app.levelAsset.get();
-    gameplayCtx.levelInstance = app.levelInstance.get();
-    gameplayCtx.scene = &app.scene;
+    gameplayCtx.mode = app.runtimeState.gameplayMode;
+    gameplayCtx.input = &app.windowState.input.State();
+    gameplayCtx.levelAsset = app.contentState.levelAsset.get();
+    gameplayCtx.levelInstance = app.runtimeState.levelInstance.get();
+    gameplayCtx.scene = &app.runtimeState.scene;
     return gameplayCtx;
 }
 
 static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 {
     const rendern::GameplayUpdateContext gameplayCtx = BuildGameplayUpdateContext(app, deltaSeconds);
-    auto* gameplayRuntime = app.gameplayRuntime.get();
+    auto* gameplayRuntime = app.runtimeState.gameplayRuntime.get();
     
     if (gameplayRuntime)
     {
-        app.gameplayRuntime->BeginFrame();
-        app.gameplayRuntime->PreAnimationUpdate(gameplayCtx);
+        app.runtimeState.gameplayRuntime->BeginFrame();
+        app.runtimeState.gameplayRuntime->PreAnimationUpdate(gameplayCtx);
     }
 
-    app.scene.UpdateSkinned(deltaSeconds);
+    app.runtimeState.scene.UpdateSkinned(deltaSeconds);
 
-    if (app.gameplayRuntime)
+    if (app.runtimeState.gameplayRuntime)
     {
-        app.gameplayRuntime->PostAnimationUpdate(gameplayCtx);
+        app.runtimeState.gameplayRuntime->PostAnimationUpdate(gameplayCtx);
     }
     
     UpdateGameplayMovementDebug(app);
     UpdateAnimationRuntimeDebug(app);
-    app.scene.UpdateParticles(deltaSeconds);
+    app.runtimeState.scene.UpdateParticles(deltaSeconds);
 }
 
 static void RenderMainViewport(AppState& app)
 {
-    app.renderer->SetSettings(app.rendererSettings);
-    app.renderer->RenderFrame(*app.swapChain, app.scene, /*imguiDrawData=*/nullptr);
+    app.graphicsState.renderer->SetSettings(app.graphicsState.rendererSettings);
+    app.graphicsState.renderer->RenderFrame(
+        *app.graphicsState.swapChain, app.runtimeState.scene, /*imguiDrawData=*/nullptr);
 }
 
 static void RenderDebugWindowIfNeeded(AppState& app, const void* imguiDrawData)
 {
 #if defined(CORE_USE_DX12)
-    if (appRuntime::CanRenderDebugSwapChain(app.debugWindow, app.debugSwapChain.get()))
+    if (appRuntime::CanRenderDebugSwapChain(app.windowState.debugWindow, app.graphicsState.debugSwapChain.get()))
     {
-        appUi::RenderImGuiToSwapChainIfEnabled(*app.device, *app.debugSwapChain, imguiDrawData);
+        appUi::RenderImGuiToSwapChainIfEnabled(
+            *app.graphicsState.device, *app.graphicsState.debugSwapChain, imguiDrawData);
     }
 #endif
 }
