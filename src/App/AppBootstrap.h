@@ -11,6 +11,7 @@ namespace appBootstrap
     rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args);
 
     void CreatePrimaryWindowSet(
+        appWin32::AppShellContext& shell,
         int mainWidth,
         int mainHeight,
         const std::wstring& mainTitle,
@@ -20,8 +21,6 @@ namespace appBootstrap
         , appWin32::Win32Window* outDebugWindow
 #endif
     );
-
-    void BindWin32Input(rendern::Win32Input& input);
 
     void CreateDeviceAndSwapChain(
         rhi::Backend backend,
