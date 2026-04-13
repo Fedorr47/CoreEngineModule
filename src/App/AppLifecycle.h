@@ -46,11 +46,18 @@ namespace appLifecycle
     
     struct AppWindowState
     {
+        appWin32::AppShellContext shell{};
         appWin32::Win32Window mainWindow{};
 #if defined(CORE_USE_DX12)
         appWin32::Win32Window debugWindow{};
 #endif
         rendern::Win32Input input{};
+
+        AppWindowState() = default;
+        AppWindowState(const AppWindowState&) = delete;
+        AppWindowState& operator=(const AppWindowState&) = delete;
+        AppWindowState(AppWindowState&&) = delete;
+        AppWindowState& operator=(AppWindowState&&) = delete;
     };
     
     struct AppGraphicsState
@@ -105,6 +112,12 @@ namespace appLifecycle
         AppRuntimeState     runtimeState{};
         AppFrameState      frameState{};
         bool initialized = false;
+
+        AppState() = default;
+        AppState(const AppState&) = delete;
+        AppState& operator=(const AppState&) = delete;
+        AppState(AppState&&) = delete;
+        AppState& operator=(AppState&&) = delete;
     };
 
     void InitializeApp(AppState& app, int argc, char** argv);

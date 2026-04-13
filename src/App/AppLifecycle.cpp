@@ -220,8 +220,10 @@ namespace appLifecycle
         
         launchState.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, launchState.appArguments);
         launchState.canUseDebugWindow = appBootstrap::CanUseDebugWindow(launchState.requestedBackend);
+        windowState.shell.input = &windowState.input;
 
         appBootstrap::CreatePrimaryWindowSet(
+            windowState.shell,
             app.config.windowWidth,
             app.config.windowHeight,
             app.config.windowTitle,
@@ -232,7 +234,6 @@ namespace appLifecycle
 #endif
         );
 
-        appBootstrap::BindWin32Input(windowState.input);
         appBootstrap::CreateDeviceAndSwapChain(
             launchState.requestedBackend,
             windowState.mainWindow.hwnd,
@@ -305,6 +306,7 @@ namespace appLifecycle
             && windowState.debugWindow.hwnd)
         {
             appUi::InitializeImGui(
+                windowState.shell,
                 windowState.debugWindow.hwnd, 
                 *graphicState.device, 
                 graphicState.debugSwapChain->GetDesc().backbufferFormat, 
@@ -369,6 +371,7 @@ namespace appLifecycle
         UpdateGameplayAndAnimation(app, deltaSeconds);
         
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
+           app.windowState.shell,
            *graphicState.device,
            graphicState.rendererSettings,
            runtimeState.scene,
@@ -398,16 +401,13 @@ namespace appLifecycle
         auto& contentState      = app.contentState;
         
         appRuntime::ShutdownRuntime(
+            windowState.shell,
             *graphicState.device,
             *graphicState.renderer,
             *runtimeState.levelInstance,
             *graphicState.bindless,
             *contentState.jobSystem,
-            *contentState.assets,
-            windowState.mainWindow
-#if defined(CORE_USE_DX12)
-            , &windowState.debugWindow
-#endif
+            *contentState.assets
         );
 
 #if defined(CORE_USE_DX12)

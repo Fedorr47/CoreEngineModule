@@ -13,34 +13,40 @@ import std;
 
 namespace appWin32
 {
-    Win32Window* g_window = nullptr;
-    rendern::Win32Input* g_input = nullptr;
-
 #if defined(CORE_USE_DX12)
-    Win32Window* g_debugWindow = nullptr;
-    bool g_showDebugWindow = true;
-    bool g_imguiInitialized = false;
-#endif
-
-    HMENU g_mainMenu = nullptr;
-
-#if defined(CORE_USE_DX12)
-    void UpdateMainMenuDebugWindowCheck()
+    namespace
     {
-        if (!g_mainMenu)
+        void ToggleDebugWindowVisibility(AppShellContext& shell)
+        {
+            if (shell.debugWindow && shell.debugWindow->hwnd)
+            {
+                ShowWindow(shell.debugWindow->hwnd, shell.showDebugWindow ? SW_SHOW : SW_HIDE);
+                if (shell.showDebugWindow)
+                {
+                    SetForegroundWindow(shell.debugWindow->hwnd);
+                }
+            }
+
+            UpdateMainMenuDebugWindowCheck(shell);
+        }
+    }
+
+    void UpdateMainMenuDebugWindowCheck(AppShellContext& shell)
+    {
+        if (!shell.mainMenu)
         {
             return;
         }
 
-        const UINT enableFlags = MF_BYCOMMAND | ((g_debugWindow && g_debugWindow->hwnd) ? MF_ENABLED : MF_GRAYED);
-        EnableMenuItem(g_mainMenu, IDM_VIEW_DEBUG_WINDOW, enableFlags);
+        const UINT enableFlags = MF_BYCOMMAND | ((shell.debugWindow && shell.debugWindow->hwnd) ? MF_ENABLED : MF_GRAYED);
+        EnableMenuItem(shell.mainMenu, IDM_VIEW_DEBUG_WINDOW, enableFlags);
 
-        const UINT checkFlags = MF_BYCOMMAND | (g_showDebugWindow ? MF_CHECKED : MF_UNCHECKED);
-        CheckMenuItem(g_mainMenu, IDM_VIEW_DEBUG_WINDOW, checkFlags);
+        const UINT checkFlags = MF_BYCOMMAND | (shell.showDebugWindow ? MF_CHECKED : MF_UNCHECKED);
+        CheckMenuItem(shell.mainMenu, IDM_VIEW_DEBUG_WINDOW, checkFlags);
 
-        if (g_window && g_window->hwnd)
+        if (shell.mainWindow && shell.mainWindow->hwnd)
         {
-            DrawMenuBar(g_window->hwnd);
+            DrawMenuBar(shell.mainWindow->hwnd);
         }
     }
 #endif
@@ -72,13 +78,30 @@ namespace appWin32
 
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
-        if (g_input && g_window && hwnd == g_window->hwnd)
+        if (msg == WM_NCCREATE)
         {
-            g_input->OnWndProc(hwnd, msg, wParam, lParam);
+            const auto* createStruct = reinterpret_cast<const CREATESTRUCTW*>(lParam);
+            auto* window = static_cast<Win32Window*>(createStruct->lpCreateParams);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
+            if (window)
+            {
+                window->hwnd = hwnd;
+            }
+        }
+
+        Win32Window* self = GetWindowUserData(hwnd);
+        AppShellContext* shell = self ? self->shell : nullptr;
+
+        if (shell && shell->input && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
+        {
+            shell->input->OnWndProc(hwnd, msg, wParam, lParam);
         }
 
 #if defined(CORE_USE_DX12)
-        if (g_imguiInitialized && g_debugWindow && hwnd == g_debugWindow->hwnd)
+        if (shell
+            && shell->imguiInitialized
+            && shell->debugWindow
+            && hwnd == shell->debugWindow->hwnd)
         {
             if (msg != WM_SIZE && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
             {
@@ -92,7 +115,7 @@ namespace appWin32
         case WM_COMMAND:
         {
             const int cmdId = static_cast<int>(LOWORD(wParam));
-            if (g_window && hwnd == g_window->hwnd)
+            if (shell && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
             {
                 switch (cmdId)
                 {
@@ -102,16 +125,8 @@ namespace appWin32
 
 #if defined(CORE_USE_DX12)
                 case IDM_VIEW_DEBUG_WINDOW:
-                    g_showDebugWindow = !g_showDebugWindow;
-                    if (g_debugWindow && g_debugWindow->hwnd)
-                    {
-                        ShowWindow(g_debugWindow->hwnd, g_showDebugWindow ? SW_SHOW : SW_HIDE);
-                        if (g_showDebugWindow)
-                        {
-                            SetForegroundWindow(g_debugWindow->hwnd);
-                        }
-                    }
-                    UpdateMainMenuDebugWindowCheck();
+                    shell->showDebugWindow = !shell->showDebugWindow;
+                    ToggleDebugWindowVisibility(*shell);
                     return 0;
 #endif
 
@@ -123,11 +138,11 @@ namespace appWin32
         }
         case WM_CLOSE:
 #if defined(CORE_USE_DX12)
-            if (g_debugWindow && hwnd == g_debugWindow->hwnd)
+            if (shell && shell->debugWindow && hwnd == shell->debugWindow->hwnd)
             {
                 ShowWindow(hwnd, SW_HIDE);
-                g_showDebugWindow = false;
-                UpdateMainMenuDebugWindowCheck();
+                shell->showDebugWindow = false;
+                UpdateMainMenuDebugWindowCheck(*shell);
                 return 0;
             }
 #endif
@@ -136,36 +151,25 @@ namespace appWin32
             return 0;
 
         case WM_DESTROY:
-            if (g_window && hwnd == g_window->hwnd)
+            if (shell && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
             {
-                g_window->running = false;
+                shell->mainWindow->running = false;
                 PostQuitMessage(0);
             }
             return 0;
 
         case WM_SIZE:
         {
-            Win32Window* win = nullptr;
-            if (g_window && hwnd == g_window->hwnd)
-            {
-                win = g_window;
-            }
-#if defined(CORE_USE_DX12)
-            else if (g_debugWindow && hwnd == g_debugWindow->hwnd)
-            {
-                win = g_debugWindow;
-            }
-#endif
-            if (win)
+            if (self)
             {
                 const int newW = static_cast<int>(LOWORD(lParam));
                 const int newH = static_cast<int>(HIWORD(lParam));
-                win->width = newW;
-                win->height = newH;
-                win->pendingWidth = newW;
-                win->pendingHeight = newH;
-                win->pendingResize = true;
-                win->minimized = (wParam == SIZE_MINIMIZED) || (newW == 0) || (newH == 0);
+                self->width = newW;
+                self->height = newH;
+                self->pendingWidth = newW;
+                self->pendingHeight = newH;
+                self->pendingResize = true;
+                self->minimized = (wParam == SIZE_MINIMIZED) || (newW == 0) || (newH == 0);
                 return 0;
             }
             break;
@@ -174,7 +178,7 @@ namespace appWin32
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
             {
-                if (g_window && hwnd == g_window->hwnd)
+                if (shell && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
                 {
                     DestroyWindow(hwnd);
                     return 0;
@@ -184,18 +188,10 @@ namespace appWin32
             if (wParam == VK_F1)
             {
                 const bool wasDown = (lParam & (1 << 30)) != 0;
-                if (!wasDown)
+                if (!wasDown && shell)
                 {
-                    g_showDebugWindow = !g_showDebugWindow;
-                    if (g_debugWindow && g_debugWindow->hwnd)
-                    {
-                        ShowWindow(g_debugWindow->hwnd, g_showDebugWindow ? SW_SHOW : SW_HIDE);
-                        if (g_showDebugWindow)
-                        {
-                            SetForegroundWindow(g_debugWindow->hwnd);
-                        }
-                    }
-                    UpdateMainMenuDebugWindowCheck();
+                    shell->showDebugWindow = !shell->showDebugWindow;
+                    ToggleDebugWindowVisibility(*shell);
                 }
                 return 0;
             }
@@ -209,9 +205,27 @@ namespace appWin32
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
 
-    Win32Window CreateWindowWin32(int width, int height, const std::wstring& title, bool show, HMENU menu)
+    Win32Window* GetWindowUserData(HWND hwnd) noexcept
     {
-        Win32Window window{};
+        if (!hwnd)
+        {
+            return nullptr;
+        }
+
+        return reinterpret_cast<Win32Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    }
+
+    void CreateWindowWin32(
+        Win32Window& window,
+        AppShellContext& shell,
+        int width,
+        int height,
+        const std::wstring& title,
+        bool show,
+        HMENU menu)
+    {
+        window = {};
+        window.shell = &shell;
         window.width = width;
         window.height = height;
 
@@ -252,7 +266,7 @@ namespace appWin32
             nullptr,
             menu,
             instanceHandle,
-            nullptr);
+            &window);
 
         if (!window.hwnd)
         {
@@ -261,7 +275,6 @@ namespace appWin32
 
         ShowWindow(window.hwnd, show ? SW_SHOW : SW_HIDE);
         UpdateWindow(window.hwnd);
-        return window;
     }
 
     bool TryGetCursorPosClient(HWND hwnd, int& outX, int& outY) noexcept

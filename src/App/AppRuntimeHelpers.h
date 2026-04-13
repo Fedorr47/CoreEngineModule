@@ -63,20 +63,20 @@ namespace appRuntime
     }
 
     inline void ShutdownRuntime(
+        appWin32::AppShellContext& shell,
         rhi::IRHIDevice& device,
         rendern::Renderer& renderer,
         rendern::LevelInstance& levelInstance,
         rendern::BindlessTable& bindless,
         rendern::JobSystemThreadPool& jobSystem,
-        AssetManager& assets,
-        appWin32::Win32Window& mainWindow
-#if defined(CORE_USE_DX12)
-        , appWin32::Win32Window* debugWindow
-#endif
+        AssetManager& assets
     )
     {
+        appWin32::Win32Window* mainWindow = shell.mainWindow;
+        appWin32::Win32Window* debugWindow = shell.debugWindow;
+
 #if defined(CORE_USE_DX12)
-        appUi::ShutdownImGui(device);
+        appUi::ShutdownImGui(shell, device);
 #endif
 
         renderer.Shutdown();
@@ -86,22 +86,30 @@ namespace appRuntime
         assets.ClearAll();
         assets.ProcessUploads(64, 256, 64, 256);
 
-        if (mainWindow.hwnd)
+        if (mainWindow && mainWindow->hwnd)
         {
-            appWin32::DestroyWindowSafe(mainWindow.hwnd);
-            mainWindow.hwnd = nullptr;
+            appWin32::DestroyWindowSafe(mainWindow->hwnd);
         }
 
 #if defined(CORE_USE_DX12)
         if (debugWindow && debugWindow->hwnd)
         {
             appWin32::DestroyWindowSafe(debugWindow->hwnd);
-            debugWindow->hwnd = nullptr;
         }
-        appWin32::g_debugWindow = nullptr;
 #endif
 
-        appWin32::g_window = nullptr;
-        appWin32::g_input = nullptr;
+        if (mainWindow)
+        {
+            *mainWindow = {};
+        }
+
+#if defined(CORE_USE_DX12)
+        if (debugWindow)
+        {
+            *debugWindow = {};
+        }
+#endif
+
+        shell = {};
     }
 }
