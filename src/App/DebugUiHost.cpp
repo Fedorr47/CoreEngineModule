@@ -19,22 +19,27 @@ import std;
 namespace appUi
 {
 #if defined(CORE_USE_DX12)
-    void InitializeImGui(HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount)
+    void InitializeImGui(
+        appWin32::AppShellContext& shell,
+        HWND hwnd,
+        rhi::IRHIDevice& device,
+        rhi::Format backbufferFormat,
+        int backbufferCount)
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
         ImGui_ImplWin32_Init(hwnd);
         device.InitImGui(hwnd, backbufferCount, backbufferFormat);
-        appWin32::g_imguiInitialized = true;
+        shell.imguiInitialized = true;
 
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     }
 
-    void ShutdownImGui(rhi::IRHIDevice& device)
+    void ShutdownImGui(appWin32::AppShellContext& shell, rhi::IRHIDevice& device)
     {
-        if (!appWin32::g_imguiInitialized)
+        if (!shell.imguiInitialized)
         {
             return;
         }
@@ -42,10 +47,11 @@ namespace appUi
         device.ShutdownImGui();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
-        appWin32::g_imguiInitialized = false;
+        shell.imguiInitialized = false;
     }
 
     const void* BuildImGuiFrameIfEnabled(
+        appWin32::AppShellContext& shell,
         rhi::IRHIDevice& device,
         rendern::RendererSettings& settings,
         rendern::Scene& scene,
@@ -55,12 +61,12 @@ namespace appUi
         AssetManager& assets,
         rendern::GameplayRuntimeMode& runtimeMode)
     {
-        if (!appWin32::g_imguiInitialized || !appWin32::g_showDebugWindow || !appWin32::g_debugWindow || !appWin32::g_debugWindow->hwnd)
+        if (!shell.imguiInitialized || !shell.showDebugWindow || !shell.debugWindow || !shell.debugWindow->hwnd)
         {
             return nullptr;
         }
 
-        if (!IsWindowVisible(appWin32::g_debugWindow->hwnd))
+        if (!IsWindowVisible(shell.debugWindow->hwnd))
         {
             return nullptr;
         }
@@ -99,12 +105,12 @@ namespace appUi
         return static_cast<const void*>(ImGui::GetDrawData());
     }
 
-    rendern::InputCapture GetInputCaptureForImGui()
+    rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext& shell)
     {
         rendern::InputCapture capture{};
-        if (appWin32::g_imguiInitialized && appWin32::g_showDebugWindow && appWin32::g_debugWindow && appWin32::g_debugWindow->hwnd)
+        if (shell.imguiInitialized && shell.showDebugWindow && shell.debugWindow && shell.debugWindow->hwnd)
         {
-            if (IsWindowVisible(appWin32::g_debugWindow->hwnd) && GetForegroundWindow() == appWin32::g_debugWindow->hwnd)
+            if (IsWindowVisible(shell.debugWindow->hwnd) && GetForegroundWindow() == shell.debugWindow->hwnd)
             {
                 const ImGuiIO& io = ImGui::GetIO();
                 capture.captureKeyboard = io.WantCaptureKeyboard;
@@ -114,13 +120,17 @@ namespace appUi
         return capture;
     }
 
-    void RenderImGuiToSwapChainIfEnabled(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData)
+    void RenderImGuiToSwapChainIfEnabled(
+        appWin32::AppShellContext& shell,
+        rhi::IRHIDevice& device,
+        rhi::IRHISwapChain& swapChain,
+        const void* imguiDrawData)
     {
-        if (!imguiDrawData || !appWin32::g_imguiInitialized || !appWin32::g_showDebugWindow || !appWin32::g_debugWindow || !appWin32::g_debugWindow->hwnd)
+        if (!imguiDrawData || !shell.imguiInitialized || !shell.showDebugWindow || !shell.debugWindow || !shell.debugWindow->hwnd)
         {
             return;
         }
-        if (!IsWindowVisible(appWin32::g_debugWindow->hwnd))
+        if (!IsWindowVisible(shell.debugWindow->hwnd))
         {
             return;
         }
@@ -146,15 +156,16 @@ namespace appUi
         swapChain.Present();
     }
 #else
-    void InitializeImGui(HWND, rhi::IRHIDevice&, rhi::Format, int)
+    void InitializeImGui(appWin32::AppShellContext&, HWND, rhi::IRHIDevice&, rhi::Format, int)
     {
     }
 
-    void ShutdownImGui(rhi::IRHIDevice&)
+    void ShutdownImGui(appWin32::AppShellContext&, rhi::IRHIDevice&)
     {
     }
 
     const void* BuildImGuiFrameIfEnabled(
+        appWin32::AppShellContext&,
         rhi::IRHIDevice&,
         rendern::RendererSettings&,
         rendern::Scene&,
@@ -167,12 +178,12 @@ namespace appUi
         return nullptr;
     }
 
-    rendern::InputCapture GetInputCaptureForImGui()
+    rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext&)
     {
         return {};
     }
 
-    void RenderImGuiToSwapChainIfEnabled(rhi::IRHIDevice&, rhi::IRHISwapChain&, const void*)
+    void RenderImGuiToSwapChainIfEnabled(appWin32::AppShellContext&, rhi::IRHIDevice&, rhi::IRHISwapChain&, const void*)
     {
     }
 #endif

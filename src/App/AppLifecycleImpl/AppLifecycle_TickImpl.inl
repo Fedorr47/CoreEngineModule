@@ -109,7 +109,7 @@ static const float UpdateFrameTimingAndLoadingOverlay(AppState& app)
 
 static void UpdateInputAndCamera(AppState& app, float deltaSeconds)
 {
-    app.windowState.input.SetCaptureMode(appUi::GetInputCaptureForImGui());
+    app.windowState.input.SetCaptureMode(appUi::GetInputCaptureForImGui(app.windowState.shell));
     app.windowState.input.NewFrame(app.windowState.mainWindow.hwnd);
     if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
     {
@@ -219,6 +219,7 @@ static void RenderDebugWindowIfNeeded(AppState& app, const void* imguiDrawData)
     if (appRuntime::CanRenderDebugSwapChain(app.windowState.debugWindow, app.graphicsState.debugSwapChain.get()))
     {
         appUi::RenderImGuiToSwapChainIfEnabled(
+            app.windowState.shell,
             *app.graphicsState.device, *app.graphicsState.debugSwapChain, imguiDrawData);
     }
 #endif

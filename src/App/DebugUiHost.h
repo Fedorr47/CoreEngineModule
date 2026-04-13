@@ -4,10 +4,11 @@
 
 namespace appUi
 {
-    void InitializeImGui(HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount);
-    void ShutdownImGui(rhi::IRHIDevice& device);
+    void InitializeImGui(appWin32::AppShellContext& shell, HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount);
+    void ShutdownImGui(appWin32::AppShellContext& shell, rhi::IRHIDevice& device);
 
     const void* BuildImGuiFrameIfEnabled(
+        appWin32::AppShellContext& shell,
         rhi::IRHIDevice& device,
         rendern::RendererSettings& settings,
         rendern::Scene& scene,
@@ -17,6 +18,6 @@ namespace appUi
         AssetManager& assets,
         rendern::GameplayRuntimeMode& runtimeMode);
 
-    rendern::InputCapture GetInputCaptureForImGui();
-    void RenderImGuiToSwapChainIfEnabled(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);
+    rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext& shell);
+    void RenderImGuiToSwapChainIfEnabled(appWin32::AppShellContext& shell, rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);
 }

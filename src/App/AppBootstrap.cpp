@@ -82,6 +82,7 @@ namespace appBootstrap
     }
 
     void CreatePrimaryWindowSet(
+        appWin32::AppShellContext& shell,
         int mainWidth,
         int mainHeight,
         const std::wstring& mainTitle,
@@ -92,13 +93,26 @@ namespace appBootstrap
 #endif
     )
     {
+        shell.imguiInitialized = false;
+        shell.mainWindow = &outMainWindow;
+        shell.mainMenu = nullptr;
 #if defined(CORE_USE_DX12)
-        appWin32::g_showDebugWindow = canUseDebugWindow;
+        shell.showDebugWindow = canUseDebugWindow;
+        shell.debugWindow = outDebugWindow;
+#else
+        shell.showDebugWindow = false;
+        shell.debugWindow = nullptr;
 #endif
 
-        appWin32::g_mainMenu = appWin32::CreateMainMenu(canUseDebugWindow, canUseDebugWindow);
-        appWin32::CreateWindowWin32(outMainWindow, mainWidth, mainHeight, mainTitle, /*show=*/true, appWin32::g_mainMenu);
-        appWin32::g_window = &outMainWindow;
+        shell.mainMenu = appWin32::CreateMainMenu(canUseDebugWindow, canUseDebugWindow);
+        appWin32::CreateWindowWin32(
+            outMainWindow,
+            shell,
+            mainWidth,
+            mainHeight,
+            mainTitle,
+            /*show=*/true,
+            shell.mainMenu);
 
 #if defined(CORE_USE_DX12)
         if (outDebugWindow)
@@ -106,20 +120,23 @@ namespace appBootstrap
             *outDebugWindow = {};
         }
 
-        appWin32::g_debugWindow = nullptr;
         if (canUseDebugWindow && outDebugWindow)
         {
-            appWin32::CreateWindowWin32(*outDebugWindow, 900, 900, L"CoreEngineModule - Debug UI", /*show=*/appWin32::g_showDebugWindow);
-            appWin32::g_debugWindow = outDebugWindow;
+            appWin32::CreateWindowWin32(
+                *outDebugWindow,
+                shell,
+                900,
+                900,
+                L"CoreEngineModule - Debug UI",
+                /*show=*/shell.showDebugWindow);
+        }
+        else
+        {
+            shell.debugWindow = nullptr;
         }
 
-        appWin32::UpdateMainMenuDebugWindowCheck();
+        appWin32::UpdateMainMenuDebugWindowCheck(shell);
 #endif
-    }
-
-    void BindWin32Input(rendern::Win32Input& input)
-    {
-        appWin32::g_input = &input;
     }
 
     void CreateDeviceAndSwapChain(
