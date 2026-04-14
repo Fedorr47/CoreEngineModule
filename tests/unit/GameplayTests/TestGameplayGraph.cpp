@@ -60,3 +60,206 @@ TEST(GameplayGraph, FindStateIndexByNameReturnsExpectedIndex)
 	EXPECT_EQ(FindGameplayGraphStateIndex(layer, "Attack"), 2);
 	EXPECT_EQ(FindGameplayGraphStateIndex(layer, "Missing"), -1);
 }
+
+TEST(GameplayGraph, CompileConditionOpcodeSupportsLegacyTextTokens)
+{
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("BoolTrue"),
+		GameplayGraphConditionOpcode::BoolTrue);
+
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("bool_false"),
+		GameplayGraphConditionOpcode::BoolFalse);
+
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("FLOAT-GREATER"),
+		GameplayGraphConditionOpcode::FloatGreater);
+
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("float less"),
+		GameplayGraphConditionOpcode::FloatLess);
+}
+
+TEST(GameplayGraph, CompileConditionOpcodeReturnsUnknownForUnsupportedToken)
+{
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("NotARealCondition"),
+		GameplayGraphConditionOpcode::Unknown);
+
+	EXPECT_EQ(
+		CompileGameplayGraphConditionOpcode("???"),
+		GameplayGraphConditionOpcode::Unknown);
+}
+
+TEST(GameplayGraph, PrecompileGameplayGraphAssetCompilesTransitionConditionOpcodes)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "test_graph";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions = {
+		GameplayGraphTransitionDesc{
+			.toState = "Run",
+			.conditions = {
+				GameplayGraphConditionDesc{
+					.name = "BoolTrue",
+					.parameter = "isMoving",
+					.boolValue = true
+				},
+				GameplayGraphConditionDesc{
+					.name = "FloatGreater",
+					.parameter = "speed",
+					.threshold = 0.1f
+				}
+			}
+		}
+	};
+
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+	run.transitions = {
+		GameplayGraphTransitionDesc{
+			.toState = "Idle",
+			.conditions = {
+				GameplayGraphConditionDesc{
+					.name = "BoolFalse",
+					.parameter = "isMoving",
+					.boolValue = false
+				},
+				GameplayGraphConditionDesc{
+					.name = "FloatLess",
+					.parameter = "speed",
+					.threshold = 0.1f
+				}
+			}
+		}
+	};
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	PrecompileGameplayGraphAsset(asset);
+
+	ASSERT_EQ(asset.layers.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states.size(), 2u);
+
+	const GameplayGraphTransitionDesc& idleToRun = asset.layers[0].states[0].transitions[0];
+	ASSERT_EQ(idleToRun.conditions.size(), 2u);
+	EXPECT_EQ(idleToRun.conditions[0].opcode, GameplayGraphConditionOpcode::BoolTrue);
+	EXPECT_EQ(idleToRun.conditions[1].opcode, GameplayGraphConditionOpcode::FloatGreater);
+
+	const GameplayGraphTransitionDesc& runToIdle = asset.layers[0].states[1].transitions[0];
+	ASSERT_EQ(runToIdle.conditions.size(), 2u);
+	EXPECT_EQ(runToIdle.conditions[0].opcode, GameplayGraphConditionOpcode::BoolFalse);
+	EXPECT_EQ(runToIdle.conditions[1].opcode, GameplayGraphConditionOpcode::FloatLess);
+}
+
+TEST(GameplayGraph, PrecompileGameplayGraphAssetLeavesUnknownOpcodeForInvalidCondition)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "invalid_graph";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions = {
+		GameplayGraphTransitionDesc{
+			.toState = "Run",
+			.conditions = {
+				GameplayGraphConditionDesc{
+					.name = "DefinitelyUnknownCondition",
+					.parameter = "flag"
+				}
+			}
+		}
+	};
+
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	PrecompileGameplayGraphAsset(asset);
+
+	ASSERT_EQ(asset.layers.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states.size(), 2u);
+	ASSERT_EQ(asset.layers[0].states[0].transitions.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states[0].transitions[0].conditions.size(), 1u);
+
+	EXPECT_EQ(
+		asset.layers[0].states[0].transitions[0].conditions[0].opcode,
+		GameplayGraphConditionOpcode::Unknown);
+}
+
+TEST(GameplayGraph, PrecompileGameplayGraphAssetReportsUnknownConditionOpcodeToStderr)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "invalid_graph";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions = {
+		GameplayGraphTransitionDesc{
+			.toState = "Run",
+			.conditions = {
+				GameplayGraphConditionDesc{
+					.name = "???",
+					.parameter = "flag"
+				}
+			}
+		}
+	};
+
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	testing::internal::CaptureStderr();
+	PrecompileGameplayGraphAsset(asset);
+	const std::string stderrOutput = testing::internal::GetCapturedStderr();
+
+	EXPECT_NE(stderrOutput.find("Unknown GameplayGraphConditionOpcode"), std::string::npos);
+	EXPECT_NE(stderrOutput.find("???"), std::string::npos);
+}
+
+TEST(GameplayGraph, DefaultHumanoidAssetComesPrecompiled)
+{
+	GameplayGraphAsset asset = MakeDefaultHumanoidGameplayGraphAsset();
+
+	ASSERT_EQ(asset.layers.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states.size(), 2u);
+
+	const GameplayGraphStateDesc& grounded = asset.layers[0].states[0];
+	const GameplayGraphStateDesc& action = asset.layers[0].states[1];
+
+	ASSERT_EQ(grounded.transitions.size(), 1u);
+	ASSERT_EQ(action.transitions.size(), 1u);
+	ASSERT_EQ(grounded.transitions[0].conditions.size(), 1u);
+	ASSERT_EQ(action.transitions[0].conditions.size(), 1u);
+
+	EXPECT_EQ(
+		grounded.transitions[0].conditions[0].opcode,
+		GameplayGraphConditionOpcode::BoolTrue);
+
+	EXPECT_EQ(
+		action.transitions[0].conditions[0].opcode,
+		GameplayGraphConditionOpcode::BoolFalse);
+}

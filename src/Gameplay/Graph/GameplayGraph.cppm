@@ -3,6 +3,8 @@ module;
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <iostream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -45,6 +47,15 @@ export namespace rendern
     {
         std::string name{};
     };
+    
+    enum class GameplayGraphConditionOpcode : std::uint8_t
+    {
+        Unknown = 0,
+        BoolTrue,
+        BoolFalse,
+        FloatGreater,
+        FloatLess
+    };
 
     struct GameplayGraphConditionDesc
     {
@@ -52,6 +63,7 @@ export namespace rendern
         std::string parameter{};
         float threshold{ 0.0f };
         bool boolValue{ false };
+        GameplayGraphConditionOpcode opcode{ GameplayGraphConditionOpcode::Unknown };
     };
 
     struct GameplayGraphTransitionDesc
@@ -98,6 +110,13 @@ export namespace rendern
         std::vector<GameplayGraphLayerRuntimeState> layers{};
         std::vector<GameplayGraphEvent> eventsThisFrame{};
         std::vector<std::string> animationTriggersThisFrame{};
+    };
+    
+    static std::unordered_map<std::string_view, GameplayGraphConditionOpcode> opcodeStore{
+        {"booltrue", GameplayGraphConditionOpcode::BoolTrue},
+        {"boolfalse", GameplayGraphConditionOpcode::BoolFalse},
+        {"floatgreater", GameplayGraphConditionOpcode::FloatGreater},
+        {"floatless", GameplayGraphConditionOpcode::FloatLess}
     };
 
     [[nodiscard]] inline std::string CanonicalizeGameplayGraphToken(std::string_view value)
@@ -285,5 +304,37 @@ export namespace rendern
             }
         }
         return -1;
+    }
+    
+    [[nodiscard]] inline GameplayGraphConditionOpcode CompileGameplayGraphConditionOpcode(std::string_view name)
+    {
+        const std::string canonical = CanonicalizeGameplayGraphToken(name);
+        if (opcodeStore.contains(canonical))
+        {
+            return opcodeStore[canonical];
+        }
+        return GameplayGraphConditionOpcode::Unknown;
+    }
+    
+    void PrecompileGameplayGraphAsset(GameplayGraphAsset& asset)
+    {
+        for (GameplayGraphLayerDesc& layer : asset.layers)
+        {
+            for (GameplayGraphStateDesc& state : layer.states)
+            {
+                for (GameplayGraphTransitionDesc& transition : state.transitions)
+                {
+                    for (GameplayGraphConditionDesc& condition : transition.conditions)
+                    {
+                        condition.opcode = CompileGameplayGraphConditionOpcode(condition.name);
+                        if (condition.opcode == GameplayGraphConditionOpcode::Unknown)
+                        {
+                            std::cerr << "Unknown GameplayGraphConditionOpcode: name=" << condition.name
+                                << ", parameter=" << condition.parameter << '\n';
+                        }
+                    }
+                }
+            }
+        }
     }
 }
