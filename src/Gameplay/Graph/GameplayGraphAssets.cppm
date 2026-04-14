@@ -41,6 +41,8 @@ export namespace rendern
         baseLayer.states.push_back(std::move(grounded));
         baseLayer.states.push_back(std::move(action));
         asset.layers.push_back(std::move(baseLayer));
+        
+        PrecompileGameplayGraphAsset(asset);
         return asset;
     }
 }

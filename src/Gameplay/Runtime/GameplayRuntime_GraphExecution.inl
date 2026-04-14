@@ -4,41 +4,40 @@
         {
             for (const GameplayGraphConditionDesc& condition : transition.conditions)
             {
-                const std::string conditionName = CanonicalizeGameplayGraphToken(condition.name);
-                if (conditionName == "booltrue")
+                switch (condition.opcode)
                 {
+                case GameplayGraphConditionOpcode::BoolTrue:
                     if (!GetGameplayGraphBool(graph.parameters, condition.parameter, false))
                     {
                         return false;
                     }
-                    continue;
-                }
-                if (conditionName == "boolfalse")
-                {
+                    break;
+
+                case GameplayGraphConditionOpcode::BoolFalse:
                     if (GetGameplayGraphBool(graph.parameters, condition.parameter, false))
                     {
                         return false;
                     }
-                    continue;
-                }
-                if (conditionName == "floatgreater")
-                {
+                    break;
+
+                case GameplayGraphConditionOpcode::FloatGreater:
                     if (!(GetGameplayGraphFloat(graph.parameters, condition.parameter, 0.0f) > condition.threshold))
                     {
                         return false;
                     }
-                    continue;
-                }
-                if (conditionName == "floatless")
-                {
+                    break;
+
+                case GameplayGraphConditionOpcode::FloatLess:
                     if (!(GetGameplayGraphFloat(graph.parameters, condition.parameter, 0.0f) < condition.threshold))
                     {
                         return false;
                     }
-                    continue;
-                }
+                    break;
 
-                return false;
+                case GameplayGraphConditionOpcode::Unknown:
+                default:
+                    return false;
+                }
             }
 
             return true;
