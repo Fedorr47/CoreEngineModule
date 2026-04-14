@@ -112,7 +112,7 @@ export namespace rendern
         std::vector<std::string> animationTriggersThisFrame{};
     };
     
-    static std::unordered_map<std::string_view, GameplayGraphConditionOpcode> opcodeStore{
+    std::unordered_map<std::string_view, GameplayGraphConditionOpcode> opcodeStore{
         {"booltrue", GameplayGraphConditionOpcode::BoolTrue},
         {"boolfalse", GameplayGraphConditionOpcode::BoolFalse},
         {"floatgreater", GameplayGraphConditionOpcode::FloatGreater},
