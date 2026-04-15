@@ -23,7 +23,28 @@ export namespace rendern
         Trigger = 3,
         String = 4
     };
-
+    
+    enum class GameplayGraphConditionOpcode : std::uint8_t
+    {
+        Unknown = 0,
+        BoolTrue,
+        BoolFalse,
+        FloatGreater,
+        FloatLess
+    };
+ 
+    enum class GameplayGraphTaskOpcode : std::uint8_t
+    {
+        Unknown = 0,
+        BeginActionState
+    };
+ 
+    struct GameplayGraphTaskDesc
+    {
+        std::string name{};
+        GameplayGraphTaskOpcode opcode{ GameplayGraphTaskOpcode::Unknown };
+    };
+    
     struct GameplayGraphValue
     {
         GameplayGraphValueType type{ GameplayGraphValueType::Bool };
@@ -42,21 +63,7 @@ export namespace rendern
     {
         std::string id{};
     };
-
-    struct GameplayGraphTaskDesc
-    {
-        std::string name{};
-    };
     
-    enum class GameplayGraphConditionOpcode : std::uint8_t
-    {
-        Unknown = 0,
-        BoolTrue,
-        BoolFalse,
-        FloatGreater,
-        FloatLess
-    };
-
     struct GameplayGraphConditionDesc
     {
         std::string name{};
@@ -316,6 +323,28 @@ export namespace rendern
         return GameplayGraphConditionOpcode::Unknown;
     }
     
+    [[nodiscard]] inline GameplayGraphTaskOpcode CompileGameplayGraphTaskOpcode(std::string_view name)
+    {
+        const std::string canonical = CanonicalizeGameplayGraphToken(name);
+        if (canonical == "beginactionstate")
+        {
+            return GameplayGraphTaskOpcode::BeginActionState;
+        }
+        return GameplayGraphTaskOpcode::Unknown;
+    }
+
+    void PrecompileGameplayGraphTasks(std::vector<GameplayGraphTaskDesc>& tasks)
+    {
+        for (GameplayGraphTaskDesc& task : tasks)
+        {
+            task.opcode = CompileGameplayGraphTaskOpcode(task.name);
+            if (task.opcode == GameplayGraphTaskOpcode::Unknown)
+            {
+                std::cerr << "Unknown GameplayGraphTaskOpcode: name=" << task.name << '\n';
+            }
+        }
+    }
+    
     void PrecompileGameplayGraphAsset(GameplayGraphAsset& asset)
     {
         for (GameplayGraphLayerDesc& layer : asset.layers)
@@ -324,6 +353,10 @@ export namespace rendern
             {
                 for (GameplayGraphTransitionDesc& transition : state.transitions)
                 {
+                    PrecompileGameplayGraphTasks(state.onEnter);
+                    PrecompileGameplayGraphTasks(state.onUpdate);
+                    PrecompileGameplayGraphTasks(state.onExit);
+
                     for (GameplayGraphConditionDesc& condition : transition.conditions)
                     {
                         condition.opcode = CompileGameplayGraphConditionOpcode(condition.name);

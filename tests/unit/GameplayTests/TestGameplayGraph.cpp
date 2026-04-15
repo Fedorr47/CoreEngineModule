@@ -80,6 +80,24 @@ TEST(GameplayGraph, CompileConditionOpcodeSupportsLegacyTextTokens)
 		GameplayGraphConditionOpcode::FloatLess);
 }
 
+TEST(GameplayGraph, CompileTaskOpcodeSupportsLegacyTextTokens)
+{
+	EXPECT_EQ(
+		CompileGameplayGraphTaskOpcode("BeginActionState"),
+		GameplayGraphTaskOpcode::BeginActionState);
+
+	EXPECT_EQ(
+		CompileGameplayGraphTaskOpcode("begin_action_state"),
+		GameplayGraphTaskOpcode::BeginActionState);
+}
+
+TEST(GameplayGraph, CompileTaskOpcodeReturnsUnknownForUnsupportedToken)
+{
+	EXPECT_EQ(
+		CompileGameplayGraphTaskOpcode("???"),
+		GameplayGraphTaskOpcode::Unknown);
+}
+
 TEST(GameplayGraph, CompileConditionOpcodeReturnsUnknownForUnsupportedToken)
 {
 	EXPECT_EQ(
@@ -89,6 +107,75 @@ TEST(GameplayGraph, CompileConditionOpcodeReturnsUnknownForUnsupportedToken)
 	EXPECT_EQ(
 		CompileGameplayGraphConditionOpcode("???"),
 		GameplayGraphConditionOpcode::Unknown);
+}
+
+TEST(GameplayGraph, PrecompileGameplayGraphAssetCompilesTaskOpcodes)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "task_graph";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.onEnter = {
+		GameplayGraphTaskDesc{ .name = "BeginActionState" }
+	};
+	idle.onUpdate = {
+		GameplayGraphTaskDesc{ .name = "begin_action_state" }
+	};
+
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	PrecompileGameplayGraphAsset(asset);
+
+	ASSERT_EQ(asset.layers.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states.size(), 2u);
+
+	const GameplayGraphStateDesc& compiledIdle = asset.layers[0].states[0];
+	ASSERT_EQ(compiledIdle.onEnter.size(), 1u);
+	ASSERT_EQ(compiledIdle.onUpdate.size(), 1u);
+
+	EXPECT_EQ(
+		compiledIdle.onEnter[0].opcode,
+		GameplayGraphTaskOpcode::BeginActionState);
+
+	EXPECT_EQ(
+		compiledIdle.onUpdate[0].opcode,
+		GameplayGraphTaskOpcode::BeginActionState);
+}
+
+TEST(GameplayGraph, PrecompileGameplayGraphAssetReportsUnknownTaskOpcodeToStderr)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "invalid_task_graph";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.onEnter = {
+		GameplayGraphTaskDesc{ .name = "???" }
+	};
+
+	layer.states.push_back(std::move(idle));
+	asset.layers.push_back(std::move(layer));
+
+	testing::internal::CaptureStderr();
+	PrecompileGameplayGraphAsset(asset);
+	const std::string stderrOutput = testing::internal::GetCapturedStderr();
+
+	EXPECT_NE(stderrOutput.find("Unknown GameplayGraphTaskOpcode"), std::string::npos);
+	EXPECT_NE(stderrOutput.find("???"), std::string::npos);
 }
 
 TEST(GameplayGraph, PrecompileGameplayGraphAssetCompilesTransitionConditionOpcodes)
@@ -254,7 +341,13 @@ TEST(GameplayGraph, DefaultHumanoidAssetComesPrecompiled)
 	ASSERT_EQ(action.transitions.size(), 1u);
 	ASSERT_EQ(grounded.transitions[0].conditions.size(), 1u);
 	ASSERT_EQ(action.transitions[0].conditions.size(), 1u);
+	
+	ASSERT_EQ(action.onEnter.size(), 1u);
 
+	EXPECT_EQ(
+		action.onEnter[0].opcode,
+		GameplayGraphTaskOpcode::BeginActionState);
+	
 	EXPECT_EQ(
 		grounded.transitions[0].conditions[0].opcode,
 		GameplayGraphConditionOpcode::BoolTrue);
