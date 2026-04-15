@@ -230,11 +230,11 @@
             const GameplayGraphStateDesc* state = &assetLayer.states[static_cast<std::size_t>(runtimeLayer.activeStateIndex)];
             if (runtimeLayer.enterPending)
             {
-                ExecuteGraphTasks_(entity, graph, *state, state->onEnter);
+                ExecuteGraphTasks_(entity, graph, state->onEnter);
                 runtimeLayer.enterPending = false;
             }
 
-            ExecuteGraphTasks_(entity, graph, *state, state->onUpdate);
+            ExecuteGraphTasks_(entity, graph, state->onUpdate);
 
             for (const GameplayGraphTransitionDesc& transition : state->transitions)
             {
@@ -243,7 +243,7 @@
                     continue;
                 }
 
-                ExecuteGraphTasks_(entity, graph, *state, state->onExit);
+                ExecuteGraphTasks_(entity, graph, state->onExit);
 
                 runtimeLayer.previousStateIndex = runtimeLayer.activeStateIndex;
                 runtimeLayer.activeStateIndex = FindGameplayGraphStateIndex(assetLayer, transition.toState);
@@ -254,7 +254,7 @@
                     static_cast<std::size_t>(runtimeLayer.activeStateIndex) < assetLayer.states.size())
                 {
                     const GameplayGraphStateDesc& newState = assetLayer.states[static_cast<std::size_t>(runtimeLayer.activeStateIndex)];
-                    ExecuteGraphTasks_(entity, graph, newState, newState.onEnter);
+                    ExecuteGraphTasks_(entity, graph, newState.onEnter);
                     runtimeLayer.enterPending = false;
                 }
                 return;
@@ -266,17 +266,21 @@
         void ExecuteGraphTasks_(
             const EntityHandle entity,
             GameplayGraphInstance& graph,
-            const GameplayGraphStateDesc& state,
             const std::vector<GameplayGraphTaskDesc>& tasks)
         {
             for (const GameplayGraphTaskDesc& task : tasks)
             {
-                const std::string taskName = CanonicalizeGameplayGraphToken(task.name);
-                if (taskName == "beginactionstate")
+                switch (task.opcode)
                 {
+                case GameplayGraphTaskOpcode::BeginActionState:
                     BeginActionState_(entity, graph);
+                    break;
+                case GameplayGraphTaskOpcode::Unknown:
+                    [[fallthrough]];
+                default:
+                    break;
                 }
-                [[maybe_unused]] const auto& unusedState = state;
+
             }
         }
 
