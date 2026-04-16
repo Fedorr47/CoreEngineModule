@@ -1,6 +1,4 @@
-        GameplayRuntime() = default;
-
-        void Initialize(LevelAsset& levelAsset, LevelInstance& levelInstance, Scene& scene)
+        void GameplayRuntime::Initialize(LevelAsset& levelAsset, LevelInstance& levelInstance, Scene& scene)
         {
             defaultGraphAsset_ = MakeDefaultHumanoidGameplayGraphAsset();
 
@@ -13,19 +11,20 @@
             lastMode_ = GameplayRuntimeMode::Editor;
         }
 
-        void Shutdown()
+        void GameplayRuntime::Shutdown()
         {
             world_.Clear();
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
             intentBindings_.clear();
+            intentBindingIndexByEntity_.clear();
             nodeBoundEntities_.clear();
             graphInstances_.clear();
             controlledEntity_ = kNullEntity;
             lastMode_ = GameplayRuntimeMode::Editor;
         }
 
-        void BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
+        void GameplayRuntime::BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
         {
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
@@ -36,9 +35,10 @@
             }
 
             UpsertIntentBinding_(entity, std::move(callback));
+            //assert(ValidateIntentBindingIndex_());
         }
 
-        void BindKeyboardMouseIntentSource(const EntityHandle entity, const GameplayKeyboardMouseBindings& bindings = {})
+        void GameplayRuntime::BindKeyboardMouseIntentSource(const EntityHandle entity, const GameplayKeyboardMouseBindings& bindings = {})
         {
             BindIntentSource(entity,
                 [bindings]([[maybe_unused]] const EntityHandle entity,
@@ -56,19 +56,19 @@
                 });
         }
 
-        void UnbindIntentSource(const EntityHandle entity)
+        void GameplayRuntime::UnbindIntentSource(const EntityHandle entity)
         {
-            intentBindings_.erase(
-                std::remove_if(intentBindings_.begin(),
-                    intentBindings_.end(),
-                    [entity](const GameplayIntentBinding& binding)
-                    {
-                        return binding.entity == entity;
-                    }),
-                intentBindings_.end());
+           const auto it = intentBindingIndexByEntity_.find(entity);
+            if (it == intentBindingIndexByEntity_.end())
+            {
+                return;
+            }
+            
+            EraseIntentBindingAtStableIndex_(it->second);
+            //assert(ValidateIntentBindingIndex_());
         }
 
-        void BeginFrame()
+        void GameplayRuntime::BeginFrame()
         {
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
@@ -80,7 +80,7 @@
             }
         }
 
-        void PreAnimationUpdate(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::PreAnimationUpdate(const GameplayUpdateContext& ctx)
         {
             EnsureBootstrapEntity_(ctx);
 
@@ -110,7 +110,7 @@
             SyncGameplayAnimationStateFromRuntime(world_, nodeBoundEntities_, ctx, &graphInstances_);
         }
 
-        void PostAnimationUpdate(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::PostAnimationUpdate(const GameplayUpdateContext& ctx)
         {
             if (ctx.mode != GameplayRuntimeMode::Game)
             {
@@ -136,27 +136,27 @@
             }
         }
 
-        [[nodiscard]] GameplayWorld& GetWorld() noexcept
+        [[nodiscard]] GameplayWorld& GameplayRuntime::GetWorld() noexcept
         {
             return world_;
         }
 
-        [[nodiscard]] const GameplayWorld& GetWorld() const noexcept
+        [[nodiscard]] const GameplayWorld& GameplayRuntime::GetWorld() const noexcept
         {
             return world_;
         }
 
-        [[nodiscard]] EntityHandle GetControlledEntity() const noexcept
+        [[nodiscard]] EntityHandle GameplayRuntime::GetControlledEntity() const noexcept
         {
             return controlledEntity_;
         }
 
-        [[nodiscard]] const std::vector<EntityHandle>& GetNodeBoundEntities() const noexcept
+        [[nodiscard]] const std::vector<EntityHandle>& GameplayRuntime::GetNodeBoundEntities() const noexcept
         {
             return nodeBoundEntities_;
         }
 
-        [[nodiscard]] EntityHandle SpawnNodeBoundEntity(
+        [[nodiscard]] EntityHandle GameplayRuntime::SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
             const int nodeIndex,
             const bool playerControlled)

@@ -1,4 +1,4 @@
-        void ResetEntityFrameState_(const EntityHandle entity)
+        void GameplayRuntime::ResetEntityFrameState_(const EntityHandle entity)
         {
             if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
             {
@@ -21,7 +21,7 @@
             }
         }
 
-        void UpdateFollowCamera_(const GameplayUpdateContext& ctx, const bool consumeInput)
+        void GameplayRuntime::UpdateFollowCamera_(const GameplayUpdateContext& ctx, const bool consumeInput)
         {
             if (ctx.scene == nullptr)
             {
@@ -36,4 +36,3 @@
 
             followCameraController_.Update(world_, controlledEntity_, cameraCtx);
         }
-

@@ -1,4 +1,4 @@
-        void ResetSimulationState_()
+        void GameplayRuntime::ResetSimulationState_()
         {
             for (const EntityHandle entity : nodeBoundEntities_)
             {
@@ -54,7 +54,7 @@
             }
         }
 
-        void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx)
         {
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
@@ -77,7 +77,7 @@
             }
         }
 
-        void EnsureBootstrapEntity_(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::EnsureBootstrapEntity_(const GameplayUpdateContext& ctx)
         {
             if (controlledEntity_ != kNullEntity && world_.IsEntityValid(controlledEntity_))
             {
