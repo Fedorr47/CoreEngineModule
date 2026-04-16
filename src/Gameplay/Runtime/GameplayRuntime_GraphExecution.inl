@@ -1,4 +1,4 @@
-        [[nodiscard]] static bool EvaluateGraphTransition_(
+        [[nodiscard]] bool EvaluateGraphTransition_(
             const GameplayGraphInstance& graph,
             const GameplayGraphTransitionDesc& transition)
         {
@@ -43,7 +43,7 @@
             return true;
         }
 
-        static void CompactEntityVector_(std::vector<EntityHandle>& entities, const GameplayWorld& world)
+        void CompactEntityVector_(std::vector<EntityHandle>& entities, const GameplayWorld& world)
         {
             entities.erase(
                 std::remove_if(entities.begin(),
@@ -55,7 +55,7 @@
                 entities.end());
         }
 
-        void CompactTrackedState_()
+        void GameplayRuntime::CompactTrackedState_()
         {
             CompactEntityVector_(nodeBoundEntities_, world_);
 
@@ -69,6 +69,8 @@
                             !world_.IsEntityValid(binding.entity);
                     }),
                 intentBindings_.end());
+            RebuildIntentBindingIndex_();
+            //assert(ValidateIntentBindingIndex_());
 
             for (auto it = graphInstances_.begin(); it != graphInstances_.end(); )
             {
@@ -88,24 +90,101 @@
             }
         }
 
-        void UpsertIntentBinding_(const EntityHandle entity, GameplayIntentSourceCallback callback)
+        void GameplayRuntime::RebuildIntentBindingIndex_()
         {
-            for (GameplayIntentBinding& binding : intentBindings_)
+            intentBindingIndexByEntity_.clear();
+            intentBindingIndexByEntity_.reserve(intentBindings_.size());
+            
+            for (std::size_t i = 0; i < intentBindings_.size(); ++i)
             {
-                if (binding.entity == entity)
+                const GameplayIntentBinding& binding = intentBindings_[i];
+                intentBindingIndexByEntity_[binding.entity] = i;
+            }
+        }
+
+        bool GameplayRuntime::ValidateIntentBindingIndex_() const
+        {
+            if (intentBindings_.size() != intentBindingIndexByEntity_.size())
+            {
+                return false;
+            }
+            
+            for (std::size_t i = 0; i < intentBindings_.size(); ++i)
+            {
+                const GameplayIntentBinding& binding = intentBindings_[i];
+                if (binding.entity == kNullEntity || !binding.callback)
                 {
-                    binding.callback = std::move(callback);
-                    return;
+                    return false;
                 }
+                
+                const auto it = intentBindingIndexByEntity_.find(binding.entity);
+                if (it == intentBindingIndexByEntity_.end())
+                {
+                    return false;
+                }
+                
+                if (it->second != i)
+                {
+                    return false;
+                }
+            }
+            
+            for (auto [entity, index] : intentBindingIndexByEntity_)
+            {
+                if (entity == kNullEntity)
+                {
+                    return false;
+                }
+                
+                if (index >= intentBindings_.size())
+                {
+                    return false;
+                }
+                
+                if (intentBindings_[index].entity != entity)
+                {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        void GameplayRuntime::EraseIntentBindingAtStableIndex_(std::size_t index)
+        {
+            if (index >= intentBindings_.size())
+            {
+                return;
+            }
+            
+            const EntityHandle erasedEntity = intentBindings_[index].entity;
+            
+            intentBindings_.erase(intentBindings_.begin() + static_cast<std::ptrdiff_t>(index));
+            intentBindingIndexByEntity_.erase(erasedEntity);
+            
+            for (std::size_t i = index; i < intentBindings_.size(); ++i)
+            {
+                intentBindingIndexByEntity_[intentBindings_[i].entity] = i;
+            }
+        }
+
+        void GameplayRuntime::UpsertIntentBinding_(const EntityHandle entity, GameplayIntentSourceCallback callback)
+        {
+            const auto it = intentBindingIndexByEntity_.find(entity);
+            if (it != intentBindingIndexByEntity_.end())
+            {
+                intentBindings_[it->second].callback = std::move(callback);
+                return;
             }
 
             intentBindings_.push_back(GameplayIntentBinding{
                 .entity = entity,
                 .callback = std::move(callback)
             });
+            intentBindingIndexByEntity_[entity] = intentBindings_.size() - 1;
         }
 
-        void CreateDefaultGraphInstance_(const EntityHandle entity)
+        void GameplayRuntime::CreateDefaultGraphInstance_(const EntityHandle entity)
         {
             GameplayGraphInstance instance{};
             instance.asset = &defaultGraphAsset_;
@@ -149,13 +228,13 @@
             graphInstances_.insert_or_assign(entity, std::move(instance));
         }
 
-        void SyncActionStateToGraphParameters_(const EntityHandle entity, GameplayGraphInstance& graph)
+        void GameplayRuntime::SyncActionStateToGraphParameters_(const EntityHandle entity, GameplayGraphInstance& graph)
         {
             const GameplayActionComponent* action = world_.TryGetAction(entity);
             WriteActionStateToGraphParameters_(graph, action);
         }
 
-        void WriteActionStateToGraphParameters_(
+        void GameplayRuntime::WriteActionStateToGraphParameters_(
             GameplayGraphInstance& graph,
             const GameplayActionComponent* action)
         {
@@ -184,7 +263,7 @@
             SetGameplayGraphInt(graph.parameters, "currentAction", currentAction);
         }
 
-        void ExecuteGameplayGraphs_(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::ExecuteGameplayGraphs_(const GameplayUpdateContext& ctx)
         {
             for (const EntityHandle entity : nodeBoundEntities_)
             {
@@ -208,7 +287,7 @@
             }
         }
 
-        void ExecuteGraphLayer_(
+        void GameplayRuntime::ExecuteGraphLayer_(
             const EntityHandle entity,
             GameplayGraphInstance& graph,
             GameplayGraphLayerRuntimeState& runtimeLayer,
@@ -263,7 +342,7 @@
             runtimeLayer.stateTime += std::max(ctx.deltaSeconds, 0.0f);
         }
 
-        void ExecuteGraphTasks_(
+        void GameplayRuntime::ExecuteGraphTasks_(
             const EntityHandle entity,
             GameplayGraphInstance& graph,
             const std::vector<GameplayGraphTaskDesc>& tasks)
@@ -284,7 +363,7 @@
             }
         }
 
-        void BeginActionState_(const EntityHandle entity, GameplayGraphInstance& graph)
+        void GameplayRuntime::BeginActionState_(const EntityHandle entity, GameplayGraphInstance& graph)
         {
             GameplayActionComponent* action = world_.TryGetAction(entity);
             if (action == nullptr || !HasGameplayPendingActionRequest(*action))
