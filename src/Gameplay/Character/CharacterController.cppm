@@ -13,6 +13,26 @@ import :scene;
 
 export namespace rendern
 {
+    struct CharacterControllerAccess
+    {
+        GameplayInputIntentComponent* intent{};
+        GameplayCharacterCommandComponent* command{};
+        GameplayCharacterMotorComponent* motor{};
+        GameplayCharacterMovementStateComponent* movementState{};
+    };
+
+    [[nodiscard]] inline CharacterControllerAccess TryGetCharacterControllerAccess(
+        GameplayWorld& world,
+        const EntityHandle entity) noexcept
+    {
+        return CharacterControllerAccess{
+            .intent = world.TryGetInputIntent(entity),
+            .command = world.TryGetCharacterCommand(entity),
+            .motor = world.TryGetCharacterMotor(entity),
+            .movementState = world.TryGetCharacterMovementState(entity)
+        };
+    }
+    
     inline void BuildGameplayPlanarMovementBasis(const Camera& camera, mathUtils::Vec3& outRight, mathUtils::Vec3& outForward) noexcept
     {
         mathUtils::Vec3 forward = camera.target - camera.position;
@@ -87,10 +107,11 @@ export namespace rendern
 
         for (const EntityHandle entity : entities)
         {
-            GameplayInputIntentComponent* intent = world.TryGetInputIntent(entity);
-            GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(entity);
-            GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(entity);
-            GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(entity);
+            const CharacterControllerAccess access = TryGetCharacterControllerAccess(world, entity);
+            GameplayInputIntentComponent* intent = access.intent;
+            GameplayCharacterCommandComponent* command = access.command;
+            GameplayCharacterMotorComponent* motor = access.motor;
+            GameplayCharacterMovementStateComponent* movementState = access.movementState;
             if (intent == nullptr || command == nullptr || motor == nullptr)
             {
                 continue;
