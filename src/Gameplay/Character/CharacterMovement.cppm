@@ -11,6 +11,50 @@ import :math_utils;
 
 export namespace rendern
 {
+    struct CharacterMovementUpdateAccess
+    {
+        GameplayTransformComponent* transform{};
+        GameplayCharacterMotorComponent* motor{};
+        GameplayCharacterCommandComponent* command{};
+        GameplayCharacterMovementStateComponent* movementState{};
+        GameplayActionComponent* action{};
+    };
+    
+    struct CharacterLocomotionAccess
+    {
+        const GameplayTransformComponent* transform{};
+        const GameplayCharacterMotorComponent* motor{};
+        const GameplayCharacterCommandComponent* command{};
+        GameplayCharacterMovementStateComponent* movementState{};
+        GameplayLocomotionComponent* locomotion{};
+    };
+
+    [[nodiscard]] inline CharacterMovementUpdateAccess TryGetCharacterMovementUpdateAccess(
+        GameplayWorld& world,
+        const EntityHandle entity) noexcept
+    {
+        return CharacterMovementUpdateAccess{
+            .transform = world.TryGetTransform(entity),
+            .motor = world.TryGetCharacterMotor(entity),
+            .command = world.TryGetCharacterCommand(entity),
+            .movementState = world.TryGetCharacterMovementState(entity),
+            .action = world.TryGetAction(entity)
+        };
+    }
+    
+    [[nodiscard]] inline CharacterLocomotionAccess TryGetCharacterLocomotionAccess(
+        GameplayWorld& world,
+        const EntityHandle entity) noexcept
+    {
+        return CharacterLocomotionAccess{
+            .transform = world.TryGetTransform(entity),
+            .motor = world.TryGetCharacterMotor(entity),
+            .command = world.TryGetCharacterCommand(entity),
+            .movementState = world.TryGetCharacterMovementState(entity),
+            .locomotion = world.TryGetLocomotion(entity)
+        };
+    }
+    
     [[nodiscard]] inline float NormalizeGameplayYawDeltaDegrees_(float degrees) noexcept
     {
         while (degrees > 180.0f)
@@ -58,11 +102,13 @@ export namespace rendern
         const float dt = std::max(deltaSeconds, 0.0f);
         for (const EntityHandle entity : entities)
         {
-            GameplayTransformComponent* transform = world.TryGetTransform(entity);
-            GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(entity);
-            GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(entity);
-            GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(entity);
-            GameplayActionComponent* action = world.TryGetAction(entity);
+            const CharacterMovementUpdateAccess access = TryGetCharacterMovementUpdateAccess(world, entity);
+            GameplayTransformComponent* transform = access.transform;
+            GameplayCharacterCommandComponent* command = access.command;
+            GameplayCharacterMotorComponent* motor = access.motor;
+            GameplayCharacterMovementStateComponent*  movementState = access.movementState;
+            GameplayActionComponent* action = access.action;
+            
             if (transform == nullptr || motor == nullptr || command == nullptr)
             {
                 continue;
@@ -167,11 +213,13 @@ export namespace rendern
     {
         for (const EntityHandle entity : entities)
         {
-            const GameplayTransformComponent* transform = world.TryGetTransform(entity);
-            const GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(entity);
-            const GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(entity);
-            GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(entity);
-            GameplayLocomotionComponent* locomotion = world.TryGetLocomotion(entity);
+            const CharacterLocomotionAccess access = TryGetCharacterLocomotionAccess(world, entity);
+            const GameplayCharacterCommandComponent* command = access.command;
+            const GameplayCharacterMotorComponent* motor = access.motor;
+            GameplayCharacterMovementStateComponent* movementState = access.movementState;
+            const GameplayTransformComponent* transform = access.transform;
+            GameplayLocomotionComponent* locomotion = access.locomotion;
+
             if (transform == nullptr || motor == nullptr || command == nullptr || locomotion == nullptr)
             {
                 continue;
