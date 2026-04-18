@@ -27,6 +27,8 @@
             
             preSyncInstAggregate_ = {};
             postSyncInstAggregate_ = {};
+            postSyncExecutedFrameCount_ = 0;
+            postSyncSkippedFrameCount_ = 0;
         }
 
         void GameplayRuntime::BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
@@ -136,20 +138,28 @@
                 return;
             }
 
-            const auto syncStartedAt = std::chrono::steady_clock::now();
-            std::size_t processedEntityCount = 0;
-            SyncGameplayAnimationStateFromRuntime(
-                world_,
-                nodeBoundEntities_,
-                ctx,
-                &graphInstances_,
-                &processedEntityCount);
-            
-            const auto syncEndedAt = std::chrono::steady_clock::now();
-            RecordSyncInstumentationSample_(
-                postSyncInstAggregate_,
-                std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
-                processedEntityCount);
+            if (!skipDuplicatePostAnimationSyncEnabled_)
+            {
+                ++postSyncExecutedFrameCount_;
+                const auto syncStartedAt = std::chrono::steady_clock::now();
+                std::size_t processedEntityCount = 0;
+                SyncGameplayAnimationStateFromRuntime(
+                    world_,
+                    nodeBoundEntities_,
+                    ctx,
+                    &graphInstances_,
+                    &processedEntityCount);
+
+                const auto syncEndedAt = std::chrono::steady_clock::now();
+                RecordSyncInstumentationSample_(
+                    postSyncInstAggregate_,
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
+                    processedEntityCount);
+            }
+            else
+            {
+                ++postSyncSkippedFrameCount_;
+            }
 
             ConsumeGameplayAnimationEvents(
                 world_,
@@ -217,4 +227,57 @@
                 BindKeyboardMouseIntentSource(entity);
             }
             return entity;
+        }
+
+        void GameplayRuntime::SetSkipDuplicatePostAnimationSyncEnabled(bool enabled) noexcept
+        {
+            skipDuplicatePostAnimationSyncEnabled_ = enabled;        
+        }
+    
+        bool GameplayRuntime::IsSkipDuplicatePostAnimationSyncEnabled() const noexcept
+        {
+            return skipDuplicatePostAnimationSyncEnabled_;
+        }
+    
+        void GameplayRuntime::RecordSyncInstumentationSample_(
+            ProfileUtils::SyncInststrumentionAggregate& aggregate,
+            const std::chrono::nanoseconds duration, 
+            std::size_t processedEntityCount)
+        {
+            ++aggregate.callCount;
+             aggregate.totalProcessedEntityCount += processedEntityCount;
+             aggregate.totalDuration += duration;
+             aggregate.maxDuration = std::max(aggregate.maxDuration, duration);
+        }
+    
+        void GameplayRuntime::LogSyncInstumentationSample_() const
+        {
+            const auto printSummary = [](std::string_view passName, const ProfileUtils::SyncInststrumentionAggregate& aggregate)
+            {
+                const double totalMs = std::chrono::duration<double, std::milli>(aggregate.totalDuration).count();
+                const double maxMs = std::chrono::duration<double, std::milli>(aggregate.maxDuration).count();
+                const double avgMs = aggregate.callCount > 0 ? totalMs / static_cast<double>(aggregate.callCount) : 0.0;
+                
+                const double avgProcessedEntities = aggregate.callCount > 0
+                        ? static_cast<double>(aggregate.totalProcessedEntityCount) / static_cast<double>(aggregate.callCount)
+                        : 0.0;
+                
+                std::cerr << "[GameplayRuntime][AnimationSync][" << passName << "] "
+                              << "calls=" << aggregate.callCount
+                              << ", totalMs=" << totalMs
+                              << ", avgMs=" << avgMs
+                              << ", maxMs=" << maxMs
+                              << ", totalProcessedEntities=" << aggregate.totalProcessedEntityCount
+                              << ", avgProcessedEntities=" << avgProcessedEntities
+                              << '\n';
+                
+            };
+            
+            printSummary("PreSyncInst", preSyncInstAggregate_);
+            printSummary("PostSyncInst", postSyncInstAggregate_);
+            std::cerr << "[GameplayRuntime][AnimationSync][PostSyncGuard]"
+                << "skipDuplicateEnabled=" << (skipDuplicatePostAnimationSyncEnabled_ ? "true" : "false")
+                << ", executedFrameCount=" << postSyncExecutedFrameCount_
+                << ", skippedFrameCount=" << postSyncSkippedFrameCount_
+                << '\n'; 
         }
