@@ -1,3 +1,4 @@
+# Test conventions: see tests/README.md for naming, layout, fixtures, and backend guidance.
 add_executable(CoreEngineModuleTests
   "FakeTextureIO.h"
   "unit/Math/MathTestHelper.h"
