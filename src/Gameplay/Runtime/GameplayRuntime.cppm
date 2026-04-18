@@ -1,9 +1,12 @@
 module;
 
 #include <algorithm>
-#include <string>
-#include <utility>
+#include <chrono>
+#include <cstdint>
+#include <iostream>
+#include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 export module core:gameplay_runtime;
@@ -22,6 +25,17 @@ import :combat_system;
 import :interaction_system;
 import :gameplay_animation_bridge;
 import :gameplay_animation_bridge_system;
+
+namespace ProfileUtils
+{
+    struct SyncInststrumentionAggregate
+    {
+        std::uint64_t callCount{ 0 };
+        std::uint64_t totalProcessedEntityCount{ 0 };
+        std::chrono::nanoseconds totalDuration{ 0 };
+        std::chrono::nanoseconds maxDuration{ 0 };
+    };
+}
 
 export namespace rendern
 {
@@ -74,7 +88,14 @@ export namespace rendern
         void BeginActionState_(EntityHandle entity, GameplayGraphInstance& graph);
         void ResetSimulationState_();
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
+        // Profiling zone start
         void EnsureBootstrapEntity_(const GameplayUpdateContext& ctx);
+        void RecordSyncInstumentationSample_(
+            ProfileUtils::SyncInststrumentionAggregate& aggregate,
+            const std::chrono::nanoseconds duration,
+            std::size_t processedEntityCount);
+        void LogSyncInstumentationSample_() const;
+        // Profiling zone end
     private:
         GameplayWorld world_{};
         EntityHandle controlledEntity_{ kNullEntity };
@@ -87,7 +108,49 @@ export namespace rendern
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};
+        // Profiling zone start
+        ProfileUtils::SyncInststrumentionAggregate preSyncInstAggregate_{};
+        ProfileUtils::SyncInststrumentionAggregate postSyncInstAggregate_{};
+        // Profiling zone end
     };
+
+    void GameplayRuntime::RecordSyncInstumentationSample_(
+        ProfileUtils::SyncInststrumentionAggregate& aggregate,
+        const std::chrono::nanoseconds duration, 
+        std::size_t processedEntityCount)
+    {
+        ++aggregate.callCount;
+         aggregate.totalProcessedEntityCount += processedEntityCount;
+         aggregate.totalDuration += duration;
+         aggregate.maxDuration = std::max(aggregate.maxDuration, duration);
+    }
+
+    void GameplayRuntime::LogSyncInstumentationSample_() const
+    {
+        const auto printSummary = [](std::string_view passName, const ProfileUtils::SyncInststrumentionAggregate& aggregate)
+        {
+            const double totalMs = std::chrono::duration<double, std::milli>(aggregate.totalDuration).count();
+            const double maxMs = std::chrono::duration<double, std::milli>(aggregate.maxDuration).count();
+            const double avgMs = aggregate.callCount > 0 ? totalMs / static_cast<double>(aggregate.callCount) : 0.0;
+            
+            const double avgProcessedEntities = aggregate.callCount > 0
+                    ? static_cast<double>(aggregate.totalProcessedEntityCount) / static_cast<double>(aggregate.callCount)
+                    : 0.0;
+            
+            std::cerr << "[GameplayRuntime][AnimationSync][" << passName << "] "
+                          << "calls=" << aggregate.callCount
+                          << ", totalMs=" << totalMs
+                          << ", avgMs=" << avgMs
+                          << ", maxMs=" << maxMs
+                          << ", totalProcessedEntities=" << aggregate.totalProcessedEntityCount
+                          << ", avgProcessedEntities=" << avgProcessedEntities
+                          << '\n';
+            
+        };
+        
+        printSummary("PreSyncInst", preSyncInstAggregate_);
+        printSummary("PostSyncInst", postSyncInstAggregate_);
+    }
 
 #include "GameplayRuntime_PublicApi.inl"
 #include "GameplayRuntime_FrameLifecycle.inl"

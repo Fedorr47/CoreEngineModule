@@ -337,6 +337,7 @@ namespace appLifecycle
         frameState.statsTimer.SetMaxDelta(10.0);
         frameState.statsTimer.Reset();
         app.initialized = true;
+        app.mainThreadId = std::this_thread::get_id();
     }
     
 #include "AppLifecycleImpl/AppLifecycle_TickImpl.inl"
@@ -417,6 +418,10 @@ namespace appLifecycle
         graphicState.renderer.reset();
         graphicState.bindless.reset();
         graphicState.device.reset();
+        if (runtimeState.gameplayRuntime)
+        {
+            runtimeState.gameplayRuntime->Shutdown();
+        }
         runtimeState.gameplayRuntime.reset();
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();

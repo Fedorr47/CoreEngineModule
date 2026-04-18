@@ -112,6 +112,8 @@ namespace appLifecycle
         AppRuntimeState     runtimeState{};
         AppFrameState      frameState{};
         bool initialized = false;
+        
+        std::thread::id mainThreadId;
 
         AppState() = default;
         AppState(const AppState&) = delete;

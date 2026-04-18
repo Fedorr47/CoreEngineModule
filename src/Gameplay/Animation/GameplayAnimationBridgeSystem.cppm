@@ -123,8 +123,14 @@ export namespace rendern
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
         const GameplayUpdateContext& ctx,
-        std::unordered_map<EntityHandle, GameplayGraphInstance>* graphInstances = nullptr)
+        std::unordered_map<EntityHandle, GameplayGraphInstance>* graphInstances = nullptr,
+        std::size_t* outProcessedEntityCount = nullptr)
     {
+        if (outProcessedEntityCount != nullptr)
+        {
+            *outProcessedEntityCount = 0;
+        }
+        
         if (ctx.levelInstance == nullptr || ctx.scene == nullptr)
         {
             return;
@@ -143,6 +149,11 @@ export namespace rendern
             if (skinnedItem == nullptr)
             {
                 continue;
+            }
+            
+            if (outProcessedEntityCount != nullptr)
+            {
+                ++(*outProcessedEntityCount);
             }
 
             GameplayGraphInstance* graph = nullptr;
