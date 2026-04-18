@@ -204,12 +204,22 @@ export namespace rendern
 			workers_.reserve(workerCount);
 			for (std::uint32_t i = 0; i < workerCount; ++i)
 			{
-				workers_.emplace_back([this](std::stop_token st) { Worker(st); });
+				workers_.emplace_back([this](std::stop_token st)
+				{
+					currentPool_ = this;
+					Worker(st);
+					currentPool_ = nullptr;
+				});
 			}
 		}
 
 		~JobSystemThreadPool() override
 		{
+			if (IsWorkerThread())
+			{
+				std::terminate();
+			}
+			
 			// Request stop & wake.
 			{
 				std::scoped_lock lock(mutex_);
@@ -227,9 +237,23 @@ export namespace rendern
 			}
 			cv_.notify_one();
 		}
+		
+		void RequestStop() noexcept
+		{
+			{
+				std::scoped_lock lock(mutex_);
+				stopping_ = true;
+			}
+			cv_.notify_all();
+		}
 
 		void WaitIdle() override
 		{
+			if (IsWorkerThread())
+			{
+				throw std::logic_error("JobSystemThreadPool::WaitIdle() must not be called from a worker thread of the same pool");
+			}
+
 			std::unique_lock lock(mutex_);
 			idleCv_.wait(lock, [this] { return queue_.empty() && active_ == 0; });
 		}
@@ -265,6 +289,11 @@ export namespace rendern
 				}
 			}
 		}
+		
+		bool IsWorkerThread() const noexcept
+		{
+			return currentPool_ == this;
+		}
 
 		std::mutex mutex_;
 		std::condition_variable cv_;
@@ -273,7 +302,10 @@ export namespace rendern
 		std::vector<std::jthread> workers_;
 		std::size_t active_ = 0;
 		bool stopping_ = false;
+		static thread_local const JobSystemThreadPool* currentPool_;
 	};
+	
+	thread_local const JobSystemThreadPool* JobSystemThreadPool::currentPool_ = nullptr;
 
 	class NullTextureUploader final : public ITextureUploader
 	{

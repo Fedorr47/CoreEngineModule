@@ -13,6 +13,8 @@
 
         void GameplayRuntime::Shutdown()
         {
+            LogSyncInstumentationSample_();
+            
             world_.Clear();
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
@@ -22,6 +24,9 @@
             graphInstances_.clear();
             controlledEntity_ = kNullEntity;
             lastMode_ = GameplayRuntimeMode::Editor;
+            
+            preSyncInstAggregate_ = {};
+            postSyncInstAggregate_ = {};
         }
 
         void GameplayRuntime::BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
@@ -107,7 +112,21 @@
             SyncGameplayTransformsToRuntime(world_, nodeBoundEntities_, ctx);
             UpdateFollowCamera_(ctx, false);
             PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
-            SyncGameplayAnimationStateFromRuntime(world_, nodeBoundEntities_, ctx, &graphInstances_);
+            
+            const auto syncStartedAt = std::chrono::steady_clock::now();
+            std::size_t processedEntityCount = 0;
+            SyncGameplayAnimationStateFromRuntime(
+                world_,
+                nodeBoundEntities_,
+                ctx,
+                &graphInstances_,
+                &processedEntityCount);
+            
+            const auto syncEndedAt = std::chrono::steady_clock::now();
+            RecordSyncInstumentationSample_(
+                preSyncInstAggregate_,
+                std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
+                processedEntityCount);
         }
 
         void GameplayRuntime::PostAnimationUpdate(const GameplayUpdateContext& ctx)
@@ -117,7 +136,20 @@
                 return;
             }
 
-            SyncGameplayAnimationStateFromRuntime(world_, nodeBoundEntities_, ctx, &graphInstances_);
+            const auto syncStartedAt = std::chrono::steady_clock::now();
+            std::size_t processedEntityCount = 0;
+            SyncGameplayAnimationStateFromRuntime(
+                world_,
+                nodeBoundEntities_,
+                ctx,
+                &graphInstances_,
+                &processedEntityCount);
+            
+            const auto syncEndedAt = std::chrono::steady_clock::now();
+            RecordSyncInstumentationSample_(
+                postSyncInstAggregate_,
+                std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
+                processedEntityCount);
 
             ConsumeGameplayAnimationEvents(
                 world_,

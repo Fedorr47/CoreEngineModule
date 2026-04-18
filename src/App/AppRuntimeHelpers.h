@@ -78,13 +78,12 @@ namespace appRuntime
 #if defined(CORE_USE_DX12)
         appUi::ShutdownImGui(shell, device);
 #endif
-
-        renderer.Shutdown();
-        levelInstance.FreeDescriptors(bindless);
-
+        
         jobSystem.WaitIdle();
-        assets.ClearAll();
         assets.ProcessUploads(64, 256, 64, 256);
+        
+        levelInstance.FreeDescriptors(bindless);
+        renderer.Shutdown();
 
         if (mainWindow && mainWindow->hwnd)
         {
