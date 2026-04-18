@@ -56,7 +56,9 @@ export namespace rendern
         void BeginFrame();
         void PreAnimationUpdate(const GameplayUpdateContext& ctx);
         void PostAnimationUpdate(const GameplayUpdateContext& ctx);
-
+        void SetSkipDuplicatePostAnimationSyncEnabled( bool enabled) noexcept;
+        
+        [[nodiscard]] bool IsSkipDuplicatePostAnimationSyncEnabled() const noexcept;
         [[nodiscard]] GameplayWorld& GetWorld() noexcept;
         [[nodiscard]] const GameplayWorld& GetWorld() const noexcept;
         [[nodiscard]] EntityHandle GetControlledEntity() const noexcept;
@@ -111,9 +113,12 @@ export namespace rendern
         // Profiling zone start
         ProfileUtils::SyncInststrumentionAggregate preSyncInstAggregate_{};
         ProfileUtils::SyncInststrumentionAggregate postSyncInstAggregate_{};
+        std::uint64_t postSyncSkippedFrameCount_{ 0 };
+        std::uint64_t postSyncExecutedFrameCount_{ 0 };
+        bool skipDuplicatePostAnimationSyncEnabled_{ false };
         // Profiling zone end
     };
-
+    
 #include "GameplayRuntime_PublicApi.inl"
 #include "GameplayRuntime_FrameLifecycle.inl"
 #include "GameplayRuntime_GraphExecution.inl"
