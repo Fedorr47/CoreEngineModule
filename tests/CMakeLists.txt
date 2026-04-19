@@ -1,17 +1,20 @@
 # Test conventions: see tests/README.md for naming, layout, fixtures, and backend guidance.
 add_executable(CoreEngineModuleTests
-  "FakeTextureIO.h"
-  "unit/Math/MathTestHelper.h"
-  "unit/InputTests/TestInputCore.cpp"
-  "unit/InputTests/TestControllerBase.cpp"
-  "unit/InputTests/TestCameraController.cpp"
-  "unit/Math/TestMathUtils.cpp"
-  "unit/GameplayTests/TestGameplayGraph.cpp"
-  "unit/GameplayTests/TestGameplayWorld.cpp"
-  "unit/AnimationTests/TestAnimationController.cpp"
-  "unit/RenderTests/TestLevelWorld.cpp"
-  "unit/ResourceTests/TestTextureStorage.cpp"
-  "unit/TimerTests/TestTimerBasic.cpp"
+        "FakeRHI.h" 
+        "FakeRHI.cpp"
+        "FakeTextureIO.h" 
+        "unit/Math/MathTestHelper.h" 
+        "unit/InputTests/TestInputCore.cpp" 
+        "unit/InputTests/TestControllerBase.cpp" 
+        "unit/InputTests/TestCameraController.cpp" 
+        "unit/Math/TestMathUtils.cpp" 
+        "unit/GameplayTests/TestGameplayGraph.cpp" 
+        "unit/GameplayTests/TestGameplayWorld.cpp" 
+        "unit/AnimationTests/TestAnimationController.cpp" 
+        "unit/RenderTests/TestLevelWorld.cpp" 
+        "unit/ResourceTests/TestTextureStorage.cpp" 
+        "unit/TimerTests/TestTimerBasic.cpp"
+        "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
