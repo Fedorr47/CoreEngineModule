@@ -1,2 +1,22 @@
 ﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
-	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AGameplayRuntime_005FPublicApi_002Einl_002Fl_003Asrc_003FGameplay_003FRuntime_003FGameplayRuntime_005FPublicApi_002Einl/@EntryIndexedValue">ForceIncluded</s:String></wpf:ResourceDictionary>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AGameplayRuntime_005FPublicApi_002Einl_002Fl_003Asrc_003FGameplay_003FRuntime_003FGameplayRuntime_005FPublicApi_002Einl/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=24e9f851_002D1975_002D493f_002Da0b0_002D97f9770bc38d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="ExecutePassesOnCpuAndRecordRHICalls #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;GTest::B0A2945F-62BE-D861-8459-231234D92823::::RenderGraphFakeRHI.ExecutePassesOnCpuAndRecordRHICalls&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=7482d10c_002D20ed_002D4dc2_002D9085_002Ddbcb99cf9211/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="ExecutePassesOnCpuAndRecordRHICalls" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;GTest::B0A2945F-62BE-D861-8459-231234D92823::::RenderGraphFakeRHI.ExecutePassesOnCpuAndRecordRHICalls&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=87ac8830_002D9be1_002D45d0_002Daf1a_002D6bdd3614e521/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="ParameterStoreSupportsSetTriggerConsumeAndReset" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;GTest::B0A2945F-62BE-D861-8459-231234D92823::::AnimationController.ParameterStoreSupportsSetTriggerConsumeAndReset&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=ca1adf5f_002D8268_002D4874_002Db03b_002D4fffee25a3a4/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="AdvanceExactlyOneTick" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;GTest::B0A2945F-62BE-D861-8459-231234D92823::::FixedStepScheduler.AdvanceExactlyOneTick&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>

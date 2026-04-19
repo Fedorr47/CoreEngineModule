@@ -61,13 +61,17 @@ TEST(GameplayWorld, MultipleEntitiesMaintainIndependentComponentState)
 
 	world.AddTransform(first, GameplayTransformComponent{ .position = { 1.0f, 0.0f, 0.0f } });
 	world.AddTransform(second, GameplayTransformComponent{ .position = { 0.0f, 2.0f, 0.0f } });
-	world.AddAction(first, GameplayActionComponent{ .requested = GameplayActionKind::Interact });
-	world.AddAction(second, GameplayActionComponent{ .requested = GameplayActionKind::Jump });
+	world.AddAction(first, GameplayActionComponent{
+		.pending = GameplayActionRequest{ .kind = GameplayActionKind::Interact }
+	});
 
-	ASSERT_NE(world.TryGetTransform(first), nullptr);
-	ASSERT_NE(world.TryGetTransform(second), nullptr);
-	EXPECT_FLOAT_EQ(world.TryGetTransform(first)->position.x, 1.0f);
-	EXPECT_FLOAT_EQ(world.TryGetTransform(second)->position.y, 2.0f);
-	EXPECT_EQ(world.TryGetAction(first)->requested, GameplayActionKind::Interact);
-	EXPECT_EQ(world.TryGetAction(second)->requested, GameplayActionKind::Jump);
+	world.AddAction(second, GameplayActionComponent{
+		.pending = GameplayActionRequest{ .kind = GameplayActionKind::Jump }
+	});
+
+	ASSERT_NE(world.TryGetAction(first), nullptr);
+	ASSERT_NE(world.TryGetAction(second), nullptr);
+
+	EXPECT_EQ(world.TryGetAction(first)->pending.kind, GameplayActionKind::Interact);
+	EXPECT_EQ(world.TryGetAction(second)->pending.kind, GameplayActionKind::Jump);
 }

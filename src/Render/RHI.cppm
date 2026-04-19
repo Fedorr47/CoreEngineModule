@@ -574,7 +574,7 @@ export namespace rhi
 		virtual void WaitIdle() {}
 
 		// Textures
-		virtual TextureHandle CreateTexture2D(Extent2D extendt, Format format) = 0;
+		virtual TextureHandle CreateTexture2D(Extent2D extent, Format format) = 0;
 		virtual TextureHandle CreateTextureCube(Extent2D extent, Format format) = 0;
 		virtual void DestroyTexture(TextureHandle texture) noexcept = 0;
 
