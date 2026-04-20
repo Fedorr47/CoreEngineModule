@@ -48,6 +48,82 @@ endfunction()
 
 option(USE_SUBMODULES "Prefer extern/* submodules if present" ON)
 option(WITH_TESTS "Build tests" ON)
+option(CORE_TEST_SANITIZER_PROFILE "Enable sanitizer-oriented test profile." OFF)
+option(CORE_ENABLE_ASAN "Enable AddressSanitizer instrumentation for supported toolchains." OFF)
+option(CORE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer instrumentation for supported toolchains." OFF)
+
+if(CORE_TEST_SANITIZER_PROFILE)
+  set(CORE_ENABLE_ASAN ON CACHE BOOL "" FORCE)
+  if(MSVC)
+    message(STATUS "CORE_TEST_SANITIZER_PROFILE: MSVC toolchain detected; enabling ASan-only profile.")
+    set(CORE_ENABLE_UBSAN OFF CACHE BOOL "" FORCE)
+  else()
+    set(CORE_ENABLE_UBSAN ON CACHE BOOL "" FORCE)
+  endif()
+endif()
+
+set(CORE_SANITIZERS_ACTIVE FALSE)
+set(_core_sanitizer_compile_flags "")
+set(_core_sanitizer_link_flags "")
+
+if(CORE_ENABLE_ASAN OR CORE_ENABLE_UBSAN)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    if(CORE_ENABLE_ASAN)
+      list(APPEND _core_sanitizer_compile_flags -fsanitize=address -fno-omit-frame-pointer)
+      list(APPEND _core_sanitizer_link_flags -fsanitize=address)
+    endif()
+    if(CORE_ENABLE_UBSAN)
+      list(APPEND _core_sanitizer_compile_flags -fsanitize=undefined)
+      list(APPEND _core_sanitizer_link_flags -fsanitize=undefined)
+    endif()
+    set(CORE_SANITIZERS_ACTIVE TRUE)
+  elseif(MSVC OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+    if(CORE_ENABLE_UBSAN)
+      message(WARNING "CORE_ENABLE_UBSAN is not supported on MSVC toolchains; disabling UBSan.")
+      set(CORE_ENABLE_UBSAN OFF CACHE BOOL "" FORCE)
+    endif()
+
+    if(CORE_ENABLE_ASAN)
+      list(APPEND _core_sanitizer_compile_flags /fsanitize=address)
+      list(APPEND _core_sanitizer_link_flags /fsanitize=address)
+      set(CORE_SANITIZERS_ACTIVE TRUE)
+    endif()
+  else()
+    message(WARNING
+            "Sanitizers requested, but compiler '${CMAKE_CXX_COMPILER_ID}' is not supported by this profile. "
+            "Sanitizer instrumentation will be disabled.")
+    set(CORE_ENABLE_ASAN OFF CACHE BOOL "" FORCE)
+    set(CORE_ENABLE_UBSAN OFF CACHE BOOL "" FORCE)
+  endif()
+
+  if(CORE_ENABLE_ASAN OR CORE_ENABLE_UBSAN)
+    if(NOT WITH_TESTS)
+      message(FATAL_ERROR "Sanitizer options require WITH_TESTS=ON so the test target is built.")
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      if(NOT CMAKE_BUILD_TYPE)
+        message(WARNING
+                "Sanitizer profile is most deterministic with a single-config generator and explicit "
+                "CMAKE_BUILD_TYPE=Debug or RelWithDebInfo.")
+      endif()
+    endif()
+  endif()
+endif()
+
+if(CORE_SANITIZERS_ACTIVE)
+  list(REMOVE_DUPLICATES _core_sanitizer_compile_flags)
+  list(REMOVE_DUPLICATES _core_sanitizer_link_flags)
+
+  add_library(core_test_sanitizers INTERFACE)
+  target_compile_options(core_test_sanitizers INTERFACE ${_core_sanitizer_compile_flags})
+  target_link_options(core_test_sanitizers INTERFACE ${_core_sanitizer_link_flags})
+
+  message(STATUS "Sanitizers active: ASAN=${CORE_ENABLE_ASAN}; UBSAN=${CORE_ENABLE_UBSAN}")
+else()
+  if(CORE_ENABLE_ASAN OR CORE_ENABLE_UBSAN OR CORE_TEST_SANITIZER_PROFILE)
+    message(STATUS "Sanitizers requested but no supported sanitizer flags were activated.")
+  endif()
+endif()
 
 # ------------------------------------------------------------
 # --- Backend switch (cache) ---
@@ -292,6 +368,9 @@ endif()
 add_library(CoreEngineModuleLib STATIC)
 target_compile_features(CoreEngineModuleLib PUBLIC cxx_std_23)
 core_enable_import_std(CoreEngineModuleLib)
+if(CORE_SANITIZERS_ACTIVE)
+  target_link_libraries(CoreEngineModuleLib PRIVATE core_test_sanitizers)
+endif()
 
 target_compile_definitions(CoreEngineModuleLib
         PUBLIC
@@ -482,6 +561,9 @@ endif()
 add_executable(app src/main.cpp)
 target_compile_features(app PRIVATE cxx_std_23)
 core_enable_import_std(app)
+if(CORE_SANITIZERS_ACTIVE)
+  target_link_libraries(app PRIVATE core_test_sanitizers)
+endif()
 
 add_custom_command(TARGET app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
