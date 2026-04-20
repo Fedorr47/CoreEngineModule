@@ -22,6 +22,7 @@ export import :gameplay;
 export import :gameplay_graph_assets;
 export import :gameplay_graph;
 export import :gameplay_runtime;
+export import :json_utils;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

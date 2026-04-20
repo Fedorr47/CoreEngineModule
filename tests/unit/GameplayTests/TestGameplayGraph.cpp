@@ -370,9 +370,9 @@ TEST(GameplayGraph, JsonFixtureLoaderNestedFixture)
 	const auto& config = jsonUtils::GetReq(top, "config").AsObject();
 	const auto& graphics = jsonUtils::GetReq(top, "graphics").AsObject();
 	
-	EXPECT_FALSE(jsonUtils::GetBoolOpt(graphics, "vsync"), true);
+	EXPECT_FALSE(jsonUtils::GetBoolOpt(graphics, "vsync", true));
 	
-	const auto resolution = jsonUtils::GetReq(graphics, "resolution").AsObject();
+	const auto& resolution = jsonUtils::GetReq(graphics, "resolution").AsArray();
 	
 	ASSERT_EQ(resolution.size(), 2u);
 	EXPECT_EQ(static_cast<int>(resolution[0].AsNumber()), 1920);
