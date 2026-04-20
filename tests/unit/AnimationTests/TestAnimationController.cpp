@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+#include "TestSupport/TestFixtureLoader.h"
+
 import core;
 
 using namespace rendern;
@@ -106,4 +108,17 @@ TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefault
 
 	RequestAnimationControllerState(runtime, "Idle");
 	EXPECT_EQ(runtime.requestedStateName, "Idle");
+}
+
+TEST(AnimationController, JsonFixtureLoaderReadsMinimalConfigText)
+{
+	const std::string fixtureTest = LoadTextFixture("json/valid/minimal_config.json");
+	ASSERT_FALSE(fixtureTest.empty());
+	
+	jsonUtils::JsonParser parser(fixtureTest);
+	const jsonUtils::JsonValue root = parser.Parse();
+	const auto& object = root.AsObject();
+	
+	EXPECT_EQ(jsonUtils::GetStringOpt(object, "name", ""), "minimal");
+	EXPECT_TRUE(jsonUtils::GetBoolOpt(object, "enabled", false));
 }
