@@ -1,4 +1,7 @@
 #include <gtest/gtest.h>
+#include <stdexcept>
+
+#include "TestSupport/TestFixtureLoader.h"
 
 import core;
 
@@ -355,4 +358,44 @@ TEST(GameplayGraph, DefaultHumanoidAssetComesPrecompiled)
 	EXPECT_EQ(
 		action.transitions[0].conditions[0].opcode,
 		GameplayGraphConditionOpcode::BoolFalse);
+}
+
+TEST(GameplayGraph, JsonFixtureLoaderNestedFixture)
+{
+	const std::string fixtureText = LoadTextFixture("json/valid/nested_config.json");
+	jsonUtils::JsonParser parser(fixtureText);
+	const jsonUtils::JsonValue root = parser.Parse();
+	
+	const auto& top = root.AsObject();
+	const auto& config = jsonUtils::GetReq(top, "config").AsObject();
+	const auto& graphics = jsonUtils::GetReq(top, "graphics").AsObject();
+	
+	EXPECT_FALSE(jsonUtils::GetBoolOpt(graphics, "vsync", true));
+	
+	const auto& resolution = jsonUtils::GetReq(graphics, "resolution").AsArray();
+	
+	ASSERT_EQ(resolution.size(), 2u);
+	EXPECT_EQ(static_cast<int>(resolution[0].AsNumber()), 1920);
+	EXPECT_EQ(static_cast<int>(resolution[1].AsNumber()), 1080);
+	EXPECT_EQ(jsonUtils::GetStringOpt(config, "quality", ""), "high");
+}
+
+TEST(GameplayGraph, JsonFixtureLoaderMalformedFixtureThrowsClearError)
+{
+	const std::string fixtureText = LoadTextFixture("json/invalid/malformed_config.json");
+	jsonUtils::JsonParser parser(fixtureText);
+
+	EXPECT_THROW(
+		{
+			try
+			{
+				(void)parser.Parse();
+			}
+			catch (const std::runtime_error& ex)
+			{
+				EXPECT_NE(std::string(ex.what()).find("JSON parse error"), std::string::npos);
+				throw;
+			}
+		},
+		std::runtime_error);
 }

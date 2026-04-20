@@ -15,12 +15,19 @@ add_executable(CoreEngineModuleTests
         "unit/ResourceTests/TestTextureStorage.cpp" 
         "unit/TimerTests/TestTimerBasic.cpp"
         "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
+        "TestSupport/TestFixtureLoader.h"
+        "TestSupport/TestFixtureLoader.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
   PRIVATE
     CoreEngineModuleLib
     GTest::gtest_main
+)
+
+target_compile_definitions(CoreEngineModuleTests
+        PRIVATE
+        CORE_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/assets"
 )
 
 target_compile_features(CoreEngineModuleTests PRIVATE cxx_std_23)
