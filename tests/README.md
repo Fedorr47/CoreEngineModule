@@ -113,3 +113,60 @@ Test guidance:
 5. Keep test deterministic (no implicit time/order dependence).
 6. Keep backend assumptions explicit; default to backend-agnostic unit coverage.
 7. Add the new test source to `tests/CMakeLists.txt`.
+
+## Sanitizer-oriented deterministic test profile
+
+The build now supports an optional sanitizer-oriented test profile that is **off by default** and does not change normal developer workflows unless explicitly enabled.
+
+### CMake options
+
+- `CORE_TEST_SANITIZER_PROFILE` (default `OFF`): convenience profile for sanitizer test builds.
+- `CORE_ENABLE_ASAN` (default `OFF`): enables AddressSanitizer on supported toolchains.
+- `CORE_ENABLE_UBSAN` (default `OFF`): enables UndefinedBehaviorSanitizer on supported toolchains.
+
+Profile behavior:
+
+- `CORE_TEST_SANITIZER_PROFILE=ON` enables `CORE_ENABLE_ASAN=ON`.
+- On Clang/GCC, it also enables `CORE_ENABLE_UBSAN=ON`.
+- On MSVC-family toolchains, UBSan is explicitly disabled (ASan-only profile).
+
+If sanitizers are requested with `WITH_TESTS=OFF`, configure fails with a clear error because the profile is test-oriented.
+
+### Toolchain support and explicit fallback behavior
+
+- **Clang/GCC**: supports ASan and UBSan profile flags.
+- **MSVC / clang-cl (MSVC frontend)**:
+    - ASan is supported via `/fsanitize=address`.
+    - UBSan is not supported by this profile; the build emits a warning and disables UBSan.
+- **Other compilers**: build emits an explicit warning and disables sanitizer instrumentation.
+
+### Determinism notes
+
+- This profile does not add randomness or test-order changes.
+- Existing deterministic rules still apply (fixed fixtures, explicit drains, no wall-clock assumptions).
+- For single-config generators (for example Ninja), pass an explicit build type (`Debug` or `RelWithDebInfo`) for repeatable local/CI invocation.
+
+### Known-good local run path (Clang/GCC + Ninja)
+
+```bash
+cmake -S . -B build-asan-ubsan -G Ninja \
+  -DWITH_TESTS=ON \
+  -DCORE_TEST_SANITIZER_PROFILE=ON \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-asan-ubsan --target CoreEngineModuleTests
+ctest --test-dir build-asan-ubsan --output-on-failure
+```
+
+### Explicitly limited case example (MSVC + UBSan request)
+
+```powershell
+cmake -S . -B build-msvc-asan -G "Visual Studio 17 2022" `
+  -DWITH_TESTS=ON `
+  -DCORE_ENABLE_ASAN=ON `
+  -DCORE_ENABLE_UBSAN=ON
+```
+
+Expected configure behavior:
+
+- A warning is printed that `CORE_ENABLE_UBSAN` is unsupported on MSVC toolchains and is disabled.
+- ASan remains enabled.

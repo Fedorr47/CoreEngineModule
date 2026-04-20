@@ -25,6 +25,10 @@ target_link_libraries(CoreEngineModuleTests
     GTest::gtest_main
 )
 
+if(TARGET core_test_sanitizers)
+  target_link_libraries(CoreEngineModuleTests PRIVATE core_test_sanitizers)
+endif()
+
 target_compile_definitions(CoreEngineModuleTests
         PRIVATE
         CORE_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/assets"
