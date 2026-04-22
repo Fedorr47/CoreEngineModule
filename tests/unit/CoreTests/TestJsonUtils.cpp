@@ -135,37 +135,69 @@ TEST(JsonUtils, ParseRejectsTrailingData)
 
 TEST(JsonUtils, TypedAccessFailurePathsThrowAndDefaultsApply)
 {
-    const jsonUtils::JsonValue root = ParseJson(R"json({"name":"core","enabled":true,"count":3,"node":{}})json");
+    const jsonUtils::JsonValue root = ParseJson(R"json({"name":"core","enabled":true,"count":3,"ratio":2.5,"node":{}})json");
     ASSERT_TRUE(root.IsObject());
     const auto& object = root.AsObject();
 
+    const jsonUtils::JsonValue& name = jsonUtils::GetReq(object, "name");
+    EXPECT_TRUE(name.IsString());
+
+    try
+    {
+        [[maybe_unused]] const auto& missing = jsonUtils::GetReq(object, "missingReq");
+        FAIL() << "Expected GetReq to throw for a missing field";
+    }
+    catch (const std::runtime_error& error)
+    {
+        EXPECT_STREQ(error.what(), "Level JSON: missing required field 'missingReq'");
+    }
+
+    EXPECT_EQ(jsonUtils::GetStringOpt(object, "name", ""), "core");
     EXPECT_EQ(jsonUtils::GetStringOpt(object, "missing", "fallback"), "fallback");
+    
+    try
+    {
+        [[maybe_unused]] const auto wrongStringType = jsonUtils::GetStringOpt(object, "count", "");
+        FAIL() << "Expected GetStringOpt to throw for wrong type";
+    }
+    catch (const std::runtime_error& error)
+    {
+        EXPECT_STREQ(error.what(), "Level JSON: expected string at 'count'");
+    }
+    
+    EXPECT_TRUE(jsonUtils::GetBoolOpt(object, "enabled", false));
     EXPECT_FALSE(jsonUtils::GetBoolOpt(object, "missingBool", false));
+    
+    try
+    {
+        [[maybe_unused]] const auto wrongBoolType = jsonUtils::GetBoolOpt(object, "name", false);
+        FAIL() << "Expected GetBoolOpt to throw for wrong type";
+    }
+    catch (const std::runtime_error& error)
+    {
+        EXPECT_STREQ(error.what(), "Level JSON: expected bool at 'name'");
+    }
+
+    EXPECT_FLOAT_EQ(jsonUtils::GetFloatOpt(object, "ratio", 0.0f), 2.5f);
     EXPECT_FLOAT_EQ(jsonUtils::GetFloatOpt(object, "missingFloat", 3.25f), 3.25f);
+    
+    try
+    {
+        [[maybe_unused]] const auto wrongFloatType = jsonUtils::GetFloatOpt(object, "node", 0.0f);
+        FAIL() << "Expected GetFloatOpt to throw for wrong type";
+    }
+    catch (const std::runtime_error& error)
+    {
+        EXPECT_STREQ(error.what(), "Level JSON: expected number at 'node'");
+    }
+    
     EXPECT_EQ(jsonUtils::GetIntOpt(object, "missingInt", 7), 7);
     EXPECT_EQ(jsonUtils::TryGet(object, "missingPtr"), nullptr);
-
-    EXPECT_THROW(([&] {
-    [[maybe_unused]] const auto& unused = jsonUtils::GetReq(object, "missingReq");
-}()), std::runtime_error);
-
-    EXPECT_THROW(([&] {
-        [[maybe_unused]] const auto unused = jsonUtils::GetStringOpt(object, "count", "");
-    }()), std::runtime_error);
-
-    EXPECT_THROW(([&] {
-        [[maybe_unused]] const auto unused = jsonUtils::GetBoolOpt(object, "name", false);
-    }()), std::runtime_error);
-
-    EXPECT_THROW(([&] {
-        [[maybe_unused]] const auto unused = jsonUtils::GetFloatOpt(object, "node", 0.0f);
-    }()), std::runtime_error);
-
+    
     EXPECT_THROW(([&] {
         [[maybe_unused]] const auto unused = jsonUtils::GetIntOpt(object, "enabled", 0);
     }()), std::runtime_error);
-
-    const jsonUtils::JsonValue& name = jsonUtils::GetReq(object, "name");
+    
     EXPECT_THROW(([&] {
     [[maybe_unused]] const auto& unused = name.AsArray();
     }()), std::runtime_error);
