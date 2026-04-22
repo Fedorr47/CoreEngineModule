@@ -112,19 +112,19 @@ TEST(JsonUtils, ParseNumbersSuccessAndMalformedFailureCases)
 
 TEST(JsonUtils, ParseStringEscapesSuccessAndInvalidEscapeFailure)
 {
-    const jsonUtils::JsonValue parsed = ParseJson(R"json({"s":"line\n\t\\\"\/\u0041"})json");
+    const jsonUtils::JsonValue parsed = ParseJson("{\"s\":\"line\\n\\t\\\\\\\"\\/\\u0041\"}");
     ASSERT_TRUE(parsed.IsObject());
 
     const std::string escaped = jsonUtils::GetReq(parsed.AsObject(), "s").AsString();
     EXPECT_NE(escaped.find('\n'), std::string::npos);
     EXPECT_NE(escaped.find('\t'), std::string::npos);
     EXPECT_NE(escaped.find('\\'), std::string::npos);
-    EXPECT_NE(escaped.find('"'), std::string::npos);
+    EXPECT_NE(escaped.find('\"'), std::string::npos);
     EXPECT_NE(escaped.find('/'), std::string::npos);
     EXPECT_NE(escaped.find('?'), std::string::npos);
 
-    EXPECT_THROW(ParseJson(R"json({"s":"bad\x"})json"), std::runtime_error);
-    EXPECT_THROW(ParseJson(R"json({"s":"bad\u12"})json"), std::runtime_error);
+    EXPECT_THROW(ParseJson("{\"s\":\"bad\\x\"}"), std::runtime_error);
+    EXPECT_THROW(ParseJson("{\"s\":\"bad\\u12\"}"), std::runtime_error);
 }
 
 TEST(JsonUtils, ParseRejectsTrailingData)
@@ -145,12 +145,28 @@ TEST(JsonUtils, TypedAccessFailurePathsThrowAndDefaultsApply)
     EXPECT_EQ(jsonUtils::GetIntOpt(object, "missingInt", 7), 7);
     EXPECT_EQ(jsonUtils::TryGet(object, "missingPtr"), nullptr);
 
-    EXPECT_THROW(jsonUtils::GetReq(object, "missingReq"), std::runtime_error);
-    EXPECT_THROW(jsonUtils::GetStringOpt(object, "count", ""), std::runtime_error);
-    EXPECT_THROW(jsonUtils::GetBoolOpt(object, "name", false), std::runtime_error);
-    EXPECT_THROW(jsonUtils::GetFloatOpt(object, "node", 0.0f), std::runtime_error);
-    EXPECT_THROW(jsonUtils::GetIntOpt(object, "enabled", 0), std::runtime_error);
+    EXPECT_THROW(([&] {
+    [[maybe_unused]] const auto& unused = jsonUtils::GetReq(object, "missingReq");
+}()), std::runtime_error);
+
+    EXPECT_THROW(([&] {
+        [[maybe_unused]] const auto unused = jsonUtils::GetStringOpt(object, "count", "");
+    }()), std::runtime_error);
+
+    EXPECT_THROW(([&] {
+        [[maybe_unused]] const auto unused = jsonUtils::GetBoolOpt(object, "name", false);
+    }()), std::runtime_error);
+
+    EXPECT_THROW(([&] {
+        [[maybe_unused]] const auto unused = jsonUtils::GetFloatOpt(object, "node", 0.0f);
+    }()), std::runtime_error);
+
+    EXPECT_THROW(([&] {
+        [[maybe_unused]] const auto unused = jsonUtils::GetIntOpt(object, "enabled", 0);
+    }()), std::runtime_error);
 
     const jsonUtils::JsonValue& name = jsonUtils::GetReq(object, "name");
-    EXPECT_THROW(name.AsArray(), std::runtime_error);
+    EXPECT_THROW(([&] {
+    [[maybe_unused]] const auto& unused = name.AsArray();
+    }()), std::runtime_error);
 }
