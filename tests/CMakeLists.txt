@@ -15,6 +15,7 @@ add_executable(CoreEngineModuleTests
         "unit/ResourceTests/TestTextureStorage.cpp" 
         "unit/TimerTests/TestTimerBasic.cpp"
         "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
+        "unit/CoreTests/TestJsonUtils.cpp"
         "TestSupport/TestFixtureLoader.h"
         "TestSupport/TestFixtureLoader.cpp"
 )

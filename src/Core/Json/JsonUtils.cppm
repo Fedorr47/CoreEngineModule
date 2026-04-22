@@ -285,7 +285,7 @@ export namespace jsonUtils
             const std::string tmp(text_.substr(start, pos_ - start));
             char* endPtr = nullptr;
             const double v = std::strtod(tmp.c_str(), &endPtr);
-            if (endPtr == tmp.c_str())
+            if (endPtr == tmp.c_str()|| endPtr != tmp.c_str() + tmp.size())
             {
                 Throw("invalid number");
             }
