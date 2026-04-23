@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "MathTestHelper.h"
+#include <cmath>
 
 using namespace MathTestHelper;
 
@@ -289,4 +290,74 @@ TEST(MathUtils, PerspectiveRHZOProducesExpectedMatrixTerms)
 	EXPECT_NEAR(proj[1][1], 1.0f, 1e-5f);
 	EXPECT_NEAR(proj[2][3], -1.0f, 1e-5f);
 	EXPECT_NEAR(proj[3][2], -(farZ * nearZ) / (farZ - nearZ), 1e-5f);
+}
+
+
+TEST(MathUtils, GeometryRayDefaultsToForwardZ)
+{
+	// Verifies the public Ray default contract used by picking paths:
+	// origin at world zero and forward direction on +Z.
+	const geometry::Ray ray{};
+	ExpectVec3Near(ray.origin, Vec3(0.0f, 0.0f, 0.0f));
+	ExpectVec3Near(ray.dir, Vec3(0.0f, 0.0f, 1.0f));
+}
+
+TEST(MathUtils, FrustumSphereIntersectionTreatsTangentAsHit)
+{
+	// Checks sphere/frustum boundary behavior:
+	// tangent contact is a hit, exact boundary point is a hit, and just outside is a miss.
+	Frustum frustum{};
+	frustum.planes[static_cast<int>(FrustumPlane::Left)] = Plane{ Vec3(1.0f, 0.0f, 0.0f), 0.0f };
+
+	EXPECT_TRUE(IntersectsSphere(frustum, Vec3(-1.0f, 0.0f, 0.0f), 1.0f));
+	EXPECT_TRUE(IntersectsSphere(frustum, Vec3(0.0f, 0.0f, 0.0f), 0.0f));
+	EXPECT_FALSE(IntersectsSphere(frustum, Vec3(-1.001f, 0.0f, 0.0f), 1.0f));
+}
+
+TEST(MathUtils, NormalizePlaneDegenerateInputProducesZeroPlane)
+{
+	// Degenerate plane normal should return the zero plane and produce zero signed distance
+	// for any point, which documents current graceful-fallback behavior.
+	const Plane plane = NormalizePlane(Vec4(0.0f, 0.0f, 0.0f, 42.0f));
+	ExpectVec3Near(plane.norm, Vec3(0.0f, 0.0f, 0.0f));
+	EXPECT_FLOAT_EQ(plane.dist, 0.0f);
+	EXPECT_FLOAT_EQ(Distance(plane, Vec3(123.0f, -77.0f, 5.0f)), 0.0f);
+}
+
+TEST(MathUtils, TransformVectorWithNonUniformAndZeroScaleHandlesDegenerates)
+{
+	// Verifies transform-vector semantics under scaling edge cases:
+	// non-uniform scaling stretches each axis independently, and zero-scale collapses that axis.
+	const Mat4 nonUniform = Scale(Mat4(1.0f), Vec3(2.0f, 3.0f, 4.0f));
+	ExpectVec3Near(TransformVector(nonUniform, Vec3(1.0f, -2.0f, 0.5f)), Vec3(2.0f, -6.0f, 2.0f));
+
+	const Mat4 zeroScaleY = Scale(Mat4(1.0f), Vec3(2.0f, 0.0f, 4.0f));
+	ExpectVec3Near(TransformVector(zeroScaleY, Vec3(1.0f, -2.0f, 0.5f)), Vec3(2.0f, 0.0f, 2.0f));
+}
+
+TEST(MathUtils, RotateWithZeroAxisReturnsDegenerateLinearPart)
+{
+	// Documents current degenerate rotation behavior:
+	// rotating around a zero axis collapses the linear part for this 90-degree case.
+	const Mat4 rotated = Rotate(Mat4(1.0f), DegToRad(90.0f), Vec3(0.0f, 0.0f, 0.0f));
+	ExpectVec3Near(TransformVector(rotated, Vec3(1.0f, 2.0f, 3.0f)), Vec3(0.0f, 0.0f, 0.0f));
+	ExpectVec3Near(TransformPoint(rotated, Vec3(1.0f, 2.0f, 3.0f)), Vec3(0.0f, 0.0f, 0.0f));
+}
+
+TEST(MathUtils, LookAtRHWithParallelUpAndForwardProducesFiniteValues)
+{
+	// Ensures LookAtRH remains numerically stable for parallel up/forward inputs:
+	// no NaN/Inf values and deterministic transformed-vector outputs.
+	const Mat4 view = LookAtRH(Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
+
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			EXPECT_TRUE(std::isfinite(view[col][row]));
+		}
+	}
+
+	ExpectVec3Near(TransformVector(view, Vec3(1.0f, 0.0f, 0.0f)), Vec3(0.0f, 0.0f, 0.0f));
+	EXPECT_NEAR(TransformVector(view, Vec3(0.0f, 1.0f, 0.0f)).z, -1.0f, kEpsVec);
 }
