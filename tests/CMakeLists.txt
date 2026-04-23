@@ -17,6 +17,7 @@ add_executable(CoreEngineModuleTests
         "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
         "unit/CoreTests/TestJsonUtils.cpp"
         "unit/CoreTests/TestStringHashUtils.cpp"
+        "unit/CoreTests/TestFileUtils.cpp"
         "TestSupport/TestFixtureLoader.h"
         "TestSupport/TestFixtureLoader.cpp"
 )
