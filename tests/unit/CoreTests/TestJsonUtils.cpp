@@ -7,8 +7,6 @@
 
 import core;
 
-using namespace rendern;
-
 namespace
 {
     jsonUtils::JsonValue ParseJson(std::string_view text)
