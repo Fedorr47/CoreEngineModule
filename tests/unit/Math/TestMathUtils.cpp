@@ -306,6 +306,16 @@ TEST(MathUtils, FrustumSphereIntersectionTreatsTangentAsHit)
 {
 	// Checks sphere/frustum boundary behavior:
 	// tangent contact is a hit, exact boundary point is a hit, and just outside is a miss.
+	
+	// Plane x = 0.
+	// Sphere test uses signed distance dist = c.x.
+	// Hit condition per plane: dist >= -r.
+	//
+	// Cases:
+	// 1) c.x = -1.000, r = 1.0  => tangent  => hit
+	// 2) c.x =  0.000, r = 0.0  => boundary => hit
+	// 3) c.x = -1.001, r = 1.0  => outside  => miss
+	
 	Frustum frustum{};
 	frustum.planes[static_cast<int>(FrustumPlane::Left)] = Plane{ Vec3(1.0f, 0.0f, 0.0f), 0.0f };
 
@@ -316,8 +326,24 @@ TEST(MathUtils, FrustumSphereIntersectionTreatsTangentAsHit)
 
 TEST(MathUtils, NormalizePlaneDegenerateInputProducesZeroPlane)
 {
-	// Degenerate plane normal should return the zero plane and produce zero signed distance
-	// for any point, which documents current graceful-fallback behavior.
+	/*
+		Input plane:
+			0x + 0y + 0z + 42 = 0
+
+		This is degenerate because the normal length is zero.
+		A regular normalization would divide by zero:
+
+			norm /= Length(norm)
+			dist /= Length(norm)
+
+		Current fallback behavior:
+			return zero plane { normal = (0,0,0), dist = 0 }
+
+		Then signed distance is zero for any point:
+
+			Distance(p, x) = Dot((0,0,0), x) + 0 = 0
+	*/
+
 	const Plane plane = NormalizePlane(Vec4(0.0f, 0.0f, 0.0f, 42.0f));
 	ExpectVec3Near(plane.norm, Vec3(0.0f, 0.0f, 0.0f));
 	EXPECT_FLOAT_EQ(plane.dist, 0.0f);
@@ -326,8 +352,26 @@ TEST(MathUtils, NormalizePlaneDegenerateInputProducesZeroPlane)
 
 TEST(MathUtils, TransformVectorWithNonUniformAndZeroScaleHandlesDegenerates)
 {
-	// Verifies transform-vector semantics under scaling edge cases:
-	// non-uniform scaling stretches each axis independently, and zero-scale collapses that axis.
+	/*
+	   TransformVector uses vector semantics, conceptually w = 0.
+
+	   For a pure scale matrix:
+
+		   S = scale(sx, sy, sz)
+
+	   transforming vector v = (x, y, z) gives:
+
+		   v' = (x * sx, y * sy, z * sz)
+
+	   Non-uniform scale stretches each axis independently.
+	   Zero scale is degenerate but still well-defined for vector transformation:
+	   the component along that axis collapses to zero.
+
+	   This test intentionally does not require matrix inversion.
+	   A zero scale matrix is non-invertible, but TransformVector should still
+	   produce a stable finite result.
+   */
+	
 	const Mat4 nonUniform = Scale(Mat4(1.0f), Vec3(2.0f, 3.0f, 4.0f));
 	ExpectVec3Near(TransformVector(nonUniform, Vec3(1.0f, -2.0f, 0.5f)), Vec3(2.0f, -6.0f, 2.0f));
 
@@ -337,8 +381,22 @@ TEST(MathUtils, TransformVectorWithNonUniformAndZeroScaleHandlesDegenerates)
 
 TEST(MathUtils, RotateWithZeroAxisReturnsDegenerateLinearPart)
 {
-	// Documents current degenerate rotation behavior:
-	// rotating around a zero axis collapses the linear part for this 90-degree case.
+	/*
+		Rotation around a zero axis is mathematically undefined.
+
+		Current implementation produces a degenerate linear part for this case.
+		For a 90-degree angle, the transformed vector/point collapses to zero.
+
+		TODO(MathUtils):
+		Decide the intended engine behavior for zero-axis rotation:
+			1) Treat zero axis as no-op and return the input matrix.
+			2) Assert/fail in debug builds because the caller passed invalid input.
+			3) Keep the current degenerate behavior intentionally.
+
+		If behavior is changed to no-op, expected result should become the original
+		vector/point instead of Vec3(0,0,0).
+	*/
+	
 	const Mat4 rotated = Rotate(Mat4(1.0f), DegToRad(90.0f), Vec3(0.0f, 0.0f, 0.0f));
 	ExpectVec3Near(TransformVector(rotated, Vec3(1.0f, 2.0f, 3.0f)), Vec3(0.0f, 0.0f, 0.0f));
 	ExpectVec3Near(TransformPoint(rotated, Vec3(1.0f, 2.0f, 3.0f)), Vec3(0.0f, 0.0f, 0.0f));
@@ -346,8 +404,35 @@ TEST(MathUtils, RotateWithZeroAxisReturnsDegenerateLinearPart)
 
 TEST(MathUtils, LookAtRHWithParallelUpAndForwardProducesFiniteValues)
 {
-	// Ensures LookAtRH remains numerically stable for parallel up/forward inputs:
-	// no NaN/Inf values and deterministic transformed-vector outputs.
+	/*
+		LookAtRH degeneracy case:
+
+			eye    = (0,0,0)
+			target = (0,1,0)
+			up     = (0,1,0)
+
+		Here forward and up are parallel:
+
+			forward = normalize(target - eye) = (0,1,0)
+			cross(forward, up) = (0,0,0)
+
+		So the camera right vector cannot be built from the provided up vector.
+
+		Current behavior:
+			- matrix values remain finite;
+			- forward direction is still mapped to view-space -Z;
+			- the right/up part of the basis is degenerate.
+
+		TODO(MathUtils):
+		Decide the intended engine behavior for parallel up/forward LookAt input:
+			1) choose a fallback up vector and build a valid orthonormal basis;
+			2) assert/fail in debug builds because caller input is invalid;
+			3) keep the current finite-but-degenerate fallback intentionally.
+
+		If behavior is changed to build a valid fallback basis, the expectation that
+		world X transforms to Vec3(0,0,0) should be updated.
+	*/
+	
 	const Mat4 view = LookAtRH(Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
 
 	for (int col = 0; col < 4; ++col)
