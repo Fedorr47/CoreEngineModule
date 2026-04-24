@@ -59,7 +59,8 @@ namespace appUi
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
-        rendern::GameplayRuntimeMode& runtimeMode)
+        rendern::GameplayRuntimeMode& runtimeMode,
+        appDebugTools::SphereCcdSandboxState& sphereCcdSandboxState)
     {
         if (!shell.imguiInitialized || !shell.showDebugWindow || !shell.debugWindow || !shell.debugWindow->hwnd)
         {
@@ -86,6 +87,8 @@ namespace appUi
             runtimeMode = inGameMode ? rendern::GameplayRuntimeMode::Editor : rendern::GameplayRuntimeMode::Game;
         }
         ImGui::End();
+
+        appDebugTools::DrawSphereCcdSandboxUi(sphereCcdSandboxState);
 
         //if (runtimeMode == rendern::GameplayRuntimeMode::Editor)
         //{
@@ -173,7 +176,8 @@ namespace appUi
         rendern::LevelAsset&,
         rendern::LevelInstance&,
         AssetManager&,
-        rendern::GameplayRuntimeMode&)
+        rendern::GameplayRuntimeMode&,
+        appDebugTools::SphereCcdSandboxState&)
     {
         return nullptr;
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Win32AppShell.h"
+#include "DebugTools/SphereCcdSandbox.h"
 
 namespace appUi
 {
@@ -16,7 +17,8 @@ namespace appUi
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
-        rendern::GameplayRuntimeMode& runtimeMode);
+        rendern::GameplayRuntimeMode& runtimeMode,
+        appDebugTools::SphereCcdSandboxState& sphereCcdSandboxState);
 
     rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext& shell);
     void RenderImGuiToSwapChainIfEnabled(appWin32::AppShellContext& shell, rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);

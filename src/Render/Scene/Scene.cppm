@@ -160,6 +160,57 @@ export namespace rendern
 		}
 	};
 
+	struct DebugLinePrimitive
+	{
+		mathUtils::Vec3 a{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 b{ 0.0f, 0.0f, 0.0f };
+		std::uint32_t rgba{ 0xffffffffu };
+		bool overlay{ false };
+	};
+
+	struct DebugWireSpherePrimitive
+	{
+		mathUtils::Vec3 center{ 0.0f, 0.0f, 0.0f };
+		float radius{ 0.1f };
+		std::uint32_t rgba{ 0xffffffffu };
+		std::uint32_t segments{ 16u };
+		bool overlay{ false };
+	};
+
+	struct DebugCrossPrimitive
+	{
+		mathUtils::Vec3 center{ 0.0f, 0.0f, 0.0f };
+		float halfSize{ 0.05f };
+		std::uint32_t rgba{ 0xffffffffu };
+		bool overlay{ false };
+	};
+
+	struct DebugArrowPrimitive
+	{
+		mathUtils::Vec3 start{ 0.0f, 0.0f, 0.0f };
+		mathUtils::Vec3 end{ 0.0f, 0.0f, 0.0f };
+		std::uint32_t rgba{ 0xffffffffu };
+		float headFrac{ 0.25f };
+		float headWidthFrac{ 0.15f };
+		bool overlay{ false };
+	};
+
+	struct DebugPrimitiveState
+	{
+		std::vector<DebugLinePrimitive> lines{};
+		std::vector<DebugWireSpherePrimitive> wireSpheres{};
+		std::vector<DebugCrossPrimitive> crosses{};
+		std::vector<DebugArrowPrimitive> arrows{};
+
+		void Clear()
+		{
+			lines.clear();
+			wireSpheres.clear();
+			crosses.clear();
+			arrows.clear();
+		}
+	};
+
 	struct Particle
 	{
 		mathUtils::Vec3 position{ 0.0f, 0.0f, 0.0f };
@@ -443,6 +494,7 @@ export namespace rendern
 		DebugRay debugPickRay{};
 		GameplayMovementDebugState gameplayMovementDebug{};
 		AnimationRuntimeDebugState animationRuntimeDebug{};
+		DebugPrimitiveState debugPrimitives{};
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };

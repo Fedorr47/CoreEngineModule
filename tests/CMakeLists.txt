@@ -8,6 +8,7 @@ add_executable(CoreEngineModuleTests
         "unit/InputTests/TestControllerBase.cpp" 
         "unit/InputTests/TestCameraController.cpp" 
         "unit/Math/TestMathUtils.cpp" 
+        "unit/Math/TestSphereCcd.cpp"
         "unit/GameplayTests/TestGameplayGraph.cpp" 
         "unit/GameplayTests/TestGameplayWorld.cpp" 
         "unit/AnimationTests/TestAnimationController.cpp" 

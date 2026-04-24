@@ -7,6 +7,7 @@
 #include "EditorViewportInteraction.h"
 #include "AppRuntimeHelpers.h"
 #include "AppBootstrap.h"
+#include "DebugTools/SphereCcdSandbox.h"
 
 namespace appLifecycle
 {
@@ -91,6 +92,7 @@ namespace appLifecycle
         std::unique_ptr<rendern::GameplayRuntime> gameplayRuntime;
         std::unique_ptr<rendern::CameraController> cameraController;
         appEditor::EditorViewportInteraction editorViewportInteraction{};
+        appDebugTools::SphereCcdSandboxState sphereCcdSandbox{};
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
     };
     

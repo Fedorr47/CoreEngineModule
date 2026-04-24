@@ -1,0 +1,25 @@
+{
+  "name": "SphereCcdSandbox",
+  "meshes": {
+    "sphere": {"path": "models/sphere.obj", "debugName": "sphere.obj"}
+  },
+  "models": {},
+  "skinnedMeshes": {},
+  "animations": {},
+  "animationControllerAssets": {},
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "projectile": {"baseColor": [1.000000,0.580000,0.220000,1.000000], "shininess": 32.000000, "specStrength": 0.500000, "shadowBias": 0.001000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}},
+    "target": {"baseColor": [0.220000,0.620000,1.000000,1.000000], "shininess": 32.000000, "specStrength": 0.500000, "shadowBias": 0.001000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}}
+  },
+  "camera": {"position": [0.000000,7.000000,-12.000000], "target": [0.000000,0.500000,0.000000], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.010000, "farZ": 200.000000},
+  "lights": [
+    {"type": "directional", "position": [0.000000,0.000000,0.000000], "direction": [-0.357771,-0.894427,-0.268328], "color": [1.000000,1.000000,1.000000], "intensity": 1.000000, "range": 10.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.120000, "attQuadratic": 0.040000}
+  ],
+  "particleEmitters": [],
+  "nodes": [
+    {"name": "CCDProjectile", "parent": -1, "visible": true, "mesh": "sphere", "material": "projectile", "transform": {"position": [-3.000000,0.500000,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [0.500000,0.500000,0.500000]}},
+    {"name": "CCDTarget", "parent": -1, "visible": true, "mesh": "sphere", "material": "target", "transform": {"position": [0.000000,0.500000,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [0.500000,0.500000,0.500000]}}
+  ]
+}

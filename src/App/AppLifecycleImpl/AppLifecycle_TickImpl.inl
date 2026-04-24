@@ -134,6 +134,14 @@ static void UpdateEditorViewportInteraction(AppState& app)
         app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay = 
             !app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay;
     }
+    if (app.windowState.input.State().KeyPressed(VK_F7))
+    {
+        appDebugTools::StepSphereCcdSandboxScenario(app);
+    }
+    if (app.windowState.input.State().KeyPressed(VK_F8))
+    {
+        appDebugTools::ToggleSphereCcdSandboxAutoplay(app);
+    }
     if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Game)
     {
         ResetEditorInteractionState(app);
@@ -185,6 +193,7 @@ const rendern::GameplayUpdateContext BuildGameplayUpdateContext(
 
 static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 {
+    app.runtimeState.scene.debugPrimitives.Clear();
     const rendern::GameplayUpdateContext gameplayCtx = BuildGameplayUpdateContext(app, deltaSeconds);
     auto* gameplayRuntime = app.runtimeState.gameplayRuntime.get();
     
@@ -203,6 +212,7 @@ static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
     
     UpdateGameplayMovementDebug(app);
     UpdateAnimationRuntimeDebug(app);
+    appDebugTools::UpdateSphereCcdSandbox(app, deltaSeconds);
     app.runtimeState.scene.UpdateParticles(deltaSeconds);
 }
 

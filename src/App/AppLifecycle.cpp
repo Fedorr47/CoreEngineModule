@@ -331,6 +331,7 @@ namespace appLifecycle
         runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
 
         runtimeState.gameplayMode = rendern::GameplayRuntimeMode::Editor;
+        appDebugTools::ResetSphereCcdSandbox(runtimeState.sphereCcdSandbox);
 
         frameState.frameTimer.SetMaxDelta(0.05);
         frameState.frameTimer.Reset();
@@ -380,7 +381,8 @@ namespace appLifecycle
            *contentState.levelAsset,
            *runtimeState.levelInstance,
            *contentState.assets,
-           runtimeState.gameplayMode);
+           runtimeState.gameplayMode,
+           runtimeState.sphereCcdSandbox);
 
         RenderMainViewport(app);
         RenderDebugWindowIfNeeded(app, imguiDrawData);
@@ -425,6 +427,7 @@ namespace appLifecycle
         runtimeState.gameplayRuntime.reset();
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();
+        appDebugTools::ResetSphereCcdSandbox(runtimeState.sphereCcdSandbox);
         contentState.levelAsset.reset();
         contentState.assets.reset();
         contentState.meshIO.reset();

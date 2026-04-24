@@ -889,6 +889,34 @@ if (scene.editorDrawSelectedSkinnedSkeleton || scene.editorDrawSelectedSkinnedBo
 	}
 }
 
+for (const DebugLinePrimitive& primitive : scene.debugPrimitives.lines)
+{
+	debugList.AddLine(primitive.a, primitive.b, primitive.rgba, primitive.overlay);
+}
+for (const DebugWireSpherePrimitive& primitive : scene.debugPrimitives.wireSpheres)
+{
+	debugList.AddWireSphere(
+		primitive.center,
+		primitive.radius,
+		primitive.rgba,
+		primitive.segments,
+		primitive.overlay);
+}
+for (const DebugCrossPrimitive& primitive : scene.debugPrimitives.crosses)
+{
+	debugList.AddAxesCross(primitive.center, primitive.halfSize, primitive.rgba, primitive.overlay);
+}
+for (const DebugArrowPrimitive& primitive : scene.debugPrimitives.arrows)
+{
+	debugList.AddArrow(
+		primitive.start,
+		primitive.end,
+		primitive.rgba,
+		primitive.headFrac,
+		primitive.headWidthFrac,
+		primitive.overlay);
+}
+
 // Pick ray (from the editor UI) visualized in the main view via DebugDraw.
 if (scene.debugPickRay.enabled)
 {
