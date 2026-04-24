@@ -520,6 +520,7 @@ target_sources(CoreEngineModuleLib
         PRIVATE
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
+        "${SRC_DIR}/App/AppArguments.cpp"
         "${SRC_DIR}/App/AppBootstrap.cpp"
         "${SRC_DIR}/App/AppLifecycle.cpp"
 )

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include "App\AppBootstrap.h"
+#include "App/AppArguments.h"
 
 namespace appBootstrap
 {
@@ -73,12 +73,12 @@ TEST(AppBootstrapArguments, ParseAppArguments_ParsesMapOverridesAndIgnoresInvali
 
     std::map<std::string, std::vector<std::string>> parsedArgs;
 
-    const rhi::Backend backend = appBootstrap::ParseAppArguments(
-        static_cast<int>(argvData.argv.size()),
-        argvData.argv.data(),
-        parsedArgs);
+    const appBootstrap::ParsedBackend backend = appBootstrap::ParseAppArguments(
+    static_cast<int>(argvData.argv.size()),
+    argvData.argv.data(),
+    parsedArgs);
 
-    EXPECT_EQ(backend, rhi::Backend::DirectX12);
+    EXPECT_EQ(backend, appBootstrap::ParsedBackend::Default);
     const auto it = parsedArgs.find(std::string(MAP_LITERAL));
     ASSERT_NE(it, parsedArgs.end());
     EXPECT_EQ(it->second, (std::vector<std::string>{"first", "second", "third"}));
@@ -94,12 +94,12 @@ TEST(AppBootstrapArguments, ParseAppArguments_NullBackendAndEmptyArgumentListBeh
         });
 
         std::map<std::string, std::vector<std::string>> parsedArgs;
-        const rhi::Backend backend = appBootstrap::ParseAppArguments(
-            static_cast<int>(argvData.argv.size()),
-            argvData.argv.data(),
-            parsedArgs);
+        const appBootstrap::ParsedBackend backend = appBootstrap::ParseAppArguments(
+        static_cast<int>(argvData.argv.size()),
+    argvData.argv.data(),
+        parsedArgs);
 
-        EXPECT_EQ(backend, rhi::Backend::Null);
+        EXPECT_EQ(backend, appBootstrap::ParsedBackend::Null);
         const auto it = parsedArgs.find(std::string(MAP_LITERAL));
         ASSERT_NE(it, parsedArgs.end());
         EXPECT_EQ(it->second, (std::vector<std::string>{"arena"}));
@@ -108,9 +108,10 @@ TEST(AppBootstrapArguments, ParseAppArguments_NullBackendAndEmptyArgumentListBeh
     {
         std::map<std::string, std::vector<std::string>> parsedArgs;
         char** argv = nullptr;
-        const rhi::Backend backend = appBootstrap::ParseAppArguments(0, argv, parsedArgs);
+        const appBootstrap::ParsedBackend backend =
+            appBootstrap::ParseAppArguments(0, argv, parsedArgs);
 
-        EXPECT_EQ(backend, rhi::Backend::DirectX12);
+        EXPECT_EQ(backend, appBootstrap::ParsedBackend::Default);
         EXPECT_TRUE(parsedArgs.empty());
     }
 }
