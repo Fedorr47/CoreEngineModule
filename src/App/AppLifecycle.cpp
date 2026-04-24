@@ -10,6 +10,7 @@ import std;
 #endif
 
 #include "AppLifecycle.h"
+#include "AppArguments.h"
 
 namespace appLifecycle
 {
@@ -218,7 +219,15 @@ namespace appLifecycle
         auto& contentState      = app.contentState;
         auto& frameState        = app.frameState;
         
-        launchState.requestedBackend = appBootstrap::ParseAppArguments(argc, argv, launchState.appArguments);
+        const appBootstrap::ParsedBackend parsedBackend =
+        appBootstrap::ParseAppArguments(argc, argv, launchState.appArguments);
+        rhi::Backend backend = rhi::Backend::DirectX12;
+        if (parsedBackend == appBootstrap::ParsedBackend::Null)
+        {
+            backend = rhi::Backend::Null;
+        }
+        
+        launchState.requestedBackend = backend;
         launchState.canUseDebugWindow = appBootstrap::CanUseDebugWindow(launchState.requestedBackend);
         windowState.shell.input = &windowState.input;
 

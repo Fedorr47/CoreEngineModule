@@ -18,6 +18,7 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestJsonUtils.cpp"
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"
+        "unit/AppTests/TestAppBootstrapArguments.cpp"
         "TestSupport/TestFixtureLoader.h"
         "TestSupport/TestFixtureLoader.cpp"
 )
@@ -41,7 +42,8 @@ target_compile_features(CoreEngineModuleTests PRIVATE cxx_std_23)
 
 target_include_directories(CoreEngineModuleTests
   PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
 )
 
 if (WIN32)

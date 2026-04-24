@@ -11,67 +11,8 @@ import std;
 
 #include "AppBootstrap.h"
 
-constexpr std::string_view FLAGS_LITERAL{"flags"};
-constexpr std::string_view COMMON_ARGUMENTS{"--"};
-constexpr std::array<std::string_view, 1> ValidArgumentNames{MAP_LITERAL};
-
 namespace appBootstrap
 {
-    bool CheckNamedArgument(std::string_view argumentName)
-    {
-        return std::ranges::find(ValidArgumentNames, argumentName) != ValidArgumentNames.end();
-    }
-    
-    void ParseArgument(const std::string& argument, std::map<std::string, std::vector<std::string>>& args)
-    {
-        std::string_view value = argument;
-        if (value.find(COMMON_ARGUMENTS) == 0)
-        {
-            value = value.substr(COMMON_ARGUMENTS.length());
-        }
-
-        const size_t index = value.find('=');
-        if (index != std::string::npos)
-        {
-            const std::string_view key = value.substr(0, index);
-            if (!CheckNamedArgument(key))
-            {
-                std::cerr << "Invalid key: " << key << std::endl;
-                return;
-            }
-
-            const std::string_view parsedValue = value.substr(index + 1);
-            if (parsedValue.empty())
-            {
-                std::cerr << "Empty value for key: " << key << std::endl;
-                return;
-            }
-
-            args[std::string(key)].emplace_back(parsedValue);
-        }
-        else
-        {
-            std::cerr << "Invalid argument: " << argument << std::endl;
-        }
-    }
-    
-    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args)
-    {
-        rhi::Backend backendType = rhi::Backend::DirectX12;
-        for (int argIndex = 1; argIndex < argc; ++argIndex)
-        {
-            const std::string_view argValue = argv[argIndex];
-            if (argValue == "--null")
-            {
-                backendType = rhi::Backend::Null;
-                continue;
-            }
-            ParseArgument(argv[argIndex], args);
-        }
-
-        return backendType;
-    }
-
     bool CanUseDebugWindow([[maybe_unused]] rhi::Backend backend)
     {
 #if defined(CORE_USE_DX12)

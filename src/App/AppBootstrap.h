@@ -2,14 +2,10 @@
 
 #include "Win32AppShell.h"
 
-constexpr std::string_view MAP_LITERAL{"map"};
-
 namespace appBootstrap
 {
     bool CanUseDebugWindow([[maybe_unused]] rhi::Backend backend);
     
-    rhi::Backend ParseAppArguments(int argc, char** argv, std::map<std::string, std::vector<std::string>>& args);
-
     void CreatePrimaryWindowSet(
         appWin32::AppShellContext& shell,
         int mainWidth,
