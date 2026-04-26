@@ -19,6 +19,7 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
+        "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
         "TestSupport/TestFixtureLoader.h"
         "TestSupport/TestFixtureLoader.cpp"
 )
