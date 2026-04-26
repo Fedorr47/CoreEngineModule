@@ -14,21 +14,25 @@ import std;
 
 namespace appLifecycle
 {
-    static std::uint32_t ComputeStreamingWorkerCount() noexcept
+    std::uint32_t ComputeStreamingWorkerCount(const unsigned int hardwareThreadCount) noexcept
     {
-        const unsigned int hc = std::thread::hardware_concurrency();
-        if (hc <= 1u)
+        if (hardwareThreadCount <= 1u)
         {
             return 1u;
         }
 
-        unsigned int wc = hc - 1u;
-        if (wc < 1u)
-            wc = 1u;
-        if (wc > 8u)
-            wc = 8u;
+        unsigned int workableCount = hardwareThreadCount - 1u;
+        if (workableCount < 1u)
+            workableCount = 1u;
+        if (workableCount > 8u)
+            workableCount = 8u;
 
-        return static_cast<std::uint32_t>(wc);
+        return static_cast<std::uint32_t>(workableCount);
+    }
+    
+    std::uint32_t ComputeStreamingWorkerCount() noexcept
+    {
+        return ComputeStreamingWorkerCount(std::thread::hardware_concurrency());
     }
 
     static void ResetEditorInteractionState(AppState& app)
