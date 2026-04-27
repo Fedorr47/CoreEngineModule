@@ -103,6 +103,10 @@ export namespace rendern
         EntityHandle controlledEntity_{ kNullEntity };
         std::vector<GameplayIntentBinding> intentBindings_{};
         std::unordered_map<EntityHandle, std::size_t> intentBindingIndexByEntity_{};
+        // TODO: change it to methods like these 
+        // ForEachCharacter(...)
+        // ForEachAnimatedEntity(...)
+        // ForEachPlayerControlled(...)
         std::vector<EntityHandle> nodeBoundEntities_{};
         std::unordered_map<EntityHandle, GameplayGraphInstance> graphInstances_{};
         GameplayGraphAsset defaultGraphAsset_{};
