@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "MathTestHelper.h"
+#include "TestSupport/MathTestHelper.h"
 #include <cmath>
 
 using namespace MathTestHelper;

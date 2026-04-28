@@ -193,6 +193,11 @@
             return controlledEntity_;
         }
 
+        [[nodiscard]] GameplayRuntimeMode GameplayRuntime::GetCurrentMode() const noexcept
+        {
+            return lastMode_;
+        }
+
         [[nodiscard]] const std::vector<EntityHandle>& GameplayRuntime::GetNodeBoundEntities() const noexcept
         {
             return nodeBoundEntities_;

@@ -14,6 +14,11 @@ import :scene;
 import :level_ecs;
 import :EnTTHelpers;
 
+// TODO: Slice nodes to 
+// node-bound gameplay entity
+// pure gameplay entity
+// transient gameplay entity
+
 export namespace rendern
 {
     using namespace EnTT_helpers;
@@ -231,6 +236,7 @@ export namespace rendern
             } };
         }
 
+        // TODO: move it to data-driven asset/config
         inline constexpr auto kGameplayActionPolicyTable = MakeGameplayActionPolicyTable_();
     }
 
@@ -263,6 +269,7 @@ export namespace rendern
 
     inline void AddGameplayActionIntent(std::uint32_t& intentMask, const GameplayActionKind kind) noexcept
     {
+        // TODO: change it to Tag systeme instead of mask
         intentMask |= GameplayActionIntentMask(kind);
     }
 

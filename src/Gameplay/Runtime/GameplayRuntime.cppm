@@ -62,6 +62,7 @@ export namespace rendern
         [[nodiscard]] GameplayWorld& GetWorld() noexcept;
         [[nodiscard]] const GameplayWorld& GetWorld() const noexcept;
         [[nodiscard]] EntityHandle GetControlledEntity() const noexcept;
+        [[nodiscard]] GameplayRuntimeMode GetCurrentMode() const noexcept;
         [[nodiscard]] const std::vector<EntityHandle>& GetNodeBoundEntities() const noexcept;
 
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(
@@ -103,6 +104,10 @@ export namespace rendern
         EntityHandle controlledEntity_{ kNullEntity };
         std::vector<GameplayIntentBinding> intentBindings_{};
         std::unordered_map<EntityHandle, std::size_t> intentBindingIndexByEntity_{};
+        // TODO: change it to methods like these 
+        // ForEachCharacter(...)
+        // ForEachAnimatedEntity(...)
+        // ForEachPlayerControlled(...)
         std::vector<EntityHandle> nodeBoundEntities_{};
         std::unordered_map<EntityHandle, GameplayGraphInstance> graphInstances_{};
         GameplayGraphAsset defaultGraphAsset_{};
@@ -118,7 +123,7 @@ export namespace rendern
         bool skipDuplicatePostAnimationSyncEnabled_{ false };
         // Profiling zone end
     };
-    
+
 #include "GameplayRuntime_PublicApi.inl"
 #include "GameplayRuntime_FrameLifecycle.inl"
 #include "GameplayRuntime_GraphExecution.inl"
