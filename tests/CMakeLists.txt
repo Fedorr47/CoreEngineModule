@@ -3,7 +3,10 @@ add_executable(CoreEngineModuleTests
         "FakeRHI.h" 
         "FakeRHI.cpp"
         "FakeTextureIO.h" 
-        "unit/Math/MathTestHelper.h" 
+        "TestSupport/MathTestHelper.h"
+        "TestSupport/TestFixtureLoader.h"
+        "TestSupport/TestFixtureLoader.cpp"
+        "TestSupport/TestGlobalVariables.h"
         "unit/InputTests/TestInputCore.cpp" 
         "unit/InputTests/TestControllerBase.cpp" 
         "unit/InputTests/TestCameraController.cpp" 
@@ -19,9 +22,8 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
+        "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
-        "TestSupport/TestFixtureLoader.h"
-        "TestSupport/TestFixtureLoader.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
