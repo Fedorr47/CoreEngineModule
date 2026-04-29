@@ -377,7 +377,7 @@ export namespace rendern
         return nullptr;
     }
 
-    [[nodiscard]] inline bool QueueGameplayActionRequestsFromPolicies(
+    [[nodiscard]] bool QueueGameplayActionRequestsFromPolicies(
         GameplayActionComponent& action,
         const GameplayCharacterMovementStateComponent* movementState,
         const std::uint32_t intentMask,

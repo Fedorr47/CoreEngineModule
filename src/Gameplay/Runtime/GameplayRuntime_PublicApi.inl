@@ -31,6 +31,11 @@
             postSyncSkippedFrameCount_ = 0;
         }
 
+        // TODO: maybe I should decomposite it to 
+        // Input config asset
+        // InputSource objects
+        // Gamepad support
+        // AI/replay/network input source
         void GameplayRuntime::BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
         {
             recentNotifyEvents_.clear();
