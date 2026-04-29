@@ -12,8 +12,10 @@ add_executable(CoreEngineModuleTests
         "unit/InputTests/TestCameraController.cpp" 
         "unit/Math/TestMathUtils.cpp" 
         "unit/GameplayTests/TestGameplayGraph.cpp" 
-        "unit/GameplayTests/TestGameplayWorld.cpp" 
-        "unit/AnimationTests/TestAnimationController.cpp" 
+        "unit/GameplayTests/TestGameplayWorld.cpp"
+        "unit/GameplayTests/TestGameplayActionPolicy.cpp"
+        "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"
+        "unit/AnimationTests/TestAnimationController.cpp"
         "unit/RenderTests/TestLevelWorld.cpp" 
         "unit/ResourceTests/TestTextureStorage.cpp" 
         "unit/TimerTests/TestTimerBasic.cpp"
@@ -22,7 +24,6 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
-        "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
 )
 
