@@ -289,15 +289,20 @@ export namespace rendern
         instance.eventsThisFrame.push_back(GameplayGraphEvent{ .id = std::move(eventId) });
     }
 
-    [[nodiscard]] inline bool GameplayGraphHasEvent(const GameplayGraphInstance& instance, std::string_view canonicalEventId) noexcept
+    [[nodiscard]] inline bool GameplayGraphHasEvent(
+        const GameplayGraphInstance& instance, 
+        const std::string_view canonicalEventId) noexcept
     {
+        const std::string expectedEventId = CanonicalizeGameplayGraphToken(canonicalEventId);
+
         for (const GameplayGraphEvent& eventDesc : instance.eventsThisFrame)
         {
-            if (CanonicalizeGameplayGraphToken(eventDesc.id) == canonicalEventId)
+            if (CanonicalizeGameplayGraphToken(eventDesc.id) == expectedEventId)
             {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -351,12 +356,12 @@ export namespace rendern
         {
             for (GameplayGraphStateDesc& state : layer.states)
             {
+                PrecompileGameplayGraphTasks(state.onEnter);
+                PrecompileGameplayGraphTasks(state.onUpdate);
+                PrecompileGameplayGraphTasks(state.onExit);
+                
                 for (GameplayGraphTransitionDesc& transition : state.transitions)
                 {
-                    PrecompileGameplayGraphTasks(state.onEnter);
-                    PrecompileGameplayGraphTasks(state.onUpdate);
-                    PrecompileGameplayGraphTasks(state.onExit);
-
                     for (GameplayGraphConditionDesc& condition : transition.conditions)
                     {
                         condition.opcode = CompileGameplayGraphConditionOpcode(condition.name);

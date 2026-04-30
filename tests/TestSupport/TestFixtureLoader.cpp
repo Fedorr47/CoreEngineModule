@@ -6,12 +6,12 @@
 
 namespace
 {
-    std::filesystem::path BuildFixtureRootFromCompileDefinition()
+    [[nodiscard]] std::filesystem::path BuildFixtureRootFromCompileDefinition()
     {
 #ifdef CORE_TEST_FIXTURE_ROOT
         return std::filesystem::path(CORE_TEST_FIXTURE_ROOT);
 #else
-        return std::filesystem::path(__FILE__).parent_path() / "assets";
+        return std::filesystem::path(__FILE__).parent_path().parent_path() / "assets";
 #endif
     }
 }

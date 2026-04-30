@@ -368,7 +368,7 @@ TEST(GameplayGraph, JsonFixtureLoaderNestedFixture)
 	
 	const auto& top = root.AsObject();
 	const auto& config = jsonUtils::GetReq(top, "config").AsObject();
-	const auto& graphics = jsonUtils::GetReq(top, "graphics").AsObject();
+	const auto& graphics = jsonUtils::GetReq(config, "graphics").AsObject();
 	
 	EXPECT_FALSE(jsonUtils::GetBoolOpt(graphics, "vsync", true));
 	
