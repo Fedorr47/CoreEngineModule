@@ -39,6 +39,7 @@ namespace ProfileUtils
 
 export namespace rendern
 {
+    // TODO: maybe transform to a facade pattern
     class GameplayRuntime
     {
     public:
