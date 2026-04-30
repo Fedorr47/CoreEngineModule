@@ -1,5 +1,5 @@
 
-		[[nodiscard]] inline bool EvaluateCondition(
+		[[nodiscard]] bool EvaluateCondition(
 			const AnimationConditionDesc& condition,
 			const AnimationParameterStore& store) noexcept
 		{
