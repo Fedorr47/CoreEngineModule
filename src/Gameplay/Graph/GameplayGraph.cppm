@@ -8,6 +8,7 @@ module;
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -92,6 +93,7 @@ export namespace rendern
     {
         std::string name{};
         std::string defaultState{};
+        std::vector<std::string> declaredParameters{};
         std::vector<GameplayGraphStateDesc> states{};
     };
 
@@ -99,6 +101,12 @@ export namespace rendern
     {
         std::string id{};
         std::vector<GameplayGraphLayerDesc> layers{};
+    };
+
+    struct GameplayGraphValidationResult
+    {
+        bool success{ true };
+        std::vector<std::string> diagnostics{};
     };
 
     struct GameplayGraphLayerRuntimeState
@@ -289,15 +297,20 @@ export namespace rendern
         instance.eventsThisFrame.push_back(GameplayGraphEvent{ .id = std::move(eventId) });
     }
 
-    [[nodiscard]] inline bool GameplayGraphHasEvent(const GameplayGraphInstance& instance, std::string_view canonicalEventId) noexcept
+    [[nodiscard]] inline bool GameplayGraphHasEvent(
+        const GameplayGraphInstance& instance, 
+        const std::string_view canonicalEventId) noexcept
     {
+        const std::string expectedEventId = CanonicalizeGameplayGraphToken(canonicalEventId);
+
         for (const GameplayGraphEvent& eventDesc : instance.eventsThisFrame)
         {
-            if (CanonicalizeGameplayGraphToken(eventDesc.id) == canonicalEventId)
+            if (CanonicalizeGameplayGraphToken(eventDesc.id) == expectedEventId)
             {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -351,12 +364,12 @@ export namespace rendern
         {
             for (GameplayGraphStateDesc& state : layer.states)
             {
+                PrecompileGameplayGraphTasks(state.onEnter);
+                PrecompileGameplayGraphTasks(state.onUpdate);
+                PrecompileGameplayGraphTasks(state.onExit);
+                
                 for (GameplayGraphTransitionDesc& transition : state.transitions)
                 {
-                    PrecompileGameplayGraphTasks(state.onEnter);
-                    PrecompileGameplayGraphTasks(state.onUpdate);
-                    PrecompileGameplayGraphTasks(state.onExit);
-
                     for (GameplayGraphConditionDesc& condition : transition.conditions)
                     {
                         condition.opcode = CompileGameplayGraphConditionOpcode(condition.name);
@@ -369,5 +382,76 @@ export namespace rendern
                 }
             }
         }
+    }
+    
+    [[nodiscard]] GameplayGraphValidationResult ValidateAndNormalizeGameplayGraphAsset(GameplayGraphAsset& asset)
+    {
+        GameplayGraphValidationResult result{};
+        
+        for (GameplayGraphLayerDesc& layer : asset.layers)
+        {
+            if (layer.defaultState.empty() && !layer.states.empty())
+            {
+                layer.defaultState = layer.states.front().name;
+            }
+            
+            std::unordered_set<std::string> stateNames;
+            for (const GameplayGraphStateDesc& state : layer.states)
+            {
+                stateNames.insert(state.name);
+            }
+            
+            if (!layer.defaultState.empty() && !stateNames.contains(layer.defaultState))
+            {
+                result.success = false;
+                result.diagnostics.push_back(
+                    "Layer '" + layer.name + "' default state '" + layer.defaultState + "' does not exist.");
+            }
+            
+            std::unordered_set<std::string> parameterNames{};
+            for (const std::string& parameter : layer.declaredParameters)
+            {
+                parameterNames.insert(parameter);
+            }
+            
+            for (const GameplayGraphStateDesc& state : layer.states)
+            {
+                for (const GameplayGraphTransitionDesc& transition : state.transitions)
+                {
+                    if (!transition.toState.empty() && !stateNames.contains(transition.toState))
+                    {
+                        result.success = false;
+                        result.diagnostics.push_back(
+                            "Transition from state'" 
+                            + state.name 
+                            + "' references missing target state '" 
+                            + transition.toState 
+                            + "'.");
+                    }
+                }
+            }
+            
+            for (const GameplayGraphStateDesc& state : layer.states)
+            {
+                for (const GameplayGraphTransitionDesc& transition : state.transitions)
+                {
+                    for (const GameplayGraphConditionDesc& condition : transition.conditions)
+                    {
+                        if (!parameterNames.contains(condition.parameter))
+                        {
+                            result.success = false;
+                            result.diagnostics.push_back(
+                            "Condition in transition from state '" 
+                            + state.name 
+                            + "' references unknown parameter '" 
+                            + condition.parameter 
+                            + "'.");
+                        }
+                    }
+                }
+            }
+        }
+        
+        return result;
     }
 }

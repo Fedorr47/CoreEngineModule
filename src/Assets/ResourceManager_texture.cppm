@@ -197,7 +197,7 @@ public:
 			{
 				if (it->second.state == ResourceState::Loaded)
 				{
-					EnqueueDestroy(it->second.textureHandle->GetResource());
+					EnqueueDestroyLocked(it->second.textureHandle->GetResource());
 				}
 				it = entries_.erase(it);
 			}
@@ -216,7 +216,7 @@ public:
 		{
 			if (entry.state == ResourceState::Loaded)
 			{
-				EnqueueDestroy(entry.textureHandle->GetResource());
+				EnqueueDestroyLocked(entry.textureHandle->GetResource());
 			}
 		}
 
@@ -524,14 +524,20 @@ public:
 
 private:
 
-	void EnqueueDestroy(GPUTexture texture)
+	void EnqueueDestroyLocked(GPUTexture texture)
 	{
 		if (texture.id == 0)
 		{
 			return;
 		}
-		std::scoped_lock lock(mutex_);
+
 		destroyQueue_.push_back(texture);
+	}
+
+	void EnqueueDestroy(GPUTexture texture)
+	{
+		std::scoped_lock lock(mutex_);
+		EnqueueDestroyLocked(texture);
 	}
 
 	mutable std::mutex mutex_{};

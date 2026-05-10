@@ -384,6 +384,9 @@ export namespace rendern
         const GameplayActionPolicyGroup group) noexcept
     {
         bool queuedAny = false;
+
+        const GameplayActionComponent gateSnapshot = action;
+
         for (const GameplayActionPolicyEntry& entry : detail::kGameplayActionPolicyTable)
         {
             if (!detail::GameplayActionPolicyGroupMatches_(group, entry.group))
@@ -396,7 +399,7 @@ export namespace rendern
                 continue;
             }
 
-            if (!EvaluateGameplayActionPolicyGates(entry, movementState, action))
+            if (!EvaluateGameplayActionPolicyGates(entry, movementState, gateSnapshot))
             {
                 continue;
             }

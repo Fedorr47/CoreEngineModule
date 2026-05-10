@@ -368,7 +368,7 @@ TEST(GameplayGraph, JsonFixtureLoaderNestedFixture)
 	
 	const auto& top = root.AsObject();
 	const auto& config = jsonUtils::GetReq(top, "config").AsObject();
-	const auto& graphics = jsonUtils::GetReq(top, "graphics").AsObject();
+	const auto& graphics = jsonUtils::GetReq(config, "graphics").AsObject();
 	
 	EXPECT_FALSE(jsonUtils::GetBoolOpt(graphics, "vsync", true));
 	
@@ -398,4 +398,118 @@ TEST(GameplayGraph, JsonFixtureLoaderMalformedFixtureThrowsClearError)
 			}
 		},
 		std::runtime_error);
+}
+
+TEST(GameplayGraph, ValidateAndNormalizeAssetInvalidTransitionTargetFails)
+{
+	GameplayGraphAsset asset{};
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions.push_back(GameplayGraphTransitionDesc{ .toState = "Attack" });
+
+	GameplayGraphStateDesc move{};
+	move.name = "Move";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(move));
+	asset.layers.push_back(std::move(layer));
+
+	const GameplayGraphValidationResult validation = ValidateAndNormalizeGameplayGraphAsset(asset);
+	EXPECT_FALSE(validation.success);
+	ASSERT_FALSE(validation.diagnostics.empty());
+	EXPECT_NE(validation.diagnostics[0].find("Attack"), std::string::npos);
+	EXPECT_NE(validation.diagnostics[0].find("state"), std::string::npos);
+}
+
+TEST(GameplayGraph, ValidateAndNormalizeAssetInvalidInitialStateFails)
+{
+	GameplayGraphAsset asset{};
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "MissingInitial";
+	layer.states.push_back(GameplayGraphStateDesc{ .name = "Idle" });
+	asset.layers.push_back(std::move(layer));
+
+	const GameplayGraphValidationResult validation = ValidateAndNormalizeGameplayGraphAsset(asset);
+	EXPECT_FALSE(validation.success);
+	ASSERT_FALSE(validation.diagnostics.empty());
+	EXPECT_NE(validation.diagnostics[0].find("MissingInitial"), std::string::npos);
+}
+
+TEST(GameplayGraph, ValidateAndNormalizeAssetUnknownBoolParameterInConditionFails)
+{
+	GameplayGraphAsset asset{};
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+	layer.declaredParameters = { "speed" };
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions.push_back(GameplayGraphTransitionDesc{
+		.toState = "Run",
+		.conditions = { GameplayGraphConditionDesc{ .name = "BoolTrue", .parameter = "isGrounded", .boolValue = true } }
+	});
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	const GameplayGraphValidationResult validation = ValidateAndNormalizeGameplayGraphAsset(asset);
+	EXPECT_FALSE(validation.success);
+	ASSERT_FALSE(validation.diagnostics.empty());
+	EXPECT_NE(validation.diagnostics[0].find("isGrounded"), std::string::npos);
+	EXPECT_NE(validation.diagnostics[0].find("parameter"), std::string::npos);
+}
+
+TEST(GameplayGraph, ValidateAndNormalizeAssetUnknownTriggerParameterFails)
+{
+	GameplayGraphAsset asset{};
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.defaultState = "Idle";
+	layer.declaredParameters = { "speed" };
+
+	GameplayGraphStateDesc idle{};
+	idle.name = "Idle";
+	idle.transitions.push_back(GameplayGraphTransitionDesc{
+		.toState = "Run",
+		.conditions = { GameplayGraphConditionDesc{ .name = "BoolTrue", .parameter = "AttackPressed", .boolValue = true } }
+	});
+	GameplayGraphStateDesc run{};
+	run.name = "Run";
+
+	layer.states.push_back(std::move(idle));
+	layer.states.push_back(std::move(run));
+	asset.layers.push_back(std::move(layer));
+
+	const GameplayGraphValidationResult validation = ValidateAndNormalizeGameplayGraphAsset(asset);
+	EXPECT_FALSE(validation.success);
+	ASSERT_FALSE(validation.diagnostics.empty());
+	EXPECT_NE(validation.diagnostics[0].find("AttackPressed"), std::string::npos);
+}
+
+TEST(GameplayGraph, ValidateAndNormalizeAssetMinimalValidGraphAppliesDefaults)
+{
+	GameplayGraphAsset asset{};
+	asset.id = "minimal";
+
+	GameplayGraphLayerDesc layer{};
+	layer.name = "Base";
+	layer.states.push_back(GameplayGraphStateDesc{ .name = "Idle" });
+	asset.layers.push_back(std::move(layer));
+
+	const GameplayGraphValidationResult validation = ValidateAndNormalizeGameplayGraphAsset(asset);
+	EXPECT_TRUE(validation.success);
+	EXPECT_TRUE(validation.diagnostics.empty());
+	ASSERT_EQ(asset.layers.size(), 1u);
+	ASSERT_EQ(asset.layers[0].states.size(), 1u);
+	EXPECT_EQ(asset.layers[0].defaultState, "Idle");
+	EXPECT_TRUE(asset.layers[0].states[0].transitions.empty());
 }
