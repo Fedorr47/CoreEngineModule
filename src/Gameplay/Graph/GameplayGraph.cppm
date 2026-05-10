@@ -105,7 +105,7 @@ export namespace rendern
 
     struct GameplayGraphValidationResult
     {
-        bool success{ false };
+        bool success{ true };
         std::vector<std::string> diagnostics{};
     };
 
