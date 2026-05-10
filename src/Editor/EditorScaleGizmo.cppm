@@ -10,7 +10,7 @@ import :picking;
 import :geometry;
 import :math_utils;
 
-#include "SceneImpl/EditorGizmoMathShared.inl"
+#include "EditorImpl/EditorGizmoMathShared.inl"
 
 import std;
 
@@ -182,7 +182,7 @@ namespace
 		return mathUtils::Normalize(planeNormal);
 	}
 
-#include "SceneImpl/EditorGizmoShared.inl"
+#include "EditorImpl/EditorGizmoShared.inl"
 }
 
 export namespace rendern

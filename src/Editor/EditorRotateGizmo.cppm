@@ -13,7 +13,7 @@ import :math_utils;
 import :picking;
 import :geometry;
 
-#include "SceneImpl/EditorGizmoMathShared.inl"
+#include "EditorImpl/EditorGizmoMathShared.inl"
 
 namespace
 {
@@ -60,7 +60,7 @@ namespace
 		return bestAxis;
 	}
 
-#include "SceneImpl/EditorGizmoShared.inl"
+#include "EditorImpl/EditorGizmoShared.inl"
 }
 
 export namespace rendern

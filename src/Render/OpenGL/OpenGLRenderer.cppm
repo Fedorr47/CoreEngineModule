@@ -15,6 +15,7 @@ module;
 export module core:renderer_mesh_gl;
 
 import :rhi;
+import :render_frame_view;
 import :scene;
 import :math_utils;
 import :renderer_settings;
@@ -43,8 +44,9 @@ export namespace rendern
 			settings_ = settings;
 		}
 
-		void RenderFrame(rhi::IRHISwapChain& swapChain, const Scene& scene)
+		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView)
 		{
+			const Scene& scene = frameView.GetScene();
 			renderGraph::RenderGraph graph;
 
 			rhi::ClearDesc clearDesc{};

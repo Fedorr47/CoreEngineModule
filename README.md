@@ -204,14 +204,14 @@ At the top level, ECS is clearly used **not as the only representation of the wh
 
 **Key files:**
 
-- `src/Render/Scene/Scene.cppm`
+- `src/Scene/Scene.cppm`
 - `src/Render/Scene/SceneBridge.cppm`
 - `src/Render/Scene/CameraController.cppm`
 - `src/Render/Scene/Visibility.cppm`
-- `src/Render/Scene/Picking.cppm`
-- `src/Render/Scene/EditorGizmo.cppm`
-- `src/Render/Scene/EditorRotateGizmo.cppm`
-- `src/Render/Scene/EditorScaleGizmo.cppm`
+- `src/Editor/Picking.cppm`
+- `src/Editor/EditorGizmo.cppm`
+- `src/Editor/EditorRotateGizmo.cppm`
+- `src/Editor/EditorScaleGizmo.cppm`
 
 **What Scene includes:**
 
@@ -238,10 +238,10 @@ Gameplay writes into it indirectly through `LevelAsset` / `LevelInstance` / scen
 
 **Key files:**
 
-- `src/Render/Scene/Level.cppm`
-- `src/Render/Scene/LevelECS.cppm`
-- `src/Render/Scene/LevelECS_impl.cppm`
-- `src/Render/Scene/SceneImpl/*`
+- `src/Level/Level.cppm`
+- `src/Level/LevelECS.cppm`
+- `src/Level/LevelECS_impl.cppm`
+- `src/Level/LevelImpl/*`
 
 **Responsibility split:**
 

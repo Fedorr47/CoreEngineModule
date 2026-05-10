@@ -33,6 +33,7 @@ module;
 export module core:renderer_dx12;
 
 import :rhi;
+import :render_frame_view;
 import :scene;
 import :visibility;
 import :math_utils;
@@ -102,8 +103,9 @@ export namespace rendern
 			EnsureReflectionCaptureResources();
 		}
 
-		void RenderFrame(rhi::IRHISwapChain& swapChain, const Scene& scene, const void* imguiDrawData)
+		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData)
 		{
+			const Scene& scene = frameView.GetScene();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl"
 #include "RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl"
 #include "RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl"

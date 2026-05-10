@@ -37,25 +37,31 @@ import :animation_clip;
 
 // ------------------------------------------------------------
 // LevelAsset / LevelInstance
-#include "SceneImpl/Level_JsonSupport.inl"
+
+#include "LevelImpl/Level_JsonSupport.inl"
 
 export namespace rendern
 {
-#include "SceneImpl/Level_AssetTypes.inl"
+
+#include "LevelImpl/Level_AssetTypes.inl"
 
 	class LevelInstance
 	{
 	public:
 		LevelInstance() = default;
 
-#include "SceneImpl/Level_LevelInstance_RuntimeBindings.inl"
-#include "SceneImpl/Level_LevelInstance_Editing.inl"
+
+#include "LevelImpl/Level_LevelInstance_RuntimeBindings.inl"
+
+#include "LevelImpl/Level_LevelInstance_Editing.inl"
 
 	private:
 		friend LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable& bindless, const LevelAsset& asset, const mathUtils::Mat4& root);
 
-#include "SceneImpl/Level_LevelInstance_PrivateHelpers.inl"
-#include "SceneImpl/Level_LevelInstance_State.inl"
+
+#include "LevelImpl/Level_LevelInstance_PrivateHelpers.inl"
+
+#include "LevelImpl/Level_LevelInstance_State.inl"
 	};
 
 	[[nodiscard]] LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath);
@@ -65,15 +71,23 @@ export namespace rendern
 
 namespace rendern
 {
-#include "../../Animation/Serialization/Level_LoadJson_Animation.inl"
-#include "SceneImpl/Level_LoadJson_AssetSections.inl"
-#include "SceneImpl/Level_LoadJson_SceneSections.inl"
-#include "SceneImpl/Level_LoadJson.inl"
-#include "SceneImpl/Level_InstantiateRuntime.inl"
-#include "../../Animation/Serialization/Level_SaveJson_Animation.inl"
-#include "SceneImpl/Level_SaveJson_Support.inl"
-#include "SceneImpl/Level_SaveJson_AssetSections.inl"
-#include "SceneImpl/Level_SaveJson_SceneSections.inl"
-#include "SceneImpl/Level_SaveJson.inl"
+#include "../Animation/Serialization/Level_LoadJson_Animation.inl"
+
+#include "LevelImpl/Level_LoadJson_AssetSections.inl"
+
+#include "LevelImpl/Level_LoadJson_SceneSections.inl"
+
+#include "LevelImpl/Level_LoadJson.inl"
+
+#include "LevelImpl/Level_InstantiateRuntime.inl"
+#include "../Animation/Serialization/Level_SaveJson_Animation.inl"
+
+#include "LevelImpl/Level_SaveJson_Support.inl"
+
+#include "LevelImpl/Level_SaveJson_AssetSections.inl"
+
+#include "LevelImpl/Level_SaveJson_SceneSections.inl"
+
+#include "LevelImpl/Level_SaveJson.inl"
 }
 

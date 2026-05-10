@@ -15,7 +15,7 @@ import :picking;
 import :math_utils;
 import :geometry;
 
-#include "SceneImpl/EditorGizmoMathShared.inl"
+#include "EditorImpl/EditorGizmoMathShared.inl"
 
 namespace
 {
@@ -193,7 +193,7 @@ namespace
 		return HitTestAxis(scene, gizmo, mouseX, mouseY, viewportW, viewportH);
 	}
 
-#include "SceneImpl/EditorGizmoShared.inl"
+#include "EditorImpl/EditorGizmoShared.inl"
 }
 
 export namespace rendern

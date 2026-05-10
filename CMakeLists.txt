@@ -437,6 +437,8 @@ set(COMMON_MODULES
         Render/GpuMemory.cppm
         Render/RendererSettings.cppm
         Render/Renderer.cppm
+        Render/Frame/RenderFrameView.cppm
+        Render/Frame/RenderSceneExtractor.cppm
 
         Render/Sync.cppm
         Render/FileSystem.cppm
@@ -445,15 +447,16 @@ set(COMMON_MODULES
         Render/Shader/ShaderSystem.cppm
 
         Render/Scene/SceneBridge.cppm
-        Render/Scene/Scene.cppm
-        Render/Scene/Level.cppm
-        Render/Scene/LevelECS.cppm
-        Render/Scene/LevelECS_impl.cppm
-        Render/Scene/EditorGizmo.cppm
-        Render/Scene/EditorRotateGizmo.cppm
-        Render/Scene/EditorScaleGizmo.cppm
+        Scene/Scene.cppm
+        Level/Level.cppm
+        Level/LevelECS.cppm
+        Level/LevelECS_impl.cppm
+        Editor/EditorSceneState.cppm
+        Editor/EditorGizmo.cppm
+        Editor/EditorRotateGizmo.cppm
+        Editor/EditorScaleGizmo.cppm
 
-        Render/Scene/Picking.cppm
+        Editor/Picking.cppm
         Render/Scene/Visibility.cppm
 
         Render/Scene/CameraController.cppm
