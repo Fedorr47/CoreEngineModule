@@ -10,6 +10,9 @@ using namespace rendern;
 
 namespace
 {
+	// Minimal valid skeleton for controller/runtime tests.
+	// We do not test skeleton hierarchy here, only animation controller logic,
+	// so a single root bone is enough.
 	Skeleton MakingSingleBoneSkeleton()
 	{
 		Skeleton skeleton{};
@@ -23,6 +26,9 @@ namespace
 		return skeleton;
 	}
 	
+	// Minimal clip that can be bound to AnimatorState.
+	// The actual sampled pose is not important for these tests;
+	// we only need a valid clip name/channel so controller state binding works.
 	AnimationClip MakeSingleBoneClip(const std::string& name)
 	{
 		AnimationClip clip{};
@@ -53,6 +59,8 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 {
 	AnimationParameterStore store{};
 
+	// Covers all parameter write paths used by animation controllers:
+	// persistent bool/int/float values and one-shot trigger values.
 	SetAnimationParameter(store, "isMoving", true);
 	SetAnimationParameter(store, "combo", 2);
 	SetAnimationParameter(store, "speed", 3.5f);
@@ -64,13 +72,17 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 	EXPECT_EQ(FindAnimationParameter(store, "speed")->type, AnimationParameterType::Float);
 	EXPECT_EQ(FindAnimationParameter(store, "attack")->type, AnimationParameterType::Trigger);
 
+	// Trigger is event-like: first consume succeeds and clears it,
+	// second consume fails because the trigger is no longer active.
 	EXPECT_TRUE(ConsumeAnimationTrigger(store, "attack"));
 	EXPECT_FALSE(ConsumeAnimationTrigger(store, "attack"));
 
+	// Explicit reset should clear a fired trigger before it can be consumed.
 	FireAnimationTrigger(store, "attack");
 	ResetAnimationTrigger(store, "attack");
 	EXPECT_FALSE(ConsumeAnimationTrigger(store, "attack"));
 
+	// Full reset is used when rebinding/reinitializing controller parameters.
 	ResetAnimationParameters(store);
 	EXPECT_TRUE(store.values.empty());
 }
@@ -78,6 +90,9 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 TEST(AnimationController, StateLookupAndTagsWork)
 {
 	AnimationControllerAsset asset{};
+	
+	// Tags are lightweight semantic labels used by gameplay/debug logic.
+	// They should not affect state lookup by name.
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .tags = { "Locomotion", "Grounded" } });
 	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .tags = { "Action" } });
 
@@ -93,27 +108,27 @@ TEST(AnimationController, StateLookupAndTagsWork)
 
 TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefaults)
 {
-	Skeleton skeleton{};
-	skeleton.rootBoneIndex = 0;
-	skeleton.bones.push_back(SkeletonBone{
-		.name = "root",
-		.parentIndex = -1,
-		.inverseBindMatrix = mathUtils::Mat4(1.0f),
-		.bindLocalTransform = mathUtils::Mat4(1.0f)
-	});
-
+	Skeleton skeleton = MakingSingleBoneSkeleton();
+	
 	std::vector<AnimationClip> clips{};
 	clips.push_back(MakeSingleBoneClip("Idle"));
 	clips.push_back(MakeSingleBoneClip("Run"));
+	
+	// One source id per clip. In this test both clips come from the same logical source.
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset asset{};
 	asset.id = "hero_controller";
 	asset.defaultState = "Run";
+	
+	// Default parameters are copied into runtime on bind.
 	asset.parameters.push_back(AnimationParameterDesc{
 		.name = "isMoving",
 		.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Bool, .boolValue = true }
 	});
+	
+	// Default state is Run, so runtime should start from state index 1
+	// and inherit Run state's playback settings.
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle", .looping = true, .playRate = 1.0f });
 	asset.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run", .looping = true, .playRate = 1.25f });
 
@@ -128,16 +143,18 @@ TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefault
 	EXPECT_TRUE(FindAnimationParameter(runtime.parameters, "isMoving")->boolValue);
 	EXPECT_FLOAT_EQ(runtime.playRate, 1.25f);
 
+	// Request does not immediately switch state. It only stores intent;
+	// actual transition/request handling happens during controller update.
 	RequestAnimationControllerState(runtime, "Idle");
 	EXPECT_EQ(runtime.requestedStateName, "Idle");
 }
 
 TEST(AnimationController, JsonFixtureLoaderReadsMinimalConfigText)
 {
-	const std::string fixtureTest = LoadTextFixture("json/valid/minimal_config.json");
-	ASSERT_FALSE(fixtureTest.empty());
+	const std::string fixtureText = LoadTextFixture("json/valid/minimal_config.json");
+	ASSERT_FALSE(fixtureText.empty());
 	
-	jsonUtils::JsonParser parser(fixtureTest);
+	jsonUtils::JsonParser parser(fixtureText);
 	const jsonUtils::JsonValue root = parser.Parse();
 	const auto& object = root.AsObject();
 	
@@ -147,6 +164,16 @@ TEST(AnimationController, JsonFixtureLoaderReadsMinimalConfigText)
 
 TEST(AnimationController, EvaluateConditionBoolIntFloatMatrix)
 {
+	// Table-driven coverage for condition evaluation.
+	// This tests the pure condition checker without running the full controller state machine.
+	//
+	// The matrix intentionally covers:
+	// - bool equality/inequality;
+	// - missing parameter behavior;
+	// - int comparison boundaries;
+	// - float epsilon equality;
+	// - negative values and boundary comparisons.
+	
 	const std::vector<ConditionCase> cases{
 		{ "bool_true_equals_true", { .parameter = "b", .op = AnimationConditionOp::Equal, .value = { .type = AnimationParameterType::Bool, .boolValue = true } }, { .type = AnimationParameterType::Bool, .boolValue = true }, true, true },
 		{ "bool_false_equals_false", { .parameter = "b", .op = AnimationConditionOp::Equal, .value = { .type = AnimationParameterType::Bool, .boolValue = false } }, { .type = AnimationParameterType::Bool, .boolValue = false }, true, true },
@@ -175,6 +202,9 @@ TEST(AnimationController, EvaluateConditionBoolIntFloatMatrix)
 	{
 		SCOPED_TRACE(testCase.name);
 		AnimationParameterStore store{};
+		
+		// Some cases intentionally leave the parameter missing to verify
+		// that missing parameters fail instead of silently passing.
 		if (testCase.setParameter)
 		{
 			store.values[testCase.condition.parameter] = testCase.actualValue;
@@ -190,12 +220,15 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	attackTriggerCondition.op = AnimationConditionOp::Triggered;
 	attackTriggerCondition.value.type = AnimationParameterType::Trigger;
 	
+	// First check the pure condition path:
+	// missing trigger fails, fired matching trigger passes.
 	AnimationParameterStore store{};
 	EXPECT_FALSE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
 	FireAnimationTrigger(store, "attack");
 	EXPECT_TRUE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
+	// Firing an unrelated trigger must not affect the already active "attack" condition.
 	FireAnimationTrigger(store, "other");
 	EXPECT_TRUE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
@@ -208,6 +241,10 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	asset.defaultState = "Idle";
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
 	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .clipName = "Attack" });
+	
+	// Runtime transition uses the same trigger condition.
+	// This verifies not only that the condition passes, but also that
+	// the selected transition consumes the trigger.
 	asset.transitions.push_back(AnimationTransitionDesc{
 		.fromState = "Idle",
 		.toState = "Attack",
@@ -223,7 +260,173 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	FireAnimationTrigger(runtime.parameters, "attack");
 	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
 	EXPECT_EQ(runtime.currentStateName, "Attack");
+	
+	// Important policy check:
+	// a trigger consumed by a selected transition must be reset,
+	// so it cannot repeatedly fire the same transition.
 	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
 	EXPECT_FALSE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
 	EXPECT_FALSE(detail::EvaluateCondition(attackTriggerCondition, runtime.parameters));
+}
+
+TEST(AnimationController, DefaultStateFallsBackToFirstStateWhenMissingAndRejectsInvalidDefault)
+{
+	Skeleton skeleton = MakingSingleBoneSkeleton();
+	
+	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Run") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset missingDefault{};
+	missingDefault.id = "missing_default";
+	missingDefault.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	missingDefault.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run" });
+
+	// If defaultState is not specified, binding should choose the first declared state.
+	// This keeps minimal controllers usable without requiring explicit defaultState.
+	AnimationControllerRuntime runtimeMissing{};
+	BindAnimationControllerStateMachine(runtimeMissing, skeleton, clips, clipSourceAssetIds, missingDefault, true, false, false);
+	EXPECT_EQ(runtimeMissing.currentStateIndex, 0);
+	EXPECT_EQ(runtimeMissing.currentStateName, "Idle");
+	
+	AnimationControllerAsset invalidDefault = missingDefault;
+	invalidDefault.id = "invalid_default";
+	invalidDefault.defaultState = "NoSuchState";
+
+	// If defaultState is specified but points to a missing state, this is treated
+	// as invalid controller data. Runtime must not silently fallback to Idle,
+	// because that could hide broken JSON/controller authoring.
+	AnimationControllerRuntime runtimeInvalid{};
+	BindAnimationControllerStateMachine(runtimeInvalid, skeleton, clips, clipSourceAssetIds, invalidDefault, true, false, false);
+	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
+	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
+
+	// Updating an invalidly bound controller should keep it invalid instead of
+	// recovering implicitly to the first state.
+	AnimatorState animator{};
+	UpdateAnimationControllerRuntime(runtimeInvalid, animator, 0.0f);
+	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
+	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
+}
+
+TEST(AnimationController, TriggerTransitionRequiresAllConditionsAndDoesNotConsumeOnFailure)
+{
+	Skeleton skeleton = MakingSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Attack") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset asset{};
+	asset.id = "trigger_gate";
+	asset.defaultState = "Idle";
+	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .clipName = "Attack" });
+	
+	// Attack transition requires both:
+	// 1. a one-shot trigger request;
+	// 2. a persistent gameplay gate saying the action is currently allowed.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Idle",
+		.toState = "Attack",
+		.priority = 1,
+		.conditions = {
+			AnimationConditionDesc{
+				.parameter = "attack",
+				.op = AnimationConditionOp::Triggered,
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Trigger }
+			},
+			AnimationConditionDesc{
+				.parameter = "canAttack",
+				.op = AnimationConditionOp::Equal,
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Bool, .boolValue = true }
+			}
+		}
+	});
+
+	AnimationControllerRuntime runtime{};
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, clipSourceAssetIds, asset, true, false, false);
+	AnimatorState animator{};
+
+	// Trigger is fired, but the gate condition blocks the transition.
+	// Current policy: a trigger is consumed only by the selected matched transition,
+	// so a failed transition attempt must leave the trigger active.
+	SetAnimationParameter(runtime.parameters, "canAttack", false);
+	FireAnimationTrigger(runtime.parameters, "attack");
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Idle");
+	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
+	EXPECT_TRUE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
+
+	// Once the gate opens, the still-buffered trigger should allow the transition.
+	// After the transition is selected, the trigger must be consumed/reset.
+	SetAnimationParameter(runtime.parameters, "canAttack", true);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Attack");
+	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
+	EXPECT_FALSE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
+}
+
+TEST(AnimationController, TransitionBlendDurationRespectsZeroAndPositiveValues)
+{
+	Skeleton skeleton = MakingSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Run") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset asset{};
+	asset.id = "duration_checks";
+	asset.defaultState = "Idle";
+	asset.parameters.push_back(AnimationParameterDesc{
+		.name = "speed",
+		.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.0f }
+	});
+	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	asset.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run" });
+	
+	// Idle -> Run uses a positive blend duration, so runtime should enter
+	// transition blending after the state switch.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Idle",
+		.toState = "Run",
+		.blendDurationSeconds = 0.25f,
+		.priority = 2,
+		.conditions = { 
+			AnimationConditionDesc{ 
+				.parameter = "speed", 
+				.op = AnimationConditionOp::Greater, 
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.5f } } }
+	});
+		
+	// Run -> Idle uses zero duration, so it should switch immediately
+	// without leaving transitionActive set.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Run",
+		.toState = "Idle",
+		.blendDurationSeconds = 0.0f,
+		.priority = 2,
+		.conditions = { 
+			AnimationConditionDesc{ 
+				.parameter = "speed", 
+				.op = AnimationConditionOp::LessEqual, 
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.0f } } }
+	});
+
+	AnimationControllerRuntime runtime{};
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, clipSourceAssetIds, asset, true, false, false);
+	AnimatorState animator{};
+
+	// Positive duration transition: state changes to Run and transition blending starts.
+	SetAnimationParameter(runtime.parameters, "speed", 1.0f);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Run");
+	EXPECT_TRUE(runtime.transitionActive);
+	EXPECT_FLOAT_EQ(runtime.transitionDurationSeconds, 0.25f);
+
+	// Advance enough time to finish the 0.25s blend.
+	UpdateAnimationControllerRuntime(runtime, animator, 0.25f);
+	EXPECT_FALSE(runtime.transitionActive);
+
+	// Zero duration transition: state changes back to Idle immediately,
+	// but no active blend should remain.
+	SetAnimationParameter(runtime.parameters, "speed", 0.0f);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Idle");
+	EXPECT_FALSE(runtime.transitionActive);
 }
