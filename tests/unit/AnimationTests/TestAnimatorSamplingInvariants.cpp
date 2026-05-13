@@ -1,81 +1,17 @@
 ﻿#include <gtest/gtest.h>
 
 #include <cmath>
-#include <string>
 #include <vector>
+
+#include "AnimationTestHelpers.h"
 
 import core;
 
 using namespace rendern;
 
-namespace
-{
-	Skeleton MakeSingleBoneSkeleton()
-	{
-		Skeleton skeleton{};
-		skeleton.rootBoneIndex = 0;
-		skeleton.bones.push_back(SkeletonBone{
-			.name = "root",
-			.parentIndex = -1,
-			.inverseBindMatrix = mathUtils::Mat4(1.0f),
-			.bindLocalTransform = mathUtils::Mat4(1.0f)
-		});
-		return skeleton;
-	}
-
-	AnimationClip MakeSingleBoneClip(bool looping)
-	{
-		AnimationClip clip{};
-		clip.name = looping ? "LoopClip" : "OneShotClip";
-		clip.durationTicks = 2.0f;
-		clip.ticksPerSecond = 2.0f; // 1 second duration
-		clip.looping = looping;
-
-		BoneAnimationChannel channel{};
-		channel.boneIndex = 0;
-		channel.boneName = "root";
-		channel.translationKeys.push_back(TranslationKey{ .timeTicks = 0.0f, .value = { 0.0f, 0.0f, 0.0f } });
-		channel.translationKeys.push_back(TranslationKey{ .timeTicks = 2.0f, .value = { 2.0f, 0.0f, 0.0f } });
-		channel.rotationKeys.push_back(RotationKey{ .timeTicks = 0.0f, .value = { 0.0f, 0.0f, 0.0f, 1.0f } });
-		channel.rotationKeys.push_back(RotationKey{ .timeTicks = 2.0f, .value = { 0.0f, 0.0f, 0.70710677f, 0.70710677f } });
-		channel.scaleKeys.push_back(ScaleKey{ .timeTicks = 0.0f, .value = { 1.0f, 1.0f, 1.0f } });
-		channel.scaleKeys.push_back(ScaleKey{ .timeTicks = 2.0f, .value = { 1.2f, 0.8f, 1.1f } });
-		clip.channels.push_back(std::move(channel));
-		return clip;
-	}
-
-	bool IsFinite(float value)
-	{
-		return std::isfinite(value);
-	}
-
-	void ExpectFiniteVec3(const mathUtils::Vec3& value)
-	{
-		EXPECT_TRUE(IsFinite(value.x));
-		EXPECT_TRUE(IsFinite(value.y));
-		EXPECT_TRUE(IsFinite(value.z));
-	}
-
-	void ExpectFiniteVec4(const mathUtils::Vec4& value)
-	{
-		EXPECT_TRUE(IsFinite(value.x));
-		EXPECT_TRUE(IsFinite(value.y));
-		EXPECT_TRUE(IsFinite(value.z));
-		EXPECT_TRUE(IsFinite(value.w));
-	}
-
-	void ExpectFinitePose(const AnimatorState& state)
-	{
-		ASSERT_EQ(state.localPose.size(), 1u);
-		ExpectFiniteVec3(state.localPose[0].translation);
-		ExpectFiniteVec4(state.localPose[0].rotation);
-		ExpectFiniteVec3(state.localPose[0].scale);
-	}
-}
-
 TEST(AnimatorSampling, NormalizesLoopingTimeIntoValidRange)
 {
-	AnimationClip clip = MakeSingleBoneClip(true);
+	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 	const float duration = clip.durationTicks / clip.ticksPerSecond;
 
 	const std::vector<float> times{ -0.25f, duration + 0.25f, duration * 4.0f + 0.125f };
@@ -89,7 +25,7 @@ TEST(AnimatorSampling, NormalizesLoopingTimeIntoValidRange)
 
 TEST(AnimatorSampling, ClampsNonLoopingTimeIntoValidRange)
 {
-	AnimationClip clip = MakeSingleBoneClip(false);
+	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(false);
 	const float duration = clip.durationTicks / clip.ticksPerSecond;
 
 	EXPECT_FLOAT_EQ(NormalizeAnimationTimeSeconds(clip, -0.5f, false), 0.0f);
@@ -100,8 +36,8 @@ TEST(AnimatorSampling, ClampsNonLoopingTimeIntoValidRange)
 
 TEST(AnimatorSampling, OutOfRangeTimesProduceFinitePose)
 {
-	Skeleton skeleton = MakeSingleBoneSkeleton();
-	AnimationClip clip = MakeSingleBoneClip(true);
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 
 	AnimatorState state{};
 	InitializeAnimator(state, &skeleton, &clip);
@@ -113,22 +49,21 @@ TEST(AnimatorSampling, OutOfRangeTimesProduceFinitePose)
 		state.timeSeconds = sampleTime;
 		EvaluateAnimatorLocalPose(state);
 		SCOPED_TRACE(sampleTime);
-		ExpectFinitePose(state);
+		animationTest::ExpectFiniteSingleBonePose(state);
 	}
 }
 
 TEST(AnimatorSampling, SingleBoneClipProducesFinitePose)
 {
-	Skeleton skeleton = MakeSingleBoneSkeleton();
-	AnimationClip clip = MakeSingleBoneClip(true);
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 
 	AnimatorState state{};
 	InitializeAnimator(state, &skeleton, &clip);
 	UpdateAnimator(state, 0.25f);
-
-	ASSERT_EQ(state.localPose.size(), 1u);
-	ExpectFinitePose(state);
-	EXPECT_TRUE(IsFinite(state.timeSeconds));
+	
+	animationTest::ExpectFiniteSingleBonePose(state);
+	EXPECT_TRUE(animationTest::IsFinite(state.timeSeconds));
 }
 
 TEST(AnimatorSampling, BlendLocalPoseOutOfRangeAlphaIsFiniteAndClamped)
@@ -146,15 +81,15 @@ TEST(AnimatorSampling, BlendLocalPoseOutOfRangeAlphaIsFiniteAndClamped)
 	std::vector<LocalBoneTransform> blended{};
 	BlendLocalPoses(blended, fromPose, toPose, -1.0f);
 	ASSERT_EQ(blended.size(), 1u);
-	ExpectFiniteVec3(blended[0].translation);
-	ExpectFiniteVec4(blended[0].rotation);
-	ExpectFiniteVec3(blended[0].scale);
+	animationTest::ExpectFiniteVec3(blended[0].translation);
+	animationTest::ExpectFiniteVec4(blended[0].rotation);
+	animationTest::ExpectFiniteVec3(blended[0].scale);
 	EXPECT_NEAR(blended[0].translation.x, fromPose[0].translation.x, 1e-6f);
 
 	BlendLocalPoses(blended, fromPose, toPose, 2.0f);
 	ASSERT_EQ(blended.size(), 1u);
-	ExpectFiniteVec3(blended[0].translation);
-	ExpectFiniteVec4(blended[0].rotation);
-	ExpectFiniteVec3(blended[0].scale);
+	animationTest::ExpectFiniteVec3(blended[0].translation);
+	animationTest::ExpectFiniteVec4(blended[0].rotation);
+	animationTest::ExpectFiniteVec3(blended[0].scale);
 	EXPECT_NEAR(blended[0].translation.x, toPose[0].translation.x, 1e-6f);
 }

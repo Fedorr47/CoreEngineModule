@@ -5,6 +5,7 @@
 #include <filesystem>
 
 #include "TestSupport/TestFixtureLoader.h"
+#include "AnimationTestHelpers.h"
 
 import core;
 
@@ -12,41 +13,6 @@ using namespace rendern;
 
 namespace
 {
-	// Minimal valid skeleton for controller/runtime tests.
-	// We do not test skeleton hierarchy here, only animation controller logic,
-	// so a single root bone is enough.
-	Skeleton MakingSingleBoneSkeleton()
-	{
-		Skeleton skeleton{};
-		skeleton.rootBoneIndex = 0;
-		skeleton.bones.push_back(SkeletonBone{
-		.name = "root",
-		.parentIndex = -1,
-		.inverseBindMatrix = mathUtils::Mat4(1.0f),
-		.bindLocalTransform = mathUtils::Mat4(1.0f)
-		});
-		return skeleton;
-	}
-	
-	// Minimal clip that can be bound to AnimatorState.
-	// The actual sampled pose is not important for these tests;
-	// we only need a valid clip name/channel so controller state binding works.
-	AnimationClip MakeSingleBoneClip(const std::string& name)
-	{
-		AnimationClip clip{};
-		clip.name = name;
-		clip.durationTicks = 10.0f;
-		clip.ticksPerSecond = 10.0f;
-		clip.looping = true;
-
-		BoneAnimationChannel channel{};
-		channel.boneIndex = 0;
-		channel.boneName = "root";
-		channel.translationKeys.push_back(TranslationKey{ .timeTicks = 0.0f, .value = { 0.0f, 0.0f, 0.0f } });
-		clip.channels.push_back(std::move(channel));
-		return clip;
-	}
-
 	struct ConditionCase
 	{
 		const char* name;
@@ -141,11 +107,11 @@ TEST(AnimationController, StateLookupAndTagsWork)
 
 TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefaults)
 {
-	Skeleton skeleton = MakingSingleBoneSkeleton();
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
 	
 	std::vector<AnimationClip> clips{};
-	clips.push_back(MakeSingleBoneClip("Idle"));
-	clips.push_back(MakeSingleBoneClip("Run"));
+	clips.push_back(animationTest::MakeMinimalSingleBoneClip("Idle"));
+	clips.push_back(animationTest::MakeMinimalSingleBoneClip("Run"));
 	
 	// One source id per clip. In this test both clips come from the same logical source.
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
@@ -265,8 +231,9 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	FireAnimationTrigger(store, "other");
 	EXPECT_TRUE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
-	Skeleton skeleton = MakingSingleBoneSkeleton();
-	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Attack") };
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Attack") };
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 	
 	AnimationControllerAsset asset{};
@@ -304,9 +271,10 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 
 TEST(AnimationController, DefaultStateFallsBackToFirstStateWhenMissingAndRejectsInvalidDefault)
 {
-	Skeleton skeleton = MakingSingleBoneSkeleton();
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
 	
-	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Run") };
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Run") };
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset missingDefault{};
@@ -343,8 +311,9 @@ TEST(AnimationController, DefaultStateFallsBackToFirstStateWhenMissingAndRejects
 
 TEST(AnimationController, TriggerTransitionRequiresAllConditionsAndDoesNotConsumeOnFailure)
 {
-	Skeleton skeleton = MakingSingleBoneSkeleton();
-	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Attack") };
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Attack") };
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset asset{};
@@ -399,8 +368,9 @@ TEST(AnimationController, TriggerTransitionRequiresAllConditionsAndDoesNotConsum
 
 TEST(AnimationController, TransitionBlendDurationRespectsZeroAndPositiveValues)
 {
-	Skeleton skeleton = MakingSingleBoneSkeleton();
-	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Run") };
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Run") };
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset asset{};
