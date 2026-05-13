@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 #include "TestSupport/TestFixtureLoader.h"
 
@@ -53,6 +55,37 @@ namespace
 		bool setParameter;
 		bool expected;
 	};
+	
+	void WriteTestAssetFile(
+		const std::filesystem::path& root, 
+		std::string_view relativePath, 
+		std::string_view content)
+	{
+		const std::filesystem::path target = root / std::filesystem::path(relativePath);
+		std::filesystem::create_directories(target.parent_path());
+		std::ofstream out(target, std::ios::binary);
+		if (!out.is_open())
+		{
+			throw std::runtime_error("Failed to write test fixture: " + target.string());
+		}
+		out << content;
+	}
+
+	void ExpectLoadLevelThrowsWithMessageFragment(
+		std::string_view levelPath, 
+		std::string_view fragment)
+	{
+		try
+		{
+			LoadLevelAssetFromJson(levelPath);
+			FAIL() << "Expected std::runtime_error for level: " << levelPath;
+		}
+		catch (const std::runtime_error& ex)
+		{
+			EXPECT_NE(std::string(ex.what()).find(fragment), std::string::npos)
+				<< "missing fragment: '" << fragment << "'\nactual: '" << ex.what() << "'";
+		}
+	}
 }
 
 TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
@@ -429,4 +462,138 @@ TEST(AnimationController, TransitionBlendDurationRespectsZeroAndPositiveValues)
 	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
 	EXPECT_EQ(runtime.currentStateName, "Idle");
 	EXPECT_FALSE(runtime.transitionActive);
+}
+
+TEST(AnimationController, ExternalNotifyAndEventBindingAssetsHappyPathLoad)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_valid.animnotify.json", R"json({
+		"states": {"Idle": [{"id": "footstep", "time": 0.25, "fireOnEnter": true}]},
+		"clips": {"Idle": [{"id": "from_clip", "time": 0.50}]}
+	})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_valid.animbindings.json", R"json({
+		"bindings": [{"animationEvent": "footstep", "gameplayEvent": "Gameplay.Footstep"}]
+	})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/controller_valid.level.json", R"json({
+		"animationControllers": {
+			"hero": {
+				"defaultState": "Idle",
+				"states": {"Idle": {"clip": "Idle"}},
+				"notifyAsset": "tests/animation_validation/notify_valid.animnotify.json",
+				"eventBindingsAsset": "tests/animation_validation/bindings_valid.animbindings.json"
+			}
+		}
+	})json");
+
+	const LevelAsset level = LoadLevelAssetFromJson("tests/animation_validation/controller_valid.level.json");
+	ASSERT_TRUE(level.animationControllers.contains("hero"));
+	const AnimationControllerAsset& controller = level.animationControllers.at("hero");
+	ASSERT_EQ(controller.states.size(), 1u);
+	EXPECT_EQ(controller.states[0].notifies.size(), 2u);
+	EXPECT_EQ(controller.eventBindings.size(), 1u);
+}
+
+TEST(AnimationController, ExternalNotifyAssetValidationErrorsAreActionable)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+
+	// These malformed fixtures intentionally target distinct notify-asset validation branches
+	// so future regressions are easy to localize from the failure message fragment.
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_root_array.animnotify.json", "[]");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_states_wrong_type.animnotify.json", R"json({"states": []})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_state_entry_wrong_type.animnotify.json", R"json({"states": {"Idle": 1}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_missing_id.animnotify.json", R"json({"states": {"Idle": [{"time": 0.5}]}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_wrong_time_type.animnotify.json", R"json({"states": {"Idle": [{"id": "n", "time": "bad"}]}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_wrong_fire_on_enter_type.animnotify.json", R"json({"states": {"Idle": [{"id": "n", "fireOnEnter": 1}]}})json");
+
+	const std::string baseLevel = R"json({"animationControllers":{"hero":{"defaultState":"Idle","states":{"Idle":{"clip":"Idle"}},"notifyAsset":"%s"}}})json";
+	auto writeLevelForNotify = [&](const char* levelName, const char* notifyRelPath)
+	{
+		std::string content = baseLevel;
+		content.replace(content.find("%s"), 2, notifyRelPath);
+		WriteTestAssetFile(assetRoot, std::string("tests/animation_validation/") + levelName, content);
+	};
+
+	writeLevelForNotify("notify_root_array.level.json", "tests/animation_validation/notify_root_array.animnotify.json");
+	writeLevelForNotify("notify_states_wrong_type.level.json", "tests/animation_validation/notify_states_wrong_type.animnotify.json");
+	writeLevelForNotify("notify_state_entry_wrong_type.level.json", "tests/animation_validation/notify_state_entry_wrong_type.animnotify.json");
+	writeLevelForNotify("notify_entry_missing_id.level.json", "tests/animation_validation/notify_entry_missing_id.animnotify.json");
+	writeLevelForNotify("notify_entry_wrong_time_type.level.json", "tests/animation_validation/notify_entry_wrong_time_type.animnotify.json");
+	writeLevelForNotify("notify_entry_wrong_fire_on_enter_type.level.json", "tests/animation_validation/notify_entry_wrong_fire_on_enter_type.animnotify.json");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_root_array.level.json", 
+		"Animation notify JSON: root must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_states_wrong_type.level.json", 
+		".states must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_state_entry_wrong_type.level.json", 
+		".states.Idle must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_entry_missing_id.level.json", 
+		".states.Idle[].id is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+	"tests/animation_validation/notify_entry_wrong_time_type.level.json",
+	"expected number at 'time'");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_entry_wrong_fire_on_enter_type.level.json",
+		"expected bool at 'fireOnEnter'");
+}
+
+TEST(AnimationController, ExternalEventBindingAssetValidationErrorsAreActionable)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_root_array.animbindings.json", "[]");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_collection.animbindings.json", R"json({"x": []})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_collection_wrong_type.animbindings.json", R"json({"bindings": {}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_entry_not_object.animbindings.json", R"json({"bindings": [1]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_animation_event.animbindings.json", R"json({"bindings": [{"gameplayEvent": "G"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_gameplay_event.animbindings.json", R"json({"bindings": [{"animationEvent": "N"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_wrong_animation_event_type.animbindings.json", R"json({"bindings": [{"animationEvent": 1, "gameplayEvent": "G"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_wrong_gameplay_event_type.animbindings.json", R"json({"bindings": [{"animationEvent": "N", "gameplayEvent": 2}]})json");
+
+	const std::string baseLevel = R"json({"animationControllers":{"hero":{"defaultState":"Idle","states":{"Idle":{"clip":"Idle"}},"eventBindingsAsset":"%s"}}})json";
+	auto writeLevelForBindings = [&](const char* levelName, const char* relPath)
+	{
+		std::string content = baseLevel;
+		content.replace(content.find("%s"), 2, relPath);
+		WriteTestAssetFile(assetRoot, std::string("tests/animation_validation/") + levelName, content);
+	};
+
+	writeLevelForBindings("bindings_root_array.level.json", "tests/animation_validation/bindings_root_array.animbindings.json");
+	writeLevelForBindings("bindings_missing_collection.level.json", "tests/animation_validation/bindings_missing_collection.animbindings.json");
+	writeLevelForBindings("bindings_collection_wrong_type.level.json", "tests/animation_validation/bindings_collection_wrong_type.animbindings.json");
+	writeLevelForBindings("bindings_entry_not_object.level.json", "tests/animation_validation/bindings_entry_not_object.animbindings.json");
+	writeLevelForBindings("bindings_missing_animation_event.level.json", "tests/animation_validation/bindings_missing_animation_event.animbindings.json");
+	writeLevelForBindings("bindings_missing_gameplay_event.level.json", "tests/animation_validation/bindings_missing_gameplay_event.animbindings.json");
+	writeLevelForBindings("bindings_wrong_animation_event_type.level.json", "tests/animation_validation/bindings_wrong_animation_event_type.animbindings.json");
+	writeLevelForBindings("bindings_wrong_gameplay_event_type.level.json", "tests/animation_validation/bindings_wrong_gameplay_event_type.animbindings.json");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+	"tests/animation_validation/bindings_root_array.level.json",
+	"Animation event bindings JSON: root must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_collection.level.json",
+		".bindings must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_collection_wrong_type.level.json",
+		".bindings must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_entry_not_object.level.json",
+		"expected object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_animation_event.level.json",
+		".bindings[].animationEvent is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_gameplay_event.level.json",
+		".bindings[].gameplayEvent is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_wrong_animation_event_type.level.json",
+		"expected string at 'animationEvent'");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_wrong_gameplay_event_type.level.json",
+		"expected string at 'gameplayEvent'");
 }
