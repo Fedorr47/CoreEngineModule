@@ -105,6 +105,7 @@ export namespace rendern
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData)
 		{
+			const auto renderFrameStart = std::chrono::steady_clock::now();
 			const Scene& scene = frameView.GetScene();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl"
 #include "RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl"
@@ -573,5 +574,9 @@ export namespace rendern
 		rhi::BufferHandle debugCubeAtlasVB_{};
 		std::uint32_t debugCubeAtlasVBStrideBytes_{ 0 };
 		rhi::GraphicsState skyboxState_{};
+		
+		renderGraph::ExecuteCpuTimings lastRenderGraphCpuTimings_{};
+		double lastRenderGraphPresentMs_{ 0.0 };
+		double lastRenderFrameBuildGraphMs_{ 0.0 };
 	};
 } // namespace rendern

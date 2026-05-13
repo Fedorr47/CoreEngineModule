@@ -6,6 +6,8 @@ module;
 #include <span>
 #include <functional>
 #include <vector>
+#include <chrono>
+#include <algorithm>
 
 export module core:render_graph;
 
@@ -103,6 +105,29 @@ struct RGTextureDesc
 		PassAttachments attachments;
 		PassCallback execute;
 	};
+	
+	struct PassCpuTiming
+	{
+		std::string name;
+		double cpuMs{ 0.0 };
+	};
+
+	struct ExecuteCpuTimings
+	{
+		double createTexturesMs{ 0.0 };
+		double createFramebuffersMs{ 0.0 };
+		double executePassesMs{ 0.0 };
+		double destroyFramebuffersMs{ 0.0 };
+		double destroyTexturesMs{ 0.0 };
+		double submitCommandListMs{ 0.0 };
+		double totalMs{ 0.0 };
+		std::vector<PassCpuTiming> passTimings{};
+	};
+	
+	struct ExecuteOptions
+	{
+		bool enableCpuTiming{ false };
+	};
 
 	class RenderGraph
 	{
@@ -140,12 +165,15 @@ struct RGTextureDesc
 			textures_.clear();
 		}
 
-		void Execute(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain)
+		void Execute(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, ExecuteOptions options = {})
 		{
+			lastExecuteCpuTimings_ = {};
+			const auto totalStart = std::chrono::steady_clock::now();
 			std::vector<rhi::TextureHandle> allocatedTextures;
 			allocatedTextures.reserve(textures_.size());
 			std::vector<std::uint8_t> owned;
 			owned.reserve(textures_.size());
+			const auto createTexturesStart = std::chrono::steady_clock::now();
 			for (const auto& texDesc : textures_)
 			{
 				if (texDesc.externalTexture)
@@ -161,6 +189,11 @@ struct RGTextureDesc
 				allocatedTextures.push_back(texture);
 				owned.push_back(1);
 			}
+			const auto createTexturesEnd = std::chrono::steady_clock::now();
+			if (options.enableCpuTiming)
+			{
+				lastExecuteCpuTimings_.createTexturesMs = std::chrono::duration<double, std::milli>(createTexturesEnd - createTexturesStart).count();
+			}
 
 			RenderGraphResources resources(allocatedTextures);
 			rhi::CommandList commandList;
@@ -168,8 +201,10 @@ struct RGTextureDesc
 			std::vector<rhi::FrameBufferHandle> transientFramebuffers;
 			transientFramebuffers.reserve(passes_.size());
 
+			const auto executePassesStart = std::chrono::steady_clock::now();
 			for (auto& pass : passes_)
 			{
+				const auto passStart = std::chrono::steady_clock::now();
 				rhi::FrameBufferHandle frameBuffer{};
 				rhi::Extent2D passExtent{ 0, 0 };
 
@@ -200,6 +235,7 @@ struct RGTextureDesc
 					}
 
 					// Cubemap rendering is only supported for a single color attachment.
+					const auto createFramebufferStart = std::chrono::steady_clock::now();
 					if (pass.attachments.colorCubeAllFaces && colors.size() == 1 && colors[0].id != 0)
 					{
 						frameBuffer = device.CreateFramebufferCube(colors[0], depth);
@@ -220,6 +256,11 @@ struct RGTextureDesc
 						frameBuffer = device.CreateFramebufferMRT(colors, depth);
 					}
 					transientFramebuffers.push_back(frameBuffer);
+					if (options.enableCpuTiming)
+					{
+						const auto createFramebufferEnd = std::chrono::steady_clock::now();
+						lastExecuteCpuTimings_.createFramebuffersMs += std::chrono::duration<double, std::milli>(createFramebufferEnd - createFramebufferStart).count();
+					}
 				}
 
 				rhi::BeginPassDesc begin{};
@@ -235,14 +276,41 @@ struct RGTextureDesc
 				pass.execute(ctx);
 
 				commandList.EndPass();
+				if (options.enableCpuTiming)
+				{
+					const auto passEnd = std::chrono::steady_clock::now();
+					lastExecuteCpuTimings_.passTimings.push_back(PassCpuTiming{
+						.name = pass.name,
+						.cpuMs = std::chrono::duration<double, std::milli>(passEnd - passStart).count()
+					});
+				}
+			}
+			const auto executePassesEnd = std::chrono::steady_clock::now();
+			if (options.enableCpuTiming)
+			{
+				lastExecuteCpuTimings_.executePassesMs = std::chrono::duration<double, std::milli>(executePassesEnd - executePassesStart).count();
 			}
 
+			const auto submitStart = std::chrono::steady_clock::now();
 			device.SubmitCommandList(std::move(commandList));
+			const auto submitEnd = std::chrono::steady_clock::now();
+			if (options.enableCpuTiming)
+			{
+				lastExecuteCpuTimings_.submitCommandListMs = std::chrono::duration<double, std::milli>(submitEnd - submitStart).count();
+			}
+
+			const auto destroyFramebuffersStart = std::chrono::steady_clock::now();
 
 			for (auto frameBuffer : transientFramebuffers)
 			{
 				device.DestroyFramebuffer(frameBuffer);
 			}
+			const auto destroyFramebuffersEnd = std::chrono::steady_clock::now();
+			if (options.enableCpuTiming)
+			{
+				lastExecuteCpuTimings_.destroyFramebuffersMs = std::chrono::duration<double, std::milli>(destroyFramebuffersEnd - destroyFramebuffersStart).count();
+			}
+			const auto destroyTexturesStart = std::chrono::steady_clock::now();
 			for (std::size_t i = 0; i < allocatedTextures.size(); ++i)
 			{
 				if (owned[i] != 0)
@@ -250,9 +318,19 @@ struct RGTextureDesc
 					device.DestroyTexture(allocatedTextures[i]);
 				}
 			}
+			const auto destroyTexturesEnd = std::chrono::steady_clock::now();
+			if (options.enableCpuTiming)
+			{
+				lastExecuteCpuTimings_.destroyTexturesMs = std::chrono::duration<double, std::milli>(destroyTexturesEnd - destroyTexturesStart).count();
+				lastExecuteCpuTimings_.totalMs = std::chrono::duration<double, std::milli>(destroyTexturesEnd - totalStart).count();
+				std::sort(lastExecuteCpuTimings_.passTimings.begin(), lastExecuteCpuTimings_.passTimings.end(), [](const PassCpuTiming& a, const PassCpuTiming& b) { return a.cpuMs > b.cpuMs; });
+			}
 		}
+		
+		const ExecuteCpuTimings& GetLastExecuteCpuTimings() const noexcept { return lastExecuteCpuTimings_; }
 	private:
 		std::vector<PassNode> passes_;
 		std::vector<RGTextureDesc> textures_;
+		ExecuteCpuTimings lastExecuteCpuTimings_{};
 	};
 }

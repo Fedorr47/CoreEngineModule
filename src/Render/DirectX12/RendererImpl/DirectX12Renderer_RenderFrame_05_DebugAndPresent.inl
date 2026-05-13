@@ -26,6 +26,51 @@ if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0
 		outlinePx);
 }
 
+if (settings_.drawCpuFrameTimingOverlay)
+{
+	char cpuTimingText[512]{};
+	std::snprintf(
+	cpuTimingText,
+	sizeof(cpuTimingText),
+	"CPU %.2f ms / %.2f with sleep\n"
+	"Timing %.2f | Input %.2f | Editor %.2f\n"
+	"Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f\n"
+	"MainRender %.2f | DebugRender %.2f | Sleep %.2f\n"
+	"Build %.2f | RG %.2f | Tex %.2f | FB %.2f\n"
+	"Pass %.2f | Submit %.2f | Present %.2f",
+	settings_.cpuTotalBeforeSleepMs,
+	settings_.cpuTotalWithSleepMs,
+	settings_.cpuUpdateFrameTimingMs,
+	settings_.cpuInputMs,
+	settings_.cpuEditorInteractionMs,
+	settings_.cpuStreamingMs,
+	settings_.cpuGameplayAndAnimationMs,
+	settings_.cpuBuildImGuiMs,
+	settings_.cpuRenderMainViewportMs,
+	settings_.cpuRenderDebugWindowMs,
+	settings_.cpuTinySleepMs,
+	lastRenderFrameBuildGraphMs_,
+	lastRenderGraphCpuTimings_.totalMs,
+	lastRenderGraphCpuTimings_.createTexturesMs,
+	lastRenderGraphCpuTimings_.createFramebuffersMs,
+	lastRenderGraphCpuTimings_.executePassesMs,
+	lastRenderGraphCpuTimings_.submitCommandListMs,
+	lastRenderGraphPresentMs_);
+	
+	const float cpuScale = std::clamp(settings_.mainViewportFpsTextScale * 0.8f, 0.5f, 2.5f);
+	const float cpuOutlinePx = std::clamp(cpuScale * 0.6f, 1.0f, 3.0f);
+	textList.AddOutlinedTextAlignedPx(
+		12.0f,
+		40.0f,
+		cpuTimingText,
+		debugText::TextAlignH::Left,
+		debugText::TextAlignV::Top,
+		debugText::PackRGBA8(180, 255, 180, 255),
+		debugText::PackRGBA8(0, 0, 0, 210),
+		cpuScale,
+		cpuOutlinePx);
+}
+
 if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.samples.empty())
 {
 	const float overlayScale = std::clamp(settings_.animationRuntimeOverlayTextScale, 0.5f, 3.0f);
@@ -1149,5 +1194,22 @@ if (!textList.Empty())
 		});
 }
 
-graph.Execute(device_, swapChain);
+const auto graphExecuteStart = std::chrono::steady_clock::now();
+lastRenderFrameBuildGraphMs_ =
+	std::chrono::duration<double, std::milli>(graphExecuteStart - renderFrameStart).count();
+
+graph.Execute(
+	device_,
+	swapChain,
+	renderGraph::ExecuteOptions{
+		.enableCpuTiming = settings_.drawCpuFrameTimingOverlay || settings_.logCpuFrameTimings
+	});
+
+lastRenderGraphCpuTimings_ = graph.GetLastExecuteCpuTimings();
+
+const auto presentStart = std::chrono::steady_clock::now();
 swapChain.Present();
+const auto presentEnd = std::chrono::steady_clock::now();
+
+lastRenderGraphPresentMs_ =
+	std::chrono::duration<double, std::milli>(presentEnd - presentStart).count();
