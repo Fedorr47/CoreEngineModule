@@ -11,6 +11,9 @@ using namespace rendern;
 
 TEST(AnimatorSampling, NormalizesLoopingTimeIntoValidRange)
 {
+	// Looping clips must wrap arbitrary sample time back into the valid playback range.
+	// This protects boundary cases such as negative time, time after clip end,
+	// and multi-cycle input from producing invalid normalized time.
 	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 	const float duration = clip.durationTicks / clip.ticksPerSecond;
 
@@ -25,6 +28,9 @@ TEST(AnimatorSampling, NormalizesLoopingTimeIntoValidRange)
 
 TEST(AnimatorSampling, ClampsNonLoopingTimeIntoValidRange)
 {
+	// Non-looping clips must clamp sample time to the playable range instead of wrapping.
+	// This locks down start/end boundary behavior and prevents out-of-range sampling
+	// from moving past the first or last frame.
 	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(false);
 	const float duration = clip.durationTicks / clip.ticksPerSecond;
 
@@ -36,6 +42,9 @@ TEST(AnimatorSampling, ClampsNonLoopingTimeIntoValidRange)
 
 TEST(AnimatorSampling, OutOfRangeTimesProduceFinitePose)
 {
+	// Evaluating a pose with out-of-range animator time must still produce valid TRS data.
+	// This guards against NaN/Inf regressions when runtime state receives negative,
+	// exact-boundary, or far-past-duration time values before pose evaluation.
 	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
 	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 
@@ -55,6 +64,9 @@ TEST(AnimatorSampling, OutOfRangeTimesProduceFinitePose)
 
 TEST(AnimatorSampling, SingleBoneClipProducesFinitePose)
 {
+	// A single-bone skeleton/clip is the smallest valid animation setup.
+	// This protects animator initialization, update, and pose evaluation from assuming
+	// multi-bone skeletons or richer imported animation data.
 	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
 	AnimationClip clip = animationTest::MakeAnimatedSingleBoneClip(true);
 
@@ -68,6 +80,9 @@ TEST(AnimatorSampling, SingleBoneClipProducesFinitePose)
 
 TEST(AnimatorSampling, BlendLocalPoseOutOfRangeAlphaIsFiniteAndClamped)
 {
+	// Blend alpha must be clamped before pose blending.
+	// This prevents out-of-range blend input from extrapolating transforms or producing
+	// invalid translation, rotation, or scale values.
 	std::vector<LocalBoneTransform> fromPose(1);
 	fromPose[0].translation = mathUtils::Vec3(0.0f, 1.0f, 2.0f);
 	fromPose[0].rotation = mathUtils::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
