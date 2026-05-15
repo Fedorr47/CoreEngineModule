@@ -31,6 +31,8 @@ static float UpdateFrameTimingAndLoadingOverlay(AppState& app)
     app.frameState.frameTimer.Tick();
 
     const double rawFrameDeltaSeconds = app.frameState.frameTimer.GetDeltaTime();
+    app.graphicsState.rendererSettings.mainViewportRawFrameMsDisplay =
+    static_cast<float>(rawFrameDeltaSeconds * 1000.0);
     const float deltaSeconds = static_cast<float>(rawFrameDeltaSeconds);
 
     FrameStatsOverlayState& frameStats = app.frameState.frameStatsOverlay;

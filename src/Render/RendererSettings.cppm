@@ -91,9 +91,13 @@ export namespace rendern
 		float mainViewportFpsTextScale{ 1.35f };
 		float mainViewportFpsDisplay{ 0.0f };
 		float mainViewportFrameMsDisplay{ 0.0f };
+		float mainViewportRawFrameMsDisplay{ 0.0f };
 		float cpuTotalBeforeSleepMs{ 0.0f };
 		float cpuTotalWithSleepMs{ 0.0f };
 		float cpuStreamingMs{ 0.0f };
+		
+		bool enableDebugWindowRender{ true };
+		bool enableTinySleep{ false };
 
 		float cpuUpdateFrameTimingMs{ 0.0f };
 		float cpuInputMs{ 0.0f };

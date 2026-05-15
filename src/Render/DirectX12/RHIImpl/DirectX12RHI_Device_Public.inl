@@ -4,4 +4,6 @@
         #include "DirectX12RHI_Device_Public_Buffers.inl"
         #include "DirectX12RHI_Device_Public_ShaderObjects.inl"
         #include "DirectX12RHI_Device_Public_CommandSubmission.inl"
+        #include "DirectX12RHI_Device_Public_DebugHelpers.inl"
         #include "DirectX12RHI_Device_Public_DescriptorsAndFences.inl"
+        

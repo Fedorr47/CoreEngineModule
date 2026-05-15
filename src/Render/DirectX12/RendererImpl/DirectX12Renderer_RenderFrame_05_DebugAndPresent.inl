@@ -2,15 +2,17 @@
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
 
+const auto fpsOverlayStart = std::chrono::steady_clock::now();
 if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0f)
 {
 	char fpsText[96]{};
 	std::snprintf(
 		fpsText,
 		sizeof(fpsText),
-		"FPS %.1f | %.2f ms",
+		"FPS %.1f | %.2f ms | raw %.2f",
 		settings_.mainViewportFpsDisplay,
-		settings_.mainViewportFrameMsDisplay);
+		settings_.mainViewportFrameMsDisplay,
+		settings_.mainViewportRawFrameMsDisplay);
 
 	const float fpsScale = std::clamp(settings_.mainViewportFpsTextScale, 0.5f, 3.0f);
 	const float outlinePx = std::clamp(fpsScale * 0.6f, 1.0f, 3.0f);
@@ -25,7 +27,9 @@ if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0
 		fpsScale,
 		outlinePx);
 }
+lastDebugFpsOverlayBuildMs_ = ElapsedMs(fpsOverlayStart, std::chrono::steady_clock::now());
 
+const auto cpuOverlayStart = std::chrono::steady_clock::now();
 if (settings_.drawCpuFrameTimingOverlay)
 {
 	char cpuTimingText[512]{};
@@ -37,8 +41,12 @@ if (settings_.drawCpuFrameTimingOverlay)
 	"Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f\n"
 	"MainRender %.2f | DebugRender %.2f | Sleep %.2f\n"
 	"Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f\n"
-	"RG %.2f | Tex %.2f | FB %.2f\n",
-	"Pass %.2f | Submit %.2f | Present %.2f",
+	"RG %.2f | Tex %.2f | FB %.2f\n"
+	"Pass %.2f | Submit %.2f | Present %.2f\n"
+	"Submit: Begin %.2f | Flush %.2f | Parse %.2f | End %.2f\n"
+	"Dbg: FPS %.2f | CPU %.2f | Anim %.2f | Refl %.2f\n"
+	"Gizmo: Light %.2f | Part %.2f | Editor %.2f | Move %.2f\n"
+	"DbgPass %.2f",
 	settings_.cpuTotalBeforeSleepMs,
 	settings_.cpuTotalWithSleepMs,
 	settings_.cpuUpdateFrameTimingMs,
@@ -63,7 +71,20 @@ if (settings_.drawCpuFrameTimingOverlay)
 	lastRenderGraphCpuTimings_.createFramebuffersMs,
 	lastRenderGraphCpuTimings_.executePassesMs,
 	lastRenderGraphCpuTimings_.submitCommandListMs,
-	lastRenderGraphPresentMs_);
+	lastRenderGraphPresentMs_,
+	lastSubmitCpuTimings_.beginFrameMs,
+	lastSubmitCpuTimings_.flushPendingBufferUpdatesMs,
+	lastSubmitCpuTimings_.parseCommandsMs,
+	lastSubmitCpuTimings_.endFrameMs,
+	lastDebugFpsOverlayBuildMs_,
+	lastDebugCpuOverlayBuildMs_,
+	lastDebugAnimationOverlayBuildMs_,
+	lastDebugReflectionGizmosBuildMs_,
+	lastDebugLightGizmosBuildMs_,
+	lastDebugParticleGizmosBuildMs_,
+	lastDebugEditorGizmosBuildMs_,
+	lastDebugGameplayMovementBuildMs_,
+	lastDebugRenderPassBuildMs_);
 	
 	const float cpuScale = std::clamp(settings_.mainViewportFpsTextScale * 0.8f, 0.5f, 2.5f);
 	const float cpuOutlinePx = std::clamp(cpuScale * 0.6f, 1.0f, 3.0f);
@@ -78,7 +99,9 @@ if (settings_.drawCpuFrameTimingOverlay)
 		cpuScale,
 		cpuOutlinePx);
 }
+lastDebugCpuOverlayBuildMs_ = ElapsedMs(cpuOverlayStart, std::chrono::steady_clock::now());
 
+const auto animOverlayStart = std::chrono::steady_clock::now();
 if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.samples.empty())
 {
 	const float overlayScale = std::clamp(settings_.animationRuntimeOverlayTextScale, 0.5f, 3.0f);
@@ -147,6 +170,7 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 		overlayY += ext.height + 12.0f;
 	}
 }
+lastDebugAnimationOverlayBuildMs_ = ElapsedMs(animOverlayStart, std::chrono::steady_clock::now());
 
 auto ProjectWorldToScreenPx = [&](const mathUtils::Vec3& worldPos, mathUtils::Vec2& outPx) -> bool
 	{
@@ -337,6 +361,7 @@ auto AddGizmoPlaneHandle = [&](const mathUtils::Vec3& pivot,
 		debugList.AddLine(p01, p00, color, true);
 	};
 
+const auto reflectionGizmosStart = std::chrono::steady_clock::now();
 if (settings_.enableReflectionCapture)
 {
 	const float h = settings_.reflectionProbeBoxHalfExtent;
@@ -365,7 +390,9 @@ if (settings_.enableReflectionCapture)
 		AddProbeCenterMarker(probe.capturePos, markerSize, centerColor);
 	}
 }
+lastDebugReflectionGizmosBuildMs_ = ElapsedMs(reflectionGizmosStart, std::chrono::steady_clock::now());
 
+const auto lightGizmosStart = std::chrono::steady_clock::now();
 if (settings_.drawLightGizmos)
 {
 	const float scale = settings_.debugLightGizmoScale;
@@ -426,7 +453,9 @@ if (settings_.drawLightGizmos)
 		}
 	}
 }
+lastDebugLightGizmosBuildMs_ = ElapsedMs(lightGizmosStart, std::chrono::steady_clock::now());
 
+const auto particleGizmosStart = std::chrono::steady_clock::now();
 // Particle emitter editor visualization
 if (!scene.particleEmitters.empty())
 {
@@ -486,7 +515,9 @@ if (!scene.particleEmitters.empty())
 		}
 	}
 }
+lastDebugParticleGizmosBuildMs_ = ElapsedMs(particleGizmosStart, std::chrono::steady_clock::now());
 
+const auto editorGizmosStart = std::chrono::steady_clock::now();
 if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.enabled && scene.editorTranslateGizmo.visible)
 {
 	const mathUtils::Vec3 pivot = scene.editorTranslateGizmo.pivotWorld;
@@ -573,7 +604,9 @@ if (scene.editorGizmoMode == GizmoMode::Translate && scene.editorTranslateGizmo.
 				scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
 	}
 }
+lastDebugEditorGizmosBuildMs_ = ElapsedMs(editorGizmosStart, std::chrono::steady_clock::now());
 
+const auto gameplayMovementStart = std::chrono::steady_clock::now();
 if (settings_.drawGameplayMovementDebug)
 {
 	auto AddMovementLabel = [&](const mathUtils::Vec3& worldPos, std::string_view label, std::uint32_t rgba)
@@ -666,7 +699,9 @@ if (settings_.drawGameplayMovementDebug)
 		}
 	}
 }
+lastDebugGameplayMovementBuildMs_ = ElapsedMs(gameplayMovementStart, std::chrono::steady_clock::now());
 
+const auto debugRenderPassStart = std::chrono::steady_clock::now();
 if (settings_.drawPlanarMirrorNormals)
 {
 	const std::uint32_t colPosN = debugDraw::PackRGBA8(80, 255, 120, 255);
@@ -869,8 +904,6 @@ if (scene.editorGizmoMode == GizmoMode::Scale && scene.editorScaleGizmo.enabled 
 		AddPlaneLabel(pivot + scene.editorScaleGizmo.axisYWorld * planeMid + scene.editorScaleGizmo.axisZWorld * planeMid, "YZ", ResolveGizmoAxisColor(scene.editorTranslateGizmo.activeAxis, scene.editorTranslateGizmo.hoveredAxis, GizmoAxis::YZ, debugDraw::PackRGBA8(80, 255, 255, 255)));
 	}
 }
-
-
 
 // Selected skinned debug visualization.
 if (scene.editorDrawSelectedSkinnedSkeleton || scene.editorDrawSelectedSkinnedBounds)
@@ -1201,7 +1234,12 @@ if (!textList.Empty())
 			debugTextRenderer_.Draw(ctx.commandList, ctx.passExtent.width, ctx.passExtent.height);
 		});
 }
+lastDebugRenderPassBuildMs_ = ElapsedMs(debugRenderPassStart, std::chrono::steady_clock::now());
 
+lastRenderFrameDebugAndPresentBuildMs_ =
+	std::chrono::duration<double, std::milli>(
+		std::chrono::steady_clock::now() - debugPresentStart
+	).count();
 const auto graphExecuteStart = std::chrono::steady_clock::now();
 lastRenderFrameBuildGraphMs_ =
 	std::chrono::duration<double, std::milli>(graphExecuteStart - renderFrameStart).count();
@@ -1214,6 +1252,7 @@ graph.Execute(
 	});
 
 lastRenderGraphCpuTimings_ = graph.GetLastExecuteCpuTimings();
+lastSubmitCpuTimings_ = device_.GetLastSubmitCpuTimings();
 
 const auto presentStart = std::chrono::steady_clock::now();
 swapChain.Present();
@@ -1225,19 +1264,35 @@ lastRenderGraphPresentMs_ =
 if (settings_.logCpuFrameTimings)
 {
 	std::printf(
-		"[CPU] Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f | RG %.2f (Tex %.2f FB %.2f Pass %.2f Submit %.2f) | Present %.2f\n",
-		lastRenderFrameBuildGraphMs_,
-		lastRenderFrameSetupCsmMs_,
-		lastRenderFrameBuildInstancesMs_,
-		lastRenderFrameShadowPassBuildMs_,
-		lastRenderFrameReflectionCaptureBuildMs_,
-		lastRenderFramePreDepthBuildMs_,
-		lastRenderFrameMainPassBuildMs_,
-		lastRenderFrameDebugAndPresentBuildMs_,
-		lastRenderGraphCpuTimings_.totalMs,
-		lastRenderGraphCpuTimings_.createTexturesMs,
-		lastRenderGraphCpuTimings_.createFramebuffersMs,
-		lastRenderGraphCpuTimings_.executePassesMs,
-		lastRenderGraphCpuTimings_.submitCommandListMs,
-		lastRenderGraphPresentMs_);
+	"[CPU] Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f | "
+	"RG %.2f (Tex %.2f FB %.2f Pass %.2f Submit %.2f) | Present %.2f | "
+	"Submit: Begin %.2f | Flush %.2f | Parse %.2f | End %.2f\n"
+	"[DBG] FPS %.2f CPU %.2f Anim %.2f Refl %.2f Light %.2f Part %.2f Editor %.2f Move %.2f Pass %.2f\n",
+	lastRenderFrameBuildGraphMs_,
+	lastRenderFrameSetupCsmMs_,
+	lastRenderFrameBuildInstancesMs_,
+	lastRenderFrameShadowPassBuildMs_,
+	lastRenderFrameReflectionCaptureBuildMs_,
+	lastRenderFramePreDepthBuildMs_,
+	lastRenderFrameMainPassBuildMs_,
+	lastRenderFrameDebugAndPresentBuildMs_,
+	lastRenderGraphCpuTimings_.totalMs,
+	lastRenderGraphCpuTimings_.createTexturesMs,
+	lastRenderGraphCpuTimings_.createFramebuffersMs,
+	lastRenderGraphCpuTimings_.executePassesMs,
+	lastRenderGraphCpuTimings_.submitCommandListMs,
+	lastRenderGraphPresentMs_,
+	lastSubmitCpuTimings_.beginFrameMs,
+	lastSubmitCpuTimings_.flushPendingBufferUpdatesMs,
+	lastSubmitCpuTimings_.parseCommandsMs,
+	lastSubmitCpuTimings_.endFrameMs,
+	lastDebugFpsOverlayBuildMs_,
+	lastDebugCpuOverlayBuildMs_,
+	lastDebugAnimationOverlayBuildMs_,
+	lastDebugReflectionGizmosBuildMs_,
+	lastDebugLightGizmosBuildMs_,
+	lastDebugParticleGizmosBuildMs_,
+	lastDebugEditorGizmosBuildMs_,
+	lastDebugGameplayMovementBuildMs_,
+	lastDebugRenderPassBuildMs_);
 }

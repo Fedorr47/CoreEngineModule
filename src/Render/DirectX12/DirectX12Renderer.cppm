@@ -137,8 +137,6 @@ export namespace rendern
 			lastRenderFrameMainPassBuildMs_ = ElapsedMs(mainPassStart, mainPassEnd);
 			const auto debugPresentStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl"
-			const auto debugPresentEnd = std::chrono::steady_clock::now();
-			lastRenderFrameDebugAndPresentBuildMs_ = ElapsedMs(debugPresentStart, debugPresentEnd);
 		}
 
 		void Shutdown()
@@ -602,6 +600,7 @@ export namespace rendern
 		std::uint32_t debugCubeAtlasVBStrideBytes_{ 0 };
 		rhi::GraphicsState skyboxState_{};
 		
+		rhi::SubmitCpuTimings lastSubmitCpuTimings_{};
 		renderGraph::ExecuteCpuTimings lastRenderGraphCpuTimings_{};
 		double lastRenderGraphPresentMs_{ 0.0 };
 		double lastRenderFrameBuildGraphMs_{ 0.0 };
@@ -612,5 +611,15 @@ export namespace rendern
 		double lastRenderFramePreDepthBuildMs_{ 0.0 };
 		double lastRenderFrameMainPassBuildMs_{ 0.0 };
 		double lastRenderFrameDebugAndPresentBuildMs_{ 0.0 };
+		// - execure graph metrics
+		double lastDebugFpsOverlayBuildMs_{ 0.0 };
+		double lastDebugCpuOverlayBuildMs_{ 0.0 };
+		double lastDebugAnimationOverlayBuildMs_{ 0.0 };
+		double lastDebugReflectionGizmosBuildMs_{ 0.0 };
+		double lastDebugLightGizmosBuildMs_{ 0.0 };
+		double lastDebugParticleGizmosBuildMs_{ 0.0 };
+		double lastDebugEditorGizmosBuildMs_{ 0.0 };
+		double lastDebugGameplayMovementBuildMs_{ 0.0 };
+		double lastDebugRenderPassBuildMs_{ 0.0 };
 	};
 } // namespace rendern

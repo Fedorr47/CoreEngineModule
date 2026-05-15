@@ -42,6 +42,7 @@ module;
 #include <array>
 #include <stdexcept>
 #include <algorithm>
+#include <chrono>
 #include <cassert>
 #include <bit>
 
