@@ -106,14 +106,39 @@ export namespace rendern
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData)
 		{
 			const auto renderFrameStart = std::chrono::steady_clock::now();
+			auto ElapsedMs = [](const auto& a, const auto& b)
+				{
+					return std::chrono::duration<double, std::milli>(b - a).count();
+				};
 			const Scene& scene = frameView.GetScene();
+			const auto setupCsmStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl"
+			const auto setupCsmEnd = std::chrono::steady_clock::now();
+			lastRenderFrameSetupCsmMs_ = ElapsedMs(setupCsmStart, setupCsmEnd);
+			const auto buildInstancesStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl"
+			const auto buildInstancesEnd = std::chrono::steady_clock::now();
+			lastRenderFrameBuildInstancesMs_ = ElapsedMs(buildInstancesStart, buildInstancesEnd);
+			const auto shadowPassesStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl"
+			const auto shadowPassesEnd = std::chrono::steady_clock::now();
+			lastRenderFrameShadowPassBuildMs_ = ElapsedMs(shadowPassesStart, shadowPassesEnd);
+			const auto reflectionCaptureStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl"
+			const auto reflectionCaptureEnd = std::chrono::steady_clock::now();
+			lastRenderFrameReflectionCaptureBuildMs_ = ElapsedMs(reflectionCaptureStart, reflectionCaptureEnd);
+			const auto preDepthStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl"
+			const auto preDepthEnd = std::chrono::steady_clock::now();
+			lastRenderFramePreDepthBuildMs_ = ElapsedMs(preDepthStart, preDepthEnd);
+			const auto mainPassStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass.inl"
+			const auto mainPassEnd = std::chrono::steady_clock::now();
+			lastRenderFrameMainPassBuildMs_ = ElapsedMs(mainPassStart, mainPassEnd);
+			const auto debugPresentStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl"
+			const auto debugPresentEnd = std::chrono::steady_clock::now();
+			lastRenderFrameDebugAndPresentBuildMs_ = ElapsedMs(debugPresentStart, debugPresentEnd);
 		}
 
 		void Shutdown()
@@ -456,6 +481,8 @@ export namespace rendern
 
 		rhi::IRHIDevice& device_;
 		RendererSettings settings_{};
+		
+		renderGraph::RenderGraph graph_{};
 
 		ShaderLibrary shaderLibrary_;
 		PSOCache psoCache_;
@@ -578,5 +605,12 @@ export namespace rendern
 		renderGraph::ExecuteCpuTimings lastRenderGraphCpuTimings_{};
 		double lastRenderGraphPresentMs_{ 0.0 };
 		double lastRenderFrameBuildGraphMs_{ 0.0 };
+		double lastRenderFrameSetupCsmMs_{ 0.0 };
+		double lastRenderFrameBuildInstancesMs_{ 0.0 };
+		double lastRenderFrameShadowPassBuildMs_{ 0.0 };
+		double lastRenderFrameReflectionCaptureBuildMs_{ 0.0 };
+		double lastRenderFramePreDepthBuildMs_{ 0.0 };
+		double lastRenderFrameMainPassBuildMs_{ 0.0 };
+		double lastRenderFrameDebugAndPresentBuildMs_{ 0.0 };
 	};
 } // namespace rendern

@@ -74,13 +74,13 @@ export namespace rendern
 
 		bool drawLightGizmos{ false };
 		bool debugDrawDepthTest{ true };
-		bool drawGameplayMovementDebug{ true };
-		bool drawGameplayMovementDebugOnlyControlled{ true };
-		bool drawGameplayMovementDebugLabels{ true };
-		bool drawGameplayMovementDebugText{ true };
+		bool drawGameplayMovementDebug{ false };
+		bool drawGameplayMovementDebugOnlyControlled{ false };
+		bool drawGameplayMovementDebugLabels{ false };
+		bool drawGameplayMovementDebugText{ false };
 
-		bool drawAnimationRuntimeOverlay{ true };
-		bool drawAnimationRuntimeOverlayOnlyControlled{ true };
+		bool drawAnimationRuntimeOverlay{ false };
+		bool drawAnimationRuntimeOverlayOnlyControlled{ false };
 		float animationRuntimeOverlayTextScale{ 1.10f };
 		float animationRuntimeOverlayAnchorXPx{ 12.0f };
 		float animationRuntimeOverlayAnchorYPx{ 54.0f };

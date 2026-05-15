@@ -422,11 +422,11 @@ namespace appLifecycle
         const auto mainRenderEnd = Clock::now();
 
         const auto debugRenderStart = Clock::now();
-        //RenderDebugWindowIfNeeded(app, imguiDrawData);
+        RenderDebugWindowIfNeeded(app, imguiDrawData);
         const auto debugRenderEnd = Clock::now();
         
         const auto beforeSleep = Clock::now();
-        //appWin32::TinySleep();
+        appWin32::TinySleep();
         const auto afterSleep = Clock::now();
         
         auto& cpu = app.frameState.cpuFrameTimings;

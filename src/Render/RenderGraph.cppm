@@ -8,6 +8,7 @@ module;
 #include <vector>
 #include <chrono>
 #include <algorithm>
+#include <unordered_map>
 
 export module core:render_graph;
 
@@ -121,7 +122,40 @@ struct RGTextureDesc
 		double destroyTexturesMs{ 0.0 };
 		double submitCommandListMs{ 0.0 };
 		double totalMs{ 0.0 };
+		std::uint32_t transientTextureCacheHits{ 0 };
+		std::uint32_t transientTextureCacheMisses{ 0 };
+		std::uint32_t transientTextureCacheLiveCount{ 0 };
 		std::vector<PassCpuTiming> passTimings{};
+	};
+	
+	struct TransientTextureKey
+	{
+		std::uint32_t width{};
+		std::uint32_t height{};
+		rhi::Format format{ rhi::Format::Unknown };
+		ResourceUsage usage{ ResourceUsage::Unknown };
+		TextureType type{ TextureType::Tex2D };
+
+		bool operator==(const TransientTextureKey& other) const noexcept = default;
+	};
+
+	struct TransientTextureKeyHash
+	{
+		std::size_t operator()(const TransientTextureKey& key) const noexcept
+		{
+			std::size_t seed = key.width;
+			seed = seed * 1315423911u + key.height;
+			seed = seed * 1315423911u + static_cast<std::size_t>(key.format);
+			seed = seed * 1315423911u + static_cast<std::size_t>(key.usage);
+			seed = seed * 1315423911u + static_cast<std::size_t>(key.type);
+			return seed;
+		}
+	};
+
+	struct TransientTextureEntry
+	{
+		rhi::TextureHandle texture{};
+		bool inUseThisExecute{ false };
 	};
 	
 	struct ExecuteOptions
@@ -132,6 +166,8 @@ struct RGTextureDesc
 	class RenderGraph
 	{
 	public:
+		~RenderGraph() = default;
+		
 		RGTexture CreateTexture(RGTextureDesc desc)
 		{
 			const std::uint32_t id = static_cast<std::uint32_t>(textures_.size());
@@ -164,6 +200,18 @@ struct RGTextureDesc
 			passes_.clear();
 			textures_.clear();
 		}
+		
+		void ReleaseCachedResources(rhi::IRHIDevice& device)
+		{
+			for (auto& [_, entries] : transientTextureCache_)
+			{
+				for (const auto& entry : entries)
+				{
+					device.DestroyTexture(entry.texture);
+				}
+			}
+			transientTextureCache_.clear();
+		}
 
 		void Execute(rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, ExecuteOptions options = {})
 		{
@@ -171,23 +219,63 @@ struct RGTextureDesc
 			const auto totalStart = std::chrono::steady_clock::now();
 			std::vector<rhi::TextureHandle> allocatedTextures;
 			allocatedTextures.reserve(textures_.size());
-			std::vector<std::uint8_t> owned;
-			owned.reserve(textures_.size());
 			const auto createTexturesStart = std::chrono::steady_clock::now();
+			for (auto& [_, entries] : transientTextureCache_)
+			{
+				for (auto& entry : entries)
+				{
+					entry.inUseThisExecute = false;
+				}
+			}
 			for (const auto& texDesc : textures_)
 			{
 				if (texDesc.externalTexture)
 				{
 					allocatedTextures.push_back(texDesc.externalTexture);
-					owned.push_back(0);
 					continue;
 				}
 
-				rhi::TextureHandle texture = (texDesc.type == TextureType::Cube)
-					? device.CreateTextureCube(texDesc.extent, texDesc.format)
-					: device.CreateTexture2D(texDesc.extent, texDesc.format);
+				const TransientTextureKey key{
+					.width = texDesc.extent.width,
+					.height = texDesc.extent.height,
+					.format = texDesc.format,
+					.usage = texDesc.usage,
+					.type = texDesc.type
+				};
+				rhi::TextureHandle texture{};
+				bool reusedFromCache = false;
+				auto& cacheEntries = transientTextureCache_[key];
+				for (auto& entry : cacheEntries)
+				{
+					if (!entry.inUseThisExecute)
+					{
+						texture = entry.texture;
+						entry.inUseThisExecute = true;
+						reusedFromCache = true;
+						break;
+					}
+				}
+				if (!reusedFromCache)
+				{
+					texture = (texDesc.type == TextureType::Cube)
+						? device.CreateTextureCube(texDesc.extent, texDesc.format)
+						: device.CreateTexture2D(texDesc.extent, texDesc.format);
+					cacheEntries.push_back(TransientTextureEntry{ .texture = texture, .inUseThisExecute = true });
+				}
+				
 				allocatedTextures.push_back(texture);
-				owned.push_back(1);
+				
+				if (options.enableCpuTiming)
+				{
+					if (reusedFromCache)
+					{
+						++lastExecuteCpuTimings_.transientTextureCacheHits;
+					}
+					else
+					{
+						++lastExecuteCpuTimings_.transientTextureCacheMisses;
+					}
+				}
 			}
 			const auto createTexturesEnd = std::chrono::steady_clock::now();
 			if (options.enableCpuTiming)
@@ -311,18 +399,17 @@ struct RGTextureDesc
 				lastExecuteCpuTimings_.destroyFramebuffersMs = std::chrono::duration<double, std::milli>(destroyFramebuffersEnd - destroyFramebuffersStart).count();
 			}
 			const auto destroyTexturesStart = std::chrono::steady_clock::now();
-			for (std::size_t i = 0; i < allocatedTextures.size(); ++i)
-			{
-				if (owned[i] != 0)
-				{
-					device.DestroyTexture(allocatedTextures[i]);
-				}
-			}
 			const auto destroyTexturesEnd = std::chrono::steady_clock::now();
 			if (options.enableCpuTiming)
 			{
 				lastExecuteCpuTimings_.destroyTexturesMs = std::chrono::duration<double, std::milli>(destroyTexturesEnd - destroyTexturesStart).count();
 				lastExecuteCpuTimings_.totalMs = std::chrono::duration<double, std::milli>(destroyTexturesEnd - totalStart).count();
+				std::uint32_t liveTextures = 0;
+				for (const auto& [_, entries] : transientTextureCache_)
+				{
+					liveTextures += static_cast<std::uint32_t>(entries.size());
+				}
+				lastExecuteCpuTimings_.transientTextureCacheLiveCount = liveTextures;
 				std::sort(lastExecuteCpuTimings_.passTimings.begin(), lastExecuteCpuTimings_.passTimings.end(), [](const PassCpuTiming& a, const PassCpuTiming& b) { return a.cpuMs > b.cpuMs; });
 			}
 		}
@@ -332,5 +419,6 @@ struct RGTextureDesc
 		std::vector<PassNode> passes_;
 		std::vector<RGTextureDesc> textures_;
 		ExecuteCpuTimings lastExecuteCpuTimings_{};
+		std::unordered_map<TransientTextureKey, std::vector<TransientTextureEntry>, TransientTextureKeyHash> transientTextureCache_;
 	};
 }

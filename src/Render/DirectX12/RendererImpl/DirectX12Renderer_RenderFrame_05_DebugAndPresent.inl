@@ -36,7 +36,8 @@ if (settings_.drawCpuFrameTimingOverlay)
 	"Timing %.2f | Input %.2f | Editor %.2f\n"
 	"Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f\n"
 	"MainRender %.2f | DebugRender %.2f | Sleep %.2f\n"
-	"Build %.2f | RG %.2f | Tex %.2f | FB %.2f\n"
+	"Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f\n"
+	"RG %.2f | Tex %.2f | FB %.2f\n",
 	"Pass %.2f | Submit %.2f | Present %.2f",
 	settings_.cpuTotalBeforeSleepMs,
 	settings_.cpuTotalWithSleepMs,
@@ -50,6 +51,13 @@ if (settings_.drawCpuFrameTimingOverlay)
 	settings_.cpuRenderDebugWindowMs,
 	settings_.cpuTinySleepMs,
 	lastRenderFrameBuildGraphMs_,
+	lastRenderFrameSetupCsmMs_,
+	lastRenderFrameBuildInstancesMs_,
+	lastRenderFrameShadowPassBuildMs_,
+	lastRenderFrameReflectionCaptureBuildMs_,
+	lastRenderFramePreDepthBuildMs_,
+	lastRenderFrameMainPassBuildMs_,
+	lastRenderFrameDebugAndPresentBuildMs_,
 	lastRenderGraphCpuTimings_.totalMs,
 	lastRenderGraphCpuTimings_.createTexturesMs,
 	lastRenderGraphCpuTimings_.createFramebuffersMs,
@@ -1213,3 +1221,23 @@ const auto presentEnd = std::chrono::steady_clock::now();
 
 lastRenderGraphPresentMs_ =
 	std::chrono::duration<double, std::milli>(presentEnd - presentStart).count();
+
+if (settings_.logCpuFrameTimings)
+{
+	std::printf(
+		"[CPU] Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f | RG %.2f (Tex %.2f FB %.2f Pass %.2f Submit %.2f) | Present %.2f\n",
+		lastRenderFrameBuildGraphMs_,
+		lastRenderFrameSetupCsmMs_,
+		lastRenderFrameBuildInstancesMs_,
+		lastRenderFrameShadowPassBuildMs_,
+		lastRenderFrameReflectionCaptureBuildMs_,
+		lastRenderFramePreDepthBuildMs_,
+		lastRenderFrameMainPassBuildMs_,
+		lastRenderFrameDebugAndPresentBuildMs_,
+		lastRenderGraphCpuTimings_.totalMs,
+		lastRenderGraphCpuTimings_.createTexturesMs,
+		lastRenderGraphCpuTimings_.createFramebuffersMs,
+		lastRenderGraphCpuTimings_.executePassesMs,
+		lastRenderGraphCpuTimings_.submitCommandListMs,
+		lastRenderGraphPresentMs_);
+}
