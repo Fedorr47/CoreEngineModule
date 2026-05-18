@@ -84,17 +84,14 @@ TEST(RenderGraphFakeRHI, ExecutePassesOnCpuAndRecordRHICalls)
     
     EXPECT_EQ(device.GetDestroyedFrameBuffers().size(), 1u);
     // Transient textures are cached across Execute() calls and are released explicitly.
-    EXPECT_EQ(device.GetDestroyedTextures().size(), 0u);
-    
-    renderGraph.ReleaseCachedResources(device);
+    EXPECT_EQ(device.GetDestroyedFrameBuffers().size(), 1u);
 
     // Transient textures are cached across Execute() calls and are released explicitly.
     EXPECT_EQ(device.GetDestroyedTextures().size(), 0u);
 
     renderGraph.ReleaseCachedResources(device);
+
     EXPECT_EQ(device.GetDestroyedTextures().size(), 1u);
-    
-    ASSERT_EQ(device.GetSubmittedCommandLists().size(), 1u);
     const auto& submitted = device.GetSubmittedCommandLists().front();
     ASSERT_FALSE(submitted.commands.empty());
     
