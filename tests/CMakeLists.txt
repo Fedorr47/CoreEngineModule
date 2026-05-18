@@ -2,6 +2,7 @@
 add_executable(CoreEngineModuleTests
         "FakeRHI.h" 
         "FakeRHI.cpp"
+        "FakeMeshIO.h"
         "FakeTextureIO.h" 
         "TestSupport/MathTestHelper.h"
         "TestSupport/TestFixtureLoader.h"
@@ -18,7 +19,8 @@ add_executable(CoreEngineModuleTests
         "unit/AnimationTests/TestAnimationController.cpp"
         "unit/AnimationTests/TestAnimatorSamplingInvariants.cpp"
         "unit/RenderTests/TestLevelWorld.cpp" 
-        "unit/ResourceTests/TestTextureStorage.cpp" 
+        "unit/ResourceTests/TestTextureStorage.cpp"
+        "unit/ResourceTests/TestMeshStorage.cpp"
         "unit/TimerTests/TestTimerBasic.cpp"
         "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
         "unit/CoreTests/TestJsonUtils.cpp"

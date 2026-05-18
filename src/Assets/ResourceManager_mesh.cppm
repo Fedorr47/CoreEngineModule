@@ -25,6 +25,7 @@ import :math_utils;
 import :obj_loader;
 import :assimp_loader;
 import :file_system;
+import :string_utils;
 
 // NOTE: Mesh loading is CPU-side (ObjLoader) and does NOT touch the renderer.
 // GPU upload/destruction is deferred via IRenderQueue (same pattern as textures).
@@ -104,6 +105,9 @@ export namespace rendern
 		rhi::IRHIDevice& device;
 		IJobSystem& jobs;
 		IRenderQueue& render;
+		std::function<std::optional<MeshCPU>(const MeshProperties&, std::string_view)> loadMesh{};
+		std::function<MeshRHI(const MeshCPU&, std::string_view)> uploadMesh{};
+		std::function<void(MeshRHI&)> destroyMesh{};
 	};
 }
 
@@ -248,26 +252,24 @@ public:
 				std::string error;
 				try
 				{
-					// Resolve via assets/ root unless absolute.
-					const auto abs = corefs::ResolveAsset(std::filesystem::path(path));
-
-					auto ToLower = [](std::string s)
-						{
-							for (char& c : s)
-							{
-								c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-							}
-							return s;
-						};
-
-					const std::string ext = ToLower(abs.extension().string());
-					if (ext == ".obj")
+					if (ioCopy.loadMesh)
 					{
-						cpuOpt = rendern::LoadObj(abs);
+						cpuOpt = ioCopy.loadMesh(propsCopy, key);
 					}
 					else
 					{
-						cpuOpt = rendern::LoadAssimp(abs, propsCopy.flipUVs, propsCopy.submeshIndex, propsCopy.bakeNodeTransforms);
+						// Resolve via assets/ root unless absolute.
+						const auto abs = corefs::ResolveAsset(std::filesystem::path(path));
+						
+						const std::string ext = stringUtils::ToLowerAsciiCopy(abs.extension().string());
+						if (ext == ".obj")
+						{
+							cpuOpt = rendern::LoadObj(abs);
+						}
+						else
+						{
+							cpuOpt = rendern::LoadAssimp(abs, propsCopy.flipUVs, propsCopy.submeshIndex, propsCopy.bakeNodeTransforms);
+						}
 					}
 				}
 				catch (const std::exception& e)
@@ -448,7 +450,14 @@ public:
 				MeshIO ioCopy = io;
 				ioCopy.render.Enqueue([ioCopy, mesh = std::move(mesh)]() mutable
 					{
-						DestroyMesh(ioCopy.device, mesh);
+						if (ioCopy.destroyMesh)
+						{
+							ioCopy.destroyMesh(mesh);
+						}
+						else
+						{
+							DestroyMesh(ioCopy.device, mesh);
+						}
 					});
 			}
 			++destroyed;
@@ -505,7 +514,9 @@ public:
 					MeshRHI gpu{};
 					try
 					{
-						gpu = UploadMesh(ioCopy.device, *cpuPtr, props.debugName);
+						gpu = ioCopy.uploadMesh ? 
+							ioCopy.uploadMesh(*cpuPtr, props.debugName) : 
+							UploadMesh(ioCopy.device, *cpuPtr, props.debugName);
 					}
 					catch (const std::exception& e)
 					{
@@ -536,7 +547,14 @@ public:
 					auto it = entries_.find(id);
 					if (it == entries_.end() || it->second.generation != generation)
 					{
-						DestroyMesh(ioCopy.device, gpu);
+						if (ioCopy.destroyMesh)
+						{
+							ioCopy.destroyMesh(gpu);
+						}
+						else
+						{
+							DestroyMesh(ioCopy.device, gpu);
+						}
 						return;
 					}
 
@@ -545,7 +563,14 @@ public:
 					MeshRHI old = entry.meshHandle->ReplaceResource(std::move(gpu));
 					if (old.vertexBuffer.id != 0 || old.indexBuffer.id != 0)
 					{
-						DestroyMesh(ioCopy.device, old);
+						if (ioCopy.destroyMesh)
+						{
+							ioCopy.destroyMesh(old);
+						} 
+						else
+						{
+							DestroyMesh(ioCopy.device, old);
+						}
 					}
 					entry.state = ResourceState::Loaded;
 					entry.error.clear();
