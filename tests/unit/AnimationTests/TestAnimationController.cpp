@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 #include "TestSupport/TestFixtureLoader.h"
+#include "AnimationTestHelpers.h"
 
 import core;
 
@@ -10,35 +13,6 @@ using namespace rendern;
 
 namespace
 {
-	Skeleton MakingSingleBoneSkeleton()
-	{
-		Skeleton skeleton{};
-		skeleton.rootBoneIndex = 0;
-		skeleton.bones.push_back(SkeletonBone{
-		.name = "root",
-		.parentIndex = -1,
-		.inverseBindMatrix = mathUtils::Mat4(1.0f),
-		.bindLocalTransform = mathUtils::Mat4(1.0f)
-		});
-		return skeleton;
-	}
-	
-	AnimationClip MakeSingleBoneClip(const std::string& name)
-	{
-		AnimationClip clip{};
-		clip.name = name;
-		clip.durationTicks = 10.0f;
-		clip.ticksPerSecond = 10.0f;
-		clip.looping = true;
-
-		BoneAnimationChannel channel{};
-		channel.boneIndex = 0;
-		channel.boneName = "root";
-		channel.translationKeys.push_back(TranslationKey{ .timeTicks = 0.0f, .value = { 0.0f, 0.0f, 0.0f } });
-		clip.channels.push_back(std::move(channel));
-		return clip;
-	}
-
 	struct ConditionCase
 	{
 		const char* name;
@@ -47,12 +21,45 @@ namespace
 		bool setParameter;
 		bool expected;
 	};
+	
+	void WriteTestAssetFile(
+		const std::filesystem::path& root, 
+		std::string_view relativePath, 
+		std::string_view content)
+	{
+		const std::filesystem::path target = root / std::filesystem::path(relativePath);
+		std::filesystem::create_directories(target.parent_path());
+		std::ofstream out(target, std::ios::binary);
+		if (!out.is_open())
+		{
+			throw std::runtime_error("Failed to write test fixture: " + target.string());
+		}
+		out << content;
+	}
+
+	void ExpectLoadLevelThrowsWithMessageFragment(
+		std::string_view levelPath, 
+		std::string_view fragment)
+	{
+		try
+		{
+			LoadLevelAssetFromJson(levelPath);
+			FAIL() << "Expected std::runtime_error for level: " << levelPath;
+		}
+		catch (const std::runtime_error& ex)
+		{
+			EXPECT_NE(std::string(ex.what()).find(fragment), std::string::npos)
+				<< "missing fragment: '" << fragment << "'\nactual: '" << ex.what() << "'";
+		}
+	}
 }
 
 TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 {
 	AnimationParameterStore store{};
 
+	// Covers all parameter write paths used by animation controllers:
+	// persistent bool/int/float values and one-shot trigger values.
 	SetAnimationParameter(store, "isMoving", true);
 	SetAnimationParameter(store, "combo", 2);
 	SetAnimationParameter(store, "speed", 3.5f);
@@ -64,13 +71,17 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 	EXPECT_EQ(FindAnimationParameter(store, "speed")->type, AnimationParameterType::Float);
 	EXPECT_EQ(FindAnimationParameter(store, "attack")->type, AnimationParameterType::Trigger);
 
+	// Trigger is event-like: first consume succeeds and clears it,
+	// second consume fails because the trigger is no longer active.
 	EXPECT_TRUE(ConsumeAnimationTrigger(store, "attack"));
 	EXPECT_FALSE(ConsumeAnimationTrigger(store, "attack"));
 
+	// Explicit reset should clear a fired trigger before it can be consumed.
 	FireAnimationTrigger(store, "attack");
 	ResetAnimationTrigger(store, "attack");
 	EXPECT_FALSE(ConsumeAnimationTrigger(store, "attack"));
 
+	// Full reset is used when rebinding/reinitializing controller parameters.
 	ResetAnimationParameters(store);
 	EXPECT_TRUE(store.values.empty());
 }
@@ -78,6 +89,9 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 TEST(AnimationController, StateLookupAndTagsWork)
 {
 	AnimationControllerAsset asset{};
+	
+	// Tags are lightweight semantic labels used by gameplay/debug logic.
+	// They should not affect state lookup by name.
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .tags = { "Locomotion", "Grounded" } });
 	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .tags = { "Action" } });
 
@@ -93,27 +107,27 @@ TEST(AnimationController, StateLookupAndTagsWork)
 
 TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefaults)
 {
-	Skeleton skeleton{};
-	skeleton.rootBoneIndex = 0;
-	skeleton.bones.push_back(SkeletonBone{
-		.name = "root",
-		.parentIndex = -1,
-		.inverseBindMatrix = mathUtils::Mat4(1.0f),
-		.bindLocalTransform = mathUtils::Mat4(1.0f)
-	});
-
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	
 	std::vector<AnimationClip> clips{};
-	clips.push_back(MakeSingleBoneClip("Idle"));
-	clips.push_back(MakeSingleBoneClip("Run"));
+	clips.push_back(animationTest::MakeMinimalSingleBoneClip("Idle"));
+	clips.push_back(animationTest::MakeMinimalSingleBoneClip("Run"));
+	
+	// One source id per clip. In this test both clips come from the same logical source.
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset asset{};
 	asset.id = "hero_controller";
 	asset.defaultState = "Run";
+	
+	// Default parameters are copied into runtime on bind.
 	asset.parameters.push_back(AnimationParameterDesc{
 		.name = "isMoving",
 		.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Bool, .boolValue = true }
 	});
+	
+	// Default state is Run, so runtime should start from state index 1
+	// and inherit Run state's playback settings.
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle", .looping = true, .playRate = 1.0f });
 	asset.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run", .looping = true, .playRate = 1.25f });
 
@@ -128,16 +142,18 @@ TEST(AnimationController, BindStateMachineAppliesDefaultStateAndParameterDefault
 	EXPECT_TRUE(FindAnimationParameter(runtime.parameters, "isMoving")->boolValue);
 	EXPECT_FLOAT_EQ(runtime.playRate, 1.25f);
 
+	// Request does not immediately switch state. It only stores intent;
+	// actual transition/request handling happens during controller update.
 	RequestAnimationControllerState(runtime, "Idle");
 	EXPECT_EQ(runtime.requestedStateName, "Idle");
 }
 
 TEST(AnimationController, JsonFixtureLoaderReadsMinimalConfigText)
 {
-	const std::string fixtureTest = LoadTextFixture("json/valid/minimal_config.json");
-	ASSERT_FALSE(fixtureTest.empty());
+	const std::string fixtureText = LoadTextFixture("json/valid/minimal_config.json");
+	ASSERT_FALSE(fixtureText.empty());
 	
-	jsonUtils::JsonParser parser(fixtureTest);
+	jsonUtils::JsonParser parser(fixtureText);
 	const jsonUtils::JsonValue root = parser.Parse();
 	const auto& object = root.AsObject();
 	
@@ -147,6 +163,16 @@ TEST(AnimationController, JsonFixtureLoaderReadsMinimalConfigText)
 
 TEST(AnimationController, EvaluateConditionBoolIntFloatMatrix)
 {
+	// Table-driven coverage for condition evaluation.
+	// This tests the pure condition checker without running the full controller state machine.
+	//
+	// The matrix intentionally covers:
+	// - bool equality/inequality;
+	// - missing parameter behavior;
+	// - int comparison boundaries;
+	// - float epsilon equality;
+	// - negative values and boundary comparisons.
+	
 	const std::vector<ConditionCase> cases{
 		{ "bool_true_equals_true", { .parameter = "b", .op = AnimationConditionOp::Equal, .value = { .type = AnimationParameterType::Bool, .boolValue = true } }, { .type = AnimationParameterType::Bool, .boolValue = true }, true, true },
 		{ "bool_false_equals_false", { .parameter = "b", .op = AnimationConditionOp::Equal, .value = { .type = AnimationParameterType::Bool, .boolValue = false } }, { .type = AnimationParameterType::Bool, .boolValue = false }, true, true },
@@ -175,6 +201,9 @@ TEST(AnimationController, EvaluateConditionBoolIntFloatMatrix)
 	{
 		SCOPED_TRACE(testCase.name);
 		AnimationParameterStore store{};
+		
+		// Some cases intentionally leave the parameter missing to verify
+		// that missing parameters fail instead of silently passing.
 		if (testCase.setParameter)
 		{
 			store.values[testCase.condition.parameter] = testCase.actualValue;
@@ -190,17 +219,21 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	attackTriggerCondition.op = AnimationConditionOp::Triggered;
 	attackTriggerCondition.value.type = AnimationParameterType::Trigger;
 	
+	// First check the pure condition path:
+	// missing trigger fails, fired matching trigger passes.
 	AnimationParameterStore store{};
 	EXPECT_FALSE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
 	FireAnimationTrigger(store, "attack");
 	EXPECT_TRUE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
+	// Firing an unrelated trigger must not affect the already active "attack" condition.
 	FireAnimationTrigger(store, "other");
 	EXPECT_TRUE(detail::EvaluateCondition(attackTriggerCondition, store));
 	
-	Skeleton skeleton = MakingSingleBoneSkeleton();
-	std::vector<AnimationClip> clips{ MakeSingleBoneClip("Idle"), MakeSingleBoneClip("Attack") };
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Attack") };
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 	
 	AnimationControllerAsset asset{};
@@ -208,6 +241,10 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	asset.defaultState = "Idle";
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
 	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .clipName = "Attack" });
+	
+	// Runtime transition uses the same trigger condition.
+	// This verifies not only that the condition passes, but also that
+	// the selected transition consumes the trigger.
 	asset.transitions.push_back(AnimationTransitionDesc{
 		.fromState = "Idle",
 		.toState = "Attack",
@@ -223,7 +260,310 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	FireAnimationTrigger(runtime.parameters, "attack");
 	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
 	EXPECT_EQ(runtime.currentStateName, "Attack");
+	
+	// Important policy check:
+	// a trigger consumed by a selected transition must be reset,
+	// so it cannot repeatedly fire the same transition.
 	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
 	EXPECT_FALSE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
 	EXPECT_FALSE(detail::EvaluateCondition(attackTriggerCondition, runtime.parameters));
+}
+
+TEST(AnimationController, DefaultStateFallsBackToFirstStateWhenMissingAndRejectsInvalidDefault)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Run") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset missingDefault{};
+	missingDefault.id = "missing_default";
+	missingDefault.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	missingDefault.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run" });
+
+	// If defaultState is not specified, binding should choose the first declared state.
+	// This keeps minimal controllers usable without requiring explicit defaultState.
+	AnimationControllerRuntime runtimeMissing{};
+	BindAnimationControllerStateMachine(runtimeMissing, skeleton, clips, clipSourceAssetIds, missingDefault, true, false, false);
+	EXPECT_EQ(runtimeMissing.currentStateIndex, 0);
+	EXPECT_EQ(runtimeMissing.currentStateName, "Idle");
+	
+	AnimationControllerAsset invalidDefault = missingDefault;
+	invalidDefault.id = "invalid_default";
+	invalidDefault.defaultState = "NoSuchState";
+
+	// If defaultState is specified but points to a missing state, this is treated
+	// as invalid controller data. Runtime must not silently fallback to Idle,
+	// because that could hide broken JSON/controller authoring.
+	AnimationControllerRuntime runtimeInvalid{};
+	BindAnimationControllerStateMachine(runtimeInvalid, skeleton, clips, clipSourceAssetIds, invalidDefault, true, false, false);
+	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
+	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
+
+	// Updating an invalidly bound controller should keep it invalid instead of
+	// recovering implicitly to the first state.
+	AnimatorState animator{};
+	UpdateAnimationControllerRuntime(runtimeInvalid, animator, 0.0f);
+	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
+	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
+}
+
+TEST(AnimationController, TriggerTransitionRequiresAllConditionsAndDoesNotConsumeOnFailure)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Attack") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset asset{};
+	asset.id = "trigger_gate";
+	asset.defaultState = "Idle";
+	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	asset.states.push_back(AnimationStateDesc{ .name = "Attack", .clipName = "Attack" });
+	
+	// Attack transition requires both:
+	// 1. a one-shot trigger request;
+	// 2. a persistent gameplay gate saying the action is currently allowed.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Idle",
+		.toState = "Attack",
+		.priority = 1,
+		.conditions = {
+			AnimationConditionDesc{
+				.parameter = "attack",
+				.op = AnimationConditionOp::Triggered,
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Trigger }
+			},
+			AnimationConditionDesc{
+				.parameter = "canAttack",
+				.op = AnimationConditionOp::Equal,
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Bool, .boolValue = true }
+			}
+		}
+	});
+
+	AnimationControllerRuntime runtime{};
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, clipSourceAssetIds, asset, true, false, false);
+	AnimatorState animator{};
+
+	// Trigger is fired, but the gate condition blocks the transition.
+	// Current policy: a trigger is consumed only by the selected matched transition,
+	// so a failed transition attempt must leave the trigger active.
+	SetAnimationParameter(runtime.parameters, "canAttack", false);
+	FireAnimationTrigger(runtime.parameters, "attack");
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Idle");
+	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
+	EXPECT_TRUE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
+
+	// Once the gate opens, the still-buffered trigger should allow the transition.
+	// After the transition is selected, the trigger must be consumed/reset.
+	SetAnimationParameter(runtime.parameters, "canAttack", true);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Attack");
+	ASSERT_NE(FindAnimationParameter(runtime.parameters, "attack"), nullptr);
+	EXPECT_FALSE(FindAnimationParameter(runtime.parameters, "attack")->triggerValue);
+}
+
+TEST(AnimationController, TransitionBlendDurationRespectsZeroAndPositiveValues)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), 
+		animationTest::MakeMinimalSingleBoneClip("Run") };
+	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
+
+	AnimationControllerAsset asset{};
+	asset.id = "duration_checks";
+	asset.defaultState = "Idle";
+	asset.parameters.push_back(AnimationParameterDesc{
+		.name = "speed",
+		.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.0f }
+	});
+	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
+	asset.states.push_back(AnimationStateDesc{ .name = "Run", .clipName = "Run" });
+	
+	// Idle -> Run uses a positive blend duration, so runtime should enter
+	// transition blending after the state switch.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Idle",
+		.toState = "Run",
+		.blendDurationSeconds = 0.25f,
+		.priority = 2,
+		.conditions = { 
+			AnimationConditionDesc{ 
+				.parameter = "speed", 
+				.op = AnimationConditionOp::Greater, 
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.5f } } }
+	});
+		
+	// Run -> Idle uses zero duration, so it should switch immediately
+	// without leaving transitionActive set.
+	asset.transitions.push_back(AnimationTransitionDesc{
+		.fromState = "Run",
+		.toState = "Idle",
+		.blendDurationSeconds = 0.0f,
+		.priority = 2,
+		.conditions = { 
+			AnimationConditionDesc{ 
+				.parameter = "speed", 
+				.op = AnimationConditionOp::LessEqual, 
+				.value = AnimationParameterValue{ .type = AnimationParameterType::Float, .floatValue = 0.0f } } }
+	});
+
+	AnimationControllerRuntime runtime{};
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, clipSourceAssetIds, asset, true, false, false);
+	AnimatorState animator{};
+
+	// Positive duration transition: state changes to Run and transition blending starts.
+	SetAnimationParameter(runtime.parameters, "speed", 1.0f);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Run");
+	EXPECT_TRUE(runtime.transitionActive);
+	EXPECT_FLOAT_EQ(runtime.transitionDurationSeconds, 0.25f);
+
+	// Advance enough time to finish the 0.25s blend.
+	UpdateAnimationControllerRuntime(runtime, animator, 0.25f);
+	EXPECT_FALSE(runtime.transitionActive);
+
+	// Zero duration transition: state changes back to Idle immediately,
+	// but no active blend should remain.
+	SetAnimationParameter(runtime.parameters, "speed", 0.0f);
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Idle");
+	EXPECT_FALSE(runtime.transitionActive);
+}
+
+TEST(AnimationController, ExternalNotifyAndEventBindingAssetsHappyPathLoad)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_valid.animnotify.json", R"json({
+		"states": {"Idle": [{"id": "footstep", "time": 0.25, "fireOnEnter": true}]},
+		"clips": {"Idle": [{"id": "from_clip", "time": 0.50}]}
+	})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_valid.animbindings.json", R"json({
+		"bindings": [{"animationEvent": "footstep", "gameplayEvent": "Gameplay.Footstep"}]
+	})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/controller_valid.level.json", R"json({
+		"animationControllers": {
+			"hero": {
+				"defaultState": "Idle",
+				"states": {"Idle": {"clip": "Idle"}},
+				"notifyAsset": "tests/animation_validation/notify_valid.animnotify.json",
+				"eventBindingsAsset": "tests/animation_validation/bindings_valid.animbindings.json"
+			}
+		}
+	})json");
+
+	const LevelAsset level = LoadLevelAssetFromJson("tests/animation_validation/controller_valid.level.json");
+	ASSERT_TRUE(level.animationControllers.contains("hero"));
+	const AnimationControllerAsset& controller = level.animationControllers.at("hero");
+	ASSERT_EQ(controller.states.size(), 1u);
+	EXPECT_EQ(controller.states[0].notifies.size(), 2u);
+	EXPECT_EQ(controller.eventBindings.size(), 1u);
+}
+
+TEST(AnimationController, ExternalNotifyAssetValidationErrorsAreActionable)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+
+	// These malformed fixtures intentionally target distinct notify-asset validation branches
+	// so future regressions are easy to localize from the failure message fragment.
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_root_array.animnotify.json", "[]");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_states_wrong_type.animnotify.json", R"json({"states": []})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_state_entry_wrong_type.animnotify.json", R"json({"states": {"Idle": 1}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_missing_id.animnotify.json", R"json({"states": {"Idle": [{"time": 0.5}]}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_wrong_time_type.animnotify.json", R"json({"states": {"Idle": [{"id": "n", "time": "bad"}]}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/notify_entry_wrong_fire_on_enter_type.animnotify.json", R"json({"states": {"Idle": [{"id": "n", "fireOnEnter": 1}]}})json");
+
+	const std::string baseLevel = R"json({"animationControllers":{"hero":{"defaultState":"Idle","states":{"Idle":{"clip":"Idle"}},"notifyAsset":"%s"}}})json";
+	auto writeLevelForNotify = [&](const char* levelName, const char* notifyRelPath)
+	{
+		std::string content = baseLevel;
+		content.replace(content.find("%s"), 2, notifyRelPath);
+		WriteTestAssetFile(assetRoot, std::string("tests/animation_validation/") + levelName, content);
+	};
+
+	writeLevelForNotify("notify_root_array.level.json", "tests/animation_validation/notify_root_array.animnotify.json");
+	writeLevelForNotify("notify_states_wrong_type.level.json", "tests/animation_validation/notify_states_wrong_type.animnotify.json");
+	writeLevelForNotify("notify_state_entry_wrong_type.level.json", "tests/animation_validation/notify_state_entry_wrong_type.animnotify.json");
+	writeLevelForNotify("notify_entry_missing_id.level.json", "tests/animation_validation/notify_entry_missing_id.animnotify.json");
+	writeLevelForNotify("notify_entry_wrong_time_type.level.json", "tests/animation_validation/notify_entry_wrong_time_type.animnotify.json");
+	writeLevelForNotify("notify_entry_wrong_fire_on_enter_type.level.json", "tests/animation_validation/notify_entry_wrong_fire_on_enter_type.animnotify.json");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_root_array.level.json", 
+		"Animation notify JSON: root must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_states_wrong_type.level.json", 
+		".states must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_state_entry_wrong_type.level.json", 
+		".states.Idle must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_entry_missing_id.level.json", 
+		".states.Idle[].id is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+	"tests/animation_validation/notify_entry_wrong_time_type.level.json",
+	"expected number at 'time'");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/notify_entry_wrong_fire_on_enter_type.level.json",
+		"expected bool at 'fireOnEnter'");
+}
+
+TEST(AnimationController, ExternalEventBindingAssetValidationErrorsAreActionable)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_root_array.animbindings.json", "[]");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_collection.animbindings.json", R"json({"x": []})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_collection_wrong_type.animbindings.json", R"json({"bindings": {}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_entry_not_object.animbindings.json", R"json({"bindings": [1]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_animation_event.animbindings.json", R"json({"bindings": [{"gameplayEvent": "G"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_missing_gameplay_event.animbindings.json", R"json({"bindings": [{"animationEvent": "N"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_wrong_animation_event_type.animbindings.json", R"json({"bindings": [{"animationEvent": 1, "gameplayEvent": "G"}]})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/bindings_wrong_gameplay_event_type.animbindings.json", R"json({"bindings": [{"animationEvent": "N", "gameplayEvent": 2}]})json");
+
+	const std::string baseLevel = R"json({"animationControllers":{"hero":{"defaultState":"Idle","states":{"Idle":{"clip":"Idle"}},"eventBindingsAsset":"%s"}}})json";
+	auto writeLevelForBindings = [&](const char* levelName, const char* relPath)
+	{
+		std::string content = baseLevel;
+		content.replace(content.find("%s"), 2, relPath);
+		WriteTestAssetFile(assetRoot, std::string("tests/animation_validation/") + levelName, content);
+	};
+
+	writeLevelForBindings("bindings_root_array.level.json", "tests/animation_validation/bindings_root_array.animbindings.json");
+	writeLevelForBindings("bindings_missing_collection.level.json", "tests/animation_validation/bindings_missing_collection.animbindings.json");
+	writeLevelForBindings("bindings_collection_wrong_type.level.json", "tests/animation_validation/bindings_collection_wrong_type.animbindings.json");
+	writeLevelForBindings("bindings_entry_not_object.level.json", "tests/animation_validation/bindings_entry_not_object.animbindings.json");
+	writeLevelForBindings("bindings_missing_animation_event.level.json", "tests/animation_validation/bindings_missing_animation_event.animbindings.json");
+	writeLevelForBindings("bindings_missing_gameplay_event.level.json", "tests/animation_validation/bindings_missing_gameplay_event.animbindings.json");
+	writeLevelForBindings("bindings_wrong_animation_event_type.level.json", "tests/animation_validation/bindings_wrong_animation_event_type.animbindings.json");
+	writeLevelForBindings("bindings_wrong_gameplay_event_type.level.json", "tests/animation_validation/bindings_wrong_gameplay_event_type.animbindings.json");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+	"tests/animation_validation/bindings_root_array.level.json",
+	"Animation event bindings JSON: root must be object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_collection.level.json",
+		".bindings must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_collection_wrong_type.level.json",
+		".bindings must be array");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_entry_not_object.level.json",
+		"expected object");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_animation_event.level.json",
+		".bindings[].animationEvent is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_missing_gameplay_event.level.json",
+		".bindings[].gameplayEvent is required");
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_wrong_animation_event_type.level.json",
+		"expected string at 'animationEvent'");
+
+	ExpectLoadLevelThrowsWithMessageFragment(
+		"tests/animation_validation/bindings_wrong_gameplay_event_type.level.json",
+		"expected string at 'gameplayEvent'");
 }
