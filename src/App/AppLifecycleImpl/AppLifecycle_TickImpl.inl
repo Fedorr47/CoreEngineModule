@@ -26,50 +26,50 @@ static bool ShouldSkipFrame(AppState& app)
     return false;
 }
 
-static const float UpdateFrameTimingAndLoadingOverlay(AppState& app)
+static float UpdateFrameTimingAndLoadingOverlay(AppState& app)
 {
-    app.frameState.statsTimer.Tick();
-    const double rawFrameDeltaSeconds = app.frameState.statsTimer.GetDeltaTime();
-
     app.frameState.frameTimer.Tick();
-    const float deltaSeconds = static_cast<float>(app.frameState.frameTimer.GetDeltaTime());
+
+    const double rawFrameDeltaSeconds = app.frameState.frameTimer.GetDeltaTime();
+    app.graphicsState.rendererSettings.mainViewportRawFrameMsDisplay =
+    static_cast<float>(rawFrameDeltaSeconds * 1000.0);
+    const float deltaSeconds = static_cast<float>(rawFrameDeltaSeconds);
 
     FrameStatsOverlayState& frameStats = app.frameState.frameStatsOverlay;
-    if (rawFrameDeltaSeconds > 0.0)
+
+    if (rawFrameDeltaSeconds > 0.0 && std::isfinite(rawFrameDeltaSeconds))
     {
         frameStats.accumulatedSeconds += rawFrameDeltaSeconds;
         ++frameStats.accumulatedFrames;
 
-        if (!frameStats.initialized)
-        {
-            frameStats.displayFps = static_cast<float>(1.0 / rawFrameDeltaSeconds);
-            frameStats.displayMs = static_cast<float>(rawFrameDeltaSeconds * 1000.0);
-            frameStats.initialized = true;
-        }
-
         if (frameStats.accumulatedSeconds >= 0.25 || frameStats.accumulatedFrames >= 32u)
         {
             const double sampleSeconds = std::max(frameStats.accumulatedSeconds, 1e-6);
-            const float sampleFps = static_cast<float>(static_cast<double>(frameStats.accumulatedFrames) / sampleSeconds);
-            const float sampleMs = static_cast<float>((sampleSeconds * 1000.0) / static_cast<double>(frameStats.accumulatedFrames));
+            const float sampleMs =
+                static_cast<float>((sampleSeconds * 1000.0) / static_cast<double>(frameStats.accumulatedFrames));
 
-            if (!std::isfinite(frameStats.displayFps) || !std::isfinite(frameStats.displayMs)
-                || frameStats.displayFps <= 0.0f || frameStats.displayMs <= 0.0f)
+            if (!frameStats.initialized ||
+                !std::isfinite(frameStats.displayMs) ||
+                frameStats.displayMs <= 0.0f)
             {
-                frameStats.displayFps = sampleFps;
                 frameStats.displayMs = sampleMs;
+                frameStats.initialized = true;
             }
             else
             {
                 constexpr float kStatsBlend = 0.35f;
-                frameStats.displayFps = std::lerp(frameStats.displayFps, sampleFps, kStatsBlend);
                 frameStats.displayMs = std::lerp(frameStats.displayMs, sampleMs, kStatsBlend);
             }
+
+            frameStats.displayFps = frameStats.displayMs > 0.0f
+                ? 1000.0f / frameStats.displayMs
+                : 0.0f;
 
             frameStats.accumulatedSeconds = 0.0;
             frameStats.accumulatedFrames = 0u;
         }
     }
+
     app.graphicsState.rendererSettings.mainViewportFpsDisplay = frameStats.displayFps;
     app.graphicsState.rendererSettings.mainViewportFrameMsDisplay = frameStats.displayMs;
 

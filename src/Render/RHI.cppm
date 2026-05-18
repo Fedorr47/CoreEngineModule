@@ -406,6 +406,15 @@ export namespace rhi
 		std::uint32_t slot{ 0 };
 		TextureHandle texture{};
 	};
+	
+	struct SubmitCpuTimings
+	{
+		double beginFrameMs{ 0.0 };
+		double flushPendingBufferUpdatesMs{ 0.0 };
+		double parseCommandsMs{ 0.0 };
+		double endFrameMs{ 0.0 };
+		double totalMs{ 0.0 };
+	};
 
 	using Command = std::variant <
 		CommandBeginPass,
@@ -660,6 +669,11 @@ export namespace rhi
 		virtual void SignalFence(FenceHandle fence) = 0;
 		virtual void WaitFence(FenceHandle fence) = 0;
 		virtual bool IsFenceSignaled(FenceHandle fence) = 0;
+		
+		virtual SubmitCpuTimings GetLastSubmitCpuTimings() const
+		{
+			return {};
+		}
 	};
 
 	std::unique_ptr<IRHIDevice> CreateNullDevice();

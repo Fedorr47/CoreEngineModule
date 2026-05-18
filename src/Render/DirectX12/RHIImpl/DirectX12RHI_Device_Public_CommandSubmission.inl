@@ -1,14 +1,28 @@
 void SubmitCommandList(CommandList&& commandList) override
 {
     // Begin frame: wait/recycle per-frame stuff + reset allocator/list
+    const auto submitStart = std::chrono::steady_clock::now();
+    lastSubmitCpuTimings_ = {};
+
+    const auto beginFrameStart = std::chrono::steady_clock::now();
     BeginFrame();
+    const auto beginFrameEnd = std::chrono::steady_clock::now();
+
+    lastSubmitCpuTimings_.beginFrameMs =
+        std::chrono::duration<double, std::milli>(beginFrameEnd - beginFrameStart).count();
+
     hasSubmitted_ = true;
 
     // Set descriptor heaps (SRV)
     ID3D12DescriptorHeap* heaps[] = { NativeSRVHeap() };
     cmdList_->SetDescriptorHeaps(1, heaps);
 
+    const auto flushStart = std::chrono::steady_clock::now();
     FlushPendingBufferUpdates();
+    const auto flushEnd = std::chrono::steady_clock::now();
+
+    lastSubmitCpuTimings_.flushPendingBufferUpdatesMs =
+        std::chrono::duration<double, std::milli>(flushEnd - flushStart).count();
 
     // State while parsing high-level commands
     GraphicsState curState{};
@@ -369,6 +383,7 @@ void SubmitCommandList(CommandList&& commandList) override
             return pso.Get();
         };
 
+    const auto parseStart = std::chrono::steady_clock::now();
     // Parse high-level commands and record native D3D12
     for (auto& command : commandList.commands)
     {
@@ -382,7 +397,19 @@ void SubmitCommandList(CommandList&& commandList) override
 
             }, command);
     }
+    
+    const auto parseEnd = std::chrono::steady_clock::now();
+    lastSubmitCpuTimings_.parseCommandsMs =
+        std::chrono::duration<double, std::milli>(parseEnd - parseStart).count();
 
     // Close + execute + signal fence for the current frame resource
+    const auto endFrameStart = std::chrono::steady_clock::now();
     EndFrame();
+    const auto endFrameEnd = std::chrono::steady_clock::now();
+
+    lastSubmitCpuTimings_.endFrameMs =
+        std::chrono::duration<double, std::milli>(endFrameEnd - endFrameStart).count();
+
+    lastSubmitCpuTimings_.totalMs =
+        std::chrono::duration<double, std::milli>(endFrameEnd - submitStart).count();
 }

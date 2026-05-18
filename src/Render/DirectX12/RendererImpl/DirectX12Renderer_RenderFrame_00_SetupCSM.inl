@@ -1,4 +1,5 @@
-			renderGraph::RenderGraph graph;
+			graph_.Reset();
+			auto& graph = graph_;
 
 			// -------------------------------------------------------------------------
 			// IMPORTANT (DX12): UpdateBuffer() is flushed at the beginning of SubmitCommandList().

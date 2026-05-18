@@ -1,3 +1,4 @@
+graph_.ReleaseCachedResources(device_);
 if (fullscreenLayout_.id != 0)
 {
 	device_.DestroyInputLayout(fullscreenLayout_);

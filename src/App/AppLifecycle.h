@@ -94,12 +94,31 @@ namespace appLifecycle
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
     };
     
+    struct CpuFrameTimings
+    {
+        double totalBeforeSleepMs = 0.0;
+        double totalWithSleepMs = 0.0;
+
+        double updateFrameTimingMs = 0.0;
+        double inputMs = 0.0;
+        double editorInteractionMs = 0.0;
+        double gameplayAndAnimationMs = 0.0;
+        double buildImGuiMs = 0.0;
+
+        double renderMainViewportMs = 0.0;
+        double renderDebugWindowMs = 0.0;
+        double tinySleepMs = 0.0;
+        double streamingMs = 0.0;
+    };
+    
     struct AppFrameState
     {
         GameTimer frameTimer{};
         GameTimer statsTimer{};
         LoadingOverlayState loadingOverlay{};
         FrameStatsOverlayState frameStatsOverlay{};
+        CpuFrameTimings cpuFrameTimings{};
+        std::uint64_t frameIndex = 0u;
     };
     
     struct AppState

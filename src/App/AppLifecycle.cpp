@@ -354,9 +354,16 @@ namespace appLifecycle
     }
     
 #include "AppLifecycleImpl/AppLifecycle_TickImpl.inl"
+    
+    static double Ms(auto duration)
+    {
+        return std::chrono::duration<double, std::milli>(duration).count();
+    }
 
     bool TickApp(AppState& app)
     {
+        using Clock = std::chrono::steady_clock;
+        const auto frameStart = std::chrono::steady_clock::now();
         if (!PumpAndCheckRunning(app))
         {
             return false;
@@ -372,18 +379,32 @@ namespace appLifecycle
         auto& graphicState      = app.graphicsState;
         auto& contentState      = app.contentState;
 
+        const auto streamingStart = Clock::now();
         appRuntime::DriveAssetStreaming(
             *contentState.assets, 
             *runtimeState.levelInstance, 
             *graphicState.bindless, 
             runtimeState.scene, 
             app.config.uploadBudget);
+        const auto streamingEnd = Clock::now();
         
+        const auto timingStart = Clock::now();
         const float deltaSeconds = UpdateFrameTimingAndLoadingOverlay(app);
+        const auto timingEnd = Clock::now();
+
+        const auto inputStart = Clock::now();
         UpdateInputAndCamera(app, deltaSeconds);
+        const auto inputEnd = Clock::now();
+
+        const auto editorStart = Clock::now();
         UpdateEditorViewportInteraction(app);
+        const auto editorEnd = Clock::now();
+
+        const auto gameplayStart = Clock::now();
         UpdateGameplayAndAnimation(app, deltaSeconds);
+        const auto gameplayEnd = Clock::now();
         
+        const auto imguiStart = Clock::now();
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
            app.windowState.shell,
            *graphicState.device,
@@ -394,11 +415,71 @@ namespace appLifecycle
            *runtimeState.levelInstance,
            *contentState.assets,
            runtimeState.gameplayMode);
+        const auto imguiEnd = Clock::now();
 
+        const auto mainRenderStart = Clock::now();
         RenderMainViewport(app);
-        RenderDebugWindowIfNeeded(app, imguiDrawData);
+        const auto mainRenderEnd = Clock::now();
 
-        appWin32::TinySleep();
+        const auto debugRenderStart = Clock::now();
+        if (graphicState.rendererSettings.enableDebugWindowRender)
+        {
+            RenderDebugWindowIfNeeded(app, imguiDrawData);
+        }
+        const auto debugRenderEnd = Clock::now();
+
+        const auto beforeSleep = Clock::now();
+        if (graphicState.rendererSettings.enableTinySleep)
+        {
+            appWin32::TinySleep();
+        }
+        const auto afterSleep = Clock::now();
+        
+        auto& cpu = app.frameState.cpuFrameTimings;
+
+        cpu.totalBeforeSleepMs = Ms(beforeSleep - frameStart);
+        cpu.totalWithSleepMs = Ms(afterSleep - frameStart);
+
+        cpu.updateFrameTimingMs = Ms(timingEnd - timingStart);
+        cpu.inputMs = Ms(inputEnd - inputStart);
+        cpu.editorInteractionMs = Ms(editorEnd - editorStart);
+        cpu.gameplayAndAnimationMs = Ms(gameplayEnd - gameplayStart);
+        cpu.buildImGuiMs = Ms(imguiEnd - imguiStart);
+        cpu.renderMainViewportMs = Ms(mainRenderEnd - mainRenderStart);
+        cpu.renderDebugWindowMs = Ms(debugRenderEnd - debugRenderStart);
+        cpu.tinySleepMs = Ms(afterSleep - beforeSleep);
+        cpu.streamingMs = Ms(streamingEnd - streamingStart);
+
+        graphicState.rendererSettings.cpuTotalBeforeSleepMs = static_cast<float>(cpu.totalBeforeSleepMs);
+        graphicState.rendererSettings.cpuTotalWithSleepMs = static_cast<float>(cpu.totalWithSleepMs);
+        graphicState.rendererSettings.cpuUpdateFrameTimingMs = static_cast<float>(cpu.updateFrameTimingMs);
+        graphicState.rendererSettings.cpuInputMs = static_cast<float>(cpu.inputMs);
+        graphicState.rendererSettings.cpuEditorInteractionMs = static_cast<float>(cpu.editorInteractionMs);
+        graphicState.rendererSettings.cpuGameplayAndAnimationMs = static_cast<float>(cpu.gameplayAndAnimationMs);
+        graphicState.rendererSettings.cpuBuildImGuiMs = static_cast<float>(cpu.buildImGuiMs);
+        graphicState.rendererSettings.cpuRenderMainViewportMs = static_cast<float>(cpu.renderMainViewportMs);
+        graphicState.rendererSettings.cpuRenderDebugWindowMs = static_cast<float>(cpu.renderDebugWindowMs);
+        graphicState.rendererSettings.cpuTinySleepMs = static_cast<float>(cpu.tinySleepMs);
+        graphicState.rendererSettings.cpuStreamingMs = static_cast<float>(cpu.streamingMs);
+        
+        ++app.frameState.frameIndex;
+        if (graphicState.rendererSettings.logCpuFrameTimings && (app.frameState.frameIndex % 120u) == 0u)
+        {
+            std::printf(
+                "Frame CPU: %.2f ms / %.2f with sleep | Timing %.2f | Input %.2f | Editor %.2f | Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f | MainRender %.2f | DebugRender %.2f | Sleep %.2f\n",
+                cpu.totalBeforeSleepMs,
+                cpu.totalWithSleepMs,
+                cpu.updateFrameTimingMs,
+                cpu.inputMs,
+                cpu.editorInteractionMs,
+                cpu.streamingMs,
+                cpu.gameplayAndAnimationMs,
+                cpu.buildImGuiMs,
+                cpu.renderMainViewportMs,
+                cpu.renderDebugWindowMs,
+                cpu.tinySleepMs);
+        }
+        
         return true;
     }
 

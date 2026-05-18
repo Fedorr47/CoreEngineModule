@@ -73,7 +73,8 @@ std::unordered_map<std::uint32_t, FramebufferEntry> framebuffers_;
 std::unordered_map<TextureDescIndex, TextureHandle> descToTex_;
 std::unordered_map<std::uint32_t, bool> fences_;
 
-
 std::vector<PendingBufferUpdate> pendingBufferUpdates_;
 
 std::unordered_map<std::uint64_t, ComPtr<ID3D12PipelineState>> psoCache_;
+
+rhi::SubmitCpuTimings lastSubmitCpuTimings_{};
