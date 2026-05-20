@@ -35,7 +35,6 @@ import :animation_clip;
 
 namespace
 {
-
     struct RawVertexInfluence
     {
         std::string boneName;

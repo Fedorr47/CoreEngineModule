@@ -25,6 +25,7 @@ export import :gameplay_runtime;
 export import :json_utils;
 export import :hash_utils;
 export import :string_utils;
+export import :assimp_loader;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

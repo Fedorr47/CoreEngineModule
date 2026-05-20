@@ -26,7 +26,7 @@ std::filesystem::path GetTestFixtureRoot()
     return root;
 }
 
-std::filesystem::path ResolveJsonFixturePath(std::string_view relativePath)
+std::filesystem::path ResolveFixturePath(std::string_view relativePath)
 {
     if (relativePath.empty())
     {
@@ -56,7 +56,7 @@ std::filesystem::path ResolveJsonFixturePath(std::string_view relativePath)
 
 std::string LoadTextFixture(std::string_view relativePath)
 {
-    const std::filesystem::path path = ResolveJsonFixturePath(relativePath);
+    const std::filesystem::path path = ResolveFixturePath(relativePath);
     
     std::ifstream inputFile(path, std::ios::binary);
     if (!inputFile.is_open())
