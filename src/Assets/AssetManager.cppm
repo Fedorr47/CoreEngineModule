@@ -23,6 +23,21 @@ import :resource_manager_mesh;
 
 namespace
 {
+	std::filesystem::path ValidateAssetRootPath(const std::filesystem::path& assetRoot)
+	{
+		if (!std::filesystem::exists(assetRoot))
+		{
+			throw std::invalid_argument("AssetManager: asset root does not exist: '" + assetRoot.string() + "'");
+		}
+
+		if (!std::filesystem::is_directory(assetRoot))
+		{
+			throw std::invalid_argument("AssetManager: asset root is not a directory: '" + assetRoot.string() + "'");
+		}
+
+		return assetRoot;
+	}
+	
 	// Face order: +X, -X, +Y, -Y, +Z, -Z
 	constexpr std::array<std::string_view, 6> kSuffix_rtlfupdnftbk = { "_rt", "_lf", "_up", "_dn", "_ft", "_bk" };
 	constexpr std::array<std::string_view, 6> kSuffix_pxnxpynypznz = { "_px", "_nx", "_py", "_ny", "_pz", "_nz" };
@@ -264,8 +279,17 @@ export class AssetManager
 {
 public:
 	AssetManager(TextureIO& textureIO, rendern::MeshIO& meshIO)
+	: AssetManager(textureIO, meshIO, std::filesystem::path{ "assets" })
+	{
+	}
+
+	AssetManager(
+		TextureIO& textureIO,
+		rendern::MeshIO& meshIO,
+		const std::filesystem::path& assetRoot)
 		: textureIO_(&textureIO)
 		, meshIO_(&meshIO)
+		, assetRoot_(ValidateAssetRootPath(assetRoot))
 	{
 	}
 
@@ -434,4 +458,5 @@ private:
 	TextureIO* textureIO_{};
 	rendern::MeshIO* meshIO_{};
 	ResourceManager rm_{};
+	std::filesystem::path assetRoot_{};
 };
