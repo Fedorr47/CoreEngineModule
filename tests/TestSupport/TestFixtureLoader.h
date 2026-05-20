@@ -5,5 +5,5 @@
 #include <string_view>
 
 std::filesystem::path GetTestFixtureRoot();
-std::filesystem::path ResolveJsonFixturePath(std::string_view relativePath);
+std::filesystem::path ResolveFixturePath(std::string_view relativePath);
 std::string LoadTextFixture(std::string_view relativePath);
