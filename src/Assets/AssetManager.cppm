@@ -23,6 +23,21 @@ import :resource_manager_mesh;
 
 namespace
 {
+	std::filesystem::path ValidateAssetRootPath(const std::filesystem::path& assetRoot)
+	{
+		if (!std::filesystem::exists(assetRoot))
+		{
+			throw std::invalid_argument("AssetManager: asset root does not exist: '" + assetRoot.string() + "'");
+		}
+
+		if (!std::filesystem::is_directory(assetRoot))
+		{
+			throw std::invalid_argument("AssetManager: asset root is not a directory: '" + assetRoot.string() + "'");
+		}
+
+		return assetRoot;
+	}
+	
 	// Face order: +X, -X, +Y, -Y, +Z, -Z
 	constexpr std::array<std::string_view, 6> kSuffix_rtlfupdnftbk = { "_rt", "_lf", "_up", "_dn", "_ft", "_bk" };
 	constexpr std::array<std::string_view, 6> kSuffix_pxnxpynypznz = { "_px", "_nx", "_py", "_ny", "_pz", "_nz" };
@@ -33,17 +48,23 @@ namespace
 		return s.size() >= suffix.size() && s.substr(s.size() - suffix.size()) == suffix;
 	}
 
-	inline std::filesystem::path ToAbsIfNeeded(const std::filesystem::path& p)
+	inline std::filesystem::path ToAbsIfNeeded(
+		const std::filesystem::path& assetRoot,
+		const std::filesystem::path& p)
 	{
-		return p.is_absolute() ? p : corefs::ResolveAsset(p);
+		return p.is_absolute() ? p : assetRoot / p;
 	}
 
-	inline bool FileExists(const std::filesystem::path& maybeRel)
+	inline bool FileExists(
+		const std::filesystem::path& assetRoot,
+		const std::filesystem::path& maybeRel)
 	{
-		return std::filesystem::exists(ToAbsIfNeeded(maybeRel));
+		return std::filesystem::exists(ToAbsIfNeeded(assetRoot, maybeRel));
 	}
 
-	std::array<std::string, 6> ResolveCubemapFacesFromBase(std::filesystem::path basePath)
+	std::array<std::string, 6> ResolveCubemapFacesFromBase(
+		const std::filesystem::path& assetRoot,
+		std::filesystem::path basePath)
 	{
 		// basePath can be:
 		// - "textures/skybox/cupertin-lake" (no extension)
@@ -74,7 +95,7 @@ namespace
 				for (std::size_t face = 0; face < 6; ++face)
 				{
 					const std::filesystem::path rel = std::filesystem::path(baseNoExt.string() + std::string((*scheme)[face]) + explicitExt);
-					if (!FileExists(rel))
+					if (!FileExists(assetRoot, rel))
 					{
 						ok = false;
 						break;
@@ -95,7 +116,7 @@ namespace
 					for (std::size_t face = 0; face < 6; ++face)
 					{
 						const std::filesystem::path rel = std::filesystem::path(baseNoExt.string() + std::string((*scheme)[face]) + std::string(ext));
-						if (!FileExists(rel))
+						if (!FileExists(assetRoot, rel))
 						{
 							ok = false;
 							break;
@@ -164,10 +185,13 @@ namespace
 		return std::string(stem);
 	}
 
-	std::array<std::string, 6> ResolveCubemapFacesFromDirectory(const std::filesystem::path& dirInput, std::optional<std::string_view> preferBase = std::nullopt)
+	std::array<std::string, 6> ResolveCubemapFacesFromDirectory(
+		const std::filesystem::path& assetRoot,
+		const std::filesystem::path& dirInput,
+		std::optional<std::string_view> preferBase = std::nullopt)
 	{
 		// dirInput can be relative-to-assets or absolute.
-		const std::filesystem::path absDir = ToAbsIfNeeded(dirInput);
+		const std::filesystem::path absDir = ToAbsIfNeeded(assetRoot, dirInput);
 		if (!std::filesystem::is_directory(absDir))
 		{
 			throw std::runtime_error("AssetManager: '" + absDir.string() + "' is not a directory");
@@ -229,17 +253,19 @@ namespace
 			"Expected files with suffixes _rt/_lf/_up/_dn/_ft/_bk or _px/_nx/_py/_ny/_pz/_nz.");
 	}
 
-	inline std::array<std::string, 6> ResolveCubemapFaces(std::string_view baseOrDir)
+	inline std::array<std::string, 6> ResolveCubemapFaces(
+		const std::filesystem::path& assetRoot,
+		std::string_view baseOrDir)
 	{
 		const std::filesystem::path p = std::filesystem::path(std::string(baseOrDir));
-		const std::filesystem::path abs = ToAbsIfNeeded(p);
+		const std::filesystem::path abs = ToAbsIfNeeded(assetRoot, p);
 
 		if (std::filesystem::is_directory(abs))
 		{
-			return ResolveCubemapFacesFromDirectory(p);
+			return ResolveCubemapFacesFromDirectory(assetRoot, p);
 		}
 
-		return ResolveCubemapFacesFromBase(p);
+		return ResolveCubemapFacesFromBase(assetRoot, p);
 	}
 } // namespace
 
@@ -264,8 +290,17 @@ export class AssetManager
 {
 public:
 	AssetManager(TextureIO& textureIO, rendern::MeshIO& meshIO)
-		: textureIO_(&textureIO)
-		, meshIO_(&meshIO)
+	: AssetManager(textureIO, meshIO, corefs::FindAssetRoot())
+	{
+	}
+
+	AssetManager(
+	TextureIO& textureIO,
+	rendern::MeshIO& meshIO,
+	const std::filesystem::path& assetRoot)
+	: textureIO_(&textureIO)
+	, meshIO_(&meshIO)
+	, assetRoot_(ValidateAssetRootPath(assetRoot))
 	{
 	}
 
@@ -392,7 +427,7 @@ private:
 		return rm_.LoadAsync<rendern::MeshResource>(id, *meshIO_, std::move(props));
 	}
 
-	static TextureProperties PrepareCubeTexturePropsFromBaseOrDir_(
+	TextureProperties PrepareCubeTexturePropsFromBaseOrDir_(
 		std::string_view baseOrDir,
 		TextureProperties props)
 	{
@@ -401,11 +436,12 @@ private:
 		{
 			props.filePath = std::string(baseOrDir);
 		}
-		props.cubeFacePaths = ResolveCubemapFaces(baseOrDir);
+
+		props.cubeFacePaths = ResolveCubemapFaces(assetRoot_, baseOrDir);
 		return props;
 	}
 
-	static TextureProperties PrepareCubeTexturePropsFromDirectory_(
+	TextureProperties PrepareCubeTexturePropsFromDirectory_(
 		std::string_view dir,
 		std::string_view preferBase,
 		TextureProperties props)
@@ -416,12 +452,13 @@ private:
 			props.filePath = std::string(dir);
 		}
 		props.cubeFacePaths = ResolveCubemapFacesFromDirectory(
+			assetRoot_,
 			std::filesystem::path(std::string(dir)),
 			preferBase);
 		return props;
 	}
 
-	static TextureProperties PrepareCubeTexturePropsFromFaces_(
+	TextureProperties PrepareCubeTexturePropsFromFaces_(
 		const std::array<std::string, 6>& facePaths,
 		TextureProperties props)
 	{
@@ -434,4 +471,5 @@ private:
 	TextureIO* textureIO_{};
 	rendern::MeshIO* meshIO_{};
 	ResourceManager rm_{};
+	std::filesystem::path assetRoot_{};
 };
