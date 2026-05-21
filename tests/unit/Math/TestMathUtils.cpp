@@ -446,3 +446,143 @@ TEST(MathUtils, LookAtRHWithParallelUpAndForwardProducesFiniteValues)
 	ExpectVec3Near(TransformVector(view, Vec3(1.0f, 0.0f, 0.0f)), Vec3(0.0f, 0.0f, 0.0f));
 	EXPECT_NEAR(TransformVector(view, Vec3(0.0f, 1.0f, 0.0f)).z, -1.0f, kEpsVec);
 }
+
+TEST(SceneVisibilityPickingMath, BuildMouseRayCenterPointsTowardCameraForward)
+{
+	rendern::Scene scene{};
+	scene.camera.position = Vec3(0.0f, 0.0f, 0.0f);
+	scene.camera.target = Vec3(0.0f, 0.0f, -1.0f);
+	scene.camera.up = Vec3(0.0f, 1.0f, 0.0f);
+	scene.camera.fovYDeg = 90.0f;
+
+	const geometry::Ray ray = rendern::BuildMouseRay(scene, 400.0f, 300.0f, 800.0f, 600.0f);
+	ExpectVec3Near(ray.origin, scene.camera.position);
+	ExpectVec3Near(ray.dir, Vec3(0.0f, 0.0f, -1.0f));
+}
+
+TEST(SceneVisibilityPickingMath, BuildMouseRayTopLeftCornerUsesExpectedPerspectiveDirection)
+{
+	rendern::Scene scene{};
+	scene.camera.position = Vec3(0.0f, 0.0f, 0.0f);
+	scene.camera.target = Vec3(0.0f, 0.0f, -1.0f);
+	scene.camera.up = Vec3(0.0f, 1.0f, 0.0f);
+	scene.camera.fovYDeg = 90.0f;
+
+	const geometry::Ray ray = rendern::BuildMouseRay(scene, 0.0f, 0.0f, 800.0f, 800.0f);
+	const Vec3 expected = Normalize(Vec3(-1.0f, 1.0f, -1.0f));
+	ExpectVec3Near(ray.dir, expected, 1e-4f);
+}
+
+TEST(SceneVisibilityPickingMath, VisibilitySphereFrustumInsideOutsideIntersectAndBoundaryAreDeterministic)
+{
+	const Mat4 view = LookAtRH(Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), Vec3(0.0f, 1.0f, 0.0f));
+	const Mat4 proj = PerspectiveRH_ZO(DegToRad(90.0f), 1.0f, 1.0f, 10.0f);
+	const Frustum frustum = ExtractFrustumRH_ZO(proj * view);
+	const Mat4 identity(1.0f);
+
+	EXPECT_TRUE(rendern::IsVisibleSphere(Vec3(0.0f, 0.0f, -5.0f), 0.5f, identity, frustum, true))
+		<< "inside case should remain visible";
+	EXPECT_FALSE(rendern::IsVisibleSphere(Vec3(20.0f, 0.0f, -5.0f), 0.5f, identity, frustum, true))
+		<< "outside case should be culled";
+	EXPECT_TRUE(rendern::IsVisibleSphere(Vec3(1.1f, 0.0f, -1.0f), 0.2f, identity, frustum, true))
+		<< "intersecting case should remain visible";
+	EXPECT_TRUE(rendern::IsVisibleSphere(Vec3(1.0f, 0.0f, -1.0f), 0.0f, identity, frustum, true))
+		<< "boundary case should be deterministic and visible";
+}
+
+TEST(SceneVisibilityPickingMath, VisibilitySphereAppliesModelScaleToRadius)
+{
+	const Mat4 view = LookAtRH(Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), Vec3(0.0f, 1.0f, 0.0f));
+	const Mat4 proj = PerspectiveRH_ZO(DegToRad(90.0f), 1.0f, 1.0f, 10.0f);
+	const Frustum frustum = ExtractFrustumRH_ZO(proj * view);
+
+	Mat4 model = Translate(Mat4(1.0f), Vec3(1.3f, 0.0f, -1.0f));
+	model = Scale(model, Vec3(2.0f, 2.0f, 2.0f));
+
+	EXPECT_TRUE(rendern::IsVisibleSphere(Vec3(0.0f, 0.0f, 0.0f), 0.2f, model, frustum, true))
+		<< "scaled sphere should intersect the frustum boundary";
+
+	EXPECT_FALSE(rendern::IsVisibleSphere(
+		Vec3(0.0f, 0.0f, 0.0f),
+		0.2f,
+		Translate(Mat4(1.0f), Vec3(1.3f, 0.0f, -1.0f)),
+		frustum,
+		true))
+		<< "unscaled sphere should remain outside the frustum boundary";
+}
+
+
+TEST(SceneVisibilityPickingMath, PickingSelectsNearestLightAlongSameRay)
+{
+	rendern::Scene scene{};
+	scene.camera.position = Vec3(0.0f, 0.0f, 0.0f);
+	scene.camera.target = Vec3(0.0f, 0.0f, -1.0f);
+	scene.camera.up = Vec3(0.0f, 1.0f, 0.0f);
+	scene.camera.fovYDeg = 90.0f;
+
+	rendern::Light nearLight{};
+	nearLight.type = rendern::LightType::Point;
+	nearLight.position = Vec3(0.0f, 0.0f, -5.0f);
+	nearLight.range = 2.0f;
+
+	rendern::Light farLight{};
+	farLight.type = rendern::LightType::Point;
+	farLight.position = Vec3(0.0f, 0.0f, -9.0f);
+	farLight.range = 2.0f;
+
+	scene.lights = { nearLight, farLight };
+	const rendern::LevelInstance emptyLevel{};
+	const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(scene, emptyLevel, 400.0f, 300.0f, 800.0f, 600.0f);
+
+	EXPECT_EQ(pick.lightIndex, 0) << "nearest light should be selected first";
+	EXPECT_LT(pick.t, 6.0f) << "nearest hit distance should be from near light";
+}
+
+TEST(SceneVisibilityPickingMath, PickingTieBreakForEqualLightDistanceIsStableByInsertionOrder)
+{
+	rendern::Scene scene{};
+	scene.camera.position = Vec3(0.0f, 0.0f, 0.0f);
+	scene.camera.target = Vec3(0.0f, 0.0f, -1.0f);
+	scene.camera.up = Vec3(0.0f, 1.0f, 0.0f);
+	scene.camera.fovYDeg = 90.0f;
+
+	rendern::Light a{};
+	a.type = rendern::LightType::Point;
+	a.position = Vec3(0.0f, 0.0f, -7.0f);
+	a.range = 2.0f;
+
+	rendern::Light b = a;
+	scene.lights = { a, b };
+
+	const rendern::LevelInstance emptyLevel{};
+	const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(scene, emptyLevel, 400.0f, 300.0f, 800.0f, 600.0f);
+
+	EXPECT_EQ(pick.lightIndex, 0) << "equal-distance tie should keep first inserted light";
+}
+
+TEST(SceneVisibilityPickingMath, PickingMissesWhenRayDoesNotIntersectLight)
+{
+	rendern::Scene scene{};
+	scene.camera.position = Vec3(0.0f, 0.0f, 0.0f);
+	scene.camera.target = Vec3(0.0f, 0.0f, -1.0f);
+	scene.camera.up = Vec3(0.0f, 1.0f, 0.0f);
+	scene.camera.fovYDeg = 90.0f;
+
+	rendern::Light light{};
+	light.type = rendern::LightType::Point;
+	light.position = Vec3(10.0f, 0.0f, -5.0f);
+	light.range = 1.0f;
+
+	scene.lights = { light };
+
+	const rendern::LevelInstance emptyLevel{};
+	const rendern::PickResult pick = rendern::PickEditorObjectUnderScreenPoint(
+		scene,
+		emptyLevel,
+		400.0f,
+		300.0f,
+		800.0f,
+		600.0f);
+
+	EXPECT_EQ(pick.lightIndex, -1) << "off-ray light should not be picked";
+}
