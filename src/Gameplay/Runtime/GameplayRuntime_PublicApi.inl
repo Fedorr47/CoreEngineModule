@@ -217,6 +217,47 @@
             {
                 return kNullEntity;
             }
+            
+            if (nodeIndex < 0 || static_cast<std::size_t>(nodeIndex) >= ctx.levelAsset->nodes.size())
+            {
+                return kNullEntity;
+            }
+            
+            if (!ctx.levelAsset->nodes[static_cast<std::size_t>(nodeIndex)].alive)
+            {
+                for (auto it = nodeBoundEntities_.begin(); it != nodeBoundEntities_.end(); )
+                {
+                    const EntityHandle entity = *it;
+                    const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(entity);
+                    if (link != nullptr && link->nodeIndex == nodeIndex)
+                    {
+                        world_.DestroyEntity(entity);
+                        graphInstances_.erase(entity);
+                        UnbindIntentSource(entity);
+                        it = nodeBoundEntities_.erase(it);
+                        if (controlledEntity_ == entity)
+                        {
+                            controlledEntity_ = kNullEntity;
+                        }
+                        continue;
+                    }
+                    ++it;
+                }
+                return kNullEntity;
+            }
+            
+            for (const EntityHandle existingEntity : nodeBoundEntities_)
+            {
+                if (!world_.IsEntityValid(existingEntity))
+                {
+                    continue;
+                }
+                const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(existingEntity);
+                if (link != nullptr && link->nodeIndex == nodeIndex)
+                {
+                    return existingEntity;
+                }
+            }
 
             EntityHandle entity = SpawnGameplayNodeBoundEntity(
                 world_,
