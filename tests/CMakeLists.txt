@@ -17,6 +17,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayWorld.cpp"
         "unit/GameplayTests/TestGameplayActionPolicy.cpp"
         "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"
+        "unit/GameplayTests/TestGameplayRuntimeNodeBoundMappingConsistency.cpp"
         "unit/AnimationTests/TestAnimationController.cpp"
         "unit/AnimationTests/TestAnimatorSamplingInvariants.cpp"
         "unit/RenderTests/LevelInstantiateTestHelper.h"
