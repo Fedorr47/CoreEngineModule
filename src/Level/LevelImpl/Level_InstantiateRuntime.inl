@@ -117,6 +117,24 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 	inst.materialHandles_ = materialHandles;
 
 	inst.skyboxTextureId_ = asset.skyboxTexture;
+	
+	for (std::size_t nodeIdx = 0; nodeIdx < asset.nodes.size(); ++nodeIdx)
+	{
+		const LevelNode& lNode = asset.nodes[nodeIdx];
+		if (lNode.parent < 0)
+		{
+			continue;
+		}
+		
+		const size_t parentIdx = static_cast<std::size_t>(lNode.parent);
+		if (parentIdx >= asset.nodes.size())
+		{
+			throw std::runtime_error("Level instantiate: node index " 
+				+ std::to_string(nodeIdx) 
+				+ " references unknown parent node index " 
+				+ std::to_string(lNode.parent));
+		}
+	}
 
 	// Nodes: create draw items
 	inst.nodeToDraw_.assign(asset.nodes.size(), -1);
