@@ -567,3 +567,39 @@ TEST(AnimationController, ExternalEventBindingAssetValidationErrorsAreActionable
 		"tests/animation_validation/bindings_wrong_gameplay_event_type.level.json",
 		"expected string at 'gameplayEvent'");
 }
+
+TEST(AnimationController, LevelAssetSectionSchemaFailuresAreActionable)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+
+	struct SchemaFailureCase
+	{
+		const char* name;
+		const char* levelJson;
+		const char* expectedFragment;
+	};
+
+	const std::vector<SchemaFailureCase> cases{
+		// Required fields for mesh/model/texture/animation entries.
+		{ "meshes_missing_path", R"json({"meshes":{"heroMesh":{}}})json", "Level JSON: meshes.heroMesh.path is required" },
+		{ "models_missing_path", R"json({"models":{"heroModel":{}}})json", "Level JSON: models.heroModel.path is required" },
+		{ "textures_tex2d_missing_path", R"json({"textures":{"heroAlbedo":{"kind":"tex2d"}}})json", "Level JSON: textures.heroAlbedo.path is required for tex2d" },
+		{ "animations_missing_path", R"json({"animations":{"heroIdle":{}}})json", "Level JSON: animations.heroIdle.path is required" },
+		{ "animation_controller_assets_missing_path", R"json({"animationControllerAssets":{"heroCtrl":{}}})json", "Level JSON: animationControllerAssets.heroCtrl.path is required" },
+
+		// Enum-like validation branches for texture kind/source and animation controller config.
+		{ "textures_invalid_kind", R"json({"textures":{"heroTex":{"kind":"volume","path":"dummy.png"}}})json", "Level JSON: textures.heroTex.kind must be tex2d|cube" },
+		{ "textures_cube_invalid_source", R"json({"textures":{"sky":{"kind":"cube","source":"invalid"}}})json", "Level JSON: textures.sky.source must be cross|auto|faces" },
+		{ "animation_controllers_invalid_parameter_type", R"json({"animationControllers":{"hero":{"defaultState":"Idle","parameters":{"speed":{"type":"integer"}},"states":{"Idle":{"clip":"Idle"}}}}})json", "Level JSON: animation controller parameter type must be bool|int|float|trigger" },
+		{ "animation_controllers_invalid_condition_op", R"json({"animationControllers": {"hero": {"defaultState": "Idle","parameters": {"speed": { "type": "float", "default": 0.0 }},"states": {"Idle": {"clip": "Idle"},"Run": {"clip": "Idle"}},"transitions": [{"from": "Idle","to": "Run","conditions": [{"parameter": "speed","op": "approx","value": 1.0}]}]}}})json", "Level JSON: animation controller condition op is invalid"
+},
+	};
+
+	for (const auto& testCase : cases)
+	{
+		const std::string levelPath = std::string("tests/animation_validation/") + testCase.name + ".level.json";
+		WriteTestAssetFile(assetRoot, levelPath, testCase.levelJson);
+		SCOPED_TRACE(testCase.name);
+		ExpectLoadLevelThrowsWithMessageFragment(levelPath, testCase.expectedFragment);
+	}
+}
