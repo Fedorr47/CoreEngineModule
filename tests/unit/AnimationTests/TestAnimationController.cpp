@@ -591,8 +591,7 @@ TEST(AnimationController, LevelAssetSectionSchemaFailuresAreActionable)
 		{ "textures_invalid_kind", R"json({"textures":{"heroTex":{"kind":"volume","path":"dummy.png"}}})json", "Level JSON: textures.heroTex.kind must be tex2d|cube" },
 		{ "textures_cube_invalid_source", R"json({"textures":{"sky":{"kind":"cube","source":"invalid"}}})json", "Level JSON: textures.sky.source must be cross|auto|faces" },
 		{ "animation_controllers_invalid_parameter_type", R"json({"animationControllers":{"hero":{"defaultState":"Idle","parameters":{"speed":{"type":"integer"}},"states":{"Idle":{"clip":"Idle"}}}}})json", "Level JSON: animation controller parameter type must be bool|int|float|trigger" },
-		{ "animation_controllers_invalid_condition_op", R"json({"animationControllers": {"hero": {"defaultState": "Idle","parameters": {"speed": { "type": "float", "default": 0.0 }},"states": {"Idle": {"clip": "Idle"},"Run": {"clip": "Idle"}},"transitions": [{"from": "Idle","to": "Run","conditions": [{"parameter": "speed","op": "approx","value": 1.0}]}]}}})json", "Level JSON: animation controller condition op is invalid"
-},
+		{ "animation_controllers_invalid_condition_op", R"json({"animationControllers": {"hero": {"defaultState": "Idle","parameters": {"speed": { "type": "float", "default": 0.0 }},"states": {"Idle": {"clip": "Idle"},"Run": {"clip": "Idle"}},"transitions": [{"from": "Idle","to": "Run","conditions": [{"parameter": "speed","op": "approx","value": 1.0}]}]}}})json", "Level JSON: animation controller condition op is invalid"},
 	};
 
 	for (const auto& testCase : cases)
