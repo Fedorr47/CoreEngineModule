@@ -106,21 +106,27 @@ rhi::FrameBufferHandle FakeRHIDevice::CreateFramebufferMRT(std::span<const rhi::
 rhi::FrameBufferHandle FakeRHIDevice::CreateFramebufferCubeFace(rhi::TextureHandle colorCube, std::uint32_t faceIndex,
 	rhi::TextureHandle depth)
 {
-	const std::array<rhi::TextureHandle, 1> colorTextures{colorCube};
-	return RecordFrameBufferEvent("cube_face_" + std::to_string(faceIndex), colorTextures, depth);
+	const auto handle = RecordFrameBufferEvent("cube_face", std::array<rhi::TextureHandle, 1>{colorCube}, depth);
+	auto& event = frameBufferCreates_.back();
+	event.cubeFace = faceIndex;
+	return handle;
 }
 
 rhi::FrameBufferHandle FakeRHIDevice::CreateFramebufferCubeFaceMip(rhi::TextureHandle colorCube,
 	std::uint32_t faceIndex, std::uint32_t mipLevel, rhi::TextureHandle depth)
 {
-	const std::array<rhi::TextureHandle, 1> colorTextures{colorCube};
-	return RecordFrameBufferEvent("cube_face_mip_" + std::to_string(faceIndex), colorTextures, depth);
+	const auto handle = RecordFrameBufferEvent("cube_face_mip", std::array<rhi::TextureHandle, 1>{colorCube}, depth);
+	auto& event = frameBufferCreates_.back();
+	event.cubeFace = faceIndex;
+	event.cubeMip = mipLevel;
+	return handle;
 }
 
 rhi::FrameBufferHandle FakeRHIDevice::CreateFramebufferCube(rhi::TextureHandle colorCube, rhi::TextureHandle depthCube)
 {
-	const std::array<rhi::TextureHandle, 1> colorTextures{colorCube};
-	return RecordFrameBufferEvent("cube", colorTextures, depthCube);
+	const auto handle = RecordFrameBufferEvent("cube", std::array<rhi::TextureHandle, 1>{colorCube}, depthCube);
+	frameBufferCreates_.back().cubeAllFaces = true;
+	return handle;
 }
 
 void FakeRHIDevice::DestroyFramebuffer(rhi::FrameBufferHandle framebuffer) noexcept
@@ -262,8 +268,10 @@ const std::vector<rhi::CommandList>& FakeRHIDevice::GetSubmittedCommandLists() c
 	return submittedCommandLists_;
 }
 
-rhi::FrameBufferHandle FakeRHIDevice::RecordFrameBufferEvent(std::string kind,
-	std::span<const rhi::TextureHandle> colors, rhi::TextureHandle depth)
+rhi::FrameBufferHandle FakeRHIDevice::RecordFrameBufferEvent(
+	std::string kind,
+	std::span<const rhi::TextureHandle> colors, 
+	rhi::TextureHandle depth)
 {
 	const auto handle = NextHandle<rhi::FrameBufferHandle>();
 	FrameBufferCreateEvent event;
