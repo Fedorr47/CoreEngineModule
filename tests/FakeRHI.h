@@ -6,6 +6,7 @@
 #include <string_view>
 #include <span>
 #include <unordered_map>
+#include <optional>
 
 import core;
 
@@ -51,6 +52,9 @@ struct FrameBufferCreateEvent
 	std::vector<rhi::TextureHandle> colors{};
 	rhi::TextureHandle depth{};
 	std::string kind{};
+	std::optional<std::uint32_t> cubeFace{};
+	std::optional<std::uint32_t> cubeMip{};
+	bool cubeAllFaces{false};
 };
 
 //---------------------- Fake Device ----------------------//

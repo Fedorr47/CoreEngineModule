@@ -263,3 +263,191 @@ TEST(RenderGraphResourceOwnership, MixedImportedAndOwnedTexturesRespectOwnership
     EXPECT_EQ(CountTextureHandleOccurrences(device.GetDestroyedTextures(), importedHandle), 0u)
         << "Imported texture must never be destroyed in mixed graph.";
 }
+
+/*--------------- CPU-side RenderGraph attachment routing start ------------------------------*/
+
+// These tests protect CPU-side RenderGraph attachment routing. Each case verifies that a
+// specific attachment shape reaches the expected RHI framebuffer/begin-pass path without
+// requiring a real GPU backend.
+TEST(RenderGraphPassAttachments, SwapChainPassUsesSwapChainFramebufferPath)
+{
+    FakeRHIDevice device{};
+    const rhi::Extent2D extent{800u, 600u};
+    const rhi::Format format = rhi::Format::BGRA8_UNORM;
+    auto swapChain = MakeTestSwapChain(extent, format);
+
+    renderGraph::RenderGraph graph;
+    rhi::ClearDesc clear{};
+    graph.AddSwapChainPass("SwapChainOnly", clear, [](renderGraph::PassContext& ctx)
+    {
+        ctx.commandList.Draw(3);
+    });
+
+    graph.Execute(device, swapChain);
+
+    // Protects the swapchain pass contract: backbuffers are externally owned and should not require
+    // transient framebuffer creation.
+    EXPECT_TRUE(device.GetFrameBufferCreates().empty())
+        << "Swapchain passes should bind the swapchain backbuffer directly and skip transient framebuffer creation.";
+
+    const auto& submitted = device.GetSubmittedCommandLists().front();
+    bool sawSwapChainBegin = false;
+    for (const auto& command : submitted.commands)
+    {
+        if (const auto* begin = std::get_if<rhi::CommandBeginPass>(&command))
+        {
+            sawSwapChainBegin = begin->desc.swapChain != nullptr;
+            if (sawSwapChainBegin)
+            {
+                // Verifies that the pass binds the current swapchain image as the active render target.
+                EXPECT_EQ(begin->desc.frameBuffer.id, swapChain.GetCurrentBackBuffer().id);
+                break;
+            }
+        }
+    }
+    
+    // Ensures the command stream actually used the swapchain begin-pass path,
+    // not just skipped framebuffer creation.
+    EXPECT_TRUE(sawSwapChainBegin);
+}
+
+TEST(RenderGraphPassAttachments, MultipleColorAttachmentsUseMrtFramebufferPath)
+{
+    FakeRHIDevice device{};
+    const rhi::Extent2D extent{256u, 256u};
+    const rhi::Format format = rhi::Format::RGBA8_UNORM;
+    auto swapChain = MakeTestSwapChain(extent, format);
+
+    renderGraph::RenderGraph graph;
+    const auto colorA = graph.CreateTexture({.extent = extent, .format = format, .usage = renderGraph::ResourceUsage::RenderTarget, .debugName = "mrt_a"});
+    const auto colorB = graph.CreateTexture({.extent = extent, .format = format, .usage = renderGraph::ResourceUsage::RenderTarget, .debugName = "mrt_b"});
+
+    renderGraph::PassAttachments attachments{};
+    attachments.bindDepthStencil = false;
+    attachments.colors = {colorA, colorB};
+    graph.AddPass("MrtPass", std::move(attachments), [](renderGraph::PassContext& ctx)
+    {
+        ctx.commandList.Draw(3);
+    });
+
+    graph.Execute(device, swapChain);
+
+    // Protects the multiple-render-target branch where several color attachments must create
+    // one framebuffer that preserves all requested render targets.
+    ASSERT_EQ(device.GetFrameBufferCreates().size(), 1u);
+    const auto& fb = device.GetFrameBufferCreates().front();
+    EXPECT_EQ(fb.kind, "mrt");
+    EXPECT_EQ(fb.colors.size(), 2u);
+    EXPECT_TRUE(fb.colors[0]);
+    EXPECT_TRUE(fb.colors[1]);
+    EXPECT_NE(fb.colors[0].id, fb.colors[1].id);
+}
+
+TEST(RenderGraphPassAttachments, CubeFaceAttachmentUsesCubeFaceFramebufferPath)
+{
+    FakeRHIDevice device{};
+    const rhi::Extent2D extent{128u, 128u};
+    auto swapChain = MakeTestSwapChain(extent, rhi::Format::RGBA16_FLOAT);
+
+    renderGraph::RenderGraph graph;
+    const auto cubeColor = graph.CreateTexture({
+        .extent = extent,
+        .format = rhi::Format::RGBA16_FLOAT,
+        .usage = renderGraph::ResourceUsage::RenderTarget,
+        .type = renderGraph::TextureType::Cube,
+        .debugName = "cube_face_rt"});
+
+    renderGraph::PassAttachments attachments{};
+    attachments.bindDepthStencil = false;
+    attachments.colors = {cubeColor};
+    attachments.colorCubeFace = 3u;
+    graph.AddPass("CubeFacePass", std::move(attachments), [](renderGraph::PassContext& ctx)
+    {
+        ctx.commandList.Draw(3);
+    });
+
+    graph.Execute(device, swapChain);
+
+    // Protects the all-faces cubemap path used when the pass targets the whole cube instead of
+    // a single face or face/mip slice.
+    ASSERT_EQ(device.GetFrameBufferCreates().size(), 1u);
+    const auto& fb = device.GetFrameBufferCreates().front();
+    EXPECT_EQ(fb.kind, "cube_face");
+    ASSERT_TRUE(fb.cubeFace.has_value());
+    EXPECT_EQ(*fb.cubeFace, 3u);
+    EXPECT_FALSE(fb.cubeMip.has_value());
+    EXPECT_FALSE(fb.cubeAllFaces);
+}
+
+TEST(RenderGraphPassAttachments, CubeMipAttachmentPropagatesMipLevel)
+{
+    FakeRHIDevice device{};
+    const rhi::Extent2D extent{128u, 128u};
+    auto swapChain = MakeTestSwapChain(extent, rhi::Format::RGBA16_FLOAT);
+
+    renderGraph::RenderGraph graph;
+    const auto cubeColor = graph.CreateTexture({
+        .extent = extent,
+        .format = rhi::Format::RGBA16_FLOAT,
+        .usage = renderGraph::ResourceUsage::RenderTarget,
+        .type = renderGraph::TextureType::Cube,
+        .debugName = "cube_mip_rt"});
+
+    renderGraph::PassAttachments attachments{};
+    attachments.bindDepthStencil = false;
+    attachments.colors = {cubeColor};
+    attachments.colorCubeFace = 5u;
+    attachments.colorCubeMip = 2u;
+    graph.AddPass("CubeMipPass", std::move(attachments), [](renderGraph::PassContext& ctx)
+    {
+        ctx.commandList.Draw(3);
+    });
+
+    graph.Execute(device, swapChain);
+
+    // Protects the cubemap slice path: RenderGraph must preserve both face and mip selection
+    // before the pass reaches the backend framebuffer creation API.
+    ASSERT_EQ(device.GetFrameBufferCreates().size(), 1u);
+    const auto& fb = device.GetFrameBufferCreates().front();
+    EXPECT_EQ(fb.kind, "cube_face_mip");
+    ASSERT_TRUE(fb.cubeFace.has_value());
+    ASSERT_TRUE(fb.cubeMip.has_value());
+    EXPECT_EQ(*fb.cubeFace, 5u);
+    EXPECT_EQ(*fb.cubeMip, 2u);
+}
+
+TEST(RenderGraphPassAttachments, CubeAllFacesAttachmentUsesAllFacesFramebufferPath)
+{
+    FakeRHIDevice device{};
+    const rhi::Extent2D extent{128u, 128u};
+    auto swapChain = MakeTestSwapChain(extent, rhi::Format::RGBA16_FLOAT);
+
+    renderGraph::RenderGraph graph;
+    const auto cubeColor = graph.CreateTexture({
+        .extent = extent,
+        .format = rhi::Format::RGBA16_FLOAT,
+        .usage = renderGraph::ResourceUsage::RenderTarget,
+        .type = renderGraph::TextureType::Cube,
+        .debugName = "cube_all_faces_rt"});
+
+    renderGraph::PassAttachments attachments{};
+    attachments.bindDepthStencil = false;
+    attachments.colors = {cubeColor};
+    attachments.colorCubeAllFaces = true;
+    graph.AddPass("CubeAllFacesPass", std::move(attachments), [](renderGraph::PassContext& ctx)
+    {
+        ctx.commandList.Draw(3);
+    });
+
+    graph.Execute(device, swapChain);
+
+    // Protects the all-faces cubemap path: targeting the whole cube must not be treated as
+    // a single face or face/mip slice.
+    ASSERT_EQ(device.GetFrameBufferCreates().size(), 1u);
+    const auto& fb = device.GetFrameBufferCreates().front();
+    EXPECT_EQ(fb.kind, "cube");
+    EXPECT_TRUE(fb.cubeAllFaces);
+    EXPECT_FALSE(fb.cubeFace.has_value());
+    EXPECT_FALSE(fb.cubeMip.has_value());
+}
+/*--------------- CPU-side RenderGraph attachment routing end ------------------------------*/
