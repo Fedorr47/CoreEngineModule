@@ -73,3 +73,43 @@ include(GoogleTest)
 gtest_discover_tests(CoreEngineModuleTests
   DISCOVERY_MODE PRE_TEST
 )
+
+if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
+  add_executable(CoreEngineModuleDx12SmokeTests
+          "integration/Dx12Smoke/TestDx12BackendSmoke.cpp"
+  )
+
+  target_link_libraries(CoreEngineModuleDx12SmokeTests
+          PRIVATE
+          CoreEngineModuleLib
+          GTest::gtest_main
+  )
+
+  target_compile_features(CoreEngineModuleDx12SmokeTests PRIVATE cxx_std_23)
+  core_enable_import_std(CoreEngineModuleDx12SmokeTests)
+
+  target_include_directories(CoreEngineModuleDx12SmokeTests
+          PRIVATE
+          "${CMAKE_CURRENT_SOURCE_DIR}"
+          "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+  )
+
+  if(TARGET core_test_sanitizers)
+    target_link_libraries(CoreEngineModuleDx12SmokeTests PRIVATE core_test_sanitizers)
+  endif()
+
+  add_custom_command(TARGET CoreEngineModuleDx12SmokeTests POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_RUNTIME_DLLS:CoreEngineModuleDx12SmokeTests>
+          $<TARGET_FILE_DIR:CoreEngineModuleDx12SmokeTests>
+          COMMAND_EXPAND_LISTS
+  )
+
+  gtest_discover_tests(CoreEngineModuleDx12SmokeTests
+          DISCOVERY_MODE PRE_TEST
+          PROPERTIES
+          LABELS "dx12;smoke"
+  )
+else()
+  message(STATUS "CoreEngineModuleDx12SmokeTests not registered: requires WIN32 and CORE_RENDER_BACKEND=DX12.")
+endif()
