@@ -359,7 +359,7 @@ export namespace rendern
 
 			if (reflectionCubeDescIndex_ == 0)
 			{
-				reflectionCubeDescIndex_ = device_.AllocateTextureDesctiptor(reflectionCube_);
+				reflectionCubeDescIndex_ = device_.AllocateTextureDescriptor(reflectionCube_);
 			}
 			else
 			{
@@ -454,7 +454,7 @@ export namespace rendern
 
 				if (probe.cubeDescIndex == 0)
 				{
-					probe.cubeDescIndex = device_.AllocateTextureDesctiptor(probe.prefilteredCube);
+					probe.cubeDescIndex = device_.AllocateTextureDescriptor(probe.prefilteredCube);
 				}
 				else
 				{

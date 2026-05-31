@@ -19,7 +19,7 @@ export namespace rendern
 
 		rhi::TextureDescIndex RegisterTexture(rhi::TextureHandle texture)
 		{
-			rhi::TextureDescIndex index = device_.AllocateTextureDesctiptor(texture);
+			rhi::TextureDescIndex index = device_.AllocateTextureDescriptor(texture);
 			return index;
 		}
 

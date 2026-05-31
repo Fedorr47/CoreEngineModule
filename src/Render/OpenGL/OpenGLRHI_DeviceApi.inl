@@ -312,7 +312,7 @@ void DestroyFramebuffer(FrameBufferHandle framebuffer) noexcept override
 		}
 
 		// ---------------- Texture descriptors ----------------
-		TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) override
+		TextureDescIndex AllocateTextureDescriptor(TextureHandle texture) override
 		{
 			if (!freeTextureDescIndices_.empty())
 			{

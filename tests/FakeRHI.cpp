@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <stdexcept>
 
 //---------------------- Fake Swap chain  ----------------------//
 FakeRHISwapChain::FakeRHISwapChain(
@@ -194,8 +195,12 @@ void FakeRHIDevice::SubmitCommandList(rhi::CommandList&& commandList)
 	submittedCommandLists_.push_back(std::move(commandList));
 }
 
-rhi::TextureDescIndex FakeRHIDevice::AllocateTextureDesctiptor(rhi::TextureHandle texture)
+rhi::TextureDescIndex FakeRHIDevice::AllocateTextureDescriptor(rhi::TextureHandle texture)
 {
+	if (descriptors_.size() >= static_cast<std::size_t>(descriptorCapacity_))
+	{
+		throw std::runtime_error("FakeRHI: AllocateTextureDescriptor: descriptor heap exhausted");
+	}
 	const auto index = nextDescriptorId_++;
 	descriptors_[index] = texture;
 	return index;
@@ -203,6 +208,14 @@ rhi::TextureDescIndex FakeRHIDevice::AllocateTextureDesctiptor(rhi::TextureHandl
 
 void FakeRHIDevice::UpdateTextureDescriptor(rhi::TextureDescIndex index, rhi::TextureHandle texture)
 {
+	if (index == 0)
+	{
+		throw std::runtime_error("FakeRHI: UpdateTextureDescriptor: index 0 is invalid");
+	}
+	if (!descriptors_.contains(index))
+	{
+		throw std::runtime_error("FakeRHI: UpdateTextureDescriptor: descriptor index is not allocated");
+	}
 	descriptors_[index] = texture;
 }
 
@@ -266,6 +279,11 @@ const std::vector<rhi::FrameBufferHandle> FakeRHIDevice::GetDestroyedFrameBuffer
 const std::vector<rhi::CommandList>& FakeRHIDevice::GetSubmittedCommandLists() const noexcept
 {
 	return submittedCommandLists_;
+}
+
+void FakeRHIDevice::SetDescriptorCapacityForTests(rhi::TextureDescIndex capacity) noexcept
+{
+	descriptorCapacity_ = capacity;
 }
 
 rhi::FrameBufferHandle FakeRHIDevice::RecordFrameBufferEvent(
