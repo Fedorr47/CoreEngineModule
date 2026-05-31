@@ -1,5 +1,7 @@
 module;
 
+#include <cstddef>
+
 export module core:common_DX12_Structs;
 
 import std;
@@ -22,7 +24,13 @@ export namespace rendern
 		std::array<float, 4> boxMax;
 		std::array<float, 4> capturePosDesc;
 	};
+	// StructuredBuffer<ReflectionProbeGpu> in DeferredLighting_dx12.hlsl is three float4 rows.
+	static_assert(std::is_standard_layout_v<DeferredReflectionProbeGpu>);
+	static_assert(std::is_trivially_copyable_v<DeferredReflectionProbeGpu>);
 	static_assert(sizeof(DeferredReflectionProbeGpu) == 48);
+	static_assert(offsetof(DeferredReflectionProbeGpu, boxMin) == 0);
+	static_assert(offsetof(DeferredReflectionProbeGpu, boxMax) == 16);
+	static_assert(offsetof(DeferredReflectionProbeGpu, capturePosDesc) == 32);
 
 	struct alignas(16) GPULight
 	{
@@ -31,6 +39,15 @@ export namespace rendern
 		std::array<float, 4> p2{}; // color.rgb, range
 		std::array<float, 4> p3{}; // cosInner, cosOuter, attLin, attQuad
 	};
+	// StructuredBuffer<GPULight> is consumed by deferred and reflection-capture shaders as four float4 rows.
+	static_assert(std::is_standard_layout_v<GPULight>);
+	static_assert(std::is_trivially_copyable_v<GPULight>);
+	static_assert(alignof(GPULight) == 16);
+	static_assert(sizeof(GPULight) == 64);
+	static_assert(offsetof(GPULight, p0) == 0);
+	static_assert(offsetof(GPULight, p1) == 16);
+	static_assert(offsetof(GPULight, p2) == 32);
+	static_assert(offsetof(GPULight, p3) == 48);
 
 	struct alignas(16) ReflectionCaptureConstants
 	{
@@ -41,8 +58,14 @@ export namespace rendern
 		std::array<float, 4> uBaseColor{};             // rgba
 		std::array<float, 4> uParams{};                // x=lightCount, y=flagsBits(asfloat), z,w unused
 	};
+	static_assert(std::is_standard_layout_v<ReflectionCaptureConstants>);
+	static_assert(std::is_trivially_copyable_v<ReflectionCaptureConstants>);
+	static_assert(alignof(ReflectionCaptureConstants) == 16);
+	static_assert(sizeof(ReflectionCaptureConstants) == 432);
 	static_assert(sizeof(ReflectionCaptureConstants) <= 512);
-
+	static_assert(offsetof(ReflectionCaptureConstants, uCapturePosAmbient) == 384);
+	static_assert(offsetof(ReflectionCaptureConstants, uBaseColor) == 400);
+	static_assert(offsetof(ReflectionCaptureConstants, uParams) == 416);
 	struct alignas(16) ReflectionCaptureFaceConstants
 	{
 		std::array<float, 16> uViewProj{};             // 4 rows
@@ -50,7 +73,14 @@ export namespace rendern
 		std::array<float, 4>  uBaseColor{};            // rgba
 		std::array<float, 4>  uParams{};               // x=lightCount, y=flagsBits(asfloat), z,w unused
 	};
+	static_assert(std::is_standard_layout_v<ReflectionCaptureFaceConstants>);
+	static_assert(std::is_trivially_copyable_v<ReflectionCaptureFaceConstants>);
+	static_assert(alignof(ReflectionCaptureFaceConstants) == 16);
+	static_assert(sizeof(ReflectionCaptureFaceConstants) == 112);
 	static_assert(sizeof(ReflectionCaptureFaceConstants) <= 512);
+	static_assert(offsetof(ReflectionCaptureFaceConstants, uCapturePosAmbient) == 64);
+	static_assert(offsetof(ReflectionCaptureFaceConstants, uBaseColor) == 80);
+	static_assert(offsetof(ReflectionCaptureFaceConstants, uParams) == 96);
 
 	struct alignas(16) SingleMatrixPassConstants
 	{
@@ -78,7 +108,15 @@ export namespace rendern
 		mathUtils::Vec4 i2; // column 2
 		mathUtils::Vec4 i3; // column 3
 	};
+	// Vertex input slot 1 maps these columns to TEXCOORD1..4 in DX12 shaders.
+	static_assert(std::is_standard_layout_v<InstanceData>);
+	static_assert(std::is_trivially_copyable_v<InstanceData>);
+	static_assert(alignof(InstanceData) == 16);
 	static_assert(sizeof(InstanceData) == 64);
+	static_assert(offsetof(InstanceData, i0) == 0);
+	static_assert(offsetof(InstanceData, i1) == 16);
+	static_assert(offsetof(InstanceData, i2) == 32);
+	static_assert(offsetof(InstanceData, i3) == 48);
 
 	struct ParticleInstanceData
 	{
@@ -87,7 +125,14 @@ export namespace rendern
 		mathUtils::Vec4 params0;    // x = rotationRad, yzw unused for now
 		mathUtils::Vec4 params1{};  // reserved
 	};
+	static_assert(std::is_standard_layout_v<ParticleInstanceData>);
+	static_assert(std::is_trivially_copyable_v<ParticleInstanceData>);
+	static_assert(alignof(ParticleInstanceData) == 16);
 	static_assert(sizeof(ParticleInstanceData) == 64);
+	static_assert(offsetof(ParticleInstanceData, centerSize) == 0);
+	static_assert(offsetof(ParticleInstanceData, color) == 16);
+	static_assert(offsetof(ParticleInstanceData, params0) == 32);
+	static_assert(offsetof(ParticleInstanceData, params1) == 48);
 
 	struct alignas(16) ParticleConstants
 	{
@@ -95,7 +140,13 @@ export namespace rendern
 		std::array<float, 4> uCameraRight{};
 		std::array<float, 4> uCameraUp{};
 	};
+	static_assert(std::is_standard_layout_v<ParticleConstants>);
+	static_assert(std::is_trivially_copyable_v<ParticleConstants>);
+	static_assert(alignof(ParticleConstants) == 16);
+	static_assert(sizeof(ParticleConstants) == 96);
 	static_assert(sizeof(ParticleConstants) <= 96);
+	static_assert(offsetof(ParticleConstants, uCameraRight) == 64);
+	static_assert(offsetof(ParticleConstants, uCameraUp) == 80);
 
 	// shadow metadata for Spot/Point arrays (bound as StructuredBuffer at t11).
 	// We pack indices/bias as floats to keep the struct simple across compilers.
@@ -121,7 +172,19 @@ export namespace rendern
 		// pointInfo[i] = { lightIndexBits, bias, 0, 0 }
 		std::array<mathUtils::Vec4, kMaxPointShadows>    pointInfo{};
 	};
+	// Mirrors struct ShadowDataSB in DeferredLighting_dx12.hlsl; every member is a float4 row/array.
+	static_assert(std::is_standard_layout_v<ShadowDataSB>);
+	static_assert(std::is_trivially_copyable_v<ShadowDataSB>);
+	static_assert(alignof(ShadowDataSB) == 16);
+	static_assert(sizeof(ShadowDataSB) == 672);
 	static_assert((sizeof(ShadowDataSB) % 16) == 0);
+	static_assert(offsetof(ShadowDataSB, dirVPRows) == 0);
+	static_assert(offsetof(ShadowDataSB, dirSplits) == 192);
+	static_assert(offsetof(ShadowDataSB, dirInfo) == 208);
+	static_assert(offsetof(ShadowDataSB, spotVPRows) == 224);
+	static_assert(offsetof(ShadowDataSB, spotInfo) == 480);
+	static_assert(offsetof(ShadowDataSB, pointPosRange) == 544);
+	static_assert(offsetof(ShadowDataSB, pointInfo) == 608);
 
 	// ---------------- Spot/Point shadow maps (arrays) ----------------
 	struct SpotShadowRec
@@ -326,7 +389,26 @@ export namespace rendern
 		// x=heightScale, y=minSteps, z=maxSteps, w=reserved
 		std::array<float, 4> uParallaxParams{};
 	};
+	// Mirrors cbuffer PerBatch in DeferredGBuffer*_dx12.hlsl; material texture indices must stay on float4 rows.
+	static_assert(std::is_standard_layout_v<PerBatchConstants>);
+	static_assert(std::is_trivially_copyable_v<PerBatchConstants>);
+	static_assert(alignof(PerBatchConstants) == 16);
 	static_assert(sizeof(PerBatchConstants) == 336);
+	static_assert(offsetof(PerBatchConstants, uViewProj) == 0);
+	static_assert(offsetof(PerBatchConstants, uLightViewProj) == 64);
+	static_assert(offsetof(PerBatchConstants, uCameraAmbient) == 128);
+	static_assert(offsetof(PerBatchConstants, uCameraForward) == 144);
+	static_assert(offsetof(PerBatchConstants, uBaseColor) == 160);
+	static_assert(offsetof(PerBatchConstants, uMaterialFlags) == 176);
+	static_assert(offsetof(PerBatchConstants, uPbrParams) == 192);
+	static_assert(offsetof(PerBatchConstants, uCounts) == 208);
+	static_assert(offsetof(PerBatchConstants, uShadowBias) == 224);
+	static_assert(offsetof(PerBatchConstants, uEnvProbeBoxMin) == 240);
+	static_assert(offsetof(PerBatchConstants, uEnvProbeBoxMax) == 256);
+	static_assert(offsetof(PerBatchConstants, uTexIndices0) == 272);
+	static_assert(offsetof(PerBatchConstants, uTexIndices1) == 288);
+	static_assert(offsetof(PerBatchConstants, uTexIndices2) == 304);
+	static_assert(offsetof(PerBatchConstants, uParallaxParams) == 320);
 
 	struct alignas(16) SkinnedPerDrawConstants
 	{
@@ -348,7 +430,13 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4>  uSkinning{};
 	};
+	// Skinned GBuffer constants extend PerBatch with model and skinning rows consumed by HLSL.
+	static_assert(std::is_standard_layout_v<SkinnedPerDrawConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedPerDrawConstants>);
+	static_assert(alignof(SkinnedPerDrawConstants) == 16);
 	static_assert(sizeof(SkinnedPerDrawConstants) == 416);
+	static_assert(offsetof(SkinnedPerDrawConstants, uModel) == 336);
+	static_assert(offsetof(SkinnedPerDrawConstants, uSkinning) == 400);
 
 	struct alignas(16) SkinnedSingleMatrixPassConstants
 	{
@@ -356,7 +444,12 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4> uSkinning{};
 	};
+	static_assert(std::is_standard_layout_v<SkinnedSingleMatrixPassConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedSingleMatrixPassConstants>);
+	static_assert(alignof(SkinnedSingleMatrixPassConstants) == 16);
 	static_assert(sizeof(SkinnedSingleMatrixPassConstants) == 144);
+	static_assert(offsetof(SkinnedSingleMatrixPassConstants, uModel) == 64);
+	static_assert(offsetof(SkinnedSingleMatrixPassConstants, uSkinning) == 128);
 
 	struct alignas(16) SkinnedPointShadowCubeConstants
 	{
@@ -366,7 +459,14 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4> uSkinning{};
 	};
+	static_assert(std::is_standard_layout_v<SkinnedPointShadowCubeConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedPointShadowCubeConstants>);
+	static_assert(alignof(SkinnedPointShadowCubeConstants) == 16);
 	static_assert(sizeof(SkinnedPointShadowCubeConstants) == 496);
+	static_assert(offsetof(SkinnedPointShadowCubeConstants, uLightPosRange) == 384);
+	static_assert(offsetof(SkinnedPointShadowCubeConstants, uMisc) == 400);
+	static_assert(offsetof(SkinnedPointShadowCubeConstants, uModel) == 416);
+	static_assert(offsetof(SkinnedPointShadowCubeConstants, uSkinning) == 480);
 
 	struct alignas(16) SkinnedPointShadowFaceConstants
 	{
@@ -376,7 +476,14 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4> uSkinning{};
 	};
+	static_assert(std::is_standard_layout_v<SkinnedPointShadowFaceConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedPointShadowFaceConstants>);
+	static_assert(alignof(SkinnedPointShadowFaceConstants) == 16);
 	static_assert(sizeof(SkinnedPointShadowFaceConstants) == 176);
+	static_assert(offsetof(SkinnedPointShadowFaceConstants, uLightPosRange) == 64);
+	static_assert(offsetof(SkinnedPointShadowFaceConstants, uMisc) == 80);
+	static_assert(offsetof(SkinnedPointShadowFaceConstants, uModel) == 96);
+	static_assert(offsetof(SkinnedPointShadowFaceConstants, uSkinning) == 160);
 
 	struct alignas(16) SkinnedReflectionCaptureConstants
 	{
@@ -387,7 +494,12 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4> uSkinning{};
 	};
+	static_assert(std::is_standard_layout_v<SkinnedReflectionCaptureConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedReflectionCaptureConstants>);
+	static_assert(alignof(SkinnedReflectionCaptureConstants) == 16);
 	static_assert(sizeof(SkinnedReflectionCaptureConstants) == 512);
+	static_assert(offsetof(SkinnedReflectionCaptureConstants, uModel) == 432);
+	static_assert(offsetof(SkinnedReflectionCaptureConstants, uSkinning) == 496);
 
 	struct alignas(16) SkinnedReflectionCaptureFaceConstants
 	{
@@ -398,7 +510,12 @@ export namespace rendern
 		std::array<float, 16> uModel{};
 		std::array<float, 4>  uSkinning{};
 	};
+	static_assert(std::is_standard_layout_v<SkinnedReflectionCaptureFaceConstants>);
+	static_assert(std::is_trivially_copyable_v<SkinnedReflectionCaptureFaceConstants>);
+	static_assert(alignof(SkinnedReflectionCaptureFaceConstants) == 16);
 	static_assert(sizeof(SkinnedReflectionCaptureFaceConstants) == 192);
+	static_assert(offsetof(SkinnedReflectionCaptureFaceConstants, uModel) == 112);
+	static_assert(offsetof(SkinnedReflectionCaptureFaceConstants, uSkinning) == 176);
 
 	struct EditorSelectionDraw
 	{
@@ -496,7 +613,16 @@ export namespace rendern
 		std::array<float, 4>  uShadowBias{};       // x=dirBaseBiasTexels, y=spotBaseBiasTexels, z=pointBaseBiasTexels, w=slopeScaleTexels
 		std::array<float, 4>  uCounts{};           // x = lightCount, y = spotShadowCount, z = pointShadowCount, w = activeReflectionProbeCount
 	};
+	// Mirrors cbuffer Deferred in DeferredLighting_dx12.hlsl.
+	static_assert(std::is_standard_layout_v<DeferredLightingConstants>);
+	static_assert(std::is_trivially_copyable_v<DeferredLightingConstants>);
+	static_assert(alignof(DeferredLightingConstants) == 16);
 	static_assert(sizeof(DeferredLightingConstants) == 128);
+	static_assert(offsetof(DeferredLightingConstants, uInvViewProj) == 0);
+	static_assert(offsetof(DeferredLightingConstants, uCameraPosAmbient) == 64);
+	static_assert(offsetof(DeferredLightingConstants, uCameraForward) == 80);
+	static_assert(offsetof(DeferredLightingConstants, uShadowBias) == 96);
+	static_assert(offsetof(DeferredLightingConstants, uCounts) == 112);
 
 	struct ParticleDrawBatch
 	{
