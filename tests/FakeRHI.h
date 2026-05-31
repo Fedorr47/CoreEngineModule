@@ -7,6 +7,7 @@
 #include <span>
 #include <unordered_map>
 #include <optional>
+#include <limits>
 
 import core;
 
@@ -93,7 +94,7 @@ struct FakeRHIDevice : rhi::IRHIDevice
 	
 	void SubmitCommandList(rhi::CommandList&& commandList) override;
 	
-	rhi::TextureDescIndex AllocateTextureDesctiptor(rhi::TextureHandle texture) override;
+	rhi::TextureDescIndex AllocateTextureDescriptor(rhi::TextureHandle texture) override;
 	void UpdateTextureDescriptor(rhi::TextureDescIndex index, rhi::TextureHandle texture) override;
 	void FreeTextureDescriptor(rhi::TextureDescIndex index) noexcept override;
 	
@@ -108,6 +109,7 @@ struct FakeRHIDevice : rhi::IRHIDevice
 	const std::vector<rhi::TextureHandle> & GetDestroyedTextures() const noexcept;
 	const std::vector<rhi::FrameBufferHandle> GetDestroyedFrameBuffers() const noexcept;
 	const std::vector<rhi::CommandList>& GetSubmittedCommandLists() const noexcept;
+	void SetDescriptorCapacityForTests(rhi::TextureDescIndex capacity) noexcept;
 	
 private:
 	template <typename HandleType>
@@ -136,6 +138,7 @@ private:
 	std::vector<rhi::BufferDesc> bufferCreates_{};
 	std::unordered_map<std::uint32_t, std::vector<std::byte>> bufferData_{};
 	std::unordered_map<rhi::TextureDescIndex, rhi::TextureHandle> descriptors_{};
+	rhi::TextureDescIndex descriptorCapacity_{std::numeric_limits<rhi::TextureDescIndex>::max()};
 	std::unordered_map<std::uint32_t, bool> fences_{};
 };
 

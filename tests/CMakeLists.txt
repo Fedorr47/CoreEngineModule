@@ -24,6 +24,7 @@ add_executable(CoreEngineModuleTests
         "unit/RenderTests/TestLevelWorld.cpp"
         "unit/RenderTests/TestLevelInstantiateReferenceIntegrity.cpp"
         "unit/RenderTests/TestAssimpImportContracts.cpp"
+        "unit/RenderTests/TestDescriptorBindlessInvariants.cpp"
         "unit/ResourceTests/TestTextureStorage.cpp"
         "unit/ResourceTests/TestMeshStorage.cpp"
         "unit/ResourceTests/TestAssetManagerStartupValidation.cpp"

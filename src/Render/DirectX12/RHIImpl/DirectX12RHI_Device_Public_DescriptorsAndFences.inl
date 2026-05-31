@@ -1,4 +1,4 @@
-        TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) override
+        TextureDescIndex AllocateTextureDescriptor(TextureHandle texture) override
         {
             // TextureDescIndex is now a REAL SRV heap slot index.
             // We allocate a slot in the shader-visible heap and write SRV there.

@@ -659,7 +659,7 @@ export namespace rhi
 		virtual void SubmitCommandList(CommandList&& commandList) = 0;
 
 		// Bindless-style descriptor indices
-		virtual TextureDescIndex AllocateTextureDesctiptor(TextureHandle texture) = 0;
+		virtual TextureDescIndex AllocateTextureDescriptor(TextureHandle texture) = 0;
 		virtual void UpdateTextureDescriptor(TextureDescIndex index, TextureHandle texture) = 0;
 		virtual void FreeTextureDescriptor(TextureDescIndex index) noexcept = 0;
 
@@ -796,7 +796,7 @@ namespace rhi
 
 		void SubmitCommandList(CommandList&& commandList) override {}
 
-		TextureDescIndex AllocateTextureDesctiptor(TextureHandle tex) override
+		TextureDescIndex AllocateTextureDescriptor(TextureHandle tex) override
 		{
 			const auto idx = ++nextDescId_;
 			descToTex_[idx] = tex;
