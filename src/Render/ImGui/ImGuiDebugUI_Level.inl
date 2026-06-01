@@ -5,6 +5,38 @@
 
 namespace rendern::ui
 {
+    struct LevelEditorStatsSectionViewModel
+    {
+        std::size_t nodeCount{0};
+        std::size_t emitterCount{0};
+        std::size_t lightCount{0};
+        std::size_t drawItemCount{0};
+    };
+    
+    // Prepare UI-facing values before drwaing so this stays
+    // a small ViewModel-style example, not a render/runtime snapshot bpundary.
+    LevelEditorStatsSectionViewModel BuildLevelEditorStatsSectionViewModel(
+        const rendern::LevelAsset& levelAsset,
+        const rendern::Scene& scene)
+    {
+        LevelEditorStatsSectionViewModel stats{};
+        stats.nodeCount = levelAsset.nodes.size();
+        stats.emitterCount = levelAsset.particleEmitters.size();
+        stats.lightCount = scene.lights.size();
+        stats.drawItemCount = scene.drawItems.size();
+        return stats;
+    }
+    
+    static void DrawLevelEditorStatsSection(const LevelEditorStatsSectionViewModel& stats)
+    {
+        ImGui::Text("Nodes: %zu\tEmitters: %zu\tLights: %zu\tDrawItems: %zu",
+            stats.nodeCount,
+            stats.emitterCount,
+            stats.lightCount,
+            stats.drawItemCount);
+        ImGui::Separator();
+    }
+    
     void DrawLevelEditorUI(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
@@ -14,12 +46,8 @@ namespace rendern::ui
     {
         ImGui::Begin("Level Editor");
 
-        ImGui::Text("Nodes: %d   Emitters: %d   Lights: %d   DrawItems: %d",
-            static_cast<int>(level.nodes.size()),
-            static_cast<int>(level.particleEmitters.size()),
-            static_cast<int>(scene.lights.size()),
-            static_cast<int>(scene.drawItems.size()));
-        ImGui::Separator();
+        const LevelEditorStatsSectionViewModel stats = BuildLevelEditorStatsSectionViewModel(level, scene);
+        DrawLevelEditorStatsSection(stats);
 
         auto& st = level_ui_detail::GetState();
 
