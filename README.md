@@ -568,7 +568,8 @@ I might be extened in one day - maybe not.
 - debug draw / debug text;
 - selection and gizmo manipulation.
 
-This is a separate user-facing layer on top of the engine that helps inspect runtime state and edit the scene.
+This is a separate user-facing layer on top of the engine that helps inspect runtime state and edit the scene. 
+The intended editor/debug UI organization is documented in `docs/architecture/editor-ui-architecture.md`.
 
 [Screenshot here: hierarchy panel]
 [Screenshot here: inspector for light / material / node]
