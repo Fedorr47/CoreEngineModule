@@ -453,6 +453,7 @@ set(COMMON_MODULES
         Level/LevelECS_impl.cppm
         Editor/EditorSelectionService.cppm
         Editor/EditorSceneState.cppm
+        Editor/EditorCommands.cppm
         Editor/EditorGizmo.cppm
         Editor/EditorRotateGizmo.cppm
         Editor/EditorScaleGizmo.cppm

@@ -27,6 +27,7 @@ export import :hash_utils;
 export import :string_utils;
 export import :assimp_loader;
 export import :editor_selection_service;
+export import :editor_commands;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

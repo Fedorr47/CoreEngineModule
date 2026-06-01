@@ -33,6 +33,19 @@ Non-goals:
 - **Command**: explicit user action boundary. Commands represent actions such as selecting an object, changing a property, importing an asset, toggling a renderer setting, or starting a tool operation. Commands perform mutations by calling existing editor/runtime services through narrow interfaces.
 - **Service**: narrow bridge from editor UI to engine systems. Services may wrap access to scene selection, level editing, renderer settings, asset operations, picking, and future undo/redo. Services should keep engine-specific calls out of Views and keep editor-only concepts out of runtime modules.
 
+## Minimal editor command boundary
+
+The current command boundary is intentionally minimal. A command may be a named free function, helper object, or local call path that captures an explicit editor/debug UI intent and performs the mutation synchronously through an editor service or existing narrow runtime/editor API. It is not a centralized command queue or framework.
+
+Conventions:
+
+- Name commands after user intent, such as `SelectSceneNode`, `ClearEditorSelection`, `SetObservedRuntimeEntity`, `SetTransform`, or `FocusCameraOnSelection`.
+- Keep command execution synchronous and behavior-preserving until undo/redo, deferred edit application, command recording, or thread-split dispatch is required.
+- Delegate selection writes to `EditorSelectionService` when the selection service is available, then mirror to legacy `Scene` selection state only as transitional compatibility.
+- Do not introduce renderer/RHI/RenderGraph dependencies on editor commands.
+- Do not add a shared command base class, queue, undo stack, async dispatcher, recording/replay layer, or thread-safe submission model for simple panel actions.
+
+The first concrete integration point is scene-node selection from the Level Editor hierarchy: the ImGui row click delegates to `rendern::editor_commands::SelectSceneNode` or `rendern::editor_commands::ToggleSceneNodeSelection`, and those commands route through `EditorSelectionService` before updating the existing `Scene` selection mirrors.
 ## Dependency direction
 
 Preferred dependency flow:

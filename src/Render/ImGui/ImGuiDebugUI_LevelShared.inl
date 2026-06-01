@@ -2,6 +2,7 @@ namespace rendern::ui::level_ui_detail
 {
     struct LevelEditorUIState
     {
+        rendern::EditorSelectionService selection;
         int selectedNode = -1;
         int prevSelectedNode = -2;
         int selectedParticleEmitter = -1;

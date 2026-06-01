@@ -28,6 +28,8 @@ import :assimp_scene_loader;
 import :animator;
 import :animation_clip;
 import :animation_controller;
+import :editor_commands;
+import :editor_selection_service;
 
 export namespace rendern::ui
 {

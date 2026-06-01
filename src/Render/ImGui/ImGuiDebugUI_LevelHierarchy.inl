@@ -47,11 +47,11 @@ namespace rendern::ui::level_ui_detail
                     const bool ctrlDown = ImGui::GetIO().KeyCtrl;
                     if (ctrlDown)
                     {
-                        scene.EditorToggleSelectionNode(idx);
+                        rendern::editor_commands::ToggleSceneNodeSelection(st.selection, scene, idx);
                     }
                     else
                     {
-                        scene.EditorSetSelectionSingle(idx);
+                        rendern::editor_commands::SelectSceneNode(st.selection, scene, idx);
                     }
                     st.selectedNode = scene.editorSelectedNode;
                     st.selectedParticleEmitter = -1;
