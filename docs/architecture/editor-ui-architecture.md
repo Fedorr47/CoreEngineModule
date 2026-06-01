@@ -33,6 +33,64 @@ Non-goals:
 - **Command**: explicit user action boundary. Commands represent actions such as selecting an object, changing a property, importing an asset, toggling a renderer setting, or starting a tool operation. Commands perform mutations by calling existing editor/runtime services through narrow interfaces.
 - **Service**: narrow bridge from editor UI to engine systems. Services may wrap access to scene selection, level editing, renderer settings, asset operations, picking, and future undo/redo. Services should keep engine-specific calls out of Views and keep editor-only concepts out of runtime modules.
 
+## ViewModel refresh and caching conventions
+
+Editor ViewModels are presentation caches for editor/debug UI panels. Use them to copy, filter, sort, format, and validate state before ImGui draws so the View remains a thin renderer of already-prepared data. These ViewModel snapshots are only for editor UI presentation. They are not render snapshots, not thread-safety boundaries, and not replacements for future `RenderFramePacket`, scene snapshot, or runtime/render thread split work.
+
+A ViewModel may be a small struct, helper object, or panel-owned cache. There is no required ViewModel base class or framework. Existing panels may continue to read and mutate live state directly until related work justifies a local migration.
+
+### Lifetime categories
+
+Keep three kinds of data separate inside editor/debug UI panels:
+
+1. **Per-frame UI snapshot data** is rebuilt or refreshed before drawing a panel. It is a copied/projected view of runtime/editor state for the current UI frame. It may contain row records, display names, formatted labels, sorted/filterable lists, enabled/disabled flags, validation messages, current numeric values copied into UI units, lightweight IDs, handles, indices, and names needed to draw controls. It should be cheap to discard and safe to become stale after the frame.
+2. **Persistent panel state** lives with the panel or tool across frames. It may contain filter strings, search text, selected row IDs, expanded tree state, focused/scroll target IDs, column sort choices, user-visible display preferences, cached lightweight handles, and other editor-only UI memory. It must not become the authoritative owner of engine runtime objects.
+3. **Pending edit state** represents user input that has not yet been applied. It may contain text buffers, temporary slider values, dirty flags, parse/validation errors, original values for cancel/revert UI, and the target lightweight ID or handle. Pending edits should be committed by emitting user intent to commands/services or by calling the existing narrow editor/runtime API at the intended mutation phase.
+
+### Refresh, draw, and apply order
+
+Future ViewModel-style panels should use this order unless a local panel has a documented reason to do otherwise:
+
+1. **Read/project before drawing**: query the relevant service or existing editor/runtime API and copy only the UI-facing facts the panel needs into per-frame snapshot data. Apply formatting, filtering, sorting, presentation grouping, and validation here rather than inside individual ImGui widgets.
+2. **Draw from copied/projected data**: let ImGui Views consume the snapshot and persistent panel state. Drawing code should not rely on long-lived references into `Scene`, `LevelInstance`, renderer, RHI, asset, gameplay, or backend objects.
+3. **Collect or emit user intent during UI**: translate clicks, drags, text commits, and menu selections into explicit intent such as select row, rename item, set transform value, toggle renderer option, focus camera, or import asset. Keep incomplete text entry in pending edit state until the user commits or cancels it.
+4. **Apply mutations through the intended boundary**: execute editor commands/services when available, or the existing narrow editor/runtime API where no command/service exists yet. Apply at the panel's existing behavior-preserving phase; this convention does not introduce a centralized command queue, undo/redo system, async dispatcher, or thread-safe submission model.
+
+For example, a hierarchy panel can rebuild a vector of row snapshots from the current scene, draw tree rows from those copied labels and IDs, record a selected row intent when the user clicks, and then route selection through the editor selection command/service. A property panel can keep an uncommitted text buffer plus validation error in pending state, then apply the parsed value through the property editing service or existing setter only when the user commits.
+
+### Ownership and handle rules
+
+ViewModels may store lightweight identifiers and presentation values:
+
+- scene node IDs, entity IDs, asset IDs, resource handles, stable row keys, indices valid for the current refresh, and other non-owning handles;
+- copied names, display labels, paths, type names, formatted values, filter strings, validation strings, and tooltip text;
+- expanded tree state, selected row IDs, focused item IDs, sort/filter settings, column visibility, and other editor-only panel preferences;
+- pending edit buffers, parsed candidate values, dirty flags, validation status, and the lightweight target ID for the edit.
+
+ViewModels must not own or extend the lifetime of engine/backend resources, including:
+
+- `Scene`, `LevelInstance`, authoritative ECS registries, gameplay worlds, gameplay runtime objects, or gameplay components;
+- renderer instances, renderer backend objects, RenderGraph objects, RHI devices/resources, command lists, descriptors, GPU buffers, textures, or synchronization primitives;
+- `AssetManager` resources, imported asset runtime objects, resource manager ownership, streaming state, or file watcher backends;
+- platform/windowing handles, input backends, swapchains, or OS resources.
+
+If a panel needs to reach one of these systems, keep the owning object in the existing engine layer and access it through a service, command, short-lived function parameter, or existing narrow API. Do not hide ownership in `shared_ptr`, raw pointer, reference member, or cached backend object fields inside a ViewModel.
+
+### Relationship to render snapshots and thread split work
+
+Editor ViewModel snapshots are allowed to be stale UI presentation data. They do not define render visibility, render resource lifetime, synchronization, frame pacing, or cross-thread ownership. Future scene snapshots, render extraction data, or `RenderFramePacket` work must define their own lifetime, ownership, and synchronization rules independently of these editor UI conventions.
+
+### ViewModel checklist for future panels
+
+Before adding or migrating a ViewModel-style panel, verify that:
+
+- per-frame snapshot data is rebuilt/refreshed before the View draws;
+- persistent panel state is editor-only and separate from copied runtime facts;
+- pending edits are represented explicitly until commit/cancel;
+- user intent is applied through commands/services or an existing narrow API at the intended phase;
+- stored references are lightweight IDs/handles/values, not owning engine/runtime/backend objects;
+- the document and code comments do not imply thread safety, render snapshot semantics, a command queue, undo/redo, or a mandatory ViewModel framework.
+
 ## Minimal editor command boundary
 
 The current command boundary is intentionally minimal. A command may be a named free function, helper object, or local call path that captures an explicit editor/debug UI intent and performs the mutation synchronously through an editor service or existing narrow runtime/editor API. It is not a centralized command queue or framework.
