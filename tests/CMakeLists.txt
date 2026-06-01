@@ -36,6 +36,7 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestFileUtils.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
+        "unit/EditorTests/TestEditorSelectionService.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
