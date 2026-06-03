@@ -91,6 +91,73 @@ Before adding or migrating a ViewModel-style panel, verify that:
 - stored references are lightweight IDs/handles/values, not owning engine/runtime/backend objects;
 - the document and code comments do not imply thread safety, render snapshot semantics, a command queue, undo/redo, or a mandatory ViewModel framework.
 
+## Animation Runtime panel ViewModel contract
+
+The Animation Runtime debug panel is planned to migrate to ViewModel-style rendering after the current documentation-first contract is in place. This section defines the UI-facing data contract only. It does not implement the full Animation Runtime ViewModel, change animation runtime behavior, refactor animation systems, add a command queue, or create a thread-safe runtime/render snapshot.
+
+The current ImGui panel still reads live `LevelAsset`, `LevelInstance`, `Scene`, `SkinnedDrawItem`, `AnimatorState`, and `AnimationControllerRuntime` data during the editor/debug UI phase. That is acceptable as transitional behavior while the application is single-thread sequenced, but the migrated panel should project the facts it needs into copied UI data before drawing and should keep panel state and pending edits separate from those copied facts.
+
+### Current sources to project
+
+When the panel is migrated, the projection step may read from the existing narrow call path that locates the observed skinned target and animation runtime state. Relevant current sources include:
+
+- the observed or selected level node index/name and skinned mesh identifier from `LevelAsset`;
+- the node-to-skinned-draw mapping from `LevelInstance`;
+- the live skinned draw item, animator, and controller runtime data owned by `Scene`/runtime systems;
+- `Scene::animationRuntimeDebug.samples` when a panel wants row-oriented runtime debug samples instead of, or in addition to, the direct selected-target view;
+- controller asset metadata needed only to produce copied UI rows or lightweight identifiers.
+
+These sources remain owned by their existing systems. The ViewModel may copy values out of them for one UI refresh, but it must not retain owning references or mutable access to them.
+
+### Data buckets
+
+Keep Animation Runtime panel data in the same three buckets used by the general ViewModel convention:
+
+1. **Per-frame UI-facing snapshot data** is rebuilt before drawing the Animation Runtime panel. It should contain copied/projected display facts for the currently observed target and any table rows shown by the panel. Examples include selected or observed animated entity/node ID, node name, skinned mesh ID, animation controller/graph name, controller asset ID, current state name, requested/previous state names, active clip names, playback time, normalized time, blend weights, blend parameter names/values, transition state text, transition alpha, playback speed, looping/paused/autoplay/force-bind-pose/debug flags, sample/debug rows, recent notify rows, routed gameplay event rows, transition diagnostic rows, warning/error text, and lightweight asset or node identifiers.
+2. **Persistent panel UI state** lives across frames with the panel/tool. Examples include whether the panel is open, the pinned observed node ID/index, target selection mode, selected row key, filter/search text, collapsed/expanded sections, table sort options, graph/blend preview pan and zoom, scroll/focus requests, and display preferences. This state is editor-only memory and is not authoritative runtime animation state.
+3. **Pending UI edits / user intent** represents incomplete or just-emitted user actions. Examples include a requested target change, select-in-editor intent, open-graph intent, pending state request, pending playback speed text/slider value, pending debug flag toggle, validation text for a typed value, dirty flags, and the lightweight target ID the edit applies to. Pending edits remain separate from read-only display facts and should be committed through explicit editor/runtime command paths or existing narrow APIs when those commands/APIs exist.
+
+Read-only display data should be copied into the per-frame snapshot and consumed by drawing code without mutating runtime objects. Persistent UI state may influence what the snapshot projects, such as the pinned target or filters. Pending edits may be produced while drawing, but applying them is a separate step and must not be hidden inside formatting, filtering, row-building, or low-level ImGui widget helpers.
+
+### Allowed copied fields
+
+Animation Runtime ViewModel structs may contain copied values and UI-ready rows such as:
+
+- lightweight entity IDs, level node IDs/indices, asset IDs, controller IDs, graph/node/state IDs, row keys, and handles that do not own runtime objects;
+- copied names for the observed node, animation controller/graph, current state, requested state, previous state, active clips, blend parameters, notifies, gameplay events, and diagnostics;
+- numeric presentation values such as playback time, normalized time, playback speed, blend weights, transition alpha, sample counters, sequence numbers, and current parameter values;
+- enum or simple mode states such as controller mode, clip/blend1D/blend2D mode, transition active/inactive, enabled flags, looping, paused, autoplay, controlled, and debug toggles;
+- preformatted labels, warning/error strings, tooltip text, validation messages, table rows, sample/debug rows, and display colors or severity categories when those are purely UI presentation values.
+
+### Data that must stay out of the ViewModel
+
+Animation Runtime ViewModels must not store or own:
+
+- owning pointers/references to `Scene`, `LevelInstance`, `LevelAsset`, ECS registries, gameplay worlds, or scene/runtime containers;
+- mutable `SkinnedDrawItem`, `AnimatorState`, `AnimationControllerRuntime`, animation controller assets, skeletons, clips, or other live animation runtime objects;
+- renderer, RHI, RenderGraph, swapchain, command-list, descriptor, GPU resource, or renderer backend objects;
+- `AssetManager` ownership, asset runtime ownership, streaming state, file watchers, or live containers whose lifetime is controlled by runtime/asset systems;
+- `const` pointers/references to live runtime state as a claimed safety boundary. A `const AnimationControllerRuntime*` is still a live runtime reference, not a UI snapshot, synchronization primitive, or lifetime guarantee.
+
+Short-lived function parameters may still be used during projection while the current code remains in `src/Render/ImGui/`, but the stored ViewModel data that drawing consumes should be copied values, lightweight IDs/handles, enum states, counters, and UI-ready display rows.
+
+### Lifetime and refresh rules
+
+An Animation Runtime per-frame snapshot is valid only for the UI refresh/draw that built it. It may become stale immediately after the frame and must not be used as authoritative animation state by runtime, gameplay, renderer, asset, or RHI code. Rebuild or refresh it before each panel draw from the current selected/pinned target and current runtime debug samples.
+
+The contract is intentionally not a thread-safety boundary. It does not make live runtime reads safe across threads, does not define ownership transfer between runtime and render code, and does not replace future render frame packets, scene snapshots, render extraction data, or animation/runtime debug packet work. Future thread-ownership or render-snapshot work must define its own synchronization and lifetime rules independently.
+
+### Future panel migration note
+
+A future Animation Runtime panel migration should follow this sequence:
+
+1. read/project the observed target and animation runtime facts into an Animation Runtime panel ViewModel before drawing;
+2. draw target selection, live-state text, active-clip tables, parameter tables, blend previews, recent notify rows, diagnostics, and gameplay event rows from the copied ViewModel data plus persistent panel UI state;
+3. emit explicit user intent or pending edits for target pinning, select-in-editor, open-graph, requested state changes, playback/debug toggles, or editable numeric values;
+4. apply mutations through explicit editor/runtime command paths when available, or through the existing narrow behavior-preserving API at the intended phase until a command exists.
+
+This migration should stay local to the panel. It should not introduce a central ViewModel framework, centralized command queue, undo/redo system, animation runtime ownership changes, renderer/RHI dependencies, or broad editor UI architecture rewrite.
+
 ## Minimal editor command boundary
 
 The current command boundary is intentionally minimal. A command may be a named free function, helper object, or local call path that captures an explicit editor/debug UI intent and performs the mutation synchronously through an editor service or existing narrow runtime/editor API. It is not a centralized command queue or framework.
