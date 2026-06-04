@@ -1815,6 +1815,33 @@ namespace rendern::ui::level_ui_detail
         }
         return &runtime.stateMachineAsset->states[static_cast<std::size_t>(runtime.currentStateIndex)];
     }
+    
+    [[nodiscard]] static const rendern::AnimationStateDesc* FindAnimationRuntimeBlend2DPreviewState(
+        const rendern::AnimationControllerRuntime& runtime) noexcept
+    {
+        const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
+        if (currentState != nullptr && !currentState->blend2D.empty())
+        {
+            return currentState;
+        }
+    
+        if (runtime.stateMachineAsset == nullptr)
+        {
+            return nullptr;
+        }
+    
+        for (const rendern::AnimationStateDesc& state : runtime.stateMachineAsset->states)
+        {
+            if (!state.blendParameterX.empty() &&
+                !state.blendParameterY.empty() &&
+                !state.blend2D.empty())
+            {
+                return &state;
+            }
+        }
+    
+        return nullptr;
+    }
 
 #include "ImGuiDebugUI_LevelInspector_AnimationRuntimeViewModel.inl"
 
@@ -1957,6 +1984,7 @@ namespace rendern::ui::level_ui_detail
         
         const rendern::AnimationControllerRuntime& runtime = ctx.skinnedItem->controller;
         const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
+        const rendern::AnimationStateDesc* blend2DPreviewState = FindAnimationRuntimeBlend2DPreviewState(runtime);
         const AnimationRuntimeViewModel viewModel = BuildAnimationRuntimeViewModel(ctx, runtime, ctx.skinnedItem->animator);
 
         if (ImGui::Button("Select in editor"))
@@ -2007,27 +2035,37 @@ namespace rendern::ui::level_ui_detail
         ImGui::SeparatorText("Active Clips");
         DrawAnimationRuntimeWeightedClips(viewModel.activeClips);
 
-        if (currentState != nullptr && viewModel.hasCurrentStateDesc)
+        if (blend2DPreviewState != nullptr)
         {
-            if (runtime.currentStateUsesBlend2D)
+            ImGui::SeparatorText(viewModel.currentStateUsesBlend2D ? "Live Blend2D" : "Blend2D Preview");
+            if (viewModel.currentStateUsesBlend2D)
             {
-                ImGui::SeparatorText("Live Blend2D");
                 ImGui::Text("Inputs: %s = %.3f, %s = %.3f",
                     viewModel.blendParameterNameX.c_str(),
                     viewModel.blendParameterValueX,
                     viewModel.blendParameterNameY.c_str(),
                     viewModel.blendParameterValueY);
-                const float savedZoom = st.animationGraphBlend2DZoom;
-                const ImVec2 savedPan = st.animationGraphBlend2DPan;
-                st.animationGraphBlend2DZoom = st.animationRuntimeBlend2DZoom;
-                st.animationGraphBlend2DPan = st.animationRuntimeBlend2DPan;
-                DrawAnimationGraphBlend2DPreview(*currentState, runtime, st);
-                st.animationRuntimeBlend2DZoom = st.animationGraphBlend2DZoom;
-                st.animationRuntimeBlend2DPan = st.animationGraphBlend2DPan;
-                st.animationGraphBlend2DZoom = savedZoom;
-                st.animationGraphBlend2DPan = savedPan;
             }
-            else if (viewModel.currentStateUsesBlend1D)
+            else
+            {
+                ImGui::TextDisabled(
+                    "Current state is not Blend2D; showing '%s' blend space.",
+                    blend2DPreviewState->name.c_str());
+            }
+            
+            const float savedZoom = st.animationGraphBlend2DZoom;
+            const ImVec2 savedPan = st.animationGraphBlend2DPan;
+            st.animationGraphBlend2DZoom = st.animationRuntimeBlend2DZoom;
+            st.animationGraphBlend2DPan = st.animationRuntimeBlend2DPan;
+            DrawAnimationGraphBlend2DPreview(*blend2DPreviewState, runtime, st);
+            st.animationRuntimeBlend2DZoom = st.animationGraphBlend2DZoom;
+            st.animationRuntimeBlend2DPan = st.animationGraphBlend2DPan;
+            st.animationGraphBlend2DZoom = savedZoom;
+            st.animationGraphBlend2DPan = savedPan;
+        }
+        else if (currentState != nullptr && viewModel.hasCurrentStateDesc)
+        {
+            if (viewModel.currentStateUsesBlend1D)
             {
                 ImGui::SeparatorText("Live Blend1D");
                 ImGui::Text("Input: %s = %.3f",
