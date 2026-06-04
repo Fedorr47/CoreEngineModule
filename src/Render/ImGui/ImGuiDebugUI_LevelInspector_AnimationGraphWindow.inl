@@ -1873,6 +1873,77 @@ namespace rendern::ui::level_ui_detail
             ImGui::EndTable();
         }
     }
+    
+    static void DrawAnimationRuntimeTargetSection(const AnimationRuntimeViewModel& AnimationRuntimeViewModel)
+    {
+        ImGui::SeparatorText("Target");
+        ImGui::Text("Node: %s", AnimationRuntimeViewModel.nodeName.c_str());
+        ImGui::TextDisabled("Skinned mesh: %s", AnimationRuntimeViewModel.skinnedMesh.c_str());
+        if (!AnimationRuntimeViewModel.controllerLabel.empty())
+        {
+            ImGui::TextDisabled("Controller: %s", AnimationRuntimeViewModel.controllerLabel.c_str());
+        }
+    }
+
+    static void DrawAnimationRuntimeLiveStateSection(const AnimationRuntimeViewModel& AnimationRuntimeViewModel)
+    {
+        ImGui::SeparatorText("Live State");
+        ImGui::Text("Current state: %s", AnimationRuntimeViewModel.currentStateDisplayName.c_str());
+        ImGui::Text("Requested state: %s", AnimationRuntimeViewModel.requestedStateDisplayName.c_str());
+        ImGui::Text("Mode: %s", AnimationRuntimeViewModel.modeName.c_str());
+        ImGui::Text("Normalized time: %.3f", AnimationRuntimeViewModel.normalizedTime);
+        ImGui::Text("Playback speed: %.3f", AnimationRuntimeViewModel.playbackSpeed);
+        ImGui::Text("Looping: %s", AnimationRuntimeViewModel.loopingText.c_str());
+        if (AnimationRuntimeViewModel.transitionActive)
+        {
+            ImGui::Text("Transition: %s -> %s (alpha %.2f)",
+                AnimationRuntimeViewModel.transitionSourceStateName.c_str(),
+                AnimationRuntimeViewModel.currentStateName.c_str(),
+                AnimationRuntimeViewModel.transitionAlpha);
+        }
+        else
+        {
+            ImGui::Text("The last transition: %s -> %s (alpha %.2f)",
+                AnimationRuntimeViewModel.transitionSourceStateName.c_str(),
+                AnimationRuntimeViewModel.currentStateName.c_str(),
+                AnimationRuntimeViewModel.transitionAlpha);
+        }
+    }
+
+    static void DrawAnimationRuntimeRecentNotifies(const std::vector<AnimationRuntimeNotifyViewModel>& recentNotifies)
+    {
+        if (recentNotifies.empty())
+        {
+            ImGui::TextDisabled("No recent notify events.");
+            return;
+        }
+
+        for (const AnimationRuntimeNotifyViewModel& notify : recentNotifies)
+        {
+            ImGui::BulletText(
+                "#%llu %s (%s @ %.2f)",
+                static_cast<unsigned long long>(notify.sequence),
+                notify.id.c_str(),
+                notify.stateName.c_str(),
+                notify.normalizedTime);
+        }
+    }
+
+    static void DrawAnimationRuntimeTextList(
+        const std::vector<std::string>& items,
+        const char* emptyMessage)
+    {
+        if (items.empty())
+        {
+            ImGui::TextDisabled("%s", emptyMessage);
+            return;
+        }
+
+        for (const std::string& item : items)
+        {
+            ImGui::BulletText("%s", item.c_str());
+        }
+    }
 
     static void DrawAnimationRuntimeParameters(const std::vector<AnimationRuntimeParameterViewModel>& parameters)
     {
@@ -1985,66 +2056,39 @@ namespace rendern::ui::level_ui_detail
         const rendern::AnimationControllerRuntime& runtime = ctx.skinnedItem->controller;
         const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
         const rendern::AnimationStateDesc* blend2DPreviewState = FindAnimationRuntimeBlend2DPreviewState(runtime);
-        const AnimationRuntimeViewModel viewModel = BuildAnimationRuntimeViewModel(ctx, runtime, ctx.skinnedItem->animator);
+        const AnimationRuntimeViewModel animationRuntimeViewModel = BuildAnimationRuntimeViewModel(ctx, runtime, ctx.skinnedItem->animator);
 
         if (ImGui::Button("Select in editor"))
         {
-            st.selectedNode = viewModel.nodeIndex;
-            scene.EditorSetSelectionSingle(viewModel.nodeIndex);
+            st.selectedNode = animationRuntimeViewModel.nodeIndex;
+            scene.EditorSetSelectionSingle(animationRuntimeViewModel.nodeIndex);
         }
         ImGui::SameLine();
         if (ImGui::Button("Open graph"))
         {
-            st.selectedNode = viewModel.nodeIndex;
-            scene.EditorSetSelectionSingle(viewModel.nodeIndex);
+            st.selectedNode = animationRuntimeViewModel.nodeIndex;
+            scene.EditorSetSelectionSingle(animationRuntimeViewModel.nodeIndex);
             st.animationGraphWindowOpen = true;
             st.animationGraphRequestFocus = true;
-            st.animationGraphSelectedStateName = viewModel.currentStateName;
+            st.animationGraphSelectedStateName = animationRuntimeViewModel.currentStateName;
         }
 
-        ImGui::SeparatorText("Target");
-        ImGui::Text("Node: %s", viewModel.nodeName.c_str());
-        ImGui::TextDisabled("Skinned mesh: %s", viewModel.skinnedMesh.c_str());
-        if (!viewModel.controllerLabel.empty())
-        {
-            ImGui::TextDisabled("Controller: %s", viewModel.controllerLabel.c_str());
-        }
-
-        ImGui::SeparatorText("Live State");
-        ImGui::Text("Current state: %s", viewModel.currentStateName.empty() ? "<none>" : viewModel.currentStateName.c_str());
-        ImGui::Text("Requested state: %s", viewModel.requestedStateName.empty() ? "<none>" : viewModel.requestedStateName.c_str());
-        ImGui::Text("Mode: %s", viewModel.modeName.c_str());
-        ImGui::Text("Normalized time: %.3f", viewModel.normalizedTime);
-        ImGui::Text("Playback speed: %.3f", viewModel.playbackSpeed);
-        ImGui::Text("Looping: %s", viewModel.looping ? "true" : "false");
-        if (viewModel.transitionActive)
-        {
-            ImGui::Text("Transition: %s -> %s (alpha %.2f)",
-                viewModel.transitionSourceStateName.c_str(),
-                viewModel.currentStateName.c_str(),
-                viewModel.transitionAlpha);
-        }
-        else
-        {
-            ImGui::Text("The last transition: %s -> %s (alpha %.2f)",
-                viewModel.transitionSourceStateName.c_str(),
-                viewModel.currentStateName.c_str(),
-                viewModel.transitionAlpha);
-        }
+        DrawAnimationRuntimeTargetSection(animationRuntimeViewModel);
+        DrawAnimationRuntimeLiveStateSection(animationRuntimeViewModel);
 
         ImGui::SeparatorText("Active Clips");
-        DrawAnimationRuntimeWeightedClips(viewModel.activeClips);
+        DrawAnimationRuntimeWeightedClips(animationRuntimeViewModel.activeClips);
 
         if (blend2DPreviewState != nullptr)
         {
-            ImGui::SeparatorText(viewModel.currentStateUsesBlend2D ? "Live Blend2D" : "Blend2D Preview");
-            if (viewModel.currentStateUsesBlend2D)
+            ImGui::SeparatorText(animationRuntimeViewModel.currentStateUsesBlend2D ? "Live Blend2D" : "Blend2D Preview");
+            if (animationRuntimeViewModel.currentStateUsesBlend2D)
             {
                 ImGui::Text("Inputs: %s = %.3f, %s = %.3f",
-                    viewModel.blendParameterNameX.c_str(),
-                    viewModel.blendParameterValueX,
-                    viewModel.blendParameterNameY.c_str(),
-                    viewModel.blendParameterValueY);
+                    animationRuntimeViewModel.blendParameterNameX.c_str(),
+                    animationRuntimeViewModel.blendParameterValueX,
+                    animationRuntimeViewModel.blendParameterNameY.c_str(),
+                    animationRuntimeViewModel.blendParameterValueY);
             }
             else
             {
@@ -2063,75 +2107,44 @@ namespace rendern::ui::level_ui_detail
             st.animationGraphBlend2DZoom = savedZoom;
             st.animationGraphBlend2DPan = savedPan;
         }
-        else if (currentState != nullptr && viewModel.hasCurrentStateDesc)
+        else if (currentState != nullptr && animationRuntimeViewModel.hasCurrentStateDesc)
         {
-            if (viewModel.currentStateUsesBlend1D)
+            if (animationRuntimeViewModel.currentStateUsesBlend1D)
             {
                 ImGui::SeparatorText("Live Blend1D");
                 ImGui::Text("Input: %s = %.3f",
-                    viewModel.blendParameterNameX.c_str(),
-                    viewModel.blendParameterValueX);
+                    animationRuntimeViewModel.blendParameterNameX.c_str(),
+                    animationRuntimeViewModel.blendParameterValueX);
                 DrawAnimationGraphBlend1DPreview(*currentState, runtime);
             }
-            else if (!viewModel.activeClips.empty())
+            else if (!animationRuntimeViewModel.activeClips.empty())
             {
-                ImGui::Text("Active clip: %s", viewModel.activeClips.front().clipName.c_str());
+                ImGui::Text("Active clip: %s", animationRuntimeViewModel.activeClips.front().clipName.c_str());
             }
         }
 
         if (ImGui::CollapsingHeader("Controller Parameters", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            DrawAnimationRuntimeParameters(viewModel.parameters);
+            DrawAnimationRuntimeParameters(animationRuntimeViewModel.parameters);
         }
         
         if (ImGui::CollapsingHeader("Recent Notifies", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (viewModel.recentNotifies.empty())
-            {
-                ImGui::TextDisabled("No recent notify events.");
-            }
-            else
-            {
-                for (const AnimationRuntimeNotifyViewModel& notify : viewModel.recentNotifies)
-                {
-                    ImGui::BulletText(
-                        "#%llu %s (%s @ %.2f)",
-                        static_cast<unsigned long long>(notify.sequence),
-                        notify.id.c_str(),
-                        notify.stateName.c_str(),
-                        notify.normalizedTime);
-                }
-            }
+            DrawAnimationRuntimeRecentNotifies(animationRuntimeViewModel.recentNotifies);
         }
 
         if (ImGui::CollapsingHeader("Transition Candidates"))
         {
-            if (viewModel.transitionCandidates.empty())
-            {
-                ImGui::TextDisabled("No transition diagnostics.");
-            }
-            else
-            {
-                for (const std::string& candidate : viewModel.transitionCandidates)
-                {
-                    ImGui::BulletText("%s", candidate.c_str());
-                }
-            }
+            DrawAnimationRuntimeTextList(
+                animationRuntimeViewModel.transitionCandidates,
+                "No transition diagnostics.");
         }
 
         if (ImGui::CollapsingHeader("Gameplay Events"))
         {
-            if (viewModel.routedGameplayEvents.empty())
-            {
-                ImGui::TextDisabled("No routed gameplay events.");
-            }
-            else
-            {
-                for (const std::string& eventId : viewModel.routedGameplayEvents)
-                {
-                    ImGui::BulletText("%s", eventId.c_str());
-                }
-            }
+            DrawAnimationRuntimeTextList(
+                animationRuntimeViewModel.routedGameplayEvents,
+                "No routed gameplay events.");
         }
 
         ImGui::End();
