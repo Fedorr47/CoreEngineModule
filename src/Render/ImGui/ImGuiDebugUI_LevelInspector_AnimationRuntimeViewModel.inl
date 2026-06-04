@@ -30,11 +30,14 @@
         std::string skinnedMesh;
         std::string controllerLabel;
         std::string currentStateName;
+        std::string currentStateDisplayName;
         std::string requestedStateName;
+        std::string requestedStateDisplayName;
         std::string modeName;
         float normalizedTime{ 0.0f };
         float playbackSpeed{ 0.0f };
         bool looping{ false };
+        std::string loopingText;
         bool transitionActive{ false };
         std::string transitionSourceStateName;
         float transitionAlpha{ 0.0f };
@@ -75,11 +78,14 @@
         }
 
         viewModel.currentStateName = runtime.currentStateName;
+        viewModel.currentStateDisplayName = runtime.currentStateName.empty() ? "<none>" : runtime.currentStateName;
         viewModel.requestedStateName = runtime.requestedStateName;
+        viewModel.requestedStateDisplayName = runtime.requestedStateName.empty() ? "<none>" : runtime.requestedStateName;
         viewModel.modeName = runtime.currentStateUsesBlend2D ? "Blend2D" : (runtime.currentStateUsesBlend1D ? "Blend1D" : "Clip");
         viewModel.normalizedTime = AnimationRuntimeGetNormalizedTime(animator);
         viewModel.playbackSpeed = animator.playRate;
         viewModel.looping = animator.looping;
+        viewModel.loopingText = animator.looping ? "true" : "false";
         viewModel.transitionActive = runtime.transitionActive;
         viewModel.transitionSourceStateName = runtime.transitionSourceStateName;
         viewModel.transitionAlpha = (runtime.transitionDurationSeconds > 1e-6f)
