@@ -16,7 +16,8 @@ namespace appUi
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
-        rendern::GameplayRuntimeMode& runtimeMode);
+        rendern::GameplayRuntimeMode& runtimeMode,
+        rendern::GameplayRuntime* gameplayRuntime);
 
     rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext& shell);
     void RenderImGuiToSwapChainIfEnabled(appWin32::AppShellContext& shell, rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);

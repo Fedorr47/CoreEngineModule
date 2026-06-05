@@ -411,20 +411,126 @@ namespace rendern::ui::level_ui_detail
         return result;
     }
 
+    [[nodiscard]] static rendern::EntityHandle FindAnimationRuntimeEntityForNodeIndex(
+        const rendern::GameplayRuntime* gameplayRuntime,
+        const int nodeIndex) noexcept
+    {
+        if (gameplayRuntime == nullptr || nodeIndex < 0)
+        {
+            return rendern::kNullEntity;
+        }
+
+        const rendern::GameplayWorld& gameplayWorld = gameplayRuntime->GetWorld();
+        for (const rendern::EntityHandle runtimeEntity : gameplayRuntime->GetNodeBoundEntities())
+        {
+            if (!gameplayWorld.IsEntityValid(runtimeEntity))
+            {
+                continue;
+            }
+
+            const rendern::GameplayNodeLinkComponent* nodeLink = gameplayWorld.TryGetNodeLink(runtimeEntity);
+            const rendern::GameplayAnimationLinkComponent* animationLink = gameplayWorld.TryGetAnimationLink(runtimeEntity);
+            if (nodeLink != nullptr && animationLink != nullptr && nodeLink->nodeIndex == nodeIndex)
+            {
+                return runtimeEntity;
+            }
+        }
+
+        return rendern::kNullEntity;
+    }
+
+    [[nodiscard]] static AnimationGraphContext ResolveObservedAnimationRuntimeEntity(
+        rendern::LevelAsset& level,
+        rendern::LevelInstance& levelInst,
+        rendern::Scene& scene,
+        LevelEditorUIState& st,
+        const rendern::GameplayRuntime* gameplayRuntime)
+    {
+        if (gameplayRuntime == nullptr || !st.selection.HasObservedRuntimeEntity())
+        {
+            return {};
+        }
+
+        const rendern::EntityHandle observedRuntimeEntity = st.selection.GetObservedRuntimeEntity();
+        const rendern::GameplayWorld& gameplayWorld = gameplayRuntime->GetWorld();
+        const rendern::GameplayNodeLinkComponent* nodeLink = gameplayWorld.IsEntityValid(observedRuntimeEntity)
+            ? gameplayWorld.TryGetNodeLink(observedRuntimeEntity)
+            : nullptr;
+        const rendern::GameplayAnimationLinkComponent* animationLink = gameplayWorld.IsEntityValid(observedRuntimeEntity)
+            ? gameplayWorld.TryGetAnimationLink(observedRuntimeEntity)
+            : nullptr;
+        if (nodeLink == nullptr || animationLink == nullptr)
+        {
+            st.selection.ClearObservedRuntimeEntity();
+            st.animationRuntimeObservedEntityUnavailable = true;
+            return {};
+        }
+
+        AnimationGraphContext observedContext = GetAnimationGraphContextForNodeIndex(level, levelInst, scene, nodeLink->nodeIndex);
+        if (observedContext.node == nullptr || observedContext.skinnedItem == nullptr)
+        {
+            st.selection.ClearObservedRuntimeEntity();
+            st.animationRuntimeObservedEntityUnavailable = true;
+            return {};
+        }
+
+        st.animationRuntimePinnedNodeIndex = nodeLink->nodeIndex;
+        st.animationRuntimeObservedEntityUnavailable = false;
+        return observedContext;
+    }
+
+    static void SetAnimationRuntimePinnedTarget(
+        LevelEditorUIState& st,
+        const rendern::GameplayRuntime* gameplayRuntime,
+        const int nodeIndex) noexcept
+    {
+        st.animationRuntimePinnedNodeIndex = nodeIndex;
+        st.animationRuntimeObservedEntityUnavailable = false;
+        if (nodeIndex < 0)
+        {
+            st.selection.ClearObservedRuntimeEntity();
+            return;
+        }
+
+        const rendern::EntityHandle observedRuntimeEntity = FindAnimationRuntimeEntityForNodeIndex(gameplayRuntime, nodeIndex);
+        if (observedRuntimeEntity != rendern::kNullEntity)
+        {
+            st.selection.SetObservedRuntimeEntity(observedRuntimeEntity);
+        }
+        else
+        {
+            st.selection.ClearObservedRuntimeEntity();
+            st.animationRuntimeObservedEntityUnavailable = true;
+        }
+    }
+
     [[nodiscard]] static AnimationGraphContext GetAnimationRuntimeContext(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& st,
+        const rendern::GameplayRuntime* gameplayRuntime)
     {
+        AnimationGraphContext observedContext = ResolveObservedAnimationRuntimeEntity(level, levelInst, scene, st, gameplayRuntime);
+        if (observedContext.node != nullptr && observedContext.skinnedItem != nullptr)
+        {
+            return observedContext;
+        }
+
         if (st.animationRuntimePinnedNodeIndex >= 0)
         {
             AnimationGraphContext pinned = GetAnimationGraphContextForNodeIndex(level, levelInst, scene, st.animationRuntimePinnedNodeIndex);
             if (pinned.node != nullptr && pinned.skinnedItem != nullptr)
             {
+                const rendern::EntityHandle observedRuntimeEntity = FindAnimationRuntimeEntityForNodeIndex(gameplayRuntime, pinned.nodeIndex);
+                if (observedRuntimeEntity != rendern::kNullEntity)
+                {
+                    st.selection.SetObservedRuntimeEntity(observedRuntimeEntity);
+                    st.animationRuntimeObservedEntityUnavailable = false;
+                }
                 return pinned;
             }
-            st.animationRuntimePinnedNodeIndex = -1;
+            SetAnimationRuntimePinnedTarget(st, gameplayRuntime, -1);
         }
 
         AnimationGraphContext selected = GetAnimationGraphContext(level, levelInst, scene, st);
@@ -1974,7 +2080,8 @@ namespace rendern::ui::level_ui_detail
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& st,
+        const rendern::GameplayRuntime* gameplayRuntime)
     {
         if (!st.animationRuntimeWindowOpen)
         {
@@ -2000,14 +2107,14 @@ namespace rendern::ui::level_ui_detail
         {
             if (!pinTarget)
             {
-                st.animationRuntimePinnedNodeIndex = -1;
+                SetAnimationRuntimePinnedTarget(st, gameplayRuntime, -1);
             }
             else if (NodeAlive(level, st.selectedNode))
             {
                 const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(st.selectedNode)];
                 if (!selectedNode.skinnedMesh.empty())
                 {
-                    st.animationRuntimePinnedNodeIndex = st.selectedNode;
+                    SetAnimationRuntimePinnedTarget(st, gameplayRuntime, st.selectedNode);
                 }
             }
         }
@@ -2017,7 +2124,7 @@ namespace rendern::ui::level_ui_detail
             const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(st.selectedNode)];
             if (!selectedNode.skinnedMesh.empty())
             {
-                st.animationRuntimePinnedNodeIndex = st.selectedNode;
+                SetAnimationRuntimePinnedTarget(st, gameplayRuntime, st.selectedNode);
             }
         }
 
@@ -2026,12 +2133,17 @@ namespace rendern::ui::level_ui_detail
         {
             previewText = level.nodes[static_cast<std::size_t>(st.animationRuntimePinnedNodeIndex)].name.c_str();
         }
+        if (st.animationRuntimeObservedEntityUnavailable)
+        {
+            ImGui::TextDisabled("Observed runtime entity is unavailable; showing the resolved editor target when possible.");
+        }
+
         if (ImGui::BeginCombo("Target", previewText))
         {
             const bool autoSelected = st.animationRuntimePinnedNodeIndex < 0;
             if (ImGui::Selectable("Auto target", autoSelected))
             {
-                st.animationRuntimePinnedNodeIndex = -1;
+                SetAnimationRuntimePinnedTarget(st, gameplayRuntime, -1);
             }
             for (const int nodeIndex : candidates)
             {
@@ -2039,13 +2151,13 @@ namespace rendern::ui::level_ui_detail
                 const rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(nodeIndex)];
                 if (ImGui::Selectable(node.name.c_str(), selected))
                 {
-                    st.animationRuntimePinnedNodeIndex = nodeIndex;
+                    SetAnimationRuntimePinnedTarget(st, gameplayRuntime, nodeIndex);
                 }
             }
             ImGui::EndCombo();
         }
 
-        AnimationGraphContext ctx = GetAnimationRuntimeContext(level, levelInst, scene, st);
+        AnimationGraphContext ctx = GetAnimationRuntimeContext(level, levelInst, scene, st, gameplayRuntime);
         if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
         {
             ImGui::TextDisabled("No runtime animation target available.");
