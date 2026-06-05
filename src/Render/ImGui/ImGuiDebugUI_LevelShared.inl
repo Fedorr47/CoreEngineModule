@@ -27,6 +27,7 @@ namespace rendern::ui::level_ui_detail
         std::string animationGraphSelectedStateName;
         bool animationRuntimeWindowOpen = true;
         int animationRuntimePinnedNodeIndex = -1;
+        bool animationRuntimeObservedEntityUnavailable = false;
         float animationGraphFsmZoom = 1.0f;
         float animationGraphAssetZoom = 1.0f;
         float animationGraphBlend2DZoom = 1.0f;

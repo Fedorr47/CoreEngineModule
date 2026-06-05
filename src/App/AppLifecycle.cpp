@@ -414,7 +414,8 @@ namespace appLifecycle
            *contentState.levelAsset,
            *runtimeState.levelInstance,
            *contentState.assets,
-           runtimeState.gameplayMode);
+           runtimeState.gameplayMode,
+           runtimeState.gameplayRuntime.get());
         const auto imguiEnd = Clock::now();
 
         const auto mainRenderStart = Clock::now();
