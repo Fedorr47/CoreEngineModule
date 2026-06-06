@@ -1980,6 +1980,247 @@ namespace rendern::ui::level_ui_detail
         }
     }
     
+    [[nodiscard]] static const char* AnimationRuntimeBlendSampleLabel(
+        const std::string& clipName,
+        const std::string& clipSourceAssetId) noexcept
+    {
+        return clipSourceAssetId.empty() ? clipName.c_str() : clipSourceAssetId.c_str();
+    }
+
+    static void DrawAnimationRuntimeBlend1DDisplayData(const AnimationRuntimeBlend1DViewModel& blend1DDisplayData)
+    {
+        if (!blend1DDisplayData.available || blend1DDisplayData.samples.empty())
+        {
+            ImGui::TextDisabled("No Blend1D display data available.");
+            return;
+        }
+
+        ImGui::Text("Parameter: %s", blend1DDisplayData.parameterName.c_str());
+        if (blend1DDisplayData.live)
+        {
+            ImGui::Text("Input: %s = %.3f", blend1DDisplayData.parameterName.c_str(), blend1DDisplayData.inputValue);
+        }
+
+        float minValue = blend1DDisplayData.samples.front().position;
+        float maxValue = blend1DDisplayData.samples.front().position;
+        for (const AnimationRuntimeBlend1DSampleViewModel& sample : blend1DDisplayData.samples)
+        {
+            minValue = std::min(minValue, sample.position);
+            maxValue = std::max(maxValue, sample.position);
+        }
+        if (std::abs(maxValue - minValue) <= 1e-6f)
+        {
+            minValue -= 1.0f;
+            maxValue += 1.0f;
+        }
+
+        const float height = 96.0f;
+        ImGui::BeginChild("##AnimationRuntimeBlend1DPreview", ImVec2(0.0f, height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+        const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasSize), true);
+        drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasSize), IM_COL32(22, 22, 26, 255), 6.0f);
+
+        const float left = 28.0f;
+        const float right = canvasSize.x - 18.0f;
+        const float midY = canvasSize.y * 0.58f;
+        drawList->AddLine(AddImVec2(canvasPos, ImVec2(left, midY)), AddImVec2(canvasPos, ImVec2(right, midY)), IM_COL32(150, 150, 158, 255), 2.0f);
+
+        auto ValueToX = [&](float value) -> float
+        {
+            const float blendRange = std::max(maxValue - minValue, 1e-6f);
+            const float t = std::clamp((value - minValue) / blendRange, 0.0f, 1.0f);
+            return left + (right - left) * t;
+        };
+
+        for (const AnimationRuntimeBlend1DSampleViewModel& sample : blend1DDisplayData.samples)
+        {
+            const float x = ValueToX(sample.position);
+            const ImVec2 markerPos = AddImVec2(canvasPos, ImVec2(x, midY));
+            drawList->AddCircleFilled(markerPos, sample.active ? 6.5f : 5.0f, sample.active ? IM_COL32(255, 220, 90, 255) : IM_COL32(110, 190, 255, 255));
+            drawList->AddLine(AddImVec2(markerPos, ImVec2(0.0f, -14.0f)), AddImVec2(markerPos, ImVec2(0.0f, 14.0f)), IM_COL32(80, 120, 160, 180), 1.0f);
+
+            char valueBuffer[32]{};
+            std::snprintf(valueBuffer, sizeof(valueBuffer), "%.2f", sample.position);
+            drawList->AddText(AddImVec2(markerPos, ImVec2(-12.0f, 10.0f)), IM_COL32(210, 210, 215, 255), valueBuffer);
+            drawList->AddText(AddImVec2(markerPos, ImVec2(-18.0f, -24.0f)), IM_COL32(230, 230, 235, 255), sample.clipName.c_str());
+        }
+
+        if (blend1DDisplayData.live)
+        {
+            const float x = ValueToX(blend1DDisplayData.inputValue);
+            const ImVec2 markerPos = AddImVec2(canvasPos, ImVec2(x, midY));
+            drawList->AddTriangleFilled(AddImVec2(markerPos, ImVec2(0.0f, -20.0f)), AddImVec2(markerPos, ImVec2(-7.0f, -8.0f)), AddImVec2(markerPos, ImVec2(7.0f, -8.0f)), IM_COL32(255, 220, 90, 255));
+            char currentBuffer[64]{};
+            std::snprintf(currentBuffer, sizeof(currentBuffer), "runtime %.2f", blend1DDisplayData.inputValue);
+            drawList->AddText(AddImVec2(markerPos, ImVec2(10.0f, -24.0f)), IM_COL32(255, 220, 90, 255), currentBuffer);
+        }
+
+        drawList->PopClipRect();
+        ImGui::EndChild();
+
+        for (const AnimationRuntimeBlend1DSampleViewModel& sample : blend1DDisplayData.samples)
+        {
+            if (blend1DDisplayData.live)
+            {
+                ImGui::BulletText("%.2f -> %s (weight %.2f)", sample.position, sample.clipName.c_str(), sample.weight);
+            }
+            else
+            {
+                ImGui::BulletText("%.2f -> %s", sample.position, sample.clipName.c_str());
+            }
+        }
+    }
+
+    static void DrawAnimationRuntimeBlend2DDisplayData(
+        const AnimationRuntimeBlend2DViewModel& blend2DDisplayData,
+        LevelEditorUIState& st)
+    {
+        if (!blend2DDisplayData.available || blend2DDisplayData.samples.empty())
+        {
+            ImGui::TextDisabled("No Blend2D display data available.");
+            return;
+        }
+
+        ImGui::Text("X: %s   Y: %s", blend2DDisplayData.parameterNameX.c_str(), blend2DDisplayData.parameterNameY.c_str());
+        if (blend2DDisplayData.live)
+        {
+            ImGui::Text("Inputs: %s = %.3f, %s = %.3f", blend2DDisplayData.parameterNameX.c_str(), blend2DDisplayData.inputValueX, blend2DDisplayData.parameterNameY.c_str(), blend2DDisplayData.inputValueY);
+        }
+        else
+        {
+            ImGui::TextDisabled("Current state is not Blend2D; showing '%s' blend space.", blend2DDisplayData.stateName.c_str());
+        }
+
+        if (ImGui::Button("Fit Blend2D"))
+        {
+            st.animationRuntimeBlend2DZoom = 1.0f;
+            st.animationRuntimeBlend2DPan = ImVec2(0.0f, 0.0f);
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(170.0f);
+        ImGui::SliderFloat("##AnimationRuntimeBlend2DZoom", &st.animationRuntimeBlend2DZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+        st.animationRuntimeBlend2DZoom = AnimationGraphClampZoom(st.animationRuntimeBlend2DZoom);
+
+        const ImVec2 previewAvail = ImGui::GetContentRegionAvail();
+        const float width = std::max(220.0f, previewAvail.x);
+        const float height = std::clamp(width * 0.80f, 240.0f, 360.0f);
+        ImGui::BeginChild("##AnimationRuntimeBlend2DPreview", ImVec2(0.0f, height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+        const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasSize), true);
+        drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasSize), IM_COL32(22, 22, 26, 255), 6.0f);
+
+        ImGui::InvisibleButton("##AnimationRuntimeBlend2DCanvasButton", canvasSize);
+        const bool hovered = ImGui::IsItemHovered();
+        if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
+        {
+            st.animationRuntimeBlend2DPan = AddImVec2(st.animationRuntimeBlend2DPan, ImGui::GetIO().MouseDelta);
+        }
+        AnimationGraphHandleCanvasZoom(st.animationRuntimeBlend2DZoom, st.animationRuntimeBlend2DPan, canvasPos, canvasSize, hovered);
+
+        float minX = blend2DDisplayData.samples.front().x;
+        float maxX = blend2DDisplayData.samples.front().x;
+        float minY = blend2DDisplayData.samples.front().y;
+        float maxY = blend2DDisplayData.samples.front().y;
+        for (const AnimationRuntimeBlend2DSampleViewModel& sample : blend2DDisplayData.samples)
+        {
+            minX = std::min(minX, sample.x);
+            maxX = std::max(maxX, sample.x);
+            minY = std::min(minY, sample.y);
+            maxY = std::max(maxY, sample.y);
+        }
+        if (std::abs(maxX - minX) <= 1e-6f) { minX -= 1.0f; maxX += 1.0f; }
+        if (std::abs(maxY - minY) <= 1e-6f) { minY -= 1.0f; maxY += 1.0f; }
+        minX = std::min(minX, 0.0f); maxX = std::max(maxX, 0.0f);
+        minY = std::min(minY, 0.0f); maxY = std::max(maxY, 0.0f);
+        const float paddingX = std::max(0.10f * (maxX - minX), 0.15f);
+        const float paddingY = std::max(0.10f * (maxY - minY), 0.15f);
+        minX -= paddingX; maxX += paddingX; minY -= paddingY; maxY += paddingY;
+
+        const ImVec2 plotMin(44.0f, 28.0f);
+        const ImVec2 plotMax(std::max(plotMin.x + 10.0f, canvasSize.x - 20.0f), std::max(plotMin.y + 10.0f, canvasSize.y - 24.0f));
+        const ImVec2 plotSize = SubImVec2(plotMax, plotMin);
+        auto PlotPointFromBlend = [&](float x, float y) -> ImVec2
+        {
+            const float tx = std::clamp((x - minX) / (maxX - minX), 0.0f, 1.0f);
+            const float ty = std::clamp((y - minY) / (maxY - minY), 0.0f, 1.0f);
+            return ImVec2(plotMin.x + tx * std::max(1.0f, plotSize.x), plotMin.y + (1.0f - ty) * std::max(1.0f, plotSize.y));
+        };
+        auto ToScreen = [&](const ImVec2& localPoint) -> ImVec2
+        {
+            return AnimationGraphCanvasPointToScreen(canvasPos, st.animationRuntimeBlend2DPan, st.animationRuntimeBlend2DZoom, localPoint);
+        };
+
+        const ImVec2 plotMinScreen = ToScreen(plotMin);
+        const ImVec2 plotMaxScreen = ToScreen(plotMax);
+        drawList->AddRectFilled(plotMinScreen, plotMaxScreen, IM_COL32(18, 18, 22, 245), 4.0f);
+        drawList->AddRect(plotMinScreen, plotMaxScreen, IM_COL32(80, 86, 98, 255), 4.0f, 0, 1.2f);
+        drawList->AddText(AddImVec2(plotMaxScreen, ImVec2(-52.0f, 6.0f)), IM_COL32(210, 210, 215, 255), blend2DDisplayData.parameterNameX.c_str());
+        drawList->AddText(AddImVec2(plotMinScreen, ImVec2(8.0f, 6.0f)), IM_COL32(210, 210, 215, 255), blend2DDisplayData.parameterNameY.c_str());
+        drawList->AddCircleFilled(ToScreen(PlotPointFromBlend(0.0f, 0.0f)), 2.5f, IM_COL32(190, 196, 208, 215));
+
+        int pointIndex = 0;
+        for (const AnimationRuntimeBlend2DSampleViewModel& sample : blend2DDisplayData.samples)
+        {
+            const ImVec2 screenPoint = ToScreen(PlotPointFromBlend(sample.x, sample.y));
+            const float pointRadius = (sample.active ? 7.0f : 5.5f) * st.animationRuntimeBlend2DZoom;
+            drawList->AddCircleFilled(screenPoint, pointRadius, sample.active ? IM_COL32(255, 220, 90, 255) : IM_COL32(110, 190, 255, 255));
+            drawList->AddCircle(screenPoint, pointRadius + 3.0f, IM_COL32(70, 104, 138, 220), 0, 1.2f);
+
+            const char* clipId = AnimationRuntimeBlendSampleLabel(sample.clipName, sample.clipSourceAssetId);
+            std::string label = clipId;
+            if (label.size() > 18) { label = label.substr(0, 15) + "..."; }
+            const ImVec2 labelOffset = (pointIndex % 2 == 0)
+                ? ((sample.x >= 0.0f) ? ImVec2(10.0f, -18.0f) : ImVec2(10.0f, 6.0f))
+                : ((sample.x >= 0.0f) ? ImVec2(-84.0f, -18.0f) : ImVec2(-84.0f, 6.0f));
+            const ImVec2 labelPos = AddImVec2(screenPoint, labelOffset);
+            const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+            drawList->AddRectFilled(AddImVec2(labelPos, ImVec2(-4.0f, -2.0f)), AddImVec2(labelPos, AddImVec2(textSize, ImVec2(4.0f, 2.0f))), IM_COL32(20, 20, 24, 210), 4.0f);
+            drawList->AddText(labelPos, IM_COL32(232, 234, 238, 245), label.c_str());
+
+            const float hoverRadius = std::max(8.0f, pointRadius + 4.0f);
+            if (hovered)
+            {
+                const ImVec2 mousePos = ImGui::GetIO().MousePos;
+                const float mouseDeltaX = mousePos.x - screenPoint.x;
+                const float mouseDeltaY = mousePos.y - screenPoint.y;
+                if ((mouseDeltaX * mouseDeltaX + mouseDeltaY * mouseDeltaY) <= (hoverRadius * hoverRadius))
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("%s", clipId);
+                    ImGui::Separator();
+                    ImGui::Text("X: %.2f", sample.x);
+                    ImGui::Text("Y: %.2f", sample.y);
+                    ImGui::EndTooltip();
+                }
+            }
+            ++pointIndex;
+        }
+
+        if (blend2DDisplayData.live)
+        {
+            const ImVec2 screenPoint = ToScreen(PlotPointFromBlend(blend2DDisplayData.inputValueX, blend2DDisplayData.inputValueY));
+            drawList->AddLine(AddImVec2(screenPoint, ImVec2(-10.0f, 0.0f)), AddImVec2(screenPoint, ImVec2(10.0f, 0.0f)), IM_COL32(255, 220, 90, 255), 2.0f);
+            drawList->AddLine(AddImVec2(screenPoint, ImVec2(0.0f, -10.0f)), AddImVec2(screenPoint, ImVec2(0.0f, 10.0f)), IM_COL32(255, 220, 90, 255), 2.0f);
+            drawList->AddCircle(screenPoint, 10.0f, IM_COL32(255, 220, 90, 140), 0, 2.0f);
+        }
+
+        drawList->PopClipRect();
+        ImGui::EndChild();
+        ImGui::TextDisabled("MMB drag to pan, wheel to zoom. Hover a point for full clip id.");
+        if (ImGui::CollapsingHeader("Blend Samples"))
+        {
+            for (const AnimationRuntimeBlend2DSampleViewModel& sample : blend2DDisplayData.samples)
+            {
+                const char* clipId = AnimationRuntimeBlendSampleLabel(sample.clipName, sample.clipSourceAssetId);
+                ImGui::BulletText("(%.2f, %.2f) -> %s", sample.x, sample.y, clipId);
+            }
+        }
+    }
+
     static void DrawAnimationRuntimeTargetSection(const AnimationRuntimeViewModel& AnimationRuntimeViewModel)
     {
         ImGui::SeparatorText("Target");
@@ -2166,8 +2407,6 @@ namespace rendern::ui::level_ui_detail
         }
         
         const rendern::AnimationControllerRuntime& runtime = ctx.skinnedItem->controller;
-        const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
-        const rendern::AnimationStateDesc* blend2DPreviewState = FindAnimationRuntimeBlend2DPreviewState(runtime);
         const AnimationRuntimeViewModel animationRuntimeViewModel = BuildAnimationRuntimeViewModel(ctx, runtime, ctx.skinnedItem->animator);
 
         if (ImGui::Button("Select in editor"))
@@ -2191,43 +2430,17 @@ namespace rendern::ui::level_ui_detail
         ImGui::SeparatorText("Active Clips");
         DrawAnimationRuntimeWeightedClips(animationRuntimeViewModel.activeClips);
 
-        if (blend2DPreviewState != nullptr)
+        if (animationRuntimeViewModel.blend2DDisplayData.available)
         {
-            ImGui::SeparatorText(animationRuntimeViewModel.currentStateUsesBlend2D ? "Live Blend2D" : "Blend2D Preview");
-            if (animationRuntimeViewModel.currentStateUsesBlend2D)
-            {
-                ImGui::Text("Inputs: %s = %.3f, %s = %.3f",
-                    animationRuntimeViewModel.blendParameterNameX.c_str(),
-                    animationRuntimeViewModel.blendParameterValueX,
-                    animationRuntimeViewModel.blendParameterNameY.c_str(),
-                    animationRuntimeViewModel.blendParameterValueY);
-            }
-            else
-            {
-                ImGui::TextDisabled(
-                    "Current state is not Blend2D; showing '%s' blend space.",
-                    blend2DPreviewState->name.c_str());
-            }
-            
-            const float savedZoom = st.animationGraphBlend2DZoom;
-            const ImVec2 savedPan = st.animationGraphBlend2DPan;
-            st.animationGraphBlend2DZoom = st.animationRuntimeBlend2DZoom;
-            st.animationGraphBlend2DPan = st.animationRuntimeBlend2DPan;
-            DrawAnimationGraphBlend2DPreview(*blend2DPreviewState, runtime, st);
-            st.animationRuntimeBlend2DZoom = st.animationGraphBlend2DZoom;
-            st.animationRuntimeBlend2DPan = st.animationGraphBlend2DPan;
-            st.animationGraphBlend2DZoom = savedZoom;
-            st.animationGraphBlend2DPan = savedPan;
+            ImGui::SeparatorText(animationRuntimeViewModel.blend2DDisplayData.live ? "Live Blend2D" : "Blend2D Preview");
+            DrawAnimationRuntimeBlend2DDisplayData(animationRuntimeViewModel.blend2DDisplayData, st);
         }
-        else if (currentState != nullptr && animationRuntimeViewModel.hasCurrentStateDesc)
+        else if (animationRuntimeViewModel.hasCurrentStateDesc)
         {
-            if (animationRuntimeViewModel.currentStateUsesBlend1D)
+            if (animationRuntimeViewModel.blend1DDisplayData.available && animationRuntimeViewModel.blend1DDisplayData.live)
             {
                 ImGui::SeparatorText("Live Blend1D");
-                ImGui::Text("Input: %s = %.3f",
-                    animationRuntimeViewModel.blendParameterNameX.c_str(),
-                    animationRuntimeViewModel.blendParameterValueX);
-                DrawAnimationGraphBlend1DPreview(*currentState, runtime);
+                DrawAnimationRuntimeBlend1DDisplayData(animationRuntimeViewModel.blend1DDisplayData);
             }
             else if (!animationRuntimeViewModel.activeClips.empty())
             {

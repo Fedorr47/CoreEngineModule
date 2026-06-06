@@ -23,6 +23,47 @@
         float normalizedTime{ 0.0f };
     };
 
+    struct AnimationRuntimeBlend1DSampleViewModel
+    {
+        std::string clipName;
+        std::string clipSourceAssetId;
+        float position{ 0.0f };
+        float weight{ 0.0f };
+        bool active{ false };
+    };
+
+    struct AnimationRuntimeBlend1DViewModel
+    {
+        bool available{ false };
+        bool live{ false };
+        std::string stateName;
+        std::string parameterName;
+        float inputValue{ 0.0f };
+        std::vector<AnimationRuntimeBlend1DSampleViewModel> samples;
+    };
+
+    struct AnimationRuntimeBlend2DSampleViewModel
+    {
+        std::string clipName;
+        std::string clipSourceAssetId;
+        float x{ 0.0f };
+        float y{ 0.0f };
+        float weight{ 0.0f };
+        bool active{ false };
+    };
+
+    struct AnimationRuntimeBlend2DViewModel
+    {
+        bool available{ false };
+        bool live{ false };
+        std::string stateName;
+        std::string parameterNameX;
+        std::string parameterNameY;
+        float inputValueX{ 0.0f };
+        float inputValueY{ 0.0f };
+        std::vector<AnimationRuntimeBlend2DSampleViewModel> samples;
+    };
+
     struct AnimationRuntimeViewModel
     {
         int nodeIndex{ -1 };
@@ -49,11 +90,100 @@
         float blendParameterValueX{ 0.0f };
         float blendParameterValueY{ 0.0f };
         std::vector<AnimationRuntimeClipWeightViewModel> activeClips;
+        AnimationRuntimeBlend1DViewModel blend1DDisplayData;
+        AnimationRuntimeBlend2DViewModel blend2DDisplayData;
         std::vector<AnimationRuntimeParameterViewModel> parameters;
         std::vector<AnimationRuntimeNotifyViewModel> recentNotifies;
         std::vector<std::string> transitionCandidates;
         std::vector<std::string> routedGameplayEvents;
     };
+
+    [[nodiscard]] static float AnimationRuntimeGetClipWeight(
+        const rendern::AnimationControllerRuntime& runtime,
+        const std::string& clipName)
+    {
+        if (clipName.empty())
+        {
+            return 0.0f;
+        }
+
+        const float secondaryWeight = std::clamp(runtime.blendSecondaryAlpha, 0.0f, 1.0f);
+        const float tertiaryWeight = std::clamp(runtime.blendTertiaryAlpha, 0.0f, 1.0f);
+        const float primaryWeight = std::max(0.0f, 1.0f - secondaryWeight - tertiaryWeight);
+        if (clipName == runtime.currentBlendPrimaryClipName)
+        {
+            return primaryWeight;
+        }
+        if (clipName == runtime.currentBlendSecondaryClipName)
+        {
+            return secondaryWeight;
+        }
+        if (clipName == runtime.currentBlendTertiaryClipName)
+        {
+            return tertiaryWeight;
+        }
+        return 0.0f;
+    }
+
+    [[nodiscard]] static AnimationRuntimeBlend1DViewModel BuildAnimationRuntimeBlend1DViewModel(
+        const rendern::AnimationStateDesc* currentState,
+        const rendern::AnimationControllerRuntime& runtime)
+    {
+        AnimationRuntimeBlend1DViewModel blend1DDisplayData{};
+        if (currentState == nullptr || currentState->blend1D.empty())
+        {
+            return blend1DDisplayData;
+        }
+
+        blend1DDisplayData.available = true;
+        blend1DDisplayData.live = runtime.currentStateName == currentState->name && runtime.currentStateUsesBlend1D;
+        blend1DDisplayData.stateName = currentState->name;
+        blend1DDisplayData.parameterName = currentState->blendParameter;
+        blend1DDisplayData.inputValue = blend1DDisplayData.live ? runtime.currentBlendParameterValue : 0.0f;
+        blend1DDisplayData.samples.reserve(currentState->blend1D.size());
+        for (const rendern::AnimationBlend1DPoint& sample : currentState->blend1D)
+        {
+            const float sampleWeight = blend1DDisplayData.live ? AnimationRuntimeGetClipWeight(runtime, sample.clipName) : 0.0f;
+            AnimationRuntimeBlend1DSampleViewModel sampleDisplayData{};
+            sampleDisplayData.clipName = sample.clipName;
+            //sampleDisplayData.clipSourceAssetId = sample.clipSourceAssetId;
+            sampleDisplayData.position = sample.value;
+            sampleDisplayData.weight = sampleWeight;
+            sampleDisplayData.active = sampleWeight > 1e-6f;
+            blend1DDisplayData.samples.push_back(std::move(sampleDisplayData));
+        }
+        return blend1DDisplayData;
+    }
+
+    [[nodiscard]] static AnimationRuntimeBlend2DViewModel BuildAnimationRuntimeBlend2DViewModel(
+        const rendern::AnimationStateDesc* blend2DState,
+        const rendern::AnimationControllerRuntime& runtime)
+    {
+        AnimationRuntimeBlend2DViewModel blend2DDisplayData{};
+        if (blend2DState == nullptr || blend2DState->blend2D.empty())
+        {
+            return blend2DDisplayData;
+        }
+
+        blend2DDisplayData.available = true;
+        blend2DDisplayData.live = runtime.currentStateName == blend2DState->name && runtime.currentStateUsesBlend2D;
+        blend2DDisplayData.stateName = blend2DState->name;
+        blend2DDisplayData.parameterNameX = blend2DState->blendParameterX;
+        blend2DDisplayData.parameterNameY = blend2DState->blendParameterY;
+        blend2DDisplayData.inputValueX = blend2DDisplayData.live ? runtime.currentBlendParameterValue : 0.0f;
+        blend2DDisplayData.inputValueY = blend2DDisplayData.live ? runtime.currentBlendParameterValueY : 0.0f;
+        blend2DDisplayData.samples.reserve(blend2DState->blend2D.size());
+        for (const rendern::AnimationBlend2DPoint& sample : blend2DState->blend2D)
+        {
+            AnimationRuntimeBlend2DSampleViewModel sampleDisplayData{};
+            sampleDisplayData.clipName = sample.clipName;
+            sampleDisplayData.clipSourceAssetId = sample.clipSourceAssetId;
+            sampleDisplayData.x = sample.x;
+            sampleDisplayData.y = sample.y;
+            blend2DDisplayData.samples.push_back(std::move(sampleDisplayData));
+        }
+        return blend2DDisplayData;
+    }
 
     [[nodiscard]] static AnimationRuntimeViewModel BuildAnimationRuntimeViewModel(
         const AnimationGraphContext& ctx,
@@ -91,13 +221,17 @@
         viewModel.transitionAlpha = (runtime.transitionDurationSeconds > 1e-6f)
             ? std::clamp(runtime.transitionElapsedSeconds / runtime.transitionDurationSeconds, 0.0f, 1.0f)
             : (runtime.transitionActive ? 1.0f : 0.0f);
-        viewModel.hasCurrentStateDesc = FindAnimationRuntimeStateDesc(runtime) != nullptr;
+        const rendern::AnimationStateDesc* currentState = FindAnimationRuntimeStateDesc(runtime);
+        viewModel.hasCurrentStateDesc = currentState != nullptr;
         viewModel.currentStateUsesBlend1D = runtime.currentStateUsesBlend1D;
         viewModel.currentStateUsesBlend2D = runtime.currentStateUsesBlend2D;
         viewModel.blendParameterNameX = runtime.currentBlendParameterName;
         viewModel.blendParameterNameY = runtime.currentBlendParameterNameY;
         viewModel.blendParameterValueX = runtime.currentBlendParameterValue;
         viewModel.blendParameterValueY = runtime.currentBlendParameterValueY;
+
+        viewModel.blend1DDisplayData = BuildAnimationRuntimeBlend1DViewModel(currentState, runtime);
+        viewModel.blend2DDisplayData = BuildAnimationRuntimeBlend2DViewModel(FindAnimationRuntimeBlend2DPreviewState(runtime), runtime);
 
         const float secondaryWeight = std::clamp(runtime.blendSecondaryAlpha, 0.0f, 1.0f);
         const float tertiaryWeight = std::clamp(runtime.blendTertiaryAlpha, 0.0f, 1.0f);
