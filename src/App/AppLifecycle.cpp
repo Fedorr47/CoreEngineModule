@@ -363,9 +363,6 @@ namespace appLifecycle
     static void UpdatePerformanceSnapshot(rendern::RendererSettings& rendererSettings, const CpuFrameTimings& cpuFrameTimings)
     {
         rendern::PerformanceSnapshot& performanceSnapshot = rendererSettings.performanceSnapshot;
-        performanceSnapshot.fps = rendererSettings.mainViewportFpsDisplay;
-        performanceSnapshot.frameTimeMs = rendererSettings.mainViewportFrameMsDisplay;
-        performanceSnapshot.rawFrameTimeMs = rendererSettings.mainViewportRawFrameMsDisplay;
         performanceSnapshot.cpuFrameStages.totalBeforeSleepMs = static_cast<float>(cpuFrameTimings.totalBeforeSleepMs);
         performanceSnapshot.cpuFrameStages.totalWithSleepMs = static_cast<float>(cpuFrameTimings.totalWithSleepMs);
         performanceSnapshot.cpuFrameStages.updateFrameTimingMs = static_cast<float>(cpuFrameTimings.updateFrameTimingMs);
@@ -378,7 +375,7 @@ namespace appLifecycle
         performanceSnapshot.cpuFrameStages.renderDebugWindowMs = static_cast<float>(cpuFrameTimings.renderDebugWindowMs);
         performanceSnapshot.cpuFrameStages.tinySleepMs = static_cast<float>(cpuFrameTimings.tinySleepMs);
         performanceSnapshot.hasGpuTimings = false;
-        performanceSnapshot.PushFrameTimeSample(rendererSettings.mainViewportRawFrameMsDisplay);
+        performanceSnapshot.PushFrameTimeSample(performanceSnapshot.rawFrameTimeMs);
     }
 
     bool TickApp(AppState& app)
@@ -471,18 +468,7 @@ namespace appLifecycle
         cpu.renderDebugWindowMs = Ms(debugRenderEnd - debugRenderStart);
         cpu.tinySleepMs = Ms(afterSleep - beforeSleep);
         cpu.streamingMs = Ms(streamingEnd - streamingStart);
-
-        graphicState.rendererSettings.cpuTotalBeforeSleepMs = static_cast<float>(cpu.totalBeforeSleepMs);
-        graphicState.rendererSettings.cpuTotalWithSleepMs = static_cast<float>(cpu.totalWithSleepMs);
-        graphicState.rendererSettings.cpuUpdateFrameTimingMs = static_cast<float>(cpu.updateFrameTimingMs);
-        graphicState.rendererSettings.cpuInputMs = static_cast<float>(cpu.inputMs);
-        graphicState.rendererSettings.cpuEditorInteractionMs = static_cast<float>(cpu.editorInteractionMs);
-        graphicState.rendererSettings.cpuGameplayAndAnimationMs = static_cast<float>(cpu.gameplayAndAnimationMs);
-        graphicState.rendererSettings.cpuBuildImGuiMs = static_cast<float>(cpu.buildImGuiMs);
-        graphicState.rendererSettings.cpuRenderMainViewportMs = static_cast<float>(cpu.renderMainViewportMs);
-        graphicState.rendererSettings.cpuRenderDebugWindowMs = static_cast<float>(cpu.renderDebugWindowMs);
-        graphicState.rendererSettings.cpuTinySleepMs = static_cast<float>(cpu.tinySleepMs);
-        graphicState.rendererSettings.cpuStreamingMs = static_cast<float>(cpu.streamingMs);
+        
         UpdatePerformanceSnapshot(graphicState.rendererSettings, cpu);
         
         ++app.frameState.frameIndex;

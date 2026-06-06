@@ -131,31 +131,13 @@ export namespace rendern
 		float animationRuntimeOverlayTextScale{ 1.10f };
 		float animationRuntimeOverlayAnchorXPx{ 12.0f };
 		float animationRuntimeOverlayAnchorYPx{ 54.0f };
-
-		bool drawMainViewportFpsStats{ false };
-		bool drawCpuFrameTimingOverlay{ false };
+		
 		bool logCpuFrameTimings{ true };
-		float mainViewportFpsTextScale{ 1.35f };
-		float mainViewportFpsDisplay{ 0.0f };
-		float mainViewportFrameMsDisplay{ 0.0f };
-		float mainViewportRawFrameMsDisplay{ 0.0f };
-		float cpuTotalBeforeSleepMs{ 0.0f };
-		float cpuTotalWithSleepMs{ 0.0f };
-		float cpuStreamingMs{ 0.0f };
 		
 		bool enableDebugWindowRender{ true };
 		bool showPerformancePanel{ true };
 		PerformanceSnapshot performanceSnapshot{};
 		bool enableTinySleep{ false };
-
-		float cpuUpdateFrameTimingMs{ 0.0f };
-		float cpuInputMs{ 0.0f };
-		float cpuEditorInteractionMs{ 0.0f };
-		float cpuGameplayAndAnimationMs{ 0.0f };
-		float cpuBuildImGuiMs{ 0.0f };
-		float cpuRenderMainViewportMs{ 0.0f };
-		float cpuRenderDebugWindowMs{ 0.0f };
-		float cpuTinySleepMs{ 0.0f };
 
 		float gameplayMovementVelocityScale{ 0.35f };
 		float gameplayMovementTargetVelocityScale{ 0.35f };

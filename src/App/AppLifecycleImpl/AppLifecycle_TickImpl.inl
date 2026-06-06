@@ -31,8 +31,8 @@ static float UpdateFrameTimingAndLoadingOverlay(AppState& app)
     app.frameState.frameTimer.Tick();
 
     const double rawFrameDeltaSeconds = app.frameState.frameTimer.GetDeltaTime();
-    app.graphicsState.rendererSettings.mainViewportRawFrameMsDisplay =
-    static_cast<float>(rawFrameDeltaSeconds * 1000.0);
+    app.graphicsState.rendererSettings.performanceSnapshot.rawFrameTimeMs =
+        static_cast<float>(rawFrameDeltaSeconds * 1000.0);
     const float deltaSeconds = static_cast<float>(rawFrameDeltaSeconds);
 
     FrameStatsOverlayState& frameStats = app.frameState.frameStatsOverlay;
@@ -70,8 +70,8 @@ static float UpdateFrameTimingAndLoadingOverlay(AppState& app)
         }
     }
 
-    app.graphicsState.rendererSettings.mainViewportFpsDisplay = frameStats.displayFps;
-    app.graphicsState.rendererSettings.mainViewportFrameMsDisplay = frameStats.displayMs;
+    app.graphicsState.rendererSettings.performanceSnapshot.fps = frameStats.displayFps;
+    app.graphicsState.rendererSettings.performanceSnapshot.frameTimeMs = frameStats.displayMs;
 
     const AssetStreamingStats streamingStats = app.contentState.assets->GetStreamingStats();
     const bool hasPendingStreaming = streamingStats.HasPendingWork();

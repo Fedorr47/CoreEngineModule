@@ -61,13 +61,55 @@ namespace rendern::ui
             averageFrameTimeMs = totalFrameTimeMs / static_cast<float>(sampleCount);
         }
 
-        static void DrawCpuStageRow(const char* label, float milliseconds)
+        struct CpuStageDisplayRow
+        {
+            const char* label{ "" };
+            char millisecondsText[32]{};
+        };
+
+        struct CpuStageDisplayCache
+        {
+            static constexpr std::size_t RowCount = 11u;
+
+            std::array<CpuStageDisplayRow, RowCount> cachedCpuStageRows{};
+            double lastCpuStageDisplayRefreshTime{ 0.0 };
+            bool initialized{ false };
+        };
+
+        static void SetCpuStageDisplayRow(CpuStageDisplayRow& row, const char* label, float milliseconds)
+        {
+            row.label = label;
+            std::snprintf(row.millisecondsText, sizeof(row.millisecondsText), "%.3f", milliseconds);
+        }
+
+        static void RefreshCpuStageDisplayCache(
+            CpuStageDisplayCache& cpuStageDisplayCache,
+            const rendern::CpuFrameStageTimingSnapshot& cpuFrameStages,
+            double refreshTimeSeconds)
+        {
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[0], "Total before sleep", cpuFrameStages.totalBeforeSleepMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[1], "Total with sleep", cpuFrameStages.totalWithSleepMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[2], "Frame timing update", cpuFrameStages.updateFrameTimingMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[3], "Input", cpuFrameStages.inputMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[4], "Editor interaction", cpuFrameStages.editorInteractionMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[5], "Streaming", cpuFrameStages.streamingMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[6], "Gameplay + animation", cpuFrameStages.gameplayAndAnimationMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[7], "ImGui build", cpuFrameStages.buildImGuiMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[8], "Main viewport render", cpuFrameStages.renderMainViewportMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[9], "Debug window render", cpuFrameStages.renderDebugWindowMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[10], "Tiny sleep", cpuFrameStages.tinySleepMs);
+
+            cpuStageDisplayCache.lastCpuStageDisplayRefreshTime = refreshTimeSeconds;
+            cpuStageDisplayCache.initialized = true;
+        }
+
+        static void DrawCpuStageRow(const CpuStageDisplayRow& row)
         {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(label);
+            ImGui::TextUnformatted(row.label);
             ImGui::TableNextColumn();
-            ImGui::Text("%.3f", milliseconds);
+            ImGui::TextUnformatted(row.millisecondsText);
         }
     }
 
@@ -119,18 +161,19 @@ namespace rendern::ui
             ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, 90.0f);
             ImGui::TableHeadersRow();
 
-            const rendern::CpuFrameStageTimingSnapshot& cpuFrameStages = performanceSnapshot.cpuFrameStages;
-            DrawCpuStageRow("Total before sleep", cpuFrameStages.totalBeforeSleepMs);
-            DrawCpuStageRow("Total with sleep", cpuFrameStages.totalWithSleepMs);
-            DrawCpuStageRow("Frame timing update", cpuFrameStages.updateFrameTimingMs);
-            DrawCpuStageRow("Input", cpuFrameStages.inputMs);
-            DrawCpuStageRow("Editor interaction", cpuFrameStages.editorInteractionMs);
-            DrawCpuStageRow("Streaming", cpuFrameStages.streamingMs);
-            DrawCpuStageRow("Gameplay + animation", cpuFrameStages.gameplayAndAnimationMs);
-            DrawCpuStageRow("ImGui build", cpuFrameStages.buildImGuiMs);
-            DrawCpuStageRow("Main viewport render", cpuFrameStages.renderMainViewportMs);
-            DrawCpuStageRow("Debug window render", cpuFrameStages.renderDebugWindowMs);
-            DrawCpuStageRow("Tiny sleep", cpuFrameStages.tinySleepMs);
+            static CpuStageDisplayCache cpuStageDisplayCache{};
+            constexpr double CpuStageDisplayRefreshIntervalSeconds = 0.25;
+            const double currentTimeSeconds = ImGui::GetTime();
+            if (!cpuStageDisplayCache.initialized ||
+                currentTimeSeconds - cpuStageDisplayCache.lastCpuStageDisplayRefreshTime >= CpuStageDisplayRefreshIntervalSeconds)
+            {
+                RefreshCpuStageDisplayCache(cpuStageDisplayCache, performanceSnapshot.cpuFrameStages, currentTimeSeconds);
+            }
+
+            for (const CpuStageDisplayRow& cachedCpuStageRow : cpuStageDisplayCache.cachedCpuStageRows)
+            {
+                DrawCpuStageRow(cachedCpuStageRow);
+            }
             ImGui::EndTable();
         }
 
@@ -143,9 +186,7 @@ namespace rendern::ui
         {
             ImGui::TextDisabled("GPU timings unavailable: the current shared performance snapshot does not expose GPU timestamp data.");
         }
-
-        ImGui::Separator();
-        ImGui::TextDisabled("Viewport FPS/CPU overlays are disabled by default; use Renderer / Shadows for fallback toggles.");
+        
         ImGui::End();
     }
 }

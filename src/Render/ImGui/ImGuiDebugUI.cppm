@@ -7,6 +7,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <array>
 
 #if defined(CORE_USE_DX12)
 #include <imgui.h>

@@ -274,11 +274,7 @@ namespace rendern::ui
         ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
-        ImGui::Checkbox("Viewport FPS stats fallback", &rs.drawMainViewportFpsStats);
-        if (rs.drawMainViewportFpsStats)
-        {
-            ImGui::SliderFloat("FPS text scale", &rs.mainViewportFpsTextScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
-        }
+       
         if (rs.drawGameplayMovementDebug)
         {
             ImGui::Checkbox("Movement debug: controlled only", &rs.drawGameplayMovementDebugOnlyControlled);
@@ -292,7 +288,6 @@ namespace rendern::ui
             ImGui::SliderFloat("Movement label scale", &rs.gameplayMovementLabelScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderFloat("Movement text scale", &rs.gameplayMovementTextScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
         }
-        ImGui::Checkbox("Viewport CPU timing fallback", &rs.drawCpuFrameTimingOverlay);
         ImGui::Checkbox("Animation runtime overlay", &rs.drawAnimationRuntimeOverlay);
         if (rs.drawAnimationRuntimeOverlay)
         {

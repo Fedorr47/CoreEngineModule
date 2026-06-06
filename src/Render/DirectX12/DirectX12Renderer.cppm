@@ -612,8 +612,6 @@ export namespace rendern
 		double lastRenderFrameMainPassBuildMs_{ 0.0 };
 		double lastRenderFrameDebugAndPresentBuildMs_{ 0.0 };
 		// - execure graph metrics
-		double lastDebugFpsOverlayBuildMs_{ 0.0 };
-		double lastDebugCpuOverlayBuildMs_{ 0.0 };
 		double lastDebugAnimationOverlayBuildMs_{ 0.0 };
 		double lastDebugReflectionGizmosBuildMs_{ 0.0 };
 		double lastDebugLightGizmosBuildMs_{ 0.0 };

@@ -2,105 +2,6 @@
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
 
-const auto fpsOverlayStart = std::chrono::steady_clock::now();
-if (settings_.drawMainViewportFpsStats && settings_.mainViewportFpsDisplay > 0.0f)
-{
-	char fpsText[96]{};
-	std::snprintf(
-		fpsText,
-		sizeof(fpsText),
-		"FPS %.1f | %.2f ms | raw %.2f",
-		settings_.mainViewportFpsDisplay,
-		settings_.mainViewportFrameMsDisplay,
-		settings_.mainViewportRawFrameMsDisplay);
-
-	const float fpsScale = std::clamp(settings_.mainViewportFpsTextScale, 0.5f, 3.0f);
-	const float outlinePx = std::clamp(fpsScale * 0.6f, 1.0f, 3.0f);
-	textList.AddOutlinedTextAlignedPx(
-		12.0f,
-		12.0f,
-		fpsText,
-		debugText::TextAlignH::Left,
-		debugText::TextAlignV::Top,
-		debugText::PackRGBA8(255, 255, 255, 255),
-		debugText::PackRGBA8(0, 0, 0, 210),
-		fpsScale,
-		outlinePx);
-}
-lastDebugFpsOverlayBuildMs_ = ElapsedMs(fpsOverlayStart, std::chrono::steady_clock::now());
-
-const auto cpuOverlayStart = std::chrono::steady_clock::now();
-if (settings_.drawCpuFrameTimingOverlay)
-{
-	char cpuTimingText[512]{};
-	std::snprintf(
-	cpuTimingText,
-	sizeof(cpuTimingText),
-	"CPU %.2f ms / %.2f with sleep\n"
-	"Timing %.2f | Input %.2f | Editor %.2f\n"
-	"Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f\n"
-	"MainRender %.2f | DebugRender %.2f | Sleep %.2f\n"
-	"Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f\n"
-	"RG %.2f | Tex %.2f | FB %.2f\n"
-	"Pass %.2f | Submit %.2f | Present %.2f\n"
-	"Submit: Begin %.2f | Flush %.2f | Parse %.2f | End %.2f\n"
-	"Dbg: FPS %.2f | CPU %.2f | Anim %.2f | Refl %.2f\n"
-	"Gizmo: Light %.2f | Part %.2f | Editor %.2f | Move %.2f\n"
-	"DbgPass %.2f",
-	settings_.cpuTotalBeforeSleepMs,
-	settings_.cpuTotalWithSleepMs,
-	settings_.cpuUpdateFrameTimingMs,
-	settings_.cpuInputMs,
-	settings_.cpuEditorInteractionMs,
-	settings_.cpuStreamingMs,
-	settings_.cpuGameplayAndAnimationMs,
-	settings_.cpuBuildImGuiMs,
-	settings_.cpuRenderMainViewportMs,
-	settings_.cpuRenderDebugWindowMs,
-	settings_.cpuTinySleepMs,
-	lastRenderFrameBuildGraphMs_,
-	lastRenderFrameSetupCsmMs_,
-	lastRenderFrameBuildInstancesMs_,
-	lastRenderFrameShadowPassBuildMs_,
-	lastRenderFrameReflectionCaptureBuildMs_,
-	lastRenderFramePreDepthBuildMs_,
-	lastRenderFrameMainPassBuildMs_,
-	lastRenderFrameDebugAndPresentBuildMs_,
-	lastRenderGraphCpuTimings_.totalMs,
-	lastRenderGraphCpuTimings_.createTexturesMs,
-	lastRenderGraphCpuTimings_.createFramebuffersMs,
-	lastRenderGraphCpuTimings_.executePassesMs,
-	lastRenderGraphCpuTimings_.submitCommandListMs,
-	lastRenderGraphPresentMs_,
-	lastSubmitCpuTimings_.beginFrameMs,
-	lastSubmitCpuTimings_.flushPendingBufferUpdatesMs,
-	lastSubmitCpuTimings_.parseCommandsMs,
-	lastSubmitCpuTimings_.endFrameMs,
-	lastDebugFpsOverlayBuildMs_,
-	lastDebugCpuOverlayBuildMs_,
-	lastDebugAnimationOverlayBuildMs_,
-	lastDebugReflectionGizmosBuildMs_,
-	lastDebugLightGizmosBuildMs_,
-	lastDebugParticleGizmosBuildMs_,
-	lastDebugEditorGizmosBuildMs_,
-	lastDebugGameplayMovementBuildMs_,
-	lastDebugRenderPassBuildMs_);
-	
-	const float cpuScale = std::clamp(settings_.mainViewportFpsTextScale * 0.8f, 0.5f, 2.5f);
-	const float cpuOutlinePx = std::clamp(cpuScale * 0.6f, 1.0f, 3.0f);
-	textList.AddOutlinedTextAlignedPx(
-		12.0f,
-		40.0f,
-		cpuTimingText,
-		debugText::TextAlignH::Left,
-		debugText::TextAlignV::Top,
-		debugText::PackRGBA8(180, 255, 180, 255),
-		debugText::PackRGBA8(0, 0, 0, 210),
-		cpuScale,
-		cpuOutlinePx);
-}
-lastDebugCpuOverlayBuildMs_ = ElapsedMs(cpuOverlayStart, std::chrono::steady_clock::now());
-
 const auto animOverlayStart = std::chrono::steady_clock::now();
 if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.samples.empty())
 {
@@ -1248,7 +1149,7 @@ graph.Execute(
 	device_,
 	swapChain,
 	renderGraph::ExecuteOptions{
-		.enableCpuTiming = settings_.drawCpuFrameTimingOverlay || settings_.logCpuFrameTimings
+		.enableCpuTiming = settings_.logCpuFrameTimings
 	});
 
 lastRenderGraphCpuTimings_ = graph.GetLastExecuteCpuTimings();
@@ -1267,7 +1168,7 @@ if (settings_.logCpuFrameTimings)
 	"[CPU] Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f | "
 	"RG %.2f (Tex %.2f FB %.2f Pass %.2f Submit %.2f) | Present %.2f | "
 	"Submit: Begin %.2f | Flush %.2f | Parse %.2f | End %.2f\n"
-	"[DBG] FPS %.2f CPU %.2f Anim %.2f Refl %.2f Light %.2f Part %.2f Editor %.2f Move %.2f Pass %.2f\n",
+	"[DBG] Anim %.2f Refl %.2f Light %.2f Part %.2f Editor %.2f Move %.2f Pass %.2f\n",
 	lastRenderFrameBuildGraphMs_,
 	lastRenderFrameSetupCsmMs_,
 	lastRenderFrameBuildInstancesMs_,
@@ -1286,8 +1187,6 @@ if (settings_.logCpuFrameTimings)
 	lastSubmitCpuTimings_.flushPendingBufferUpdatesMs,
 	lastSubmitCpuTimings_.parseCommandsMs,
 	lastSubmitCpuTimings_.endFrameMs,
-	lastDebugFpsOverlayBuildMs_,
-	lastDebugCpuOverlayBuildMs_,
 	lastDebugAnimationOverlayBuildMs_,
 	lastDebugReflectionGizmosBuildMs_,
 	lastDebugLightGizmosBuildMs_,
