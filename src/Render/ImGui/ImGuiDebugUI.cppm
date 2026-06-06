@@ -54,6 +54,7 @@ export namespace rendern::ui
 
 #include "ImGuiDebugUI_Common.inl"
 #include "ImGuiDebugUI_RendererCore.inl"
+#include "ImGuiDebugUI_Performance.inl"
 #include "ImGuiDebugUI_Reflections.inl"
 #include "ImGuiDebugUI_Light.inl"
 #include "ImGuiDebugUI_RendererFacade.inl"
@@ -124,6 +125,7 @@ namespace rendern::ui
             ImGui::DockBuilderDockWindow("Animation Graph", dockLeft);
             ImGui::DockBuilderDockWindow("Animation Runtime", dockLeft);
             ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRightTop);
+            ImGui::DockBuilderDockWindow("Performance / Profiler", dockRightTop);
             ImGui::DockBuilderDockWindow("Reflections", dockRightBottomLeft);
             ImGui::DockBuilderDockWindow("Lights", dockRightBottomLeft);
 

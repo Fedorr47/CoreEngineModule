@@ -6,6 +6,7 @@ namespace rendern::ui
         rendern::CameraController& camCtl)
     {
         DrawRendererCoreWindow(rs, scene, camCtl);
+        DrawPerformanceWindow(rs);
         DrawReflectionsWindow(rs, scene);
         DrawLightsWindow(scene);
     }

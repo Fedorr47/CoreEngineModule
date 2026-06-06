@@ -360,6 +360,27 @@ namespace appLifecycle
         return std::chrono::duration<double, std::milli>(duration).count();
     }
 
+    static void UpdatePerformanceSnapshot(rendern::RendererSettings& rendererSettings, const CpuFrameTimings& cpuFrameTimings)
+    {
+        rendern::PerformanceSnapshot& performanceSnapshot = rendererSettings.performanceSnapshot;
+        performanceSnapshot.fps = rendererSettings.mainViewportFpsDisplay;
+        performanceSnapshot.frameTimeMs = rendererSettings.mainViewportFrameMsDisplay;
+        performanceSnapshot.rawFrameTimeMs = rendererSettings.mainViewportRawFrameMsDisplay;
+        performanceSnapshot.cpuFrameStages.totalBeforeSleepMs = static_cast<float>(cpuFrameTimings.totalBeforeSleepMs);
+        performanceSnapshot.cpuFrameStages.totalWithSleepMs = static_cast<float>(cpuFrameTimings.totalWithSleepMs);
+        performanceSnapshot.cpuFrameStages.updateFrameTimingMs = static_cast<float>(cpuFrameTimings.updateFrameTimingMs);
+        performanceSnapshot.cpuFrameStages.inputMs = static_cast<float>(cpuFrameTimings.inputMs);
+        performanceSnapshot.cpuFrameStages.editorInteractionMs = static_cast<float>(cpuFrameTimings.editorInteractionMs);
+        performanceSnapshot.cpuFrameStages.streamingMs = static_cast<float>(cpuFrameTimings.streamingMs);
+        performanceSnapshot.cpuFrameStages.gameplayAndAnimationMs = static_cast<float>(cpuFrameTimings.gameplayAndAnimationMs);
+        performanceSnapshot.cpuFrameStages.buildImGuiMs = static_cast<float>(cpuFrameTimings.buildImGuiMs);
+        performanceSnapshot.cpuFrameStages.renderMainViewportMs = static_cast<float>(cpuFrameTimings.renderMainViewportMs);
+        performanceSnapshot.cpuFrameStages.renderDebugWindowMs = static_cast<float>(cpuFrameTimings.renderDebugWindowMs);
+        performanceSnapshot.cpuFrameStages.tinySleepMs = static_cast<float>(cpuFrameTimings.tinySleepMs);
+        performanceSnapshot.hasGpuTimings = false;
+        performanceSnapshot.PushFrameTimeSample(rendererSettings.mainViewportRawFrameMsDisplay);
+    }
+
     bool TickApp(AppState& app)
     {
         using Clock = std::chrono::steady_clock;
@@ -462,6 +483,7 @@ namespace appLifecycle
         graphicState.rendererSettings.cpuRenderDebugWindowMs = static_cast<float>(cpu.renderDebugWindowMs);
         graphicState.rendererSettings.cpuTinySleepMs = static_cast<float>(cpu.tinySleepMs);
         graphicState.rendererSettings.cpuStreamingMs = static_cast<float>(cpu.streamingMs);
+        UpdatePerformanceSnapshot(graphicState.rendererSettings, cpu);
         
         ++app.frameState.frameIndex;
         if (graphicState.rendererSettings.logCpuFrameTimings && (app.frameState.frameIndex % 120u) == 0u)

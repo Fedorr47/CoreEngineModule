@@ -3,12 +3,59 @@ module;
 #include <filesystem>
 #include <cstdint>
 #include <array>
+#include <cstddef>
 
 // Shared, backend-agnostic renderer settings.
 export module core:renderer_settings;
 
 export namespace rendern
 {
+	struct CpuFrameStageTimingSnapshot
+	{
+		float totalBeforeSleepMs{ 0.0f };
+		float totalWithSleepMs{ 0.0f };
+		float updateFrameTimingMs{ 0.0f };
+		float inputMs{ 0.0f };
+		float editorInteractionMs{ 0.0f };
+		float streamingMs{ 0.0f };
+		float gameplayAndAnimationMs{ 0.0f };
+		float buildImGuiMs{ 0.0f };
+		float renderMainViewportMs{ 0.0f };
+		float renderDebugWindowMs{ 0.0f };
+		float tinySleepMs{ 0.0f };
+	};
+
+	struct PerformanceSnapshot
+	{
+		static constexpr std::size_t FrameTimeHistoryCapacity = 128u;
+
+		float fps{ 0.0f };
+		float frameTimeMs{ 0.0f };
+		float rawFrameTimeMs{ 0.0f };
+		CpuFrameStageTimingSnapshot cpuFrameStages{};
+		bool hasFrameSample{ false };
+		bool hasGpuTimings{ false };
+		std::array<float, FrameTimeHistoryCapacity> frameTimeHistoryMs{};
+		std::size_t frameTimeHistoryCount{ 0u };
+		std::size_t nextFrameTimeHistoryIndex{ 0u };
+
+		void PushFrameTimeSample(float sampleFrameTimeMs) noexcept
+		{
+			if (sampleFrameTimeMs <= 0.0f)
+			{
+				return;
+			}
+
+			frameTimeHistoryMs[nextFrameTimeHistoryIndex] = sampleFrameTimeMs;
+			nextFrameTimeHistoryIndex = (nextFrameTimeHistoryIndex + 1u) % FrameTimeHistoryCapacity;
+			if (frameTimeHistoryCount < FrameTimeHistoryCapacity)
+			{
+				++frameTimeHistoryCount;
+			}
+			hasFrameSample = true;
+		}
+	};
+
 	struct RendererSettings
 	{
 		float dirShadowBaseBiasTexels{ 0.6f };
@@ -85,8 +132,8 @@ export namespace rendern
 		float animationRuntimeOverlayAnchorXPx{ 12.0f };
 		float animationRuntimeOverlayAnchorYPx{ 54.0f };
 
-		bool drawMainViewportFpsStats{ true };
-		bool drawCpuFrameTimingOverlay{ true };
+		bool drawMainViewportFpsStats{ false };
+		bool drawCpuFrameTimingOverlay{ false };
 		bool logCpuFrameTimings{ true };
 		float mainViewportFpsTextScale{ 1.35f };
 		float mainViewportFpsDisplay{ 0.0f };
@@ -97,6 +144,8 @@ export namespace rendern
 		float cpuStreamingMs{ 0.0f };
 		
 		bool enableDebugWindowRender{ true };
+		bool showPerformancePanel{ true };
+		PerformanceSnapshot performanceSnapshot{};
 		bool enableTinySleep{ false };
 
 		float cpuUpdateFrameTimingMs{ 0.0f };
