@@ -54,7 +54,9 @@ namespace rendern::ui::level_ui_detail
         SceneHierarchyItemTypeFlags typeFlags{};
         bool isSelected{ false };
         bool isVisibleOrEnabled{ true };
+        // Copied display data only; childItemIndices is the traversal source.
         bool hasChildren{ false };
+        std::vector<int> childItemIndices;
     };
 
     struct SceneHierarchyViewModel
@@ -130,6 +132,23 @@ namespace rendern::ui::level_ui_detail
         const std::size_t i = static_cast<std::size_t>(idx);
         return i < level.nodes.size() && level.nodes[i].alive;
     }
+    
+    // Compatibility sync while Scene-owned editor selection migrates to EditorSelectionService.
+    static void SyncEditorSelectionServiceWithScene(
+        const rendern::Scene& scene,
+        rendern::EditorSelectionService& editorSelection)
+    {
+        editorSelection.ClearSelection();
+        for (const int selectedNodeIndex : scene.editorSelectedNodes)
+        {
+            editorSelection.ToggleSceneNode(selectedNodeIndex);
+        }
+
+        if (scene.editorSelectedNode >= 0 && !editorSelection.IsSceneNodeSelected(scene.editorSelectedNode))
+        {
+            editorSelection.ToggleSceneNode(scene.editorSelectedNode);
+        }
+    }
 
     static void SyncSavePathWithSource(rendern::LevelAsset& level, LevelEditorUIState& uiState)
     {
@@ -141,6 +160,152 @@ namespace rendern::ui::level_ui_detail
                 : uiState.cachedSourcePath;
             std::snprintf(uiState.savePathBuf, sizeof(uiState.savePathBuf), "%s", fallback.c_str());
         }
+    }
+    
+    static SceneHierarchyLightKind ToSceneHierarchyLightKind(rendern::LightType type) noexcept
+    {
+        switch (type)
+        {
+        case rendern::LightType::Directional: return SceneHierarchyLightKind::Directional;
+        case rendern::LightType::Point:       return SceneHierarchyLightKind::Point;
+        case rendern::LightType::Spot:        return SceneHierarchyLightKind::Spot;
+        }
+        return SceneHierarchyLightKind::Unknown;
+    }
+
+    static const char* SceneHierarchyLightKindLabel(SceneHierarchyLightKind kind) noexcept
+    {
+        switch (kind)
+        {
+        case SceneHierarchyLightKind::Directional: return "Directional";
+        case SceneHierarchyLightKind::Point:       return "Point";
+        case SceneHierarchyLightKind::Spot:        return "Spot";
+        case SceneHierarchyLightKind::Unknown:     return "Unknown";
+        }
+        return "Unknown";
+    }
+
+    static SceneHierarchyNodeSourceKind GetSceneHierarchyNodeSourceKind(const rendern::LevelNode& node) noexcept
+    {
+        if (!node.skinnedMesh.empty())
+            return SceneHierarchyNodeSourceKind::SkinnedMesh;
+        if (!node.model.empty())
+            return SceneHierarchyNodeSourceKind::Model;
+        if (!node.mesh.empty())
+            return SceneHierarchyNodeSourceKind::Mesh;
+        return SceneHierarchyNodeSourceKind::Empty;
+    }
+
+    static std::string BuildSceneHierarchyNodeLabel(const rendern::LevelNode& node, int nodeIndex)
+    {
+        char label[256]{};
+        const char* name = node.name.empty() ? "<unnamed>" : node.name.c_str();
+        if (!node.mesh.empty())
+            std::snprintf(label, sizeof(label), "%d: %s  [mesh=%s]", nodeIndex, name, node.mesh.c_str());
+        else
+            std::snprintf(label, sizeof(label), "%d: %s", nodeIndex, name);
+        return label;
+    }
+
+    static std::string BuildSceneHierarchyParticleEmitterLabel(const rendern::ParticleEmitter& emitter, int emitterIndex)
+    {
+        char label[256]{};
+        const char* name = emitter.name.empty() ? "<unnamed emitter>" : emitter.name.c_str();
+        std::snprintf(label, sizeof(label), "%d: %s%s", emitterIndex, name, emitter.enabled ? "" : "  [disabled]");
+        return label;
+    }
+
+    static std::string BuildSceneHierarchyLightLabel(const rendern::Light& light, int lightIndex)
+    {
+        char label[256]{};
+        std::snprintf(
+            label,
+            sizeof(label),
+            "%d: %s%s",
+            lightIndex,
+            SceneHierarchyLightKindLabel(ToSceneHierarchyLightKind(light.type)),
+            light.intensity > 0.00001f ? "" : "  [disabled]");
+        return label;
+    }
+
+    static SceneHierarchyViewModel BuildSceneHierarchyViewModel(
+        const rendern::LevelAsset& level,
+        const DerivedLists& derived,
+        const rendern::Scene& scene,
+        const rendern::EditorSelectionService& editorSelection)
+    {
+        SceneHierarchyViewModel viewModel{};
+        viewModel.items.reserve(level.nodes.size() + level.particleEmitters.size() + scene.lights.size());
+        viewModel.sceneRootItemIndices.reserve(derived.roots.size());
+        viewModel.particleEmitterItemIndices.reserve(level.particleEmitters.size());
+        viewModel.lightItemIndices.reserve(scene.lights.size());
+
+        auto appendNode = [&](auto&& self, int nodeIndex, SceneHierarchyItemId parentId) -> int
+            {
+                const std::size_t nodeArrayIndex = static_cast<std::size_t>(nodeIndex);
+                const rendern::LevelNode& node = level.nodes[nodeArrayIndex];
+
+                SceneHierarchyItemViewModel item{};
+                item.id = SceneHierarchyItemId{ SceneHierarchyItemKind::SceneNode, nodeIndex };
+                item.parentId = parentId;
+                item.displayName = BuildSceneHierarchyNodeLabel(node, nodeIndex);
+                item.typeFlags.nodeSource = GetSceneHierarchyNodeSourceKind(node);
+                item.isSelected =
+                    editorSelection.IsSceneNodeSelected(nodeIndex) ||
+                    scene.EditorIsNodeSelected(nodeIndex);
+                item.isVisibleOrEnabled = node.visible;
+                item.hasChildren = nodeArrayIndex < derived.children.size() && !derived.children[nodeArrayIndex].empty();
+                item.childItemIndices.reserve(item.hasChildren ? derived.children[nodeArrayIndex].size() : 0u);
+
+                const int itemIndex = static_cast<int>(viewModel.items.size());
+                viewModel.items.push_back(std::move(item));
+
+                if (nodeArrayIndex < derived.children.size())
+                {
+                    for (const int childNodeIndex : derived.children[nodeArrayIndex])
+                    {
+                        const int childItemIndex = self(self, childNodeIndex, viewModel.items[static_cast<std::size_t>(itemIndex)].id);
+                        viewModel.items[static_cast<std::size_t>(itemIndex)].childItemIndices.push_back(childItemIndex);
+                    }
+                }
+
+                return itemIndex;
+            };
+
+        for (const int rootNodeIndex : derived.roots)
+        {
+            viewModel.sceneRootItemIndices.push_back(
+                appendNode(appendNode, rootNodeIndex, SceneHierarchyItemId{}));
+        }
+
+        for (std::size_t emitterIndex = 0; emitterIndex < level.particleEmitters.size(); ++emitterIndex)
+        {
+            const rendern::ParticleEmitter& emitter = level.particleEmitters[emitterIndex];
+            SceneHierarchyItemViewModel item{};
+            item.id = SceneHierarchyItemId{ SceneHierarchyItemKind::ParticleEmitter, static_cast<int>(emitterIndex) };
+            item.displayName = BuildSceneHierarchyParticleEmitterLabel(emitter, static_cast<int>(emitterIndex));
+            item.isSelected = scene.EditorIsParticleEmitterSelected(static_cast<int>(emitterIndex));
+            item.isVisibleOrEnabled = emitter.enabled;
+
+            viewModel.particleEmitterItemIndices.push_back(static_cast<int>(viewModel.items.size()));
+            viewModel.items.push_back(std::move(item));
+        }
+
+        for (std::size_t lightIndex = 0; lightIndex < scene.lights.size(); ++lightIndex)
+        {
+            const rendern::Light& light = scene.lights[lightIndex];
+            SceneHierarchyItemViewModel item{};
+            item.id = SceneHierarchyItemId{ SceneHierarchyItemKind::Light, static_cast<int>(lightIndex) };
+            item.displayName = BuildSceneHierarchyLightLabel(light, static_cast<int>(lightIndex));
+            item.typeFlags.lightKind = ToSceneHierarchyLightKind(light.type);
+            item.isSelected = scene.EditorIsLightSelected(static_cast<int>(lightIndex));
+            item.isVisibleOrEnabled = light.intensity > 0.00001f;
+
+            viewModel.lightItemIndices.push_back(static_cast<int>(viewModel.items.size()));
+            viewModel.items.push_back(std::move(item));
+        }
+
+        return viewModel;
     }
 
     static void BuildDerivedLists(const rendern::LevelAsset& level, DerivedLists& out)

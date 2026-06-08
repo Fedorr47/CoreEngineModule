@@ -75,6 +75,10 @@ namespace rendern::ui
             uiState.selectedParticleEmitter = -1;
         }
 
+        // Temporary bridge while hierarchy selection is migrating from Scene-owned editor
+        // selection state to EditorSelectionService. The ViewModel builder still reads
+        // both sources defensively and remains a read-only projection.
+        level_ui_detail::SyncEditorSelectionServiceWithScene(scene, uiState.selection);
         level_ui_detail::SyncSavePathWithSource(level, uiState);
         level_ui_detail::DrawFilePanel(level, scene, uiState);
 
@@ -91,8 +95,10 @@ namespace rendern::ui
 
         level_ui_detail::DerivedLists derived{};
         level_ui_detail::BuildDerivedLists(level, derived);
+        const level_ui_detail::SceneHierarchyViewModel hierarchyViewModel =
+            level_ui_detail::BuildSceneHierarchyViewModel(level, derived, scene, uiState.selection);
 
-        level_ui_detail::DrawHierarchyPanel(level, derived, scene, uiState);
+        level_ui_detail::DrawHierarchyPanel(hierarchyViewModel, scene, uiState);
         ImGui::SameLine();
         level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, uiState);
 
