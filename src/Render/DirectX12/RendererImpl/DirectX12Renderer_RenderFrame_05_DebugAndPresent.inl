@@ -1,9 +1,10 @@
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
+const AnimationRuntimeOverlaySnapshot& animationRuntimeOverlaySnapshot = frameView.GetAnimationRuntimeOverlaySnapshot();
 
 const auto animOverlayStart = std::chrono::steady_clock::now();
-if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.samples.empty())
+if (settings_.drawAnimationRuntimeOverlay && !animationRuntimeOverlaySnapshot.Empty())
 {
 	const float overlayScale = std::clamp(settings_.animationRuntimeOverlayTextScale, 0.5f, 3.0f);
 	const float outlinePx = std::clamp(overlayScale * 0.6f, 1.0f, 3.0f);
@@ -13,9 +14,12 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 	const std::uint32_t colBody = debugText::PackRGBA8(235, 235, 235, 255);
 	const std::uint32_t colOutline = debugText::PackRGBA8(0, 0, 0, 210);
 
-	for (const AnimationRuntimeDebugSample& sample : scene.animationRuntimeDebug.samples)
+	for (const AnimationRuntimeOverlaySample& sample : animationRuntimeOverlaySnapshot.samples)
 	{
 		char buf[1024]{};
+		const std::string notifyLine = sample.lastNotifyId.empty()
+			? std::string{}
+			: std::string("\nnotify ") + sample.lastNotifyId;
 		if (!sample.blendParameterNameY.empty() || std::fabs(sample.blendParameterValueY) > 1e-4f)
 		{
 			std::snprintf(
@@ -26,7 +30,7 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 				"mode %s  %s %.2f  %s %.2f\n"
 				"clips %s %.2f | %s %.2f | %s %.2f\n"
 				"time %.2f%s%s",
-				sample.nodeName.empty() ? "<unnamed>" : sample.nodeName.c_str(),
+				sample.nodeLabel.empty() ? "<unnamed>" : sample.nodeLabel.c_str(),
 				sample.controlled ? " *" : "",
 				sample.currentStateName.empty() ? "<none>" : sample.currentStateName.c_str(),
 				sample.modeName.empty() ? "Clip" : sample.modeName.c_str(),
@@ -42,7 +46,7 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 				sample.tertiaryWeight,
 				sample.normalizedTime,
 				sample.transitionActive ? "\ntransition active" : "",
-				sample.lastNotifyId.empty() ? "" : (std::string("\nnotify ") + sample.lastNotifyId).c_str());
+				notifyLine.c_str());
 		}
 		else
 		{
@@ -54,7 +58,7 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 				"mode %s\n"
 				"clip %s %.2f\n"
 				"time %.2f%s%s",
-				sample.nodeName.empty() ? "<unnamed>" : sample.nodeName.c_str(),
+				sample.nodeLabel.empty() ? "<unnamed>" : sample.nodeLabel.c_str(),
 				sample.controlled ? " *" : "",
 				sample.currentStateName.empty() ? "<none>" : sample.currentStateName.c_str(),
 				sample.modeName.empty() ? "Clip" : sample.modeName.c_str(),
@@ -62,11 +66,18 @@ if (settings_.drawAnimationRuntimeOverlay && !scene.animationRuntimeDebug.sample
 				sample.primaryWeight,
 				sample.normalizedTime,
 				sample.transitionActive ? "\ntransition active" : "",
-				sample.lastNotifyId.empty() ? "" : (std::string("\nnotify ") + sample.lastNotifyId).c_str());
+				notifyLine.c_str());
 		}
 
-		textList.AddOutlinedTextAlignedPx(overlayX, overlayY, buf, debugText::TextAlignH::Left, debugText::TextAlignV::Top, colBody, colOutline, overlayScale, outlinePx);
-		textList.AddOutlinedTextAlignedPx(overlayX, overlayY, std::string("ANIM [") + (sample.nodeName.empty() ? std::string("<unnamed>") : sample.nodeName) + "]" + (sample.controlled ? " *" : ""), debugText::TextAlignH::Left, debugText::TextAlignV::Top, colHeader, colOutline, overlayScale, outlinePx);
+		textList.AddOutlinedTextAlignedPx(
+			overlayX, overlayY, buf, debugText::TextAlignH::Left, debugText::TextAlignV::Top, colBody, colOutline, 
+			overlayScale, outlinePx);
+		textList.AddOutlinedTextAlignedPx(
+			overlayX, overlayY, std::string("ANIM [") + (sample.nodeLabel.empty() 
+				? std::string("<unnamed>") 
+				: sample.nodeLabel) + "]" + (sample.controlled ? " *" : ""), 
+				debugText::TextAlignH::Left, debugText::TextAlignV::Top, colHeader, colOutline, 
+				overlayScale, outlinePx);
 		const debugText::TextExtentPx ext = debugText::DebugTextList::MeasureTextPx(buf, overlayScale);
 		overlayY += ext.height + 12.0f;
 	}
