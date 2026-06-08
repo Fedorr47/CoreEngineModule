@@ -137,7 +137,11 @@ namespace rendern::ui
         ImGui::Text("FPS: %.1f", performanceSnapshot.fps);
         ImGui::Text("Frame time: %.3f ms", performanceSnapshot.frameTimeMs);
         ImGui::TextDisabled("Raw frame delta: %.3f ms", performanceSnapshot.rawFrameTimeMs);
-        ImGui::Text("VSync: %s", rendererSettings.enableVSync ? "ON" : "OFF");
+        const rhi::PresentDiagnostics& presentDiagnostics = performanceSnapshot.rendererCpuTimings.presentDiagnostics;
+        ImGui::Text("VSync: %s", presentDiagnostics.vsyncEnabled ? "ON" : "OFF");
+        ImGui::Text("Tearing supported: %s", presentDiagnostics.tearingSupported ? "ON" : "OFF");
+        ImGui::Text("Present mode: %s", rhi::ToString(presentDiagnostics.presentMode));
+        ImGui::TextDisabled("Present flags: 0x%X", presentDiagnostics.presentFlags);
         ImGui::TextDisabled("Debug window render measures only the separate debug swapchain render path.");
         ImGui::TextDisabled("ImGui build is UI frame construction; it does not include separate debug swapchain rendering.");
 
@@ -153,6 +157,8 @@ namespace rendern::ui
             maximumFrameTimeMs);
 
         PerformanceHistoryPlotContext plotContext{ &performanceSnapshot };
+        const float frameTimePlotWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+
         ImGui::PlotLines(
             "Frame time history (ms)",
             GetFrameTimeHistorySample,
@@ -162,9 +168,8 @@ namespace rendern::ui
             nullptr,
             0.0f,
             std::max(33.33f, maximumFrameTimeMs),
-            ImVec2(0.0f, 90.0f));
-
-
+            ImVec2(frameTimePlotWidth, 90.0f));
+        
         ImGui::SeparatorText("Main render CPU breakdown");
         ImGui::TextDisabled("Coarse CPU-side timings; these are not GPU timestamp timings.");
         const rendern::RendererCpuTimingSnapshot& rendererCpuTimings = performanceSnapshot.rendererCpuTimings;

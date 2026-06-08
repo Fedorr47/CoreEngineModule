@@ -104,6 +104,16 @@ namespace rhi
 				desc_.hooks.setVsync(enabled);
 			}
 		}
+		
+		PresentDiagnostics GetPresentDiagnostics() const override
+		{
+			return PresentDiagnostics{
+				.vsyncEnabled = desc_.base.vsync,
+				.tearingSupported = false,
+				.presentMode = desc_.base.vsync ? PresentMode::VSync : PresentMode::ImmediateNoTearing,
+				.presentFlags = 0u
+			};
+		}
 
 		void Resize(Extent2D newExtent) override
 		{

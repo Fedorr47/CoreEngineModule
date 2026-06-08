@@ -8,6 +8,8 @@ module;
 // Shared, backend-agnostic renderer settings.
 export module core:renderer_settings;
 
+import :rhi;
+
 export namespace rendern
 {
 	struct CpuFrameStageTimingSnapshot
@@ -35,6 +37,7 @@ export namespace rendern
 		double shadowPassBuildMs{ 0.0 };
 		double reflectionCaptureBuildMs{ 0.0 };
 		double mainPassBuildMs{ 0.0 };
+		rhi::PresentDiagnostics presentDiagnostics{};
 	};
 
 	struct PerformanceSnapshot

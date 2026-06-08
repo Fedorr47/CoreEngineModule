@@ -40,6 +40,16 @@ void FakeRHISwapChain::SetVSyncEnabled(bool enabled)
 	swapChainDesc_.vsync = enabled;
 }
 
+rhi::PresentDiagnostics FakeRHISwapChain::GetPresentDiagnostics() const
+{
+	return rhi::PresentDiagnostics{
+		.vsyncEnabled = swapChainDesc_.vsync,
+		.tearingSupported = false,
+		.presentMode = swapChainDesc_.vsync ? rhi::PresentMode::VSync : rhi::PresentMode::ImmediateNoTearing,
+		.presentFlags = 0u
+	};
+}
+
 void FakeRHISwapChain::Resize(rhi::Extent2D newExtent)
 {
 	swapChainDesc_.extent = newExtent;

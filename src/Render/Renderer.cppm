@@ -155,6 +155,7 @@ namespace rendern
         {
             swapChain.SetVSyncEnabled(settings_.enableVSync);
             impl_->RenderFrame(swapChain, frameView, imguiDrawData);
+            lastPresentDiagnostics_ = swapChain.GetPresentDiagnostics();
         }
 
         void SetSettings(const RendererSettings& settings)
@@ -165,7 +166,9 @@ namespace rendern
 
         RendererCpuTimingSnapshot GetLastCpuTimings() const
         {
-            return impl_->GetLastCpuTimings();
+            RendererCpuTimingSnapshot snapshot = impl_->GetLastCpuTimings();
+            snapshot.presentDiagnostics = lastPresentDiagnostics_;
+            return snapshot;
         }
 
         void Shutdown()
@@ -176,6 +179,7 @@ namespace rendern
     private:
         rhi::IRHIDevice& device_;
         RendererSettings settings_{};
+        rhi::PresentDiagnostics lastPresentDiagnostics_{};
         std::unique_ptr<detail::IRendererImpl> impl_;
     };
 }

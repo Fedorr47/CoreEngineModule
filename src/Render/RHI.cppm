@@ -183,6 +183,36 @@ export namespace rhi
 		Format backbufferFormat{ Format::BGRA8_UNORM };
 		bool vsync{ true };
 	};
+	
+	enum class PresentMode : std::uint8_t
+	{
+		VSync,
+		ImmediateTearing,
+		ImmediateNoTearing
+	};
+
+	struct PresentDiagnostics
+	{
+		bool vsyncEnabled{ false };
+		bool tearingSupported{ false };
+		PresentMode presentMode{ PresentMode::ImmediateNoTearing };
+		std::uint32_t presentFlags{ 0u };
+	};
+
+	const char* ToString(PresentMode presentMode) noexcept
+	{
+		switch (presentMode)
+		{
+		case PresentMode::VSync:
+			return "VSYNC";
+		case PresentMode::ImmediateTearing:
+			return "IMMEDIATE_TEARING";
+		case PresentMode::ImmediateNoTearing:
+			return "IMMEDIATE_NO_TEARING";
+		default:
+			return "UNKNOWN";
+		}
+	}
 
 	struct BufferDesc
 	{
@@ -565,6 +595,7 @@ export namespace rhi
 		virtual TextureHandle GetDepthTexture() const = 0;
 		virtual void Present() = 0;
 		virtual void SetVSyncEnabled(bool enabled) = 0;
+		virtual PresentDiagnostics GetPresentDiagnostics() const { return {}; }
 		virtual void Resize(Extent2D newExtent) = 0;
 	};
 
@@ -705,6 +736,15 @@ namespace rhi
 		void SetVSyncEnabled(bool enabled) override
 		{
 			desc_.vsync = enabled;
+		}
+		PresentDiagnostics GetPresentDiagnostics() const override
+		{
+			return PresentDiagnostics{
+				.vsyncEnabled = desc_.vsync,
+				.tearingSupported = false,
+				.presentMode = desc_.vsync ? PresentMode::VSync : PresentMode::ImmediateNoTearing,
+				.presentFlags = 0u
+			};
 		}
 		void Resize(Extent2D newExtent) override
 		{

@@ -25,6 +25,7 @@ struct FakeRHISwapChain : rhi::IRHISwapChain
 	rhi::TextureHandle GetDepthTexture() const override;
 	void Present() override;
 	void SetVSyncEnabled(bool enabled) override;
+	rhi::PresentDiagnostics GetPresentDiagnostics() const override;
 	void Resize(rhi::Extent2D newExtent) override;
 	
 	std::uint32_t GetPresentCount() const noexcept;

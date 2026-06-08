@@ -15,6 +15,7 @@ public:
     TextureHandle GetDepthTexture() const override;
     void Present() override;
     void SetVSyncEnabled(bool enabled) override;
+    PresentDiagnostics GetPresentDiagnostics() const override;
     void Resize(Extent2D newExtent) override;
 
     std::uint32_t FrameIndex() const noexcept { return static_cast<std::uint32_t>(currBackBuffer_); }
@@ -60,6 +61,10 @@ private:
 
     std::vector<ComPtr<ID3D12Resource>> backBuffers_;
     UINT currBackBuffer_{ 0 };
+    bool tearingSupported_{ false };
+    bool swapChainAllowsTearing_{ false };
+    UINT swapChainCreationFlags_{ 0u };
+    UINT lastPresentFlags_{ 0u };
     DXGI_FORMAT bbFormat_{ DXGI_FORMAT_B8G8R8A8_UNORM };
     TextureHandle depthTexture_{};
     Format depthFormat_{ Format::D24_UNORM_S8_UINT };

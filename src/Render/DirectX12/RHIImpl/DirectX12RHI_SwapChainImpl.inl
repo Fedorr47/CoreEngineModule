@@ -9,6 +9,21 @@ DX12SwapChain::DX12SwapChain(DX12Device& owner, DX12SwapChainDesc desc)
 
     ComPtr<IDXGIFactory6> factory;
     ThrowIfFailed(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory)), "DX12: CreateDXGIFactory2 failed");
+    
+    const auto queryTearingSupport = [](IDXGIFactory6& dxgiFactory) noexcept -> bool
+    {
+        BOOL allowTearing = FALSE;
+        const HRESULT result = dxgiFactory.CheckFeatureSupport(
+            DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+            &allowTearing,
+            sizeof(allowTearing));
+
+        return SUCCEEDED(result) && allowTearing == TRUE;
+    };
+    
+    tearingSupported_ = queryTearingSupport(*factory.Get());
+    swapChainAllowsTearing_ = tearingSupported_;
+    swapChainCreationFlags_ = swapChainAllowsTearing_ ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
     swapChainDesc.Width = chainSwapDesc_.base.extent.width;
@@ -21,6 +36,7 @@ DX12SwapChain::DX12SwapChain(DX12Device& owner, DX12SwapChainDesc desc)
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
     swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    swapChainDesc.Flags = swapChainCreationFlags_;
 
     ComPtr<IDXGISwapChain1> swapChain1;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(
@@ -122,7 +138,7 @@ void DX12SwapChain::Resize(Extent2D newExtent)
         static_cast<UINT>(newExtent.width),
         static_cast<UINT>(newExtent.height),
         bbFormat_,
-        0),
+        swapChainCreationFlags_),
         "DX12: ResizeBuffers failed");
 
     // Recreate RTVs.
@@ -152,14 +168,30 @@ void DX12SwapChain::EnsureSizeUpToDate()
 
 void DX12SwapChain::Present()
 {
-    const UINT syncInterval = chainSwapDesc_.base.vsync ? 1u : 0u;
-    ThrowIfFailed(swapChain_->Present(syncInterval, 0), "DX12: Present failed");
+    const bool vsyncEnabled = chainSwapDesc_.base.vsync;
+    const UINT syncInterval = vsyncEnabled ? 1u : 0u;
+    lastPresentFlags_ = (!vsyncEnabled && swapChainAllowsTearing_) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
+    ThrowIfFailed(swapChain_->Present(syncInterval, lastPresentFlags_), "DX12: Present failed");
     currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
 }
 
 void DX12SwapChain::SetVSyncEnabled(bool enabled)
 {
     chainSwapDesc_.base.vsync = enabled;
+}
+
+PresentDiagnostics DX12SwapChain::GetPresentDiagnostics() const
+{
+    const bool vsyncEnabled = chainSwapDesc_.base.vsync;
+    const PresentMode presentMode = vsyncEnabled
+        ? PresentMode::VSync
+        : (swapChainAllowsTearing_ ? PresentMode::ImmediateTearing : PresentMode::ImmediateNoTearing);
+    return PresentDiagnostics{
+        .vsyncEnabled = vsyncEnabled,
+        .tearingSupported = tearingSupported_,
+        .presentMode = presentMode,
+        .presentFlags = static_cast<std::uint32_t>(lastPresentFlags_)
+    };
 }
 
 // Public factory functions

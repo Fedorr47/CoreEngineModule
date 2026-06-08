@@ -500,7 +500,8 @@ namespace appLifecycle
             std::printf(
                 "[Perf] FPS %.1f | frame %.2f ms raw %.2f ms | CPU %.2f/%.2f ms | render main %.2f debug %.2f | "
                 "RG build %.2f exec %.2f submit %.2f present %.2f | build setup %.2f shadows %.2f reflection %.2f main %.2f | "
-                "imgui %.2f | gameplay+anim %.2f | streaming %.2f | debugWindowRender %s | vsync %s\n",
+                "imgui %.2f | gameplay+anim %.2f | streaming %.2f | debugWindowRender %s | "
+                "vsync %s | tearingSupported %s | presentMode %s | presentFlags 0x%X\n",
                 performanceSnapshot.fps,
                 performanceSnapshot.frameTimeMs,
                 performanceSnapshot.rawFrameTimeMs,
@@ -520,7 +521,10 @@ namespace appLifecycle
                 cpu.gameplayAndAnimationMs,
                 cpu.streamingMs,
                 graphicState.rendererSettings.enableDebugWindowRender ? "ON" : "OFF",
-                graphicState.rendererSettings.enableVSync ? "ON" : "OFF");
+                snapshotRendererCpuTimings.presentDiagnostics.vsyncEnabled ? "ON" : "OFF",
+                snapshotRendererCpuTimings.presentDiagnostics.tearingSupported ? "ON" : "OFF",
+                rhi::ToString(snapshotRendererCpuTimings.presentDiagnostics.presentMode),
+                snapshotRendererCpuTimings.presentDiagnostics.presentFlags);
             std::fflush(stdout);
         }
         

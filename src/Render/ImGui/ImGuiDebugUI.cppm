@@ -21,6 +21,7 @@ export module core:imgui_debug_ui;
 
 import :scene;
 import :renderer_settings;
+import :rhi;
 import :camera_controller;
 import :math_utils;
 import :level;
