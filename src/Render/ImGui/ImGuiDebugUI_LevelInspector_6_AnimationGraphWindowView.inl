@@ -2,26 +2,26 @@
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
-        if (!st.animationGraphWindowOpen)
+        if (!uiState.animationGraphWindowOpen)
         {
             return;
         }
 
-        if (st.animationGraphRequestFocus)
+        if (uiState.animationGraphRequestFocus)
         {
             ImGui::SetNextWindowFocus();
-            st.animationGraphRequestFocus = false;
+            uiState.animationGraphRequestFocus = false;
         }
 
-        if (!ImGui::Begin("Animation Graph", &st.animationGraphWindowOpen))
+        if (!ImGui::Begin("Animation Graph", &uiState.animationGraphWindowOpen))
         {
             ImGui::End();
             return;
         }
 
-        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene, st);
+        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene, uiState);
         if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
         {
             ImGui::TextDisabled("Select a skinned node to inspect its animation graph.");
@@ -41,9 +41,9 @@
             return;
         }
 
-        if (st.animationGraphSelectedStateName.empty() || rendern::FindAnimationControllerState(*ctx.controllerAsset, st.animationGraphSelectedStateName) == nullptr)
+        if (uiState.animationGraphSelectedStateName.empty() || rendern::FindAnimationControllerState(*ctx.controllerAsset, uiState.animationGraphSelectedStateName) == nullptr)
         {
-            st.animationGraphSelectedStateName = ctx.skinnedItem->controller.currentStateName.empty()
+            uiState.animationGraphSelectedStateName = ctx.skinnedItem->controller.currentStateName.empty()
                 ? ctx.controllerAsset->defaultState
                 : ctx.skinnedItem->controller.currentStateName;
         }
@@ -65,12 +65,12 @@
         {
             if (ImGui::BeginTabItem("FSM"))
             {
-                DrawAnimationGraphFsmCanvas(*ctx.controllerAsset, ctx.skinnedItem->controller, st);
+                DrawAnimationGraphFsmCanvas(*ctx.controllerAsset, ctx.skinnedItem->controller, uiState);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Assets"))
             {
-                DrawAnimationGraphAssetCanvas(level, *ctx.node, *ctx.controllerAsset, st);
+                DrawAnimationGraphAssetCanvas(level, *ctx.node, *ctx.controllerAsset, uiState);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Bindings"))

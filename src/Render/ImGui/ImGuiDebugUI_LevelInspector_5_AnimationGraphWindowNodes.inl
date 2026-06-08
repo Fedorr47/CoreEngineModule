@@ -17,9 +17,9 @@
     static void DrawAnimationGraphFsmCanvas(
         const rendern::AnimationControllerAsset& controllerAsset,
         const rendern::AnimationControllerRuntime& runtime,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
-        EnsureAnimationGraphFsmLayout(st, controllerAsset);
+        EnsureAnimationGraphFsmLayout(uiState, controllerAsset);
 
         if (ImGui::Button("Auto Layout"))
         {
@@ -31,9 +31,9 @@
             }
             for (const std::string& key : keysToErase)
             {
-                st.animationGraphFsmNodePositions.erase(key);
+                uiState.animationGraphFsmNodePositions.erase(key);
             }
-            EnsureAnimationGraphFsmLayout(st, controllerAsset);
+            EnsureAnimationGraphFsmLayout(uiState, controllerAsset);
         }
         ImGui::SameLine();
         if (ImGui::Button("Fit"))
@@ -43,30 +43,30 @@
             for (const rendern::AnimationStateDesc& state : controllerAsset.states)
             {
                 const std::string key = AnimationGraphMakeKey("fsm", controllerAsset.id, state.name);
-                positions.push_back(st.animationGraphFsmNodePositions[key]);
+                positions.push_back(uiState.animationGraphFsmNodePositions[key]);
             }
-            AnimationGraphFitView(positions, ImVec2(200.0f, 78.0f), ImVec2(std::max(200.0f, ImGui::GetContentRegionAvail().x - 360.0f), 440.0f), st.animationGraphFsmPan, st.animationGraphFsmZoom);
+            AnimationGraphFitView(positions, ImVec2(200.0f, 78.0f), ImVec2(std::max(200.0f, ImGui::GetContentRegionAvail().x - 360.0f), 440.0f), uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom);
         }
         ImGui::SameLine();
         if (ImGui::Button("Center Current") && !runtime.currentStateName.empty())
         {
             const std::string key = AnimationGraphMakeKey("fsm", controllerAsset.id, runtime.currentStateName);
-            auto it = st.animationGraphFsmNodePositions.find(key);
-            if (it != st.animationGraphFsmNodePositions.end())
+            auto it = uiState.animationGraphFsmNodePositions.find(key);
+            if (it != uiState.animationGraphFsmNodePositions.end())
             {
                 const ImVec2 canvasGuess(std::max(200.0f, ImGui::GetContentRegionAvail().x - 360.0f), 440.0f);
                 const ImVec2 nodeCenter = AddImVec2(it->second, ImVec2(100.0f, 39.0f));
-                st.animationGraphFsmPan = SubImVec2(MulImVec2(canvasGuess, 0.5f), MulImVec2(nodeCenter, st.animationGraphFsmZoom));
+                uiState.animationGraphFsmPan = SubImVec2(MulImVec2(canvasGuess, 0.5f), MulImVec2(nodeCenter, uiState.animationGraphFsmZoom));
             }
         }
         ImGui::SameLine();
-        ImGui::Checkbox("Focus selection", &st.animationGraphFsmFocusSelection);
+        ImGui::Checkbox("Focus selection", &uiState.animationGraphFsmFocusSelection);
         ImGui::SameLine();
-        ImGui::Checkbox("Labels", &st.animationGraphShowTransitionLabels);
+        ImGui::Checkbox("Labels", &uiState.animationGraphShowTransitionLabels);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(170.0f);
-        ImGui::SliderFloat("Zoom", &st.animationGraphFsmZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
-        st.animationGraphFsmZoom = AnimationGraphClampZoom(st.animationGraphFsmZoom);
+        ImGui::SliderFloat("Zoom", &uiState.animationGraphFsmZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+        uiState.animationGraphFsmZoom = AnimationGraphClampZoom(uiState.animationGraphFsmZoom);
 
         const float inspectorReserve = 350.0f;
         const float canvasHeight = 440.0f;
@@ -78,13 +78,13 @@
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasViewSize), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasViewSize), IM_COL32(22, 22, 26, 255), 6.0f);
-        AnimationGraphDrawGrid(drawList, canvasPos, canvasViewSize, st.animationGraphFsmPan, st.animationGraphFsmZoom);
+        AnimationGraphDrawGrid(drawList, canvasPos, canvasViewSize, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom);
 
         const bool fsmCanvasHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-        AnimationGraphHandleCanvasZoom(st.animationGraphFsmZoom, st.animationGraphFsmPan, canvasPos, canvasViewSize, fsmCanvasHovered);
+        AnimationGraphHandleCanvasZoom(uiState.animationGraphFsmZoom, uiState.animationGraphFsmPan, canvasPos, canvasViewSize, fsmCanvasHovered);
         if (fsmCanvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
-            st.animationGraphFsmPan = AddImVec2(st.animationGraphFsmPan, ImGui::GetIO().MouseDelta);
+            uiState.animationGraphFsmPan = AddImVec2(uiState.animationGraphFsmPan, ImGui::GetIO().MouseDelta);
         }
 
         struct CategoryLane
@@ -103,8 +103,8 @@
         const float laneWidth = 220.0f;
         for (const CategoryLane& lane : lanes)
         {
-            const ImVec2 laneMin = AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphFsmPan, st.animationGraphFsmZoom, ImVec2(lane.x, 0.0f));
-            const ImVec2 laneMax = AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphFsmPan, st.animationGraphFsmZoom, ImVec2(lane.x + laneWidth, 2000.0f));
+            const ImVec2 laneMin = AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, ImVec2(lane.x, 0.0f));
+            const ImVec2 laneMax = AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, ImVec2(lane.x + laneWidth, 2000.0f));
             drawList->AddRectFilled(
                 ImVec2(laneMin.x, canvasPos.y),
                 ImVec2(laneMax.x, canvasPos.y + canvasViewSize.y),
@@ -119,14 +119,14 @@
         }
 
         const ImVec2 nodeBaseSize = ImVec2(200.0f, 78.0f);
-        const float textScale = std::clamp(st.animationGraphFsmZoom, 0.85f, 1.35f);
+        const float textScale = std::clamp(uiState.animationGraphFsmZoom, 0.85f, 1.35f);
         const float titleFontSize = std::max(12.0f, ImGui::GetFontSize() * (1.00f * textScale));
         const float bodyFontSize = std::max(11.0f, ImGui::GetFontSize() * (0.92f * textScale));
 
         auto StateRectMin = [&](const rendern::AnimationStateDesc& state) -> ImVec2
             {
                 const std::string key = AnimationGraphMakeKey("fsm", controllerAsset.id, state.name);
-                return AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphFsmPan, st.animationGraphFsmZoom, st.animationGraphFsmNodePositions[key]);
+                return AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, uiState.animationGraphFsmNodePositions[key]);
             };
 
         for (const rendern::AnimationTransitionDesc& transition : controllerAsset.transitions)
@@ -139,11 +139,11 @@
             }
 
             const bool touchesSelection =
-                st.animationGraphSelectedStateName.empty() ||
-                transition.fromState == st.animationGraphSelectedStateName ||
-                transition.toState == st.animationGraphSelectedStateName;
-            const bool emphasize = !st.animationGraphFsmFocusSelection || touchesSelection;
-            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, st.animationGraphFsmZoom);
+                uiState.animationGraphSelectedStateName.empty() ||
+                transition.fromState == uiState.animationGraphSelectedStateName ||
+                transition.toState == uiState.animationGraphSelectedStateName;
+            const bool emphasize = !uiState.animationGraphFsmFocusSelection || touchesSelection;
+            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, uiState.animationGraphFsmZoom);
             const ImVec2 fromMin = StateRectMin(*fromState);
             const ImVec2 toMin = StateRectMin(*toState);
             const ImVec2 p1 = AddImVec2(fromMin, ImVec2(nodeSize.x, nodeSize.y * 0.5f));
@@ -161,7 +161,7 @@
             drawList->AddBezierCubic(p1, p2, p3, p4, edgeColor, activeEdge ? 3.2f : (emphasize ? 2.0f : 1.2f), 0);
 
             const ImVec2 arrowTip = p4;
-            const float arrowWidth = std::max(6.0f, 8.0f * st.animationGraphFsmZoom);
+            const float arrowWidth = std::max(6.0f, 8.0f * uiState.animationGraphFsmZoom);
             drawList->AddTriangleFilled(
                 arrowTip,
                 AddImVec2(arrowTip, ImVec2(-arrowWidth * 1.6f, -arrowWidth * 0.65f)),
@@ -169,7 +169,7 @@
                 edgeColor);
 
             const bool showLabel = activeEdge ||
-                (emphasize && (st.animationGraphShowTransitionLabels || st.animationGraphFsmZoom >= 1.18f));
+                (emphasize && (uiState.animationGraphShowTransitionLabels || uiState.animationGraphFsmZoom >= 1.18f));
             if (showLabel)
             {
                 const ImVec2 labelMid = MulImVec2(AddImVec2(p1, p4), 0.5f);
@@ -188,19 +188,19 @@
         for (const rendern::AnimationStateDesc& state : controllerAsset.states)
         {
             const std::string key = AnimationGraphMakeKey("fsm", controllerAsset.id, state.name);
-            ImVec2& localPos = st.animationGraphFsmNodePositions[key];
-            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, st.animationGraphFsmZoom);
-            const ImVec2 minPos = AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphFsmPan, st.animationGraphFsmZoom, localPos);
+            ImVec2& localPos = uiState.animationGraphFsmNodePositions[key];
+            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, uiState.animationGraphFsmZoom);
+            const ImVec2 minPos = AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, localPos);
             const ImVec2 maxPos = AddImVec2(minPos, nodeSize);
             const bool isCurrent = runtime.currentStateName == state.name;
-            const bool isSelected = st.animationGraphSelectedStateName == state.name;
-            const bool selectedFocus = st.animationGraphSelectedStateName.empty() || isSelected;
+            const bool isSelected = uiState.animationGraphSelectedStateName == state.name;
+            const bool selectedFocus = uiState.animationGraphSelectedStateName.empty() || isSelected;
             const ImU32 bodyColor = AnimationGraphStateColor(state, isCurrent);
 
             drawList->AddRectFilled(minPos, maxPos, bodyColor, 10.0f);
             drawList->AddRectFilled(
                 minPos,
-                AddImVec2(minPos, ImVec2(nodeSize.x, std::max(18.0f, 24.0f * st.animationGraphFsmZoom))),
+                AddImVec2(minPos, ImVec2(nodeSize.x, std::max(18.0f, 24.0f * uiState.animationGraphFsmZoom))),
                 IM_COL32(255, 255, 255, isCurrent ? 22 : 12),
                 10.0f);
             drawList->AddRect(
@@ -213,13 +213,13 @@
             drawList->AddText(
                 ImGui::GetFont(),
                 titleFontSize,
-                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 10.0f), st.animationGraphFsmZoom)),
+                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 10.0f), uiState.animationGraphFsmZoom)),
                 IM_COL32(255, 255, 255, 255),
                 state.name.c_str());
             drawList->AddText(
                 ImGui::GetFont(),
                 bodyFontSize,
-                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 38.0f), st.animationGraphFsmZoom)),
+                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 38.0f), uiState.animationGraphFsmZoom)),
                 IM_COL32(225, 225, 225, 240),
                 AnimationGraphStateCategory(state));
 
@@ -228,11 +228,11 @@
             ImGui::InvisibleButton(buttonId.c_str(), nodeSize);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
-                st.animationGraphSelectedStateName = state.name;
+                uiState.animationGraphSelectedStateName = state.name;
             }
             if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
             {
-                localPos = AddImVec2(localPos, AnimationGraphScreenDeltaToGraphDelta(ImGui::GetIO().MouseDelta, st.animationGraphFsmZoom));
+                localPos = AddImVec2(localPos, AnimationGraphScreenDeltaToGraphDelta(ImGui::GetIO().MouseDelta, uiState.animationGraphFsmZoom));
             }
             if (ImGui::IsItemHovered())
             {
@@ -266,7 +266,7 @@
         {
             ImGui::Text("Current: %s", runtime.currentStateName.c_str());
         }
-        DrawAnimationGraphStateInspector(controllerAsset, runtime, st);
+        DrawAnimationGraphStateInspector(controllerAsset, runtime, uiState);
         ImGui::EndChild();
     }
 
@@ -282,9 +282,9 @@
         const rendern::LevelAsset& level,
         const rendern::LevelNode& node,
         const rendern::AnimationControllerAsset& controllerAsset,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
-        EnsureAnimationGraphAssetLayout(st, level, node, controllerAsset);
+        EnsureAnimationGraphAssetLayout(uiState, level, node, controllerAsset);
 
         const std::string controllerId = controllerAsset.id.empty() ? std::string("<controller>") : controllerAsset.id;
         const std::vector<AnimationGraphClipReference> clipRefs = BuildAnimationGraphClipReferences(level, controllerAsset);
@@ -353,9 +353,9 @@
             }
             for (const std::string& key : keysToErase)
             {
-                st.animationGraphAssetNodePositions.erase(key);
+                uiState.animationGraphAssetNodePositions.erase(key);
             }
-            EnsureAnimationGraphAssetLayout(st, level, node, controllerAsset);
+            EnsureAnimationGraphAssetLayout(uiState, level, node, controllerAsset);
         }
         ImGui::SameLine();
         if (ImGui::Button("Fit"))
@@ -364,14 +364,14 @@
             positions.reserve(nodes.size());
             for (const AnimationAssetNodeDef& visualNode : nodes)
             {
-                positions.push_back(st.animationGraphAssetNodePositions[AnimationGraphMakeKey("asset", controllerId, visualNode.id)]);
+                positions.push_back(uiState.animationGraphAssetNodePositions[AnimationGraphMakeKey("asset", controllerId, visualNode.id)]);
             }
-            AnimationGraphFitView(positions, ImVec2(220.0f, 76.0f), ImVec2(std::max(200.0f, ImGui::GetContentRegionAvail().x), 280.0f), st.animationGraphAssetPan, st.animationGraphAssetZoom);
+            AnimationGraphFitView(positions, ImVec2(220.0f, 76.0f), ImVec2(std::max(200.0f, ImGui::GetContentRegionAvail().x), 280.0f), uiState.animationGraphAssetPan, uiState.animationGraphAssetZoom);
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(170.0f);
-        ImGui::SliderFloat("Zoom", &st.animationGraphAssetZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
-        st.animationGraphAssetZoom = AnimationGraphClampZoom(st.animationGraphAssetZoom);
+        ImGui::SliderFloat("Zoom", &uiState.animationGraphAssetZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+        uiState.animationGraphAssetZoom = AnimationGraphClampZoom(uiState.animationGraphAssetZoom);
 
         const ImVec2 nodeBaseSize = ImVec2(220.0f, 76.0f);
         ImGui::BeginChild("##AnimationGraphAssetCanvas", ImVec2(0.0f, 280.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -380,24 +380,24 @@
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasSize), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasSize), IM_COL32(22, 22, 26, 255), 6.0f);
-        AnimationGraphDrawGrid(drawList, canvasPos, canvasSize, st.animationGraphAssetPan, st.animationGraphAssetZoom);
+        AnimationGraphDrawGrid(drawList, canvasPos, canvasSize, uiState.animationGraphAssetPan, uiState.animationGraphAssetZoom);
 
         const bool assetCanvasHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-        AnimationGraphHandleCanvasZoom(st.animationGraphAssetZoom, st.animationGraphAssetPan, canvasPos, canvasSize, assetCanvasHovered);
+        AnimationGraphHandleCanvasZoom(uiState.animationGraphAssetZoom, uiState.animationGraphAssetPan, canvasPos, canvasSize, assetCanvasHovered);
         if (assetCanvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
-            st.animationGraphAssetPan = AddImVec2(st.animationGraphAssetPan, ImGui::GetIO().MouseDelta);
+            uiState.animationGraphAssetPan = AddImVec2(uiState.animationGraphAssetPan, ImGui::GetIO().MouseDelta);
         }
 
         auto AssetNodeMin = [&](std::string_view localId) -> ImVec2
             {
                 const std::string key = AnimationGraphMakeKey("asset", controllerId, localId);
-                return AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphAssetPan, st.animationGraphAssetZoom, st.animationGraphAssetNodePositions[key]);
+                return AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphAssetPan, uiState.animationGraphAssetZoom, uiState.animationGraphAssetNodePositions[key]);
             };
 
         auto DrawEdge = [&](std::string_view fromId, std::string_view toId, ImU32 color)
             {
-                const ImVec2 nodeSize = MulImVec2(nodeBaseSize, st.animationGraphAssetZoom);
+                const ImVec2 nodeSize = MulImVec2(nodeBaseSize, uiState.animationGraphAssetZoom);
                 const ImVec2 fromMin = AssetNodeMin(fromId);
                 const ImVec2 toMin = AssetNodeMin(toId);
                 const ImVec2 p1 = AddImVec2(fromMin, ImVec2(nodeSize.x, nodeSize.y * 0.5f));
@@ -411,7 +411,7 @@
                     color,
                     2.0f,
                     0);
-                const float arrowWidth = std::max(6.0f, 8.0f * st.animationGraphAssetZoom);
+                const float arrowWidth = std::max(6.0f, 8.0f * uiState.animationGraphAssetZoom);
                 drawList->AddTriangleFilled(
                     p4,
                     AddImVec2(p4, ImVec2(-arrowWidth * 1.5f, -arrowWidth * 0.65f)),
@@ -430,34 +430,34 @@
         }
         DrawEdge(std::string("controller:") + controllerId, "clips", IM_COL32(125, 165, 205, 190));
 
-        const float titleFontSize = std::max(12.0f, ImGui::GetFontSize() * std::clamp(st.animationGraphAssetZoom, 0.85f, 1.30f));
-        const float bodyFontSize = std::max(11.0f, ImGui::GetFontSize() * std::clamp(st.animationGraphAssetZoom, 0.85f, 1.20f));
+        const float titleFontSize = std::max(12.0f, ImGui::GetFontSize() * std::clamp(uiState.animationGraphAssetZoom, 0.85f, 1.30f));
+        const float bodyFontSize = std::max(11.0f, ImGui::GetFontSize() * std::clamp(uiState.animationGraphAssetZoom, 0.85f, 1.20f));
 
         for (const AnimationAssetNodeDef& visualNode : nodes)
         {
             const std::string key = AnimationGraphMakeKey("asset", controllerId, visualNode.id);
-            ImVec2& localPos = st.animationGraphAssetNodePositions[key];
-            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, st.animationGraphAssetZoom);
-            const ImVec2 minPos = AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphAssetPan, st.animationGraphAssetZoom, localPos);
+            ImVec2& localPos = uiState.animationGraphAssetNodePositions[key];
+            const ImVec2 nodeSize = MulImVec2(nodeBaseSize, uiState.animationGraphAssetZoom);
+            const ImVec2 minPos = AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphAssetPan, uiState.animationGraphAssetZoom, localPos);
             const ImVec2 maxPos = AddImVec2(minPos, nodeSize);
 
             drawList->AddRectFilled(minPos, maxPos, visualNode.color, 10.0f);
             drawList->AddRectFilled(
                 minPos,
-                AddImVec2(minPos, ImVec2(nodeSize.x, std::max(18.0f, 22.0f * st.animationGraphAssetZoom))),
+                AddImVec2(minPos, ImVec2(nodeSize.x, std::max(18.0f, 22.0f * uiState.animationGraphAssetZoom))),
                 IM_COL32(255, 255, 255, 12),
                 10.0f);
             drawList->AddRect(minPos, maxPos, IM_COL32(18, 18, 20, 255), 10.0f, 0, 1.2f);
             drawList->AddText(
                 ImGui::GetFont(),
                 titleFontSize,
-                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 10.0f), st.animationGraphAssetZoom)),
+                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 10.0f), uiState.animationGraphAssetZoom)),
                 IM_COL32(255, 255, 255, 255),
                 visualNode.title.c_str());
             drawList->AddText(
                 ImGui::GetFont(),
                 bodyFontSize,
-                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 38.0f), st.animationGraphAssetZoom)),
+                AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 38.0f), uiState.animationGraphAssetZoom)),
                 IM_COL32(225, 225, 225, 240),
                 visualNode.subtitle.c_str());
 
@@ -467,7 +467,7 @@
                 drawList->AddText(
                     ImGui::GetFont(),
                     std::max(10.0f, bodyFontSize - 1.0f),
-                    AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 56.0f), st.animationGraphAssetZoom)),
+                    AddImVec2(minPos, MulImVec2(ImVec2(12.0f, 56.0f), uiState.animationGraphAssetZoom)),
                     IM_COL32(210, 210, 210, 220),
                     detail);
             }
@@ -477,7 +477,7 @@
             ImGui::InvisibleButton(buttonId.c_str(), nodeSize);
             if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
             {
-                localPos = AddImVec2(localPos, AnimationGraphScreenDeltaToGraphDelta(ImGui::GetIO().MouseDelta, st.animationGraphAssetZoom));
+                localPos = AddImVec2(localPos, AnimationGraphScreenDeltaToGraphDelta(ImGui::GetIO().MouseDelta, uiState.animationGraphAssetZoom));
             }
             if (ImGui::IsItemHovered())
             {

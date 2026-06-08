@@ -1,124 +1,111 @@
 namespace rendern::ui::level_ui_detail
 {
-    static const char* LightTypeLabel(rendern::LightType type) noexcept
+    static const SceneHierarchyItemViewModel& GetSceneHierarchyItem(
+        const SceneHierarchyViewModel& hierarchyViewModel,
+        int itemIndex)
     {
-        switch (type)
-        {
-        case rendern::LightType::Directional: return "Directional";
-        case rendern::LightType::Point:       return "Point";
-        case rendern::LightType::Spot:        return "Spot";
-        }
-        return "Unknown";
+        return hierarchyViewModel.items[static_cast<std::size_t>(itemIndex)];
     }
 
     static void DrawHierarchyPanel(
-        rendern::LevelAsset& level,
-        const DerivedLists& derived,
+        const SceneHierarchyViewModel& hierarchyViewModel,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         ImGui::BeginChild("##Hierarchy", ImVec2(280.0f, 0.0f), true);
 
-        auto drawNode = [&](auto&& self, int idx) -> void
+        auto drawNode = [&](auto&& self, int itemIndex) -> void
             {
-                const auto& n = level.nodes[static_cast<std::size_t>(idx)];
+                const SceneHierarchyItemViewModel& item = GetSceneHierarchyItem(hierarchyViewModel, itemIndex);
+                const int nodeIndex = item.id.index;
 
                 ImGuiTreeNodeFlags flags =
                     ImGuiTreeNodeFlags_OpenOnArrow |
                     ImGuiTreeNodeFlags_SpanFullWidth;
 
-                if (derived.children[static_cast<std::size_t>(idx)].empty())
+                if (item.childItemIndices.empty())
                     flags |= ImGuiTreeNodeFlags_Leaf;
 
-                if (scene.EditorIsNodeSelected(idx))
+                if (item.isSelected)
                     flags |= ImGuiTreeNodeFlags_Selected;
 
-                char label[256]{};
-                const char* name = n.name.empty() ? "<unnamed>" : n.name.c_str();
-                if (!n.mesh.empty())
-                    std::snprintf(label, sizeof(label), "%d: %s  [mesh=%s]", idx, name, n.mesh.c_str());
-                else
-                    std::snprintf(label, sizeof(label), "%d: %s", idx, name);
-
-                const bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(static_cast<std::intptr_t>(idx)), flags, "%s", label);
+                const bool open = ImGui::TreeNodeEx(
+                    reinterpret_cast<void*>(static_cast<std::intptr_t>(nodeIndex)),
+                    flags,
+                    "%s",
+                    item.displayName.c_str());
 
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
                 {
                     const bool ctrlDown = ImGui::GetIO().KeyCtrl;
                     if (ctrlDown)
                     {
-                        rendern::editor_commands::ToggleSceneNodeSelection(st.selection, scene, idx);
+                        rendern::editor_commands::ToggleSceneNodeSelection(uiState.selection, scene, nodeIndex);
                     }
                     else
                     {
-                        rendern::editor_commands::SelectSceneNode(st.selection, scene, idx);
+                        rendern::editor_commands::SelectSceneNode(uiState.selection, scene, nodeIndex);
                     }
-                    st.selectedNode = scene.editorSelectedNode;
-                    st.selectedParticleEmitter = -1;
+                    uiState.selectedNode = scene.editorSelectedNode;
+                    uiState.selectedParticleEmitter = -1;
                 }
 
                 if (open)
                 {
-                    for (int ch : derived.children[static_cast<std::size_t>(idx)])
-                        self(self, ch);
+                    for (const int childItemIndex : item.childItemIndices)
+                    {
+                        self(self, childItemIndex);
+                    }
                     ImGui::TreePop();
                 }
             };
 
-        for (int r : derived.roots)
-            drawNode(drawNode, r);
+        for (const int rootItemIndex : hierarchyViewModel.sceneRootItemIndices)
+        {
+            drawNode(drawNode, rootItemIndex);
+        }
 
         ImGui::SeparatorText("Particle Emitters");
-        for (std::size_t i = 0; i < level.particleEmitters.size(); ++i)
+        for (const int emitterItemIndex : hierarchyViewModel.particleEmitterItemIndices)
         {
-            const rendern::ParticleEmitter& emitter = level.particleEmitters[i];
-            char label[256]{};
-            const char* name = emitter.name.empty() ? "<unnamed emitter>" : emitter.name.c_str();
-            std::snprintf(label, sizeof(label), "%d: %s%s", static_cast<int>(i), name, emitter.enabled ? "" : "  [disabled]");
-
-            if (ImGui::Selectable(label, scene.EditorIsParticleEmitterSelected(static_cast<int>(i))))
+            const SceneHierarchyItemViewModel& item = GetSceneHierarchyItem(hierarchyViewModel, emitterItemIndex);
+            const int emitterIndex = item.id.index;
+            
+            if (ImGui::Selectable(item.displayName.c_str(), item.isSelected))
             {
                 const bool ctrlDown = ImGui::GetIO().KeyCtrl;
                 if (ctrlDown)
                 {
-                    scene.EditorToggleSelectionParticleEmitter(static_cast<int>(i));
+                    scene.EditorToggleSelectionParticleEmitter(emitterIndex);
                 }
                 else
                 {
-                    scene.EditorSetSelectionSingleParticleEmitter(static_cast<int>(i));
+                    scene.EditorSetSelectionSingleParticleEmitter(emitterIndex);
                 }
-                st.selectedNode = -1;
-                st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+                uiState.selectedNode = -1;
+                uiState.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
             }
         }
 
         ImGui::SeparatorText("Lights");
-        scene.EditorSanitizeLightSelection(scene.lights.size());
-        for (std::size_t i = 0; i < scene.lights.size(); ++i)
+        for (const int lightItemIndex : hierarchyViewModel.lightItemIndices)
         {
-            const rendern::Light& light = scene.lights[i];
-            char label[256]{};
-            std::snprintf(
-                label,
-                sizeof(label),
-                "%d: %s%s",
-                static_cast<int>(i),
-                LightTypeLabel(light.type),
-                light.intensity > 0.00001f ? "" : "  [disabled]");
+            const SceneHierarchyItemViewModel& item = GetSceneHierarchyItem(hierarchyViewModel, lightItemIndex);
+            const int lightIndex = item.id.index;
 
-            if (ImGui::Selectable(label, scene.EditorIsLightSelected(static_cast<int>(i))))
+            if (ImGui::Selectable(item.displayName.c_str(), item.isSelected))
             {
                 const bool ctrlDown = ImGui::GetIO().KeyCtrl;
                 if (ctrlDown)
                 {
-                    scene.EditorToggleSelectionLight(static_cast<int>(i));
+                    scene.EditorToggleSelectionLight(lightIndex);
                 }
                 else
                 {
-                    scene.EditorSetLightSelectionSingle(static_cast<int>(i));
+                    scene.EditorSetLightSelectionSingle(lightIndex);
                 }
-                st.selectedNode = -1;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = -1;
+                uiState.selectedParticleEmitter = -1;
             }
         }
 
