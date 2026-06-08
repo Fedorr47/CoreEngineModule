@@ -125,21 +125,41 @@
         const float width = std::max(220.0f, previewAvail.x);
         const float height = std::clamp(width * 0.80f, 240.0f, 360.0f);
 
-        ImGui::BeginChild("##AnimationGraphBlend2DPreview", ImVec2(0.0f, height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::BeginChild(
+            "##AnimationGraphBlend2DPreview",
+            ImVec2(0.0f, height),
+            true,
+            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
         const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-        const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+        const ImVec2 availableCanvasSize = ImGui::GetContentRegionAvail();
+        constexpr float MinimumBlend2DCanvasWidth = 64.0f;
+        constexpr float MinimumBlend2DCanvasHeight = 64.0f;
+
+        const ImVec2 canvasSize{
+            std::max(MinimumBlend2DCanvasWidth, availableCanvasSize.x),
+            std::max(MinimumBlend2DCanvasHeight, availableCanvasSize.y)
+        };
+
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasSize), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasSize), IM_COL32(22, 22, 26, 255), 6.0f);
 
         ImGui::InvisibleButton("##AnimationGraphBlend2DCanvasButton", canvasSize);
+
         const bool hovered = ImGui::IsItemHovered();
         if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
             st.animationGraphBlend2DPan = AddImVec2(st.animationGraphBlend2DPan, ImGui::GetIO().MouseDelta);
         }
-        AnimationGraphHandleCanvasZoom(st.animationGraphBlend2DZoom, st.animationGraphBlend2DPan, canvasPos, canvasSize, hovered);
 
+        AnimationGraphHandleCanvasZoom(
+            st.animationGraphBlend2DZoom,
+            st.animationGraphBlend2DPan,
+            canvasPos,
+            canvasSize,
+            hovered);
+        
         float minX = state.blend2D.front().x;
         float maxX = state.blend2D.front().x;
         float minY = state.blend2D.front().y;
@@ -468,9 +488,20 @@
         const ImVec2 previewAvail = ImGui::GetContentRegionAvail();
         const float width = std::max(220.0f, previewAvail.x);
         const float height = std::clamp(width * 0.80f, 240.0f, 360.0f);
-        ImGui::BeginChild("##AnimationRuntimeBlend2DPreview", ImVec2(0.0f, height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        
+        ImGui::BeginChild(
+            "##AnimationRuntimeBlend2DPreview",
+            ImVec2(0.0f, height),
+            true,
+            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
         const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-        const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+        const ImVec2 availableCanvasSize = ImGui::GetContentRegionAvail();
+        const ImVec2 canvasSize{
+            std::max(1.0f, availableCanvasSize.x),
+            std::max(1.0f, availableCanvasSize.y)
+        };
+
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         drawList->PushClipRect(canvasPos, AddImVec2(canvasPos, canvasSize), true);
         drawList->AddRectFilled(canvasPos, AddImVec2(canvasPos, canvasSize), IM_COL32(22, 22, 26, 255), 6.0f);

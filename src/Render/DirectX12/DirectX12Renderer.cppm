@@ -139,6 +139,20 @@ export namespace rendern
 #include "RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl"
 		}
 
+		RendererCpuTimingSnapshot GetLastCpuTimings() const noexcept
+		{
+			return RendererCpuTimingSnapshot{
+				.renderGraphBuildMs = lastRenderFrameBuildGraphMs_,
+				.renderGraphExecuteTotalMs = lastRenderGraphCpuTimings_.totalMs,
+				.renderGraphSubmitCommandListMs = lastRenderGraphCpuTimings_.submitCommandListMs,
+				.presentMs = lastRenderGraphPresentMs_,
+				.setupCsmMs = lastRenderFrameSetupCsmMs_,
+				.shadowPassBuildMs = lastRenderFrameShadowPassBuildMs_,
+				.reflectionCaptureBuildMs = lastRenderFrameReflectionCaptureBuildMs_,
+				.mainPassBuildMs = lastRenderFrameMainPassBuildMs_
+			};
+		}
+
 		void Shutdown()
 		{
 #include "RendererImpl/DirectX12Renderer_Shutdown.inl"

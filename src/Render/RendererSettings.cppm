@@ -25,6 +25,18 @@ export namespace rendern
 		float tinySleepMs{ 0.0f };
 	};
 
+	struct RendererCpuTimingSnapshot
+	{
+		double renderGraphBuildMs{ 0.0 };
+		double renderGraphExecuteTotalMs{ 0.0 };
+		double renderGraphSubmitCommandListMs{ 0.0 };
+		double presentMs{ 0.0 };
+		double setupCsmMs{ 0.0 };
+		double shadowPassBuildMs{ 0.0 };
+		double reflectionCaptureBuildMs{ 0.0 };
+		double mainPassBuildMs{ 0.0 };
+	};
+
 	struct PerformanceSnapshot
 	{
 		static constexpr std::size_t FrameTimeHistoryCapacity = 128u;
@@ -132,7 +144,8 @@ export namespace rendern
 		float animationRuntimeOverlayAnchorXPx{ 12.0f };
 		float animationRuntimeOverlayAnchorYPx{ 54.0f };
 		
-		bool logCpuFrameTimings{ true };
+		bool logCpuFrameTimings{ false };
+		std::uint32_t performanceLogFrameInterval{ 120u };
 		
 		bool enableDebugWindowRender{ true };
 		bool showPerformancePanel{ true };

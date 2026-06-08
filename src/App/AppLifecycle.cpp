@@ -360,9 +360,16 @@ namespace appLifecycle
         return std::chrono::duration<double, std::milli>(duration).count();
     }
 
-    static void UpdatePerformanceSnapshot(rendern::RendererSettings& rendererSettings, const CpuFrameTimings& cpuFrameTimings)
+    static void UpdatePerformanceSnapshot(
+        rendern::RendererSettings& rendererSettings,
+        const FrameStatsOverlayState& frameStats,
+        float rawFrameTimeMs,
+        const CpuFrameTimings& cpuFrameTimings)
     {
         rendern::PerformanceSnapshot& performanceSnapshot = rendererSettings.performanceSnapshot;
+        performanceSnapshot.fps = frameStats.displayFps;
+        performanceSnapshot.frameTimeMs = frameStats.displayMs;
+        performanceSnapshot.rawFrameTimeMs = rawFrameTimeMs;
         performanceSnapshot.cpuFrameStages.totalBeforeSleepMs = static_cast<float>(cpuFrameTimings.totalBeforeSleepMs);
         performanceSnapshot.cpuFrameStages.totalWithSleepMs = static_cast<float>(cpuFrameTimings.totalWithSleepMs);
         performanceSnapshot.cpuFrameStages.updateFrameTimingMs = static_cast<float>(cpuFrameTimings.updateFrameTimingMs);
@@ -375,7 +382,11 @@ namespace appLifecycle
         performanceSnapshot.cpuFrameStages.renderDebugWindowMs = static_cast<float>(cpuFrameTimings.renderDebugWindowMs);
         performanceSnapshot.cpuFrameStages.tinySleepMs = static_cast<float>(cpuFrameTimings.tinySleepMs);
         performanceSnapshot.hasGpuTimings = false;
-        performanceSnapshot.PushFrameTimeSample(performanceSnapshot.rawFrameTimeMs);
+
+        const float frameTimeSampleMs = performanceSnapshot.rawFrameTimeMs > 0.0f
+            ? performanceSnapshot.rawFrameTimeMs
+            : performanceSnapshot.frameTimeMs;
+        performanceSnapshot.PushFrameTimeSample(frameTimeSampleMs);
     }
 
     bool TickApp(AppState& app)
@@ -439,6 +450,7 @@ namespace appLifecycle
         const auto mainRenderStart = Clock::now();
         RenderMainViewport(app);
         const auto mainRenderEnd = Clock::now();
+        const rendern::RendererCpuTimingSnapshot rendererCpuTimings = graphicState.renderer->GetLastCpuTimings();
 
         const auto debugRenderStart = Clock::now();
         if (graphicState.rendererSettings.enableDebugWindowRender)
@@ -469,24 +481,42 @@ namespace appLifecycle
         cpu.tinySleepMs = Ms(afterSleep - beforeSleep);
         cpu.streamingMs = Ms(streamingEnd - streamingStart);
         
-        UpdatePerformanceSnapshot(graphicState.rendererSettings, cpu);
+        UpdatePerformanceSnapshot(
+            graphicState.rendererSettings,
+            app.frameState.frameStatsOverlay,
+            graphicState.rendererSettings.performanceSnapshot.rawFrameTimeMs,
+            cpu);
         
         ++app.frameState.frameIndex;
-        if (graphicState.rendererSettings.logCpuFrameTimings && (app.frameState.frameIndex % 120u) == 0u)
+        const std::uint32_t performanceLogFrameInterval = std::max(1u, graphicState.rendererSettings.performanceLogFrameInterval);
+        if (graphicState.rendererSettings.logCpuFrameTimings &&
+            (app.frameState.frameIndex % performanceLogFrameInterval) == 0u)
         {
+            const rendern::PerformanceSnapshot& performanceSnapshot = graphicState.rendererSettings.performanceSnapshot;
             std::printf(
-                "Frame CPU: %.2f ms / %.2f with sleep | Timing %.2f | Input %.2f | Editor %.2f | Streaming %.2f | Gameplay+Anim %.2f | ImGui %.2f | MainRender %.2f | DebugRender %.2f | Sleep %.2f\n",
+                "[Perf] FPS %.1f | frame %.2f ms raw %.2f ms | CPU %.2f/%.2f ms | render main %.2f debug %.2f | "
+                "rg build %.2f exec %.2f submit %.2f present %.2f | build setup %.2f shadows %.2f reflection %.2f main %.2f | "
+                "imgui %.2f | gameplay+anim %.2f | streaming %.2f | debugWindowRender %s\n",
+                performanceSnapshot.fps,
+                performanceSnapshot.frameTimeMs,
+                performanceSnapshot.rawFrameTimeMs,
                 cpu.totalBeforeSleepMs,
                 cpu.totalWithSleepMs,
-                cpu.updateFrameTimingMs,
-                cpu.inputMs,
-                cpu.editorInteractionMs,
-                cpu.streamingMs,
-                cpu.gameplayAndAnimationMs,
-                cpu.buildImGuiMs,
                 cpu.renderMainViewportMs,
                 cpu.renderDebugWindowMs,
-                cpu.tinySleepMs);
+                rendererCpuTimings.renderGraphBuildMs,
+                rendererCpuTimings.renderGraphExecuteTotalMs,
+                rendererCpuTimings.renderGraphSubmitCommandListMs,
+                rendererCpuTimings.presentMs,
+                rendererCpuTimings.setupCsmMs,
+                rendererCpuTimings.shadowPassBuildMs,
+                rendererCpuTimings.reflectionCaptureBuildMs,
+                rendererCpuTimings.mainPassBuildMs,
+                cpu.buildImGuiMs,
+                cpu.gameplayAndAnimationMs,
+                cpu.streamingMs,
+                graphicState.rendererSettings.enableDebugWindowRender ? "ON" : "OFF");
+            std::fflush(stdout);
         }
         
         return true;

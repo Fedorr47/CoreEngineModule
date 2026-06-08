@@ -32,6 +32,7 @@ namespace rendern
             virtual ~IRendererImpl() = default;
             virtual void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData) = 0;
             virtual void SetSettings(const RendererSettings& settings) = 0;
+            virtual RendererCpuTimingSnapshot GetLastCpuTimings() const = 0;
             virtual void Shutdown() = 0;
         };
 
@@ -43,6 +44,7 @@ namespace rendern
                 swapChain.Present();
             }
             void SetSettings(const RendererSettings&) override {}
+            RendererCpuTimingSnapshot GetLastCpuTimings() const override { return {}; }
             void Shutdown() override {}
         };
 
@@ -61,6 +63,11 @@ namespace rendern
             void SetSettings(const RendererSettings& settings) override
             {
                 impl_.SetSettings(settings);
+            }
+
+            RendererCpuTimingSnapshot GetLastCpuTimings() const override
+            {
+                return {};
             }
 
             void Shutdown() override
@@ -89,6 +96,11 @@ namespace rendern
             void SetSettings(const RendererSettings& settings) override
             {
                 impl_.SetSettings(settings);
+            }
+
+            RendererCpuTimingSnapshot GetLastCpuTimings() const override
+            {
+                return impl_.GetLastCpuTimings();
             }
 
             void Shutdown() override
@@ -146,6 +158,11 @@ namespace rendern
         void SetSettings(const RendererSettings& settings)
         {
             impl_->SetSettings(settings);
+        }
+
+        RendererCpuTimingSnapshot GetLastCpuTimings() const
+        {
+            return impl_->GetLastCpuTimings();
         }
 
         void Shutdown()

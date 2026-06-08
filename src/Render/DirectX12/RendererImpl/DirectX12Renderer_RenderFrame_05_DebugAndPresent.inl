@@ -1173,36 +1173,5 @@ const auto presentEnd = std::chrono::steady_clock::now();
 lastRenderGraphPresentMs_ =
 	std::chrono::duration<double, std::milli>(presentEnd - presentStart).count();
 
-if (settings_.logCpuFrameTimings)
-{
-	std::printf(
-	"[CPU] Build %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f / %.2f | "
-	"RG %.2f (Tex %.2f FB %.2f Pass %.2f Submit %.2f) | Present %.2f | "
-	"Submit: Begin %.2f | Flush %.2f | Parse %.2f | End %.2f\n"
-	"[DBG] Anim %.2f Refl %.2f Light %.2f Part %.2f Editor %.2f Move %.2f Pass %.2f\n",
-	lastRenderFrameBuildGraphMs_,
-	lastRenderFrameSetupCsmMs_,
-	lastRenderFrameBuildInstancesMs_,
-	lastRenderFrameShadowPassBuildMs_,
-	lastRenderFrameReflectionCaptureBuildMs_,
-	lastRenderFramePreDepthBuildMs_,
-	lastRenderFrameMainPassBuildMs_,
-	lastRenderFrameDebugAndPresentBuildMs_,
-	lastRenderGraphCpuTimings_.totalMs,
-	lastRenderGraphCpuTimings_.createTexturesMs,
-	lastRenderGraphCpuTimings_.createFramebuffersMs,
-	lastRenderGraphCpuTimings_.executePassesMs,
-	lastRenderGraphCpuTimings_.submitCommandListMs,
-	lastRenderGraphPresentMs_,
-	lastSubmitCpuTimings_.beginFrameMs,
-	lastSubmitCpuTimings_.flushPendingBufferUpdatesMs,
-	lastSubmitCpuTimings_.parseCommandsMs,
-	lastSubmitCpuTimings_.endFrameMs,
-	lastDebugAnimationOverlayBuildMs_,
-	lastDebugReflectionGizmosBuildMs_,
-	lastDebugLightGizmosBuildMs_,
-	lastDebugParticleGizmosBuildMs_,
-	lastDebugEditorGizmosBuildMs_,
-	lastDebugGameplayMovementBuildMs_,
-	lastDebugRenderPassBuildMs_);
-}
+// Coarse frame-stage logging is emitted by TickApp on a readable cadence.
+// Keep RenderGraph timing data available internally without printing per-render details here.

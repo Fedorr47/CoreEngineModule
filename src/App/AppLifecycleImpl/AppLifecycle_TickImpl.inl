@@ -31,8 +31,8 @@ static float UpdateFrameTimingAndLoadingOverlay(AppState& app)
     app.frameState.frameTimer.Tick();
 
     const double rawFrameDeltaSeconds = app.frameState.frameTimer.GetDeltaTime();
-    app.graphicsState.rendererSettings.performanceSnapshot.rawFrameTimeMs =
-        static_cast<float>(rawFrameDeltaSeconds * 1000.0);
+    const float rawFrameTimeMs = static_cast<float>(rawFrameDeltaSeconds * 1000.0);
+    app.graphicsState.rendererSettings.performanceSnapshot.rawFrameTimeMs = rawFrameTimeMs;
     const float deltaSeconds = static_cast<float>(rawFrameDeltaSeconds);
 
     FrameStatsOverlayState& frameStats = app.frameState.frameStatsOverlay;
@@ -133,6 +133,12 @@ static void UpdateEditorViewportInteraction(AppState& app)
     {
         app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay = 
             !app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay;
+    }
+
+    if (app.windowState.input.State().KeyPressed(VK_F7))
+    {
+        app.graphicsState.rendererSettings.enableDebugWindowRender =
+            !app.graphicsState.rendererSettings.enableDebugWindowRender;
     }
     if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Game)
     {

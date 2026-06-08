@@ -96,7 +96,7 @@ namespace rendern::ui
             SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[6], "Gameplay + animation", cpuFrameStages.gameplayAndAnimationMs);
             SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[7], "ImGui build", cpuFrameStages.buildImGuiMs);
             SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[8], "Main viewport render", cpuFrameStages.renderMainViewportMs);
-            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[9], "Debug window render", cpuFrameStages.renderDebugWindowMs);
+            SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[9], "Debug window render (separate swapchain)", cpuFrameStages.renderDebugWindowMs);
             SetCpuStageDisplayRow(cpuStageDisplayCache.cachedCpuStageRows[10], "Tiny sleep", cpuFrameStages.tinySleepMs);
 
             cpuStageDisplayCache.lastCpuStageDisplayRefreshTime = refreshTimeSeconds;
@@ -126,10 +126,18 @@ namespace rendern::ui
             return;
         }
 
+        ImGui::Checkbox("Render Debug Window Swapchain", &rendererSettings.enableDebugWindowRender);
+        ImGui::SameLine();
+        ImGui::TextDisabled("(F7)");
+        ImGui::Checkbox("Log CPU frame timings", &rendererSettings.logCpuFrameTimings);
+        ImGui::Separator();
+
         const rendern::PerformanceSnapshot& performanceSnapshot = rendererSettings.performanceSnapshot;
         ImGui::Text("FPS: %.1f", performanceSnapshot.fps);
         ImGui::Text("Frame time: %.3f ms", performanceSnapshot.frameTimeMs);
         ImGui::TextDisabled("Raw frame delta: %.3f ms", performanceSnapshot.rawFrameTimeMs);
+        ImGui::TextDisabled("Debug window render measures only the separate debug swapchain render path.");
+        ImGui::TextDisabled("ImGui build is UI frame construction; it does not include separate debug swapchain rendering.");
 
         float averageFrameTimeMs = 0.0f;
         float minimumFrameTimeMs = 0.0f;
@@ -184,7 +192,7 @@ namespace rendern::ui
         }
         else
         {
-            ImGui::TextDisabled("GPU timings unavailable: the current shared performance snapshot does not expose GPU timestamp data.");
+            ImGui::TextDisabled("GPU timings unavailable until timestamp queries are implemented.");
         }
         
         ImGui::End();

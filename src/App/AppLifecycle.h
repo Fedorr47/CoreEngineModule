@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
 
 #include "Win32AppShell.h"
 #include "DebugUiHost.h"
