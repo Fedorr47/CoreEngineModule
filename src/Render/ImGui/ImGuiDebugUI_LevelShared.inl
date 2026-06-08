@@ -1,5 +1,72 @@
 namespace rendern::ui::level_ui_detail
 {
+    enum class SceneHierarchyItemKind
+    {
+        None,
+        SceneNode,
+        ParticleEmitter,
+        Light
+    };
+
+    enum class SceneHierarchyNodeSourceKind
+    {
+        Empty,
+        Mesh,
+        Model,
+        SkinnedMesh
+    };
+
+    enum class SceneHierarchyLightKind
+    {
+        Unknown,
+        Directional,
+        Point,
+        Spot
+    };
+
+    struct SceneHierarchyItemId
+    {
+        SceneHierarchyItemKind kind{ SceneHierarchyItemKind::None };
+        int index{ -1 };
+
+        [[nodiscard]] bool IsValid() const noexcept
+        {
+            return kind != SceneHierarchyItemKind::None && index >= 0;
+        }
+
+        [[nodiscard]] friend bool operator==(
+            const SceneHierarchyItemId& lhs,
+            const SceneHierarchyItemId& rhs) noexcept = default;
+    };
+
+    struct SceneHierarchyItemTypeFlags
+    {
+        SceneHierarchyNodeSourceKind nodeSource{ SceneHierarchyNodeSourceKind::Empty };
+        SceneHierarchyLightKind lightKind{ SceneHierarchyLightKind::Unknown };
+    };
+
+    struct SceneHierarchyItemViewModel
+    {
+        // Stable only for this editor snapshot/current level arrays; not a persistent asset id.
+        SceneHierarchyItemId id{};
+        SceneHierarchyItemId parentId{};
+        std::string displayName;
+        SceneHierarchyItemTypeFlags typeFlags{};
+        bool isSelected{ false };
+        bool isVisibleOrEnabled{ true };
+        bool hasChildren{ false };
+    };
+
+    struct SceneHierarchyViewModel
+    {
+        // Per-frame ImGui/editor snapshot: copied UI data only, no Scene/Level/runtime ownership.
+        // This does not define render visibility, thread-safety, or runtime/render snapshot lifetime.
+        std::vector<SceneHierarchyItemViewModel> items;
+        std::vector<int> sceneRootItemIndices;
+        std::vector<int> particleEmitterItemIndices;
+        std::vector<int> lightItemIndices;
+    };
+    
     struct LevelEditorUIState
     {
         rendern::EditorSelectionService selection;
