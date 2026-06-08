@@ -101,7 +101,7 @@
     static void DrawAnimationGraphBlend2DPreview(
         const rendern::AnimationStateDesc& state,
         const rendern::AnimationControllerRuntime& runtime,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         if (state.blend2D.empty())
         {
@@ -113,13 +113,13 @@
 
         if (ImGui::Button("Fit Blend2D"))
         {
-            st.animationGraphBlend2DZoom = 1.0f;
-            st.animationGraphBlend2DPan = ImVec2(0.0f, 0.0f);
+            uiState.animationGraphBlend2DZoom = 1.0f;
+            uiState.animationGraphBlend2DPan = ImVec2(0.0f, 0.0f);
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(170.0f);
-        ImGui::SliderFloat("##AnimationGraphBlend2DZoom", &st.animationGraphBlend2DZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
-        st.animationGraphBlend2DZoom = AnimationGraphClampZoom(st.animationGraphBlend2DZoom);
+        ImGui::SliderFloat("##AnimationGraphBlend2DZoom", &uiState.animationGraphBlend2DZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+        uiState.animationGraphBlend2DZoom = AnimationGraphClampZoom(uiState.animationGraphBlend2DZoom);
 
         const ImVec2 previewAvail = ImGui::GetContentRegionAvail();
         const float width = std::max(220.0f, previewAvail.x);
@@ -150,12 +150,12 @@
         const bool hovered = ImGui::IsItemHovered();
         if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
-            st.animationGraphBlend2DPan = AddImVec2(st.animationGraphBlend2DPan, ImGui::GetIO().MouseDelta);
+            uiState.animationGraphBlend2DPan = AddImVec2(uiState.animationGraphBlend2DPan, ImGui::GetIO().MouseDelta);
         }
 
         AnimationGraphHandleCanvasZoom(
-            st.animationGraphBlend2DZoom,
-            st.animationGraphBlend2DPan,
+            uiState.animationGraphBlend2DZoom,
+            uiState.animationGraphBlend2DPan,
             canvasPos,
             canvasSize,
             hovered);
@@ -210,7 +210,7 @@
 
         auto ToScreen = [&](const ImVec2& localPoint) -> ImVec2
         {
-            return AnimationGraphCanvasPointToScreen(canvasPos, st.animationGraphBlend2DPan, st.animationGraphBlend2DZoom, localPoint);
+            return AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphBlend2DPan, uiState.animationGraphBlend2DZoom, localPoint);
         };
 
         const ImVec2 plotMinScreen = ToScreen(plotMin);
@@ -253,7 +253,7 @@
         for (const rendern::AnimationBlend2DPoint& point : state.blend2D)
         {
             const ImVec2 screenPoint = ToScreen(PlotPointFromBlend(point.x, point.y));
-            const float pointRadius = 5.5f * st.animationGraphBlend2DZoom;
+            const float pointRadius = 5.5f * uiState.animationGraphBlend2DZoom;
             drawList->AddCircleFilled(screenPoint, pointRadius, IM_COL32(110, 190, 255, 255));
             drawList->AddCircle(screenPoint, pointRadius + 3.0f, IM_COL32(70, 104, 138, 220), 0, 1.2f);
 
@@ -457,7 +457,7 @@
 
     static void DrawAnimationRuntimeBlend2DDisplayData(
         const AnimationRuntimeBlend2DViewModel& blend2DDisplayData,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         if (!blend2DDisplayData.available || blend2DDisplayData.samples.empty())
         {
@@ -477,13 +477,13 @@
 
         if (ImGui::Button("Fit Blend2D"))
         {
-            st.animationRuntimeBlend2DZoom = 1.0f;
-            st.animationRuntimeBlend2DPan = ImVec2(0.0f, 0.0f);
+            uiState.animationRuntimeBlend2DZoom = 1.0f;
+            uiState.animationRuntimeBlend2DPan = ImVec2(0.0f, 0.0f);
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(170.0f);
-        ImGui::SliderFloat("##AnimationRuntimeBlend2DZoom", &st.animationRuntimeBlend2DZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
-        st.animationRuntimeBlend2DZoom = AnimationGraphClampZoom(st.animationRuntimeBlend2DZoom);
+        ImGui::SliderFloat("##AnimationRuntimeBlend2DZoom", &uiState.animationRuntimeBlend2DZoom, 0.45f, 2.50f, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+        uiState.animationRuntimeBlend2DZoom = AnimationGraphClampZoom(uiState.animationRuntimeBlend2DZoom);
 
         const ImVec2 previewAvail = ImGui::GetContentRegionAvail();
         const float width = std::max(220.0f, previewAvail.x);
@@ -510,9 +510,9 @@
         const bool hovered = ImGui::IsItemHovered();
         if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
         {
-            st.animationRuntimeBlend2DPan = AddImVec2(st.animationRuntimeBlend2DPan, ImGui::GetIO().MouseDelta);
+            uiState.animationRuntimeBlend2DPan = AddImVec2(uiState.animationRuntimeBlend2DPan, ImGui::GetIO().MouseDelta);
         }
-        AnimationGraphHandleCanvasZoom(st.animationRuntimeBlend2DZoom, st.animationRuntimeBlend2DPan, canvasPos, canvasSize, hovered);
+        AnimationGraphHandleCanvasZoom(uiState.animationRuntimeBlend2DZoom, uiState.animationRuntimeBlend2DPan, canvasPos, canvasSize, hovered);
 
         float minX = blend2DDisplayData.samples.front().x;
         float maxX = blend2DDisplayData.samples.front().x;
@@ -544,7 +544,7 @@
         };
         auto ToScreen = [&](const ImVec2& localPoint) -> ImVec2
         {
-            return AnimationGraphCanvasPointToScreen(canvasPos, st.animationRuntimeBlend2DPan, st.animationRuntimeBlend2DZoom, localPoint);
+            return AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationRuntimeBlend2DPan, uiState.animationRuntimeBlend2DZoom, localPoint);
         };
 
         const ImVec2 plotMinScreen = ToScreen(plotMin);
@@ -559,7 +559,7 @@
         for (const AnimationRuntimeBlend2DSampleViewModel& sample : blend2DDisplayData.samples)
         {
             const ImVec2 screenPoint = ToScreen(PlotPointFromBlend(sample.x, sample.y));
-            const float pointRadius = (sample.active ? 7.0f : 5.5f) * st.animationRuntimeBlend2DZoom;
+            const float pointRadius = (sample.active ? 7.0f : 5.5f) * uiState.animationRuntimeBlend2DZoom;
             drawList->AddCircleFilled(screenPoint, pointRadius, sample.active ? IM_COL32(255, 220, 90, 255) : IM_COL32(110, 190, 255, 255));
             drawList->AddCircle(screenPoint, pointRadius + 3.0f, IM_COL32(70, 104, 138, 220), 0, 1.2f);
 

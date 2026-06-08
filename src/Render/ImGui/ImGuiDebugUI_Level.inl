@@ -50,33 +50,33 @@ namespace rendern::ui
         const LevelEditorStatsSectionViewModel stats = BuildLevelEditorStatsSectionViewModel(level, scene);
         DrawLevelEditorStatsSection(stats);
 
-        auto& st = level_ui_detail::GetState();
+        auto& uiState = level_ui_detail::GetState();
 
         // Selection is driven by the main viewport (mouse picking) or by this UI.
         scene.EditorSanitizeLightSelection(scene.lights.size());
         if (scene.editorSelectedLight >= 0)
         {
-            st.selectedNode = -1;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = -1;
         }
         else if (scene.editorSelectedParticleEmitter >= 0)
         {
-            st.selectedNode = -1;
-            st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+            uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
         }
-        else if (scene.editorSelectedNode != st.selectedNode)
+        else if (scene.editorSelectedNode != uiState.selectedNode)
         {
-            st.selectedNode = scene.editorSelectedNode;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = scene.editorSelectedNode;
+            uiState.selectedParticleEmitter = -1;
         }
         else if (scene.editorSelectedNode < 0 && scene.editorSelectedParticleEmitter < 0)
         {
-            st.selectedNode = -1;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = -1;
         }
 
-        level_ui_detail::SyncSavePathWithSource(level, st);
-        level_ui_detail::DrawFilePanel(level, scene, st);
+        level_ui_detail::SyncSavePathWithSource(level, uiState);
+        level_ui_detail::DrawFilePanel(level, scene, uiState);
 
         const bool canHotkey = !ImGui::GetIO().WantTextInput;
         const bool ctrlD = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_D);
@@ -84,31 +84,31 @@ namespace rendern::ui
         {
             if (levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f)))
             {
-                st.selectedNode = scene.editorSelectedNode;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = scene.editorSelectedNode;
+                uiState.selectedParticleEmitter = -1;
             }
         }
 
         level_ui_detail::DerivedLists derived{};
         level_ui_detail::BuildDerivedLists(level, derived);
 
-        level_ui_detail::DrawHierarchyPanel(level, derived, scene, st);
+        level_ui_detail::DrawHierarchyPanel(level, derived, scene, uiState);
         ImGui::SameLine();
-        level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, st);
+        level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, uiState);
 
         // If UI changed selection directly, push it back to Scene.
         if (scene.editorSelectedLight < 0)
         {
-            if (st.selectedParticleEmitter != scene.editorSelectedParticleEmitter ||
-                (st.selectedParticleEmitter < 0 && st.selectedNode != scene.editorSelectedNode))
+            if (uiState.selectedParticleEmitter != scene.editorSelectedParticleEmitter ||
+                (uiState.selectedParticleEmitter < 0 && uiState.selectedNode != scene.editorSelectedNode))
             {
-                if (st.selectedParticleEmitter >= 0)
+                if (uiState.selectedParticleEmitter >= 0)
                 {
-                    scene.EditorSetSelectionSingleParticleEmitter(st.selectedParticleEmitter);
+                    scene.EditorSetSelectionSingleParticleEmitter(uiState.selectedParticleEmitter);
                 }
                 else
                 {
-                    scene.EditorSetSelectionSingle(st.selectedNode);
+                    scene.EditorSetSelectionSingle(uiState.selectedNode);
                 }
             }
         }
@@ -118,12 +118,12 @@ namespace rendern::ui
 
         levelInst.SyncEditorRuntimeBindings(level, scene);
         levelInst.ValidateRuntimeMappingsDebug(level, scene);
-        st.selectedNode = scene.editorSelectedNode;
-        st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+        uiState.selectedNode = scene.editorSelectedNode;
+        uiState.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
 
         ImGui::End();
 
-        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, st);
-        level_ui_detail::DrawAnimationRuntimeWindow(level, levelInst, scene, st, gameplayRuntime);
+        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, uiState);
+        level_ui_detail::DrawAnimationRuntimeWindow(level, levelInst, scene, uiState, gameplayRuntime);
     }
 }

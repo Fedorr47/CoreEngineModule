@@ -96,19 +96,19 @@ namespace rendern::ui::level_ui_detail
         AssetManager& assets,
         rendern::Scene& scene,
         rendern::CameraController& camCtl,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         ImGui::Text("Create / Import");
-        ImGui::Checkbox("Add as child of selected", &st.addAsChildOfSelection);
+        ImGui::Checkbox("Add as child of selected", &uiState.addAsChildOfSelection);
 
-        const int parentForNew = ParentForNewNode(level, st);
+        const int parentForNew = ParentForNewNode(level, uiState);
 
         if (ImGui::Button("Add Cube"))
         {
             EnsureDefaultMesh(level, "cube", "models/cube.obj");
             const int newIdx = levelInst.AddNode(level, scene, assets, "cube", "", parentForNew, ComputeSpawnTransform(scene, camCtl), "Cube");
-            st.selectedNode = newIdx;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = newIdx;
+            uiState.selectedParticleEmitter = -1;
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Quad"))
@@ -117,8 +117,8 @@ namespace rendern::ui::level_ui_detail
             rendern::Transform t = ComputeSpawnTransform(scene, camCtl);
             t.scale = mathUtils::Vec3(3.0f, 1.0f, 3.0f);
             const int newIdx = levelInst.AddNode(level, scene, assets, "quad", "", parentForNew, t, "Quad");
-            st.selectedNode = newIdx;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = newIdx;
+            uiState.selectedParticleEmitter = -1;
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Planar Mirror"))
@@ -142,15 +142,15 @@ namespace rendern::ui::level_ui_detail
             t.rotationDegrees.x = 90.0f;
             t.scale = mathUtils::Vec3(3.0f, 1.0f, 3.0f);
             const int newIdx = levelInst.AddNode(level, scene, assets, "quad", matId, parentForNew, t, "PlanarMirror");
-            st.selectedNode = newIdx;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = newIdx;
+            uiState.selectedParticleEmitter = -1;
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Empty"))
         {
             const int newIdx = levelInst.AddNode(level, scene, assets, "", "", parentForNew, ComputeSpawnTransform(scene, camCtl), "Empty");
-            st.selectedNode = newIdx;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = newIdx;
+            uiState.selectedParticleEmitter = -1;
         }
 
         if (ImGui::Button("Add Particle Emitter"))
@@ -159,30 +159,30 @@ namespace rendern::ui::level_ui_detail
             emitter.name = MakeUniqueParticleEmitterName(level, "ParticleEmitter");
             emitter.position = ComputeSpawnTransform(scene, camCtl).position;
             const int newIdx = levelInst.AddParticleEmitter(level, scene, emitter);
-            st.selectedNode = -1;
-            st.selectedParticleEmitter = newIdx;
+            uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = newIdx;
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Demo Smoke Emitter"))
         {
             EnsureDemoSmokeTexture(level, assets);
             const int newIdx = levelInst.AddParticleEmitter(level, scene, MakeDemoSmokeEmitter(level, scene, camCtl));
-            st.selectedNode = -1;
-            st.selectedParticleEmitter = newIdx;
+            uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = newIdx;
         }
         ImGui::TextDisabled("Demo texture: %s", kDemoSmokeTexturePath);
 
         ImGui::Spacing();
-        ImGui::InputText("OBJ path", st.importPathBuf, sizeof(st.importPathBuf));
-        ImGui::InputText("Asset id (optional)", st.importAssetIdBuf, sizeof(st.importAssetIdBuf));
-        ImGui::Checkbox("Flip UVs on import", &st.importFlipUVs);
+        ImGui::InputText("OBJ path", uiState.importPathBuf, sizeof(uiState.importPathBuf));
+        ImGui::InputText("Asset id (optional)", uiState.importAssetIdBuf, sizeof(uiState.importAssetIdBuf));
+        ImGui::Checkbox("Flip UVs on import", &uiState.importFlipUVs);
 
         const auto makeImportBaseId = [&](const char* fallback) -> std::string
             {
-                std::string base = std::string(st.importAssetIdBuf);
+                std::string base = std::string(uiState.importAssetIdBuf);
                 if (base.empty())
                 {
-                    base = std::filesystem::path(std::string(st.importPathBuf)).stem().string();
+                    base = std::filesystem::path(std::string(uiState.importPathBuf)).stem().string();
                 }
                 if (base.empty())
                 {
@@ -193,7 +193,7 @@ namespace rendern::ui::level_ui_detail
 
         if (ImGui::Button("Import mesh into library"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string meshId = MakeUniqueMeshId(level, makeImportBaseId("mesh"));
@@ -201,7 +201,7 @@ namespace rendern::ui::level_ui_detail
                 rendern::LevelMeshDef def{};
                 def.path = pathStr;
                 def.debugName = meshId;
-                def.flipUVs = st.importFlipUVs;
+                def.flipUVs = uiState.importFlipUVs;
                 level.meshes.emplace(meshId, std::move(def));
 
                 try
@@ -209,7 +209,7 @@ namespace rendern::ui::level_ui_detail
                     rendern::MeshProperties p{};
                     p.filePath = pathStr;
                     p.debugName = meshId;
-                    p.flipUVs = st.importFlipUVs;
+                    p.flipUVs = uiState.importFlipUVs;
                     assets.LoadMeshAsync(meshId, std::move(p));
                 }
                 catch (...)
@@ -220,7 +220,7 @@ namespace rendern::ui::level_ui_detail
         ImGui::SameLine();
         if (ImGui::Button("Create object from path"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string base = makeImportBaseId("mesh");
@@ -231,13 +231,13 @@ namespace rendern::ui::level_ui_detail
                     rendern::LevelMeshDef def{};
                     def.path = pathStr;
                     def.debugName = meshId;
-                    def.flipUVs = st.importFlipUVs;
+                    def.flipUVs = uiState.importFlipUVs;
                     level.meshes.emplace(meshId, std::move(def));
                 }
 
                 const int newIdx = levelInst.AddNode(level, scene, assets, meshId, "", parentForNew, ComputeSpawnTransform(scene, camCtl), meshId);
-                st.selectedNode = newIdx;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = newIdx;
+                uiState.selectedParticleEmitter = -1;
             }
         }
 
@@ -245,22 +245,22 @@ namespace rendern::ui::level_ui_detail
         ImGui::SeparatorText("Skinned Import");
         if (ImGui::Button("Import skinned mesh into library"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string skinnedId = MakeUniqueSkinnedMeshId(level, makeImportBaseId("skinned"));
                 rendern::LevelSkinnedMeshDef def{};
                 def.path = pathStr;
                 def.debugName = skinnedId;
-                def.flipUVs = st.importFlipUVs;
+                def.flipUVs = uiState.importFlipUVs;
                 level.skinnedMeshes.emplace(skinnedId, std::move(def));
-                levelInst.ImportSkinnedMaterials(level, scene, assets, skinnedId, pathStr, st.importFlipUVs);
+                levelInst.ImportSkinnedMaterials(level, scene, assets, skinnedId, pathStr, uiState.importFlipUVs);
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Create skinned object"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string base = makeImportBaseId("skinned");
@@ -270,39 +270,39 @@ namespace rendern::ui::level_ui_detail
                     rendern::LevelSkinnedMeshDef def{};
                     def.path = pathStr;
                     def.debugName = skinnedId;
-                    def.flipUVs = st.importFlipUVs;
+                    def.flipUVs = uiState.importFlipUVs;
                     level.skinnedMeshes.emplace(skinnedId, std::move(def));
                 }
 
-                const std::string defaultMaterialId = levelInst.ImportSkinnedMaterials(level, scene, assets, skinnedId, pathStr, st.importFlipUVs);
+                const std::string defaultMaterialId = levelInst.ImportSkinnedMaterials(level, scene, assets, skinnedId, pathStr, uiState.importFlipUVs);
                 const int newIdx = levelInst.AddNode(level, scene, assets, "", defaultMaterialId, parentForNew, ComputeSpawnTransform(scene, camCtl), skinnedId);
                 levelInst.SetNodeSkinnedMesh(level, scene, assets, newIdx, skinnedId);
-                st.selectedNode = newIdx;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = newIdx;
+                uiState.selectedParticleEmitter = -1;
             }
         }
 
         ImGui::Spacing();
         ImGui::SeparatorText("Model / Scene Import");
-        ImGui::Checkbox("Import skeleton/bone nodes (scene debug only)", &st.importSceneSkeletonNodes);
+        ImGui::Checkbox("Import skeleton/bone nodes (scene debug only)", &uiState.importSceneSkeletonNodes);
 
         if (ImGui::Button("Import model into library"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string modelId = MakeUniqueModelId(level, makeImportBaseId("model"));
                 rendern::LevelModelDef def{};
                 def.path = pathStr;
                 def.debugName = modelId;
-                def.flipUVs = st.importFlipUVs;
+                def.flipUVs = uiState.importFlipUVs;
                 level.models.emplace(modelId, std::move(def));
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Create model object"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string base = makeImportBaseId("model");
@@ -312,20 +312,20 @@ namespace rendern::ui::level_ui_detail
                     rendern::LevelModelDef def{};
                     def.path = pathStr;
                     def.debugName = modelId;
-                    def.flipUVs = st.importFlipUVs;
+                    def.flipUVs = uiState.importFlipUVs;
                     level.models.emplace(modelId, std::move(def));
                 }
 
                 const int newIdx = levelInst.AddNode(level, scene, assets, "", "", parentForNew, ComputeSpawnTransform(scene, camCtl), modelId);
                 levelInst.SetNodeModel(level, scene, assets, newIdx, modelId);
-                st.selectedNode = newIdx;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = newIdx;
+                uiState.selectedParticleEmitter = -1;
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Import model scene as nodes"))
         {
-            const std::string pathStr = std::string(st.importPathBuf);
+            const std::string pathStr = std::string(uiState.importPathBuf);
             if (!pathStr.empty())
             {
                 const std::string base = makeImportBaseId("model");
@@ -335,7 +335,7 @@ namespace rendern::ui::level_ui_detail
                     rendern::LevelModelDef def{};
                     def.path = pathStr;
                     def.debugName = modelId;
-                    def.flipUVs = st.importFlipUVs;
+                    def.flipUVs = uiState.importFlipUVs;
                     level.models.emplace(modelId, std::move(def));
                 }
 
@@ -347,11 +347,11 @@ namespace rendern::ui::level_ui_detail
                         assets,
                         modelId,
                         parentForNew,
-                        st.importSceneCreateMaterialPlaceholders,
-                        st.importSceneSkeletonNodes,
+                        uiState.importSceneCreateMaterialPlaceholders,
+                        uiState.importSceneSkeletonNodes,
                         true);
-                    st.selectedNode = firstIdx;
-                    st.selectedParticleEmitter = -1;
+                    uiState.selectedNode = firstIdx;
+                    uiState.selectedParticleEmitter = -1;
                 }
                 catch (...)
                 {

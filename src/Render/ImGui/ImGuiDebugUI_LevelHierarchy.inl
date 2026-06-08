@@ -15,7 +15,7 @@ namespace rendern::ui::level_ui_detail
         rendern::LevelAsset& level,
         const DerivedLists& derived,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         ImGui::BeginChild("##Hierarchy", ImVec2(280.0f, 0.0f), true);
 
@@ -47,14 +47,14 @@ namespace rendern::ui::level_ui_detail
                     const bool ctrlDown = ImGui::GetIO().KeyCtrl;
                     if (ctrlDown)
                     {
-                        rendern::editor_commands::ToggleSceneNodeSelection(st.selection, scene, idx);
+                        rendern::editor_commands::ToggleSceneNodeSelection(uiState.selection, scene, idx);
                     }
                     else
                     {
-                        rendern::editor_commands::SelectSceneNode(st.selection, scene, idx);
+                        rendern::editor_commands::SelectSceneNode(uiState.selection, scene, idx);
                     }
-                    st.selectedNode = scene.editorSelectedNode;
-                    st.selectedParticleEmitter = -1;
+                    uiState.selectedNode = scene.editorSelectedNode;
+                    uiState.selectedParticleEmitter = -1;
                 }
 
                 if (open)
@@ -87,8 +87,8 @@ namespace rendern::ui::level_ui_detail
                 {
                     scene.EditorSetSelectionSingleParticleEmitter(static_cast<int>(i));
                 }
-                st.selectedNode = -1;
-                st.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
+                uiState.selectedNode = -1;
+                uiState.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
             }
         }
 
@@ -117,8 +117,8 @@ namespace rendern::ui::level_ui_detail
                 {
                     scene.EditorSetLightSelectionSingle(static_cast<int>(i));
                 }
-                st.selectedNode = -1;
-                st.selectedParticleEmitter = -1;
+                uiState.selectedNode = -1;
+                uiState.selectedParticleEmitter = -1;
             }
         }
 

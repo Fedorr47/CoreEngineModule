@@ -4,23 +4,23 @@ namespace rendern::ui::level_ui_detail
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
-        rendern::ParticleEmitter& emitter = level.particleEmitters[static_cast<std::size_t>(st.selectedParticleEmitter)];
+        rendern::ParticleEmitter& emitter = level.particleEmitters[static_cast<std::size_t>(uiState.selectedParticleEmitter)];
 
-        if (st.prevSelectedParticleEmitter != st.selectedParticleEmitter)
+        if (uiState.prevSelectedParticleEmitter != uiState.selectedParticleEmitter)
         {
-            std::snprintf(st.nameBuf, sizeof(st.nameBuf), "%s", emitter.name.c_str());
-            st.prevSelectedParticleEmitter = st.selectedParticleEmitter;
+            std::snprintf(uiState.nameBuf, sizeof(uiState.nameBuf), "%s", emitter.name.c_str());
+            uiState.prevSelectedParticleEmitter = uiState.selectedParticleEmitter;
         }
 
-        ImGui::Text("Particle Emitter #%d", st.selectedParticleEmitter);
+        ImGui::Text("Particle Emitter #%d", uiState.selectedParticleEmitter);
 
         bool changed = false;
 
-        if (ImGui::InputText("Name", st.nameBuf, sizeof(st.nameBuf)))
+        if (ImGui::InputText("Name", uiState.nameBuf, sizeof(uiState.nameBuf)))
         {
-            emitter.name = std::string(st.nameBuf);
+            emitter.name = std::string(uiState.nameBuf);
             changed = true;
         }
 
@@ -102,16 +102,16 @@ namespace rendern::ui::level_ui_detail
 
         if (changed)
         {
-            levelInst.RestartParticleEmitter(level, scene, st.selectedParticleEmitter);
+            levelInst.RestartParticleEmitter(level, scene, uiState.selectedParticleEmitter);
         }
 
         ImGui::SeparatorText("Runtime");
-        if (const rendern::ParticleEmitter* runtimeEmitter = levelInst.GetRuntimeParticleEmitter(static_cast<const rendern::Scene&>(scene), st.selectedParticleEmitter))
+        if (const rendern::ParticleEmitter* runtimeEmitter = levelInst.GetRuntimeParticleEmitter(static_cast<const rendern::Scene&>(scene), uiState.selectedParticleEmitter))
         {
             int aliveCount = 0;
             for (const rendern::Particle& particle : scene.particles)
             {
-                if (particle.alive && particle.ownerEmitter == st.selectedParticleEmitter)
+                if (particle.alive && particle.ownerEmitter == uiState.selectedParticleEmitter)
                 {
                     ++aliveCount;
                 }
@@ -129,29 +129,29 @@ namespace rendern::ui::level_ui_detail
 
         if (ImGui::Button("Restart Emitter"))
         {
-            levelInst.RestartParticleEmitter(level, scene, st.selectedParticleEmitter);
+            levelInst.RestartParticleEmitter(level, scene, uiState.selectedParticleEmitter);
         }
         ImGui::SameLine();
         if (ImGui::Button("Burst Now"))
         {
-            levelInst.TriggerParticleEmitterBurst(level, scene, st.selectedParticleEmitter);
+            levelInst.TriggerParticleEmitterBurst(level, scene, uiState.selectedParticleEmitter);
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Emitter"))
         {
-            levelInst.DeleteParticleEmitter(level, scene, st.selectedParticleEmitter);
-            st.selectedParticleEmitter = -1;
-            st.prevSelectedParticleEmitter = -2;
+            levelInst.DeleteParticleEmitter(level, scene, uiState.selectedParticleEmitter);
+            uiState.selectedParticleEmitter = -1;
+            uiState.prevSelectedParticleEmitter = -2;
         }
     }
 
-    void DrawLightSelectionInspector(rendern::Scene& scene, LevelEditorUIState& st)
+    void DrawLightSelectionInspector(rendern::Scene& scene, LevelEditorUIState& uiState)
     {
         scene.EditorSanitizeLightSelection(scene.lights.size());
-        st.selectedNode = -1;
-        st.selectedParticleEmitter = -1;
-        st.prevSelectedNode = -2;
-        st.prevSelectedParticleEmitter = -2;
+        uiState.selectedNode = -1;
+        uiState.selectedParticleEmitter = -1;
+        uiState.prevSelectedNode = -2;
+        uiState.prevSelectedParticleEmitter = -2;
 
         ImGui::SeparatorText("Light");
         rendern::ui::DrawLightInspectorDetails(scene);
@@ -163,28 +163,28 @@ namespace rendern::ui::level_ui_detail
         AssetManager& assets,
         rendern::Scene& scene,
         const DerivedLists& derived,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         ImGui::Separator();
         ImGui::Text("Selection");
 
-        if (st.selectedParticleEmitter >= 0 && !ParticleEmitterAlive(level, st.selectedParticleEmitter))
-            st.selectedParticleEmitter = -1;
-        if (st.selectedNode >= 0 && !NodeAlive(level, st.selectedNode))
-            st.selectedNode = -1;
+        if (uiState.selectedParticleEmitter >= 0 && !ParticleEmitterAlive(level, uiState.selectedParticleEmitter))
+            uiState.selectedParticleEmitter = -1;
+        if (uiState.selectedNode >= 0 && !NodeAlive(level, uiState.selectedNode))
+            uiState.selectedNode = -1;
 
         scene.EditorSanitizeLightSelection(scene.lights.size());
         if (scene.editorSelectedLight >= 0)
         {
-            DrawLightSelectionInspector(scene, st);
+            DrawLightSelectionInspector(scene, uiState);
             return;
         }
 
-        if (st.selectedParticleEmitter >= 0)
+        if (uiState.selectedParticleEmitter >= 0)
         {
-            st.selectedNode = -1;
-            DrawParticleEmitterSelectionInspector(level, levelInst, scene, st);
-            st.prevSelectedNode = -2;
+            uiState.selectedNode = -1;
+            DrawParticleEmitterSelectionInspector(level, levelInst, scene, uiState);
+            uiState.prevSelectedNode = -2;
             return;
         }
 
@@ -197,23 +197,23 @@ namespace rendern::ui::level_ui_detail
                 if (ImGui::SmallButton("Clear"))
                 {
                     scene.EditorClearSelection();
-                    st.selectedNode = -1;
+                    uiState.selectedNode = -1;
                 }
                 ImGui::Text("Primary: #%d", scene.editorSelectedNode);
-                st.selectedNode = scene.editorSelectedNode;
+                uiState.selectedNode = scene.editorSelectedNode;
                 ImGui::Separator();
             }
         }
 
-        if (st.selectedNode >= 0 && NodeAlive(level, st.selectedNode))
+        if (uiState.selectedNode >= 0 && NodeAlive(level, uiState.selectedNode))
         {
-            DrawNodeSelectionInspector(level, levelInst, assets, scene, derived, st);
+            DrawNodeSelectionInspector(level, levelInst, assets, scene, derived, uiState);
         }
         else
         {
             ImGui::TextDisabled("No node, light, or emitter selected.");
-            st.prevSelectedNode = -2;
-            st.prevSelectedParticleEmitter = -2;
+            uiState.prevSelectedNode = -2;
+            uiState.prevSelectedParticleEmitter = -2;
         }
     }
 
@@ -224,12 +224,12 @@ namespace rendern::ui::level_ui_detail
         rendern::Scene& scene,
         rendern::CameraController& camCtl,
         const DerivedLists& derived,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         ImGui::BeginChild("##Inspector", ImVec2(0.0f, 0.0f), true);
 
-        DrawCreateImportSection(level, levelInst, assets, scene, camCtl, st);
-        DrawSelectionInspector(level, levelInst, assets, scene, derived, st);
+        DrawCreateImportSection(level, levelInst, assets, scene, camCtl, uiState);
+        DrawSelectionInspector(level, levelInst, assets, scene, derived, uiState);
 
         ImGui::EndChild();
     }

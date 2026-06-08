@@ -204,10 +204,10 @@ export namespace rendern
 			workers_.reserve(workerCount);
 			for (std::uint32_t i = 0; i < workerCount; ++i)
 			{
-				workers_.emplace_back([this](std::stop_token st)
+				workers_.emplace_back([this](std::stop_token stopToken)
 				{
 					currentPool_ = this;
-					Worker(st);
+					Worker(stopToken);
 					currentPool_ = nullptr;
 				});
 			}
@@ -259,17 +259,17 @@ export namespace rendern
 		}
 
 	private:
-		void Worker(std::stop_token st)
+		void Worker(std::stop_token stopToken)
 		{
-			while (!st.stop_requested())
+			while (!stopToken.stop_requested())
 			{
 				std::function<void()> job;
 				{
 					std::unique_lock lock(mutex_);
-					cv_.wait(lock, [this, &st] { return st.stop_requested() || stopping_ || !queue_.empty(); });
-					if (st.stop_requested())
+					cv_.wait(lock, [this, &stopToken] { return stopToken.stop_requested() || stopping_ || !queue_.empty(); });
+					if (stopToken.stop_requested())
 						break;
-					if ((stopping_ || st.stop_requested()) && queue_.empty())
+					if ((stopping_ || stopToken.stop_requested()) && queue_.empty())
 						break;
 					if (queue_.empty())
 						continue;

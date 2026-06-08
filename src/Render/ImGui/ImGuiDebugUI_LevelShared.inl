@@ -131,15 +131,15 @@ namespace rendern::ui::level_ui_detail
         return i < level.nodes.size() && level.nodes[i].alive;
     }
 
-    static void SyncSavePathWithSource(rendern::LevelAsset& level, LevelEditorUIState& st)
+    static void SyncSavePathWithSource(rendern::LevelAsset& level, LevelEditorUIState& uiState)
     {
-        if (st.cachedSourcePath != level.sourcePath)
+        if (uiState.cachedSourcePath != level.sourcePath)
         {
-            st.cachedSourcePath = level.sourcePath;
-            const std::string fallback = st.cachedSourcePath.empty()
+            uiState.cachedSourcePath = level.sourcePath;
+            const std::string fallback = uiState.cachedSourcePath.empty()
                 ? std::string("levels/edited.level.json")
-                : st.cachedSourcePath;
-            std::snprintf(st.savePathBuf, sizeof(st.savePathBuf), "%s", fallback.c_str());
+                : uiState.cachedSourcePath;
+            std::snprintf(uiState.savePathBuf, sizeof(uiState.savePathBuf), "%s", fallback.c_str());
         }
     }
 
@@ -277,9 +277,9 @@ namespace rendern::ui::level_ui_detail
         return t;
     }
 
-    static int ParentForNewNode(const rendern::LevelAsset& level, const LevelEditorUIState& st)
+    static int ParentForNewNode(const rendern::LevelAsset& level, const LevelEditorUIState& uiState)
     {
-        return (st.addAsChildOfSelection && NodeAlive(level, st.selectedNode)) ? st.selectedNode : -1;
+        return (uiState.addAsChildOfSelection && NodeAlive(level, uiState.selectedNode)) ? uiState.selectedNode : -1;
     }
 
     static bool ParticleEmitterAlive(const rendern::LevelAsset& level, int idx)

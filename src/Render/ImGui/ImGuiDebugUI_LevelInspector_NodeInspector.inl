@@ -6,24 +6,24 @@ namespace rendern::ui::level_ui_detail
         AssetManager& assets,
         rendern::Scene& scene,
         const DerivedLists& derived,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
-        rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(st.selectedNode)];
+        rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(uiState.selectedNode)];
 
-        if (st.prevSelectedNode != st.selectedNode)
+        if (uiState.prevSelectedNode != uiState.selectedNode)
         {
-            std::snprintf(st.nameBuf, sizeof(st.nameBuf), "%s", node.name.c_str());
-            st.prevSelectedNode = st.selectedNode;
+            std::snprintf(uiState.nameBuf, sizeof(uiState.nameBuf), "%s", node.name.c_str());
+            uiState.prevSelectedNode = uiState.selectedNode;
         }
 
-        ImGui::Text("Node #%d", st.selectedNode);
+        ImGui::Text("Node #%d", uiState.selectedNode);
 
-        if (ImGui::InputText("Name", st.nameBuf, sizeof(st.nameBuf)))
-            node.name = std::string(st.nameBuf);
+        if (ImGui::InputText("Name", uiState.nameBuf, sizeof(uiState.nameBuf)))
+            node.name = std::string(uiState.nameBuf);
 
         bool vis = node.visible;
         if (ImGui::Checkbox("Visible", &vis))
-            levelInst.SetNodeVisible(level, scene, assets, st.selectedNode, vis);
+            levelInst.SetNodeVisible(level, scene, assets, uiState.selectedNode, vis);
 
         {
             std::vector<std::string> items;
@@ -54,9 +54,9 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::Combo("Mesh", &current, citems.data(), static_cast<int>(citems.size())))
             {
                 if (current == 0)
-                    levelInst.SetNodeMesh(level, scene, assets, st.selectedNode, "");
+                    levelInst.SetNodeMesh(level, scene, assets, uiState.selectedNode, "");
                 else
-                    levelInst.SetNodeMesh(level, scene, assets, st.selectedNode, items[static_cast<std::size_t>(current)]);
+                    levelInst.SetNodeMesh(level, scene, assets, uiState.selectedNode, items[static_cast<std::size_t>(current)]);
             }
         }
 
@@ -89,9 +89,9 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::Combo("Model", &current, citems.data(), static_cast<int>(citems.size())))
             {
                 if (current == 0)
-                    levelInst.SetNodeModel(level, scene, assets, st.selectedNode, "");
+                    levelInst.SetNodeModel(level, scene, assets, uiState.selectedNode, "");
                 else
-                    levelInst.SetNodeModel(level, scene, assets, st.selectedNode, items[static_cast<std::size_t>(current)]);
+                    levelInst.SetNodeModel(level, scene, assets, uiState.selectedNode, items[static_cast<std::size_t>(current)]);
             }
         }
 
@@ -124,9 +124,9 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::Combo("Skinned Mesh", &current, citems.data(), static_cast<int>(citems.size())))
             {
                 if (current == 0)
-                    levelInst.SetNodeSkinnedMesh(level, scene, assets, st.selectedNode, "");
+                    levelInst.SetNodeSkinnedMesh(level, scene, assets, uiState.selectedNode, "");
                 else
-                    levelInst.SetNodeSkinnedMesh(level, scene, assets, st.selectedNode, items[static_cast<std::size_t>(current)]);
+                    levelInst.SetNodeSkinnedMesh(level, scene, assets, uiState.selectedNode, items[static_cast<std::size_t>(current)]);
             }
         }
 
@@ -173,9 +173,9 @@ namespace rendern::ui::level_ui_detail
                             if (ImGui::Combo(label.c_str(), &overrideCurrent, overrideCItems.data(), static_cast<int>(overrideCItems.size())))
                             {
                                 if (overrideCurrent == 0)
-                                    levelInst.SetNodeMaterialOverride(level, scene, assets, st.selectedNode, sub.submeshIndex, "");
+                                    levelInst.SetNodeMaterialOverride(level, scene, assets, uiState.selectedNode, sub.submeshIndex, "");
                                 else
-                                    levelInst.SetNodeMaterialOverride(level, scene, assets, st.selectedNode, sub.submeshIndex, overrideItems[static_cast<std::size_t>(overrideCurrent)]);
+                                    levelInst.SetNodeMaterialOverride(level, scene, assets, uiState.selectedNode, sub.submeshIndex, overrideItems[static_cast<std::size_t>(overrideCurrent)]);
                             }
                             ImGui::SameLine();
                             ImGui::TextDisabled("%s", sub.name.c_str());
@@ -195,7 +195,7 @@ namespace rendern::ui::level_ui_detail
             {
                 auto RefreshSkinnedRuntime = [&]() -> rendern::SkinnedDrawItem*
                     {
-                        const int drawIndex = levelInst.GetNodeSkinnedDrawIndex(st.selectedNode);
+                        const int drawIndex = levelInst.GetNodeSkinnedDrawIndex(uiState.selectedNode);
                         return levelInst.GetSkinnedDrawItem(scene, drawIndex);
                     };
 
@@ -259,7 +259,7 @@ namespace rendern::ui::level_ui_detail
                             (animationAssetCurrent <= 0)
                             ? std::string{}
                         : animationAssetItems[static_cast<std::size_t>(animationAssetCurrent)];
-                        levelInst.SetNodeAnimationAsset(level, scene, assets, st.selectedNode, selectedAnimationAsset);
+                        levelInst.SetNodeAnimationAsset(level, scene, assets, uiState.selectedNode, selectedAnimationAsset);
                         skinnedItem = RefreshSkinnedRuntime();
                     }
 
@@ -296,7 +296,7 @@ namespace rendern::ui::level_ui_detail
                                 (controllerCurrent <= 0)
                                 ? std::string{}
                             : controllerItems[static_cast<std::size_t>(controllerCurrent)];
-                            levelInst.SetNodeAnimationController(level, scene, assets, st.selectedNode, selectedController);
+                            levelInst.SetNodeAnimationController(level, scene, assets, uiState.selectedNode, selectedController);
                             skinnedItem = RefreshSkinnedRuntime();
                         }
 
@@ -331,11 +331,11 @@ namespace rendern::ui::level_ui_detail
                             {
                                 if (ImGui::Button("Open Animation Graph"))
                                 {
-                                    st.animationGraphWindowOpen = true;
-                                    st.animationGraphRequestFocus = true;
+                                    uiState.animationGraphWindowOpen = true;
+                                    uiState.animationGraphRequestFocus = true;
                                     if (skinnedItem->controller.stateMachineAsset != nullptr)
                                     {
-                                        st.animationGraphSelectedStateName = skinnedItem->controller.currentStateName;
+                                        uiState.animationGraphSelectedStateName = skinnedItem->controller.currentStateName;
                                     }
                                 }
                                 ImGui::SameLine();
@@ -818,9 +818,9 @@ namespace rendern::ui::level_ui_detail
             if (ImGui::Combo("Material", &current, citems.data(), static_cast<int>(citems.size())))
             {
                 if (current == 0)
-                    levelInst.SetNodeMaterial(level, scene, st.selectedNode, "");
+                    levelInst.SetNodeMaterial(level, scene, uiState.selectedNode, "");
                 else
-                    levelInst.SetNodeMaterial(level, scene, st.selectedNode, items[static_cast<std::size_t>(current)]);
+                    levelInst.SetNodeMaterial(level, scene, uiState.selectedNode, items[static_cast<std::size_t>(current)]);
             }
         }
 
@@ -889,8 +889,8 @@ namespace rendern::ui::level_ui_detail
         if (ImGui::Button("Duplicate (Ctrl+D)"))
         {
             levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f));
-            st.selectedNode = scene.editorSelectedNode;
-            st.selectedParticleEmitter = -1;
+            uiState.selectedNode = scene.editorSelectedNode;
+            uiState.selectedParticleEmitter = -1;
         }
         ImGui::SameLine();
         bool doDelete = ImGui::Button("Delete (recursive)");
@@ -900,13 +900,13 @@ namespace rendern::ui::level_ui_detail
         if (doDelete)
         {
             const int parent = node.parent;
-            levelInst.DeleteSubtree(level, scene, st.selectedNode);
+            levelInst.DeleteSubtree(level, scene, uiState.selectedNode);
 
             if (NodeAlive(level, parent))
-                st.selectedNode = parent;
+                uiState.selectedNode = parent;
             else
-                st.selectedNode = -1;
-            st.selectedParticleEmitter = -1;
+                uiState.selectedNode = -1;
+            uiState.selectedParticleEmitter = -1;
         }
     }
 

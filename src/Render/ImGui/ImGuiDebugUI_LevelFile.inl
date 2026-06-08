@@ -3,7 +3,7 @@ namespace rendern::ui::level_ui_detail
     static void SaveLevelToPath(
         rendern::LevelAsset& level,
         rendern::Scene& scene,
-        LevelEditorUIState& st,
+        LevelEditorUIState& uiState,
         const std::string& path)
     {
         try
@@ -13,31 +13,31 @@ namespace rendern::ui::level_ui_detail
 
             rendern::SaveLevelAssetToJson(path, level);
             level.sourcePath = path;
-            st.cachedSourcePath = path;
-            std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Saved: %s", path.c_str());
-            st.saveStatusIsError = false;
+            uiState.cachedSourcePath = path;
+            std::snprintf(uiState.saveStatusBuf, sizeof(uiState.saveStatusBuf), "Saved: %s", path.c_str());
+            uiState.saveStatusIsError = false;
         }
         catch (const std::exception& e)
         {
-            std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Save failed: %s", e.what());
-            st.saveStatusIsError = true;
+            std::snprintf(uiState.saveStatusBuf, sizeof(uiState.saveStatusBuf), "Save failed: %s", e.what());
+            uiState.saveStatusIsError = true;
         }
     }
 
     static void DrawFilePanel(
         rendern::LevelAsset& level,
         rendern::Scene& scene,
-        LevelEditorUIState& st)
+        LevelEditorUIState& uiState)
     {
         if (!ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
-        ImGui::InputText("Level path", st.savePathBuf, sizeof(st.savePathBuf));
+        ImGui::InputText("Level path", uiState.savePathBuf, sizeof(uiState.savePathBuf));
 
         const bool canHotkey = !ImGui::GetIO().WantTextInput;
         const bool ctrlS = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_S);
 
-        const std::string pathStr = std::string(st.savePathBuf);
+        const std::string pathStr = std::string(uiState.savePathBuf);
         bool clickedSave = ImGui::Button("Save (Ctrl+S)");
         ImGui::SameLine();
         bool clickedSaveAs = ImGui::Button("Save As");
@@ -47,33 +47,33 @@ namespace rendern::ui::level_ui_detail
             const std::string usePath = !level.sourcePath.empty() ? level.sourcePath : pathStr;
             if (!usePath.empty())
             {
-                SaveLevelToPath(level, scene, st, usePath);
+                SaveLevelToPath(level, scene, uiState, usePath);
             }
             else
             {
-                std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Save failed: empty path");
-                st.saveStatusIsError = true;
+                std::snprintf(uiState.saveStatusBuf, sizeof(uiState.saveStatusBuf), "Save failed: empty path");
+                uiState.saveStatusIsError = true;
             }
         }
         else if (clickedSaveAs)
         {
             if (!pathStr.empty())
             {
-                SaveLevelToPath(level, scene, st, pathStr);
+                SaveLevelToPath(level, scene, uiState, pathStr);
             }
             else
             {
-                std::snprintf(st.saveStatusBuf, sizeof(st.saveStatusBuf), "Save failed: empty path");
-                st.saveStatusIsError = true;
+                std::snprintf(uiState.saveStatusBuf, sizeof(uiState.saveStatusBuf), "Save failed: empty path");
+                uiState.saveStatusIsError = true;
             }
         }
 
-        if (st.saveStatusBuf[0] != '\0')
+        if (uiState.saveStatusBuf[0] != '\0')
         {
-            if (st.saveStatusIsError)
-                ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "%s", st.saveStatusBuf);
+            if (uiState.saveStatusIsError)
+                ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "%s", uiState.saveStatusBuf);
             else
-                ImGui::Text("%s", st.saveStatusBuf);
+                ImGui::Text("%s", uiState.saveStatusBuf);
         }
     }
 }
