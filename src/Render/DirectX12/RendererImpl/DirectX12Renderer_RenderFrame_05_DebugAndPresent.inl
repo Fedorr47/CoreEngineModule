@@ -1160,7 +1160,7 @@ graph.Execute(
 	device_,
 	swapChain,
 	renderGraph::ExecuteOptions{
-		.enableCpuTiming = settings_.logCpuFrameTimings
+		.enableCpuTiming = settings_.logCpuFrameTimings || settings_.showPerformancePanel
 	});
 
 lastRenderGraphCpuTimings_ = graph.GetLastExecuteCpuTimings();

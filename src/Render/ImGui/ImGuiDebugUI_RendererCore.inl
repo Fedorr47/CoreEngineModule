@@ -275,6 +275,7 @@ namespace rendern::ui
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
         ImGui::Checkbox("Log CPU frame timings", &rs.logCpuFrameTimings);
+        ImGui::Checkbox("VSync", &rs.enableVSync);
         ImGui::Checkbox("Render Debug Window Swapchain", &rs.enableDebugWindowRender);
         ImGui::TextDisabled("F7: toggle separate debug window swapchain rendering.");
        

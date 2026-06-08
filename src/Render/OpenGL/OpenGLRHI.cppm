@@ -96,6 +96,15 @@ namespace rhi
 			}
 		}
 
+		void SetVSyncEnabled(bool enabled) override
+		{
+			desc_.base.vsync = enabled;
+			if (desc_.hooks.setVsync)
+			{
+				desc_.hooks.setVsync(enabled);
+			}
+		}
+
 		void Resize(Extent2D newExtent) override
 		{
 			desc_.base.extent = newExtent;

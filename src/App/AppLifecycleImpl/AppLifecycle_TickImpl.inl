@@ -224,6 +224,7 @@ static void RenderDebugWindowIfNeeded(AppState& app, const void* imguiDrawData)
 #if defined(CORE_USE_DX12)
     if (appRuntime::CanRenderDebugSwapChain(app.windowState.debugWindow, app.graphicsState.debugSwapChain.get()))
     {
+        app.graphicsState.debugSwapChain->SetVSyncEnabled(app.graphicsState.rendererSettings.enableVSync);
         appUi::RenderImGuiToSwapChainIfEnabled(
             app.windowState.shell,
             *app.graphicsState.device, *app.graphicsState.debugSwapChain, imguiDrawData);

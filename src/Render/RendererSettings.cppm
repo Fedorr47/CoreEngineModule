@@ -45,6 +45,7 @@ export namespace rendern
 		float frameTimeMs{ 0.0f };
 		float rawFrameTimeMs{ 0.0f };
 		CpuFrameStageTimingSnapshot cpuFrameStages{};
+		RendererCpuTimingSnapshot rendererCpuTimings{};
 		bool hasFrameSample{ false };
 		bool hasGpuTimings{ false };
 		std::array<float, FrameTimeHistoryCapacity> frameTimeHistoryMs{};
@@ -148,6 +149,8 @@ export namespace rendern
 		std::uint32_t performanceLogFrameInterval{ 120u };
 		
 		bool enableDebugWindowRender{ true };
+		// Keep the legacy DX12 startup behavior: the main swapchain was created in immediate mode.
+		bool enableVSync{ false };
 		bool showPerformancePanel{ true };
 		PerformanceSnapshot performanceSnapshot{};
 		bool enableTinySleep{ false };

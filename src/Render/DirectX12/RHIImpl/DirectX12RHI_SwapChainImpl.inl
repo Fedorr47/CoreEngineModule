@@ -157,6 +157,11 @@ void DX12SwapChain::Present()
     currBackBuffer_ = swapChain_->GetCurrentBackBufferIndex();
 }
 
+void DX12SwapChain::SetVSyncEnabled(bool enabled)
+{
+    chainSwapDesc_.base.vsync = enabled;
+}
+
 // Public factory functions
 inline std::unique_ptr<IRHIDevice> CreateDX12Device()
 {

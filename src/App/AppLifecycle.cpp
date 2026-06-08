@@ -364,7 +364,8 @@ namespace appLifecycle
         rendern::RendererSettings& rendererSettings,
         const FrameStatsOverlayState& frameStats,
         float rawFrameTimeMs,
-        const CpuFrameTimings& cpuFrameTimings)
+        const CpuFrameTimings& cpuFrameTimings,
+        const rendern::RendererCpuTimingSnapshot& rendererCpuTimings)
     {
         rendern::PerformanceSnapshot& performanceSnapshot = rendererSettings.performanceSnapshot;
         performanceSnapshot.fps = frameStats.displayFps;
@@ -381,6 +382,7 @@ namespace appLifecycle
         performanceSnapshot.cpuFrameStages.renderMainViewportMs = static_cast<float>(cpuFrameTimings.renderMainViewportMs);
         performanceSnapshot.cpuFrameStages.renderDebugWindowMs = static_cast<float>(cpuFrameTimings.renderDebugWindowMs);
         performanceSnapshot.cpuFrameStages.tinySleepMs = static_cast<float>(cpuFrameTimings.tinySleepMs);
+        performanceSnapshot.rendererCpuTimings = rendererCpuTimings;
         performanceSnapshot.hasGpuTimings = false;
 
         const float frameTimeSampleMs = performanceSnapshot.rawFrameTimeMs > 0.0f
@@ -485,7 +487,8 @@ namespace appLifecycle
             graphicState.rendererSettings,
             app.frameState.frameStatsOverlay,
             graphicState.rendererSettings.performanceSnapshot.rawFrameTimeMs,
-            cpu);
+            cpu,
+            rendererCpuTimings);
         
         ++app.frameState.frameIndex;
         const std::uint32_t performanceLogFrameInterval = std::max(1u, graphicState.rendererSettings.performanceLogFrameInterval);
@@ -493,10 +496,11 @@ namespace appLifecycle
             (app.frameState.frameIndex % performanceLogFrameInterval) == 0u)
         {
             const rendern::PerformanceSnapshot& performanceSnapshot = graphicState.rendererSettings.performanceSnapshot;
+            const rendern::RendererCpuTimingSnapshot& snapshotRendererCpuTimings = performanceSnapshot.rendererCpuTimings;
             std::printf(
                 "[Perf] FPS %.1f | frame %.2f ms raw %.2f ms | CPU %.2f/%.2f ms | render main %.2f debug %.2f | "
-                "rg build %.2f exec %.2f submit %.2f present %.2f | build setup %.2f shadows %.2f reflection %.2f main %.2f | "
-                "imgui %.2f | gameplay+anim %.2f | streaming %.2f | debugWindowRender %s\n",
+                "RG build %.2f exec %.2f submit %.2f present %.2f | build setup %.2f shadows %.2f reflection %.2f main %.2f | "
+                "imgui %.2f | gameplay+anim %.2f | streaming %.2f | debugWindowRender %s | vsync %s\n",
                 performanceSnapshot.fps,
                 performanceSnapshot.frameTimeMs,
                 performanceSnapshot.rawFrameTimeMs,
@@ -504,18 +508,19 @@ namespace appLifecycle
                 cpu.totalWithSleepMs,
                 cpu.renderMainViewportMs,
                 cpu.renderDebugWindowMs,
-                rendererCpuTimings.renderGraphBuildMs,
-                rendererCpuTimings.renderGraphExecuteTotalMs,
-                rendererCpuTimings.renderGraphSubmitCommandListMs,
-                rendererCpuTimings.presentMs,
-                rendererCpuTimings.setupCsmMs,
-                rendererCpuTimings.shadowPassBuildMs,
-                rendererCpuTimings.reflectionCaptureBuildMs,
-                rendererCpuTimings.mainPassBuildMs,
+                snapshotRendererCpuTimings.renderGraphBuildMs,
+                snapshotRendererCpuTimings.renderGraphExecuteTotalMs,
+                snapshotRendererCpuTimings.renderGraphSubmitCommandListMs,
+                snapshotRendererCpuTimings.presentMs,
+                snapshotRendererCpuTimings.setupCsmMs,
+                snapshotRendererCpuTimings.shadowPassBuildMs,
+                snapshotRendererCpuTimings.reflectionCaptureBuildMs,
+                snapshotRendererCpuTimings.mainPassBuildMs,
                 cpu.buildImGuiMs,
                 cpu.gameplayAndAnimationMs,
                 cpu.streamingMs,
-                graphicState.rendererSettings.enableDebugWindowRender ? "ON" : "OFF");
+                graphicState.rendererSettings.enableDebugWindowRender ? "ON" : "OFF",
+                graphicState.rendererSettings.enableVSync ? "ON" : "OFF");
             std::fflush(stdout);
         }
         

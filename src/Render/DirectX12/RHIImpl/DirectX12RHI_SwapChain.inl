@@ -14,6 +14,7 @@ public:
     FrameBufferHandle GetCurrentBackBuffer() const override;
     TextureHandle GetDepthTexture() const override;
     void Present() override;
+    void SetVSyncEnabled(bool enabled) override;
     void Resize(Extent2D newExtent) override;
 
     std::uint32_t FrameIndex() const noexcept { return static_cast<std::uint32_t>(currBackBuffer_); }

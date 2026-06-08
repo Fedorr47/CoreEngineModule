@@ -35,6 +35,11 @@ void FakeRHISwapChain::Present()
 	++presentCount_;
 }
 
+void FakeRHISwapChain::SetVSyncEnabled(bool enabled)
+{
+	swapChainDesc_.vsync = enabled;
+}
+
 void FakeRHISwapChain::Resize(rhi::Extent2D newExtent)
 {
 	swapChainDesc_.extent = newExtent;

@@ -564,6 +564,7 @@ export namespace rhi
 		virtual FrameBufferHandle GetCurrentBackBuffer() const = 0;
 		virtual TextureHandle GetDepthTexture() const = 0;
 		virtual void Present() = 0;
+		virtual void SetVSyncEnabled(bool enabled) = 0;
 		virtual void Resize(Extent2D newExtent) = 0;
 	};
 
@@ -701,6 +702,10 @@ namespace rhi
 			return TextureHandle{};
 		}
 		void Present() override {}
+		void SetVSyncEnabled(bool enabled) override
+		{
+			desc_.vsync = enabled;
+		}
 		void Resize(Extent2D newExtent) override
 		{
 			desc_.extent = newExtent;

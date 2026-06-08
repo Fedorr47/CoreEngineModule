@@ -123,6 +123,7 @@ namespace rendern
     public:
         Renderer(rhi::IRHIDevice& device, RendererSettings settings = {})
             : device_(device)
+            , settings_(settings)
         {
             switch (device_.GetBackend())
             {
@@ -152,11 +153,13 @@ namespace rendern
 
         void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData = nullptr)
         {
+            swapChain.SetVSyncEnabled(settings_.enableVSync);
             impl_->RenderFrame(swapChain, frameView, imguiDrawData);
         }
 
         void SetSettings(const RendererSettings& settings)
         {
+            settings_ = settings;
             impl_->SetSettings(settings);
         }
 
@@ -172,6 +175,7 @@ namespace rendern
 
     private:
         rhi::IRHIDevice& device_;
+        RendererSettings settings_{};
         std::unique_ptr<detail::IRendererImpl> impl_;
     };
 }

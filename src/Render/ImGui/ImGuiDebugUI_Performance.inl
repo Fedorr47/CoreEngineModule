@@ -129,6 +129,7 @@ namespace rendern::ui
         ImGui::Checkbox("Render Debug Window Swapchain", &rendererSettings.enableDebugWindowRender);
         ImGui::SameLine();
         ImGui::TextDisabled("(F7)");
+        ImGui::Checkbox("VSync", &rendererSettings.enableVSync);
         ImGui::Checkbox("Log CPU frame timings", &rendererSettings.logCpuFrameTimings);
         ImGui::Separator();
 
@@ -136,6 +137,7 @@ namespace rendern::ui
         ImGui::Text("FPS: %.1f", performanceSnapshot.fps);
         ImGui::Text("Frame time: %.3f ms", performanceSnapshot.frameTimeMs);
         ImGui::TextDisabled("Raw frame delta: %.3f ms", performanceSnapshot.rawFrameTimeMs);
+        ImGui::Text("VSync: %s", rendererSettings.enableVSync ? "ON" : "OFF");
         ImGui::TextDisabled("Debug window render measures only the separate debug swapchain render path.");
         ImGui::TextDisabled("ImGui build is UI frame construction; it does not include separate debug swapchain rendering.");
 
@@ -161,6 +163,43 @@ namespace rendern::ui
             0.0f,
             std::max(33.33f, maximumFrameTimeMs),
             ImVec2(0.0f, 90.0f));
+
+
+        ImGui::SeparatorText("Main render CPU breakdown");
+        ImGui::TextDisabled("Coarse CPU-side timings; these are not GPU timestamp timings.");
+        const rendern::RendererCpuTimingSnapshot& rendererCpuTimings = performanceSnapshot.rendererCpuTimings;
+        if (ImGui::BeginTable("PerformanceMainRenderBreakdown", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+        {
+            ImGui::TableSetupColumn("Stage");
+            ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+            ImGui::TableHeadersRow();
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("RenderGraph build");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f", rendererCpuTimings.renderGraphBuildMs);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("RenderGraph execute");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f", rendererCpuTimings.renderGraphExecuteTotalMs);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Command submit");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f", rendererCpuTimings.renderGraphSubmitCommandListMs);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Swapchain Present");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f", rendererCpuTimings.presentMs);
+
+            ImGui::EndTable();
+        }
 
         ImGui::SeparatorText("CPU frame stages");
         if (ImGui::BeginTable("PerformanceCpuFrameStages", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
