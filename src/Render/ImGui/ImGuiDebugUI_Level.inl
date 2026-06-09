@@ -98,7 +98,12 @@ namespace rendern::ui
         const level_ui_detail::SceneHierarchyViewModel hierarchyViewModel =
             level_ui_detail::BuildSceneHierarchyViewModel(level, derived, scene, uiState.selection);
 
-        level_ui_detail::DrawHierarchyPanel(hierarchyViewModel, scene, uiState);
+        const std::optional<level_ui_detail::SceneHierarchySelectionIntent> hierarchySelectionIntent =
+            level_ui_detail::DrawHierarchyPanel(hierarchyViewModel);
+        if (hierarchySelectionIntent.has_value())
+        {
+            level_ui_detail::ApplySceneHierarchySelectionIntent(*hierarchySelectionIntent, scene, uiState);
+        }
         ImGui::SameLine();
         level_ui_detail::DrawInspectorPanel(level, levelInst, assets, scene, camCtl, derived, uiState);
 
