@@ -44,6 +44,18 @@ namespace rendern::ui::level_ui_detail
         SceneHierarchyNodeSourceKind nodeSource{ SceneHierarchyNodeSourceKind::Empty };
         SceneHierarchyLightKind lightKind{ SceneHierarchyLightKind::Unknown };
     };
+    
+    enum class SceneHierarchySelectionIntentMode
+    {
+        Replace,
+        Toggle
+    };
+
+    struct SceneHierarchySelectionIntent
+    {
+        SceneHierarchyItemId itemId{};
+        SceneHierarchySelectionIntentMode mode{ SceneHierarchySelectionIntentMode::Replace };
+    };
 
     struct SceneHierarchyItemViewModel
     {
