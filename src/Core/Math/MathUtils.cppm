@@ -22,7 +22,7 @@ export namespace mathUtils
 	//  - Functions (Translate/Rotate/Scale/LookAtRH/PerspectiveRH_ZO/OrthoRH_ZO)
 	//    follow the same formulas as GLM.
 
-	inline constexpr float Pi = pi_v<double>;
+	inline constexpr float Pi = pi_v<float>;
 	inline constexpr float TwoPi = Pi * 2;
 	
 	constexpr float kLengthEpsilon = 1e-6f;
@@ -224,15 +224,15 @@ export namespace mathUtils
 
 	inline Mat4 Transpose(const Mat4& m) noexcept
 	{
-		Mat4 transonsdeMat(0.0f);
+		Mat4 result(0.0f);
 		for (int col = 0; col < 4; ++col)
 		{
 			for (int row = 0; row < 4; ++row)
 			{
-				transonsdeMat[row][col] = m[col][row];
+				result[row][col] = m[col][row];
 			}
 		}
-		return transonsdeMat;
+		return result;
 	}
 
 	inline const float* ValuePtr(const Mat4& m) noexcept
@@ -316,14 +316,14 @@ export namespace mathUtils
 		const Vec4 r2 = Row(viewProj, 2);
 		const Vec4 r3 = Row(viewProj, 3);
 
-		Frustum fruustrum{};
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Left)] = NormalizePlane(r3 + r0);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Right)] = NormalizePlane(r3 - r0);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Top)] = NormalizePlane(r3 - r1);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Near)] = NormalizePlane(r2);
-		fruustrum.planes[static_cast<std::uint32_t>(FrustumPlane::Far)] = NormalizePlane(r3 - r2);
-		return fruustrum;
+		Frustum frustum{};
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Left)] = NormalizePlane(r3 + r0);
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Right)] = NormalizePlane(r3 - r0);
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Bottom)] = NormalizePlane(r3 + r1);
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Top)] = NormalizePlane(r3 - r1);
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Near)] = NormalizePlane(r2);
+		frustum.planes[static_cast<std::uint32_t>(FrustumPlane::Far)] = NormalizePlane(r3 - r2);
+		return frustum;
 	}
 
 	inline bool IntersectsSphere(const Frustum& frustrum, const Vec3& center, float radius) noexcept

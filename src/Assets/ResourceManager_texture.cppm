@@ -37,7 +37,7 @@ struct TextureUploadTicket
 	std::uint64_t generation{};
 };
 
-export template <>
+template <>
 class ResourceStorage<TextureResource>
 {
 public:

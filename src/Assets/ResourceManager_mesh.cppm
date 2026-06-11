@@ -170,7 +170,7 @@ namespace rendern
 	}
 } // namespace rendern
 
-export template <>
+template <>
 class ResourceStorage<rendern::MeshResource>
 {
 public:

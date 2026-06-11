@@ -34,7 +34,7 @@
                             ibType = cmd.indexType;
                             ibOffset = cmd.offsetBytes;
                         }
-                        else if constexpr (std::is_same_v<T, CommnadBindTexture2D>)
+                        else if constexpr (std::is_same_v<T, CommandBindTexture2D>)
                         {
                             if (cmd.slot < boundTex.size())
                             {

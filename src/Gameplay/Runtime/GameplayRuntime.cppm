@@ -28,7 +28,7 @@ import :gameplay_animation_bridge_system;
 
 namespace ProfileUtils
 {
-    struct SyncInststrumentionAggregate
+    struct SyncInstrumentationAggregate
     {
         std::uint64_t callCount{ 0 };
         std::uint64_t totalProcessedEntityCount{ 0 };
@@ -94,11 +94,11 @@ export namespace rendern
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
         // Profiling zone start
         void EnsureBootstrapEntity_(const GameplayUpdateContext& ctx);
-        void RecordSyncInstumentationSample_(
-            ProfileUtils::SyncInststrumentionAggregate& aggregate,
+        void RecordSyncInstrumentationSample_(
+            ProfileUtils::SyncInstrumentationAggregate& aggregate,
             const std::chrono::nanoseconds duration,
             std::size_t processedEntityCount);
-        void LogSyncInstumentationSample_() const;
+        void LogSyncInstrumentationSample_() const;
         // Profiling zone end
     private:
         GameplayWorld world_{};
@@ -117,8 +117,8 @@ export namespace rendern
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};
         // Profiling zone start
-        ProfileUtils::SyncInststrumentionAggregate preSyncInstAggregate_{};
-        ProfileUtils::SyncInststrumentionAggregate postSyncInstAggregate_{};
+        ProfileUtils::SyncInstrumentationAggregate preSyncInstAggregate_{};
+        ProfileUtils::SyncInstrumentationAggregate postSyncInstAggregate_{};
         std::uint64_t postSyncSkippedFrameCount_{ 0 };
         std::uint64_t postSyncExecutedFrameCount_{ 0 };
         bool skipDuplicatePostAnimationSyncEnabled_{ false };

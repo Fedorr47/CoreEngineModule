@@ -44,7 +44,7 @@ export namespace rendern
 			return frameInRuntime_;
 		}
 
-		std::uint16_t BeginFrame() const
+		std::uint64_t BeginFrame() const
 		{
 			const auto idx = currentFrame_;
 			auto fence = frameFences_[static_cast<std::size_t>(idx % static_cast<std::uint64_t>(frameInRuntime_))];

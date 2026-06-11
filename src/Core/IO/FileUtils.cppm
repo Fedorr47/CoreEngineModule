@@ -17,7 +17,7 @@ export namespace fileUtils
     struct TextFile
     {
         std::string text;
-        std::vector<fs::path> dpendencies;
+        std::vector<fs::path> dependencies;
     };
 
     struct BinaryFile
@@ -30,7 +30,7 @@ export namespace fileUtils
         std::ifstream file(path, std::ios::binary | std::ios::in);
         if (!file)
         {
-            throw std::runtime_error("Filed to open text file:" + path.string());
+            throw std::runtime_error("Failed to open text file: " + path.string());
         }
 
         std::ostringstream stringStream;

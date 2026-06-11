@@ -361,7 +361,7 @@ export namespace rhi
 		IndexType indexType{ IndexType::UINT16 };
 		std::uint32_t offsetBytes{ 0 };
 	};
-	struct CommnadBindTexture2D
+	struct CommandBindTexture2D
 	{
 		std::uint32_t slot{ 0 };
 		TextureHandle texture{};
@@ -457,7 +457,7 @@ export namespace rhi
 		CommandBindInputLayout,
 		CommandBindVertexBuffer,
 		CommandBindIndexBuffer,
-		CommnadBindTexture2D,
+		CommandBindTexture2D,
 		CommandBindTextureCube,
 		CommandTextureDesc,
 		CommandBindStructuredBufferSRV,
@@ -516,7 +516,7 @@ export namespace rhi
 		}
 		void BindTexture2D(std::uint32_t slot, TextureHandle texture)
 		{
-			commands.emplace_back(CommnadBindTexture2D{ slot, texture });
+			commands.emplace_back(CommandBindTexture2D{ slot, texture });
 		}
 		void BindTextureCube(std::uint32_t slot, TextureHandle texture)
 		{
@@ -532,7 +532,7 @@ export namespace rhi
 		}
 		void SetUniformFloat4(std::string name, std::array<float, 4> value)
 		{
-			commands.emplace_back(CommandUniformFloat4{ std::string(name), value });
+			commands.emplace_back(CommandUniformFloat4{ std::move(name), value });
 		}
 		void SetUniformMat4(std::string_view name, const std::array<float, 16>& v)
 		{
