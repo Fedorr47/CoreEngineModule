@@ -81,6 +81,33 @@ namespace rendern::ui::level_ui_detail
         std::vector<int> lightItemIndices;
     };
     
+    struct TransformInspectorViewModel
+    {
+        // UI-facing selected node snapshot copied before drawing the transform inspector.
+        // The node id is a lightweight current-level index, not a persistent asset id or Scene pointer.
+        int selectedSceneNodeId{ -1 };
+        std::string displayName;
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 rotationDegrees{};
+        mathUtils::Vec3 scale{ 1.0f, 1.0f, 1.0f };
+        bool hasSelection{ false };
+        bool canEdit{ false };
+        bool isDirty{ false };
+        std::string validationWarning;
+    };
+
+    struct TransformInspectorPendingEditState
+    {
+        // Owned by LevelEditorUIState so incomplete edits do not live in the read-only ViewModel
+        // and are not applied to LevelInstance/Scene until the existing inspector path commits them.
+        int targetSceneNodeId{ -1 };
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 rotationDegrees{};
+        mathUtils::Vec3 scale{ 1.0f, 1.0f, 1.0f };
+        bool isDirty{ false };
+        std::string validationWarning;
+    };
+    
     struct LevelEditorUIState
     {
         rendern::EditorSelectionService selection;
@@ -92,6 +119,7 @@ namespace rendern::ui::level_ui_detail
         bool importFlipUVs = true;
         bool importSceneCreateMaterialPlaceholders = true;
         bool importSceneSkeletonNodes = false;
+        TransformInspectorPendingEditState transformInspectorPendingEdit;
 
         char nameBuf[128]{};
         char importPathBuf[512]{};

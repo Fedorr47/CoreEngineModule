@@ -91,6 +91,41 @@ Before adding or migrating a ViewModel-style panel, verify that:
 - stored references are lightweight IDs/handles/values, not owning engine/runtime/backend objects;
 - the document and code comments do not imply thread safety, render snapshot semantics, a command queue, undo/redo, or a mandatory ViewModel framework.
 
+## Transform Inspector ViewModel contract
+
+The Scene Inspector transform section should use a small UI-facing snapshot named `TransformInspectorViewModel` when it is migrated to ViewModel-style drawing. This contract is documentation-first and intentionally behavior-preserving: the current ImGui node inspector may continue to read and mutate the selected node transform directly until a follow-up task projects the values and routes edits through an explicit apply path.
+
+The ViewModel is an editor/debug UI presentation snapshot only. It must not be consumed by renderer, RHI, RenderGraph, gameplay runtime, scene ownership, asset runtime, or threaded render snapshot code. It must not store raw `Scene`, `LevelInstance`, `LevelNode`, transform, or runtime pointers/references.
+
+### Copied display data
+
+`TransformInspectorViewModel` contains the fields the transform section needs to draw the currently selected scene node:
+
+- `selectedSceneNodeId`: lightweight current-level node index for the selected scene node; `-1` means no selected node.
+- `displayName`: copied node name or UI fallback such as an unnamed-node label.
+- `position`: copied position value from the selected node transform.
+- `rotationDegrees`: copied rotation value from the selected node transform, in the same degrees convention used by the existing inspector.
+- `scale`: copied scale value from the selected node transform.
+- `hasSelection`: true when the selected scene node id resolves to a live editable node for the current refresh.
+- `canEdit`: true when the selected node resolves to an editable level node and the current editor mode allows transform editing.
+- `isDirty`: true when `LevelEditorUIState::transformInspectorPendingEdit` contains unapplied local edits for the same selected scene node.
+- `validationWarning`: copied warning text to display near the transform controls, normally sourced from pending edit validation.
+
+These fields are copied/projected for UI drawing. They are allowed to become stale after the editor frame and should be rebuilt from the selected node and local pending edit state before the panel draws again.
+
+### Pending local edit state
+
+Pending transform edits live in `LevelEditorUIState::transformInspectorPendingEdit` as `TransformInspectorPendingEditState`. This keeps temporary input, dirty state, and validation warnings owned by editor/debug UI state instead of the read-only ViewModel or runtime model.
+
+The pending edit state owns:
+
+- `targetSceneNodeId`: lightweight current-level node index that the pending values apply to.
+- `position`, `rotationDegrees`, and `scale`: local candidate values entered by the UI before they are applied.
+- `isDirty`: whether the pending values differ from the copied selected node values and still need commit/cancel/apply handling.
+- `validationWarning`: local validation text such as an invalid scale warning.
+
+Follow-up migration work should copy selected node data into `TransformInspectorViewModel`, draw the section from that snapshot plus `LevelEditorUIState::transformInspectorPendingEdit`, and then apply committed edits through the existing narrow `LevelInstance`/scene editing path. This contract does not introduce a command queue, undo/redo, scene hierarchy redesign, thread-safety boundary, or render snapshot semantics.
+
 ## Animation Runtime panel ViewModel contract
 
 The Animation Runtime debug panel is planned to migrate to ViewModel-style rendering after the current documentation-first contract is in place. This section defines the UI-facing data contract only. It does not implement the full Animation Runtime ViewModel, change animation runtime behavior, refactor animation systems, add a command queue, or create a thread-safe runtime/render snapshot.
