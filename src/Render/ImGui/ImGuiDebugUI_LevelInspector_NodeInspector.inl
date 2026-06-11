@@ -824,22 +824,26 @@ namespace rendern::ui::level_ui_detail
             }
         }
 
+        rendern::Transform sceneNodeTransform = node.transform;
         bool changed = false;
-        changed |= DragVec3("Position", node.transform.position, 0.05f);
-        changed |= DragVec3("Rotation (deg)", node.transform.rotationDegrees, 0.2f);
+        changed |= DragVec3("Position", sceneNodeTransform.position, 0.05f);
+        changed |= DragVec3("Rotation (deg)", sceneNodeTransform.rotationDegrees, 0.2f);
 
-        mathUtils::Vec3 scale = node.transform.scale;
+        mathUtils::Vec3 scale = sceneNodeTransform.scale;
         if (DragVec3("Scale", scale, 0.02f))
         {
             scale.x = std::max(scale.x, 0.001f);
             scale.y = std::max(scale.y, 0.001f);
             scale.z = std::max(scale.z, 0.001f);
-            node.transform.scale = scale;
+            sceneNodeTransform.scale = scale;
             changed = true;
         }
 
         if (changed)
-            levelInst.MarkTransformsDirty();
+        {
+            rendern::editor_commands::SetSceneNodeTransform(
+                level, levelInst, uiState.selectedNode, sceneNodeTransform);
+        }
 
         ImGui::SeparatorText("Gizmo");
         int gizmoMode = static_cast<int>(scene.editorGizmoMode);
