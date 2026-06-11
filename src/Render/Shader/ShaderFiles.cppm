@@ -88,7 +88,7 @@ export namespace rendern
 	{
 		TextFile outputFile;
 		std::unordered_set<fs::path> stack;
-		ExpandTextIncludes(path, stack, outputFile.dpendencies, outputFile.text, true, false);
+		ExpandTextIncludes(path, stack, outputFile.dependencies, outputFile.text, true, false);
 		return outputFile;
 	}
 
@@ -99,7 +99,7 @@ export namespace rendern
 	{
 		TextFile outputFile;
 		std::unordered_set<fs::path> stack;
-		ExpandTextIncludes(path, stack, outputFile.dpendencies, outputFile.text, true, true);
+		ExpandTextIncludes(path, stack, outputFile.dependencies, outputFile.text, true, true);
 		return outputFile;
 	}
 

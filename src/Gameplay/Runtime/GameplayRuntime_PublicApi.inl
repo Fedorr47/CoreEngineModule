@@ -13,7 +13,7 @@
 
         void GameplayRuntime::Shutdown()
         {
-            LogSyncInstumentationSample_();
+            LogSyncInstrumentationSample_();
             
             world_.Clear();
             recentNotifyEvents_.clear();
@@ -130,7 +130,7 @@
                 &processedEntityCount);
             
             const auto syncEndedAt = std::chrono::steady_clock::now();
-            RecordSyncInstumentationSample_(
+            RecordSyncInstrumentationSample_(
                 preSyncInstAggregate_,
                 std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
                 processedEntityCount);
@@ -156,7 +156,7 @@
                     &processedEntityCount);
 
                 const auto syncEndedAt = std::chrono::steady_clock::now();
-                RecordSyncInstumentationSample_(
+                RecordSyncInstrumentationSample_(
                     postSyncInstAggregate_,
                     std::chrono::duration_cast<std::chrono::nanoseconds>(syncEndedAt - syncStartedAt),
                     processedEntityCount);
@@ -290,8 +290,8 @@
             return skipDuplicatePostAnimationSyncEnabled_;
         }
     
-        void GameplayRuntime::RecordSyncInstumentationSample_(
-            ProfileUtils::SyncInststrumentionAggregate& aggregate,
+        void GameplayRuntime::RecordSyncInstrumentationSample_(
+            ProfileUtils::SyncInstrumentationAggregate& aggregate,
             const std::chrono::nanoseconds duration, 
             std::size_t processedEntityCount)
         {
@@ -301,9 +301,9 @@
              aggregate.maxDuration = std::max(aggregate.maxDuration, duration);
         }
     
-        void GameplayRuntime::LogSyncInstumentationSample_() const
+        void GameplayRuntime::LogSyncInstrumentationSample_() const
         {
-            const auto printSummary = [](std::string_view passName, const ProfileUtils::SyncInststrumentionAggregate& aggregate)
+            const auto printSummary = [](std::string_view passName, const ProfileUtils::SyncInstrumentationAggregate& aggregate)
             {
                 const double totalMs = std::chrono::duration<double, std::milli>(aggregate.totalDuration).count();
                 const double maxMs = std::chrono::duration<double, std::milli>(aggregate.maxDuration).count();

@@ -1,4 +1,4 @@
-		void InvalidateVaoCache()
+void InvalidateVaoCache()
 		{
 			for (auto& [_, vao] : vaoCache_)
 			{
@@ -303,7 +303,7 @@
 			indexBuffer_.offsetBytes = cmd.offsetBytes;
 		}
 
-		void ExecuteOnce(const CommnadBindTexture2D& cmd)
+		void ExecuteOnce(const CommandBindTexture2D& cmd)
 		{
 			glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(cmd.slot));
 			glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(cmd.texture.id));
