@@ -44,8 +44,9 @@ export namespace renderer
 		void FreeBuffer(const BufferAllocation& allocation) noexcept override
 		{
 			if (allocation.buffer.id != 0)
-
-			device_.DestroyBuffer(allocation.buffer);
+			{
+				device_.DestroyBuffer(allocation.buffer);
+			}
 		}
 
 	private:
