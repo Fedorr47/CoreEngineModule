@@ -1,8 +1,11 @@
 ﻿module;
 
+#include <cstddef>
+
 export module core:editor_commands;
 
 import :scene;
+import :level;
 import :editor_selection_service;
 
 namespace rendern::editor_commands::detail
@@ -21,8 +24,8 @@ export namespace rendern::editor_commands
 {
     /* Minimal editor/debug UI command boundary.
      * Editor commands represent explicit user intent from editor/debug UI code
-     * and synchronously delegate tto narrow editor services or existing runtime
-     * editor APIs/ They intentionally avoid a central queue, command base class,
+     * and synchronously delegate to narrow editor services or existing runtime
+     * editor APIs. They intentionally avoid a central queue, command base class,
      * undo/redo, recording, replay, async dispatch or thread-safe submission
      * model until those capabilities are needed.
      * 
@@ -55,5 +58,26 @@ export namespace rendern::editor_commands
     {
         selection.ClearSelection();
         scene.EditorClearSelection();
+    }
+    
+    void SetSceneNodeTransform(
+        LevelAsset& levelAsset,
+        LevelInstance& levelInstance,
+        const int nodeIndex,
+        const Transform& sceneNodeTransform) noexcept
+    {
+        if (nodeIndex < 0)
+        {
+            return;
+        }
+        
+        const std::size_t nodeOffset = static_cast<std::size_t>(nodeIndex);
+        if (nodeIndex >= levelAsset.nodes.size() || !levelAsset.nodes[nodeOffset].alive)
+        {
+            return;
+        }
+        
+        levelAsset.nodes[nodeOffset].transform = sceneNodeTransform;
+        levelInstance.MarkTransformsDirty();
     }
 }
