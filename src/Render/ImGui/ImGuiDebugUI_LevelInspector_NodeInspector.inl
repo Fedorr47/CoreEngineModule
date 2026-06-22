@@ -824,26 +824,62 @@ namespace rendern::ui::level_ui_detail
             }
         }
 
-        rendern::Transform sceneNodeTransform = node.transform;
-        bool changed = false;
-        changed |= DragVec3("Position", sceneNodeTransform.position, 0.05f);
-        changed |= DragVec3("Rotation (deg)", sceneNodeTransform.rotationDegrees, 0.2f);
-
-        mathUtils::Vec3 scale = sceneNodeTransform.scale;
-        if (DragVec3("Scale", scale, 0.02f))
+        ImGui::SeparatorText("Transform");
+        SyncTransformInspectorPendingEditForSelection(
+            uiState.transformInspectorPendingEdit,
+            uiState.selectedNode,
+            node.transform);
+        
+        TransformInspectorPendingEditState& pendingTransformEdit = uiState.transformInspectorPendingEdit;
+        bool pendingTransformChanged = false;
+        pendingTransformChanged |= DragVec3("Position", pendingTransformEdit.position, 0.05f);
+        pendingTransformChanged |= DragVec3("Rotation (deg)", pendingTransformEdit.rotationDegrees, 0.2f);
+        pendingTransformChanged |= DragVec3("Scale", pendingTransformEdit.scale, 0.02f);
+        
+        if (pendingTransformChanged)
         {
-            scale.x = std::max(scale.x, 0.001f);
-            scale.y = std::max(scale.y, 0.001f);
-            scale.z = std::max(scale.z, 0.001f);
-            sceneNodeTransform.scale = scale;
-            changed = true;
+            RefreshTransformInspectorPendingEditStatus(pendingTransformEdit, node.transform);
         }
 
-        if (changed)
+        if (pendingTransformEdit.isDirty)
         {
+            ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.25f, 1.0f), "Pending transform edits");
+        }
+        else
+        {
+            ImGui::TextDisabled("Transform is clean.");
+        }
+
+        if (!pendingTransformEdit.validationWarning.empty())
+        {
+            ImGui::TextColored(
+                ImVec4(1.0f, 0.35f, 0.35f, 1.0f),
+                "%s",
+                pendingTransformEdit.validationWarning.c_str());
+        }
+
+        const bool canApplyTransform =
+            pendingTransformEdit.isDirty && pendingTransformEdit.validationWarning.empty();
+        ImGui::BeginDisabled(!canApplyTransform);
+        if (ImGui::Button("Apply Transform"))
+        {
+            const rendern::Transform appliedTransform = MakeTransformFromPendingEdit(pendingTransformEdit);
             rendern::editor_commands::SetSceneNodeTransform(
-                level, levelInst, uiState.selectedNode, sceneNodeTransform);
+                level, levelInst, uiState.selectedNode, appliedTransform);
+                ResetTransformInspectorPendingEdit(
+                pendingTransformEdit,
+                uiState.selectedNode,
+                appliedTransform);
         }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!pendingTransformEdit.isDirty);
+        if (ImGui::Button("Revert Transform"))
+        {
+            ResetTransformInspectorPendingEdit(pendingTransformEdit, uiState.selectedNode, node.transform);
+        }
+        ImGui::EndDisabled();
 
         ImGui::SeparatorText("Gizmo");
         int gizmoMode = static_cast<int>(scene.editorGizmoMode);

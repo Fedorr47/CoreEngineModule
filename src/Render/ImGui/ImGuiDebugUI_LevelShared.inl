@@ -99,7 +99,7 @@ namespace rendern::ui::level_ui_detail
     struct TransformInspectorPendingEditState
     {
         // Owned by LevelEditorUIState so incomplete edits do not live in the read-only ViewModel
-        // and are not applied to LevelInstance/Scene until the existing inspector path commits them.
+        // and are not applied to LevelInstance/Scene until the explicit Apply action commits them.
         int targetSceneNodeId{ -1 };
         mathUtils::Vec3 position{};
         mathUtils::Vec3 rotationDegrees{};
@@ -107,6 +107,124 @@ namespace rendern::ui::level_ui_detail
         bool isDirty{ false };
         std::string validationWarning;
     };
+    
+    static bool TransformInspectorVec3NearlyEqual(
+        const mathUtils::Vec3& lhs,
+        const mathUtils::Vec3& rhs) noexcept
+    {
+        // The only existing Vec3 near-equality helper has an internal-looking name;
+        // keep this inspector contract local until mathUtils exposes a public one.
+        constexpr float transformInspectorDirtyEpsilon = 0.0001f;
+        return std::abs(lhs.x - rhs.x) <= transformInspectorDirtyEpsilon &&
+            std::abs(lhs.y - rhs.y) <= transformInspectorDirtyEpsilon &&
+            std::abs(lhs.z - rhs.z) <= transformInspectorDirtyEpsilon;
+    }
+
+    static bool TransformInspectorVec3IsFinite(const mathUtils::Vec3& value) noexcept
+    {
+        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+    }
+
+    static rendern::Transform MakeTransformFromPendingEdit(
+        const TransformInspectorPendingEditState& pendingTransformEdit) noexcept
+    {
+        rendern::Transform transform{};
+        transform.position = pendingTransformEdit.position;
+        transform.rotationDegrees = pendingTransformEdit.rotationDegrees;
+        transform.scale = pendingTransformEdit.scale;
+        return transform;
+    }
+
+    static void ResetTransformInspectorPendingEdit(
+        TransformInspectorPendingEditState& pendingTransformEdit,
+        const int selectedSceneNodeId,
+        const rendern::Transform& committedTransform)
+    {
+        pendingTransformEdit.targetSceneNodeId = selectedSceneNodeId;
+        pendingTransformEdit.position = committedTransform.position;
+        pendingTransformEdit.rotationDegrees = committedTransform.rotationDegrees;
+        pendingTransformEdit.scale = committedTransform.scale;
+        pendingTransformEdit.isDirty = false;
+        pendingTransformEdit.validationWarning.clear();
+    }
+
+    static void ClearTransformInspectorPendingEdit(
+        TransformInspectorPendingEditState& pendingTransformEdit)
+    {
+        pendingTransformEdit.targetSceneNodeId = -1;
+        pendingTransformEdit.position = mathUtils::Vec3{};
+        pendingTransformEdit.rotationDegrees = mathUtils::Vec3{};
+        pendingTransformEdit.scale = mathUtils::Vec3(1.0f, 1.0f, 1.0f);
+        pendingTransformEdit.isDirty = false;
+        pendingTransformEdit.validationWarning.clear();
+    }
+
+    static bool TransformInspectorPendingEditDiffersFromCommitted(
+        const TransformInspectorPendingEditState& pendingTransformEdit,
+        const rendern::Transform& committedTransform) noexcept
+    {
+        return !TransformInspectorVec3NearlyEqual(pendingTransformEdit.position, committedTransform.position) ||
+            !TransformInspectorVec3NearlyEqual(pendingTransformEdit.rotationDegrees, committedTransform.rotationDegrees) ||
+            !TransformInspectorVec3NearlyEqual(pendingTransformEdit.scale, committedTransform.scale);
+    }
+
+    static std::string ValidateTransformInspectorPendingEdit(
+        const TransformInspectorPendingEditState& pendingTransformEdit)
+    {
+        if (!TransformInspectorVec3IsFinite(pendingTransformEdit.position) ||
+            !TransformInspectorVec3IsFinite(pendingTransformEdit.rotationDegrees) ||
+            !TransformInspectorVec3IsFinite(pendingTransformEdit.scale))
+        {
+            return "Transform values must be finite numbers.";
+        }
+
+        if (pendingTransformEdit.scale.x <= 0.0f ||
+            pendingTransformEdit.scale.y <= 0.0f ||
+            pendingTransformEdit.scale.z <= 0.0f)
+        {
+            return "Scale must be positive on all axes before Apply.";
+        }
+
+        return {};
+    }
+
+    static void RefreshTransformInspectorPendingEditStatus(
+        TransformInspectorPendingEditState& pendingTransformEdit,
+        const rendern::Transform& committedTransform)
+    {
+        pendingTransformEdit.isDirty = TransformInspectorPendingEditDiffersFromCommitted(
+            pendingTransformEdit,
+            committedTransform);
+        pendingTransformEdit.validationWarning = ValidateTransformInspectorPendingEdit(pendingTransformEdit);
+    }
+
+    static void SyncTransformInspectorPendingEditForSelection(
+        TransformInspectorPendingEditState& pendingTransformEdit,
+        const int selectedSceneNodeId,
+        const rendern::Transform& committedTransform)
+    {
+        if (selectedSceneNodeId < 0)
+        {
+            ClearTransformInspectorPendingEdit(pendingTransformEdit);
+            return;
+        }
+
+        if (pendingTransformEdit.targetSceneNodeId != selectedSceneNodeId)
+        {
+            ResetTransformInspectorPendingEdit(pendingTransformEdit, selectedSceneNodeId, committedTransform);
+            return;
+        }
+
+        // Dirty edits keep the user's pending values even when the committed transform
+        // changes externally; clean pending state follows the committed selection transform.
+        if (!pendingTransformEdit.isDirty)
+        {
+            ResetTransformInspectorPendingEdit(pendingTransformEdit, selectedSceneNodeId, committedTransform);
+            return;
+        }
+
+        RefreshTransformInspectorPendingEditStatus(pendingTransformEdit, committedTransform);
+    }
     
     struct LevelEditorUIState
     {

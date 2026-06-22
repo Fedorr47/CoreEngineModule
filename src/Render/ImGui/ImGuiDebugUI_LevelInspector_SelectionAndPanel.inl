@@ -176,12 +176,14 @@ namespace rendern::ui::level_ui_detail
         scene.EditorSanitizeLightSelection(scene.lights.size());
         if (scene.editorSelectedLight >= 0)
         {
+            ClearTransformInspectorPendingEdit(uiState.transformInspectorPendingEdit);
             DrawLightSelectionInspector(scene, uiState);
             return;
         }
 
         if (uiState.selectedParticleEmitter >= 0)
         {
+            ClearTransformInspectorPendingEdit(uiState.transformInspectorPendingEdit);
             uiState.selectedNode = -1;
             DrawParticleEmitterSelectionInspector(level, levelInst, scene, uiState);
             uiState.prevSelectedNode = -2;
@@ -212,6 +214,7 @@ namespace rendern::ui::level_ui_detail
         else
         {
             ImGui::TextDisabled("No node, light, or emitter selected.");
+            ClearTransformInspectorPendingEdit(uiState.transformInspectorPendingEdit);
             uiState.prevSelectedNode = -2;
             uiState.prevSelectedParticleEmitter = -2;
         }
