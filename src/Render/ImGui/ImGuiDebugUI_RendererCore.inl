@@ -151,7 +151,7 @@ namespace rendern::ui
         return rendererSettingsViewModel;
     }
     
-    static void DrawSSAOSection(rendern::RendererSettings& rs, const SSAOSettingsViewModel& ssaoSettings)
+    static void DrawSSAOSection(rendern::RendererSettings& rendererSettings, const SSAOSettingsViewModel& ssaoSettings)
     {
         if (!ssaoSettings.category.isEnabled)
             return;
@@ -159,144 +159,205 @@ namespace rendern::ui
         if (!ImGui::CollapsingHeader(ssaoSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
-        ImGui::Checkbox("Enable SSAO", &rs.enableSSAO);
+        bool bShouldEnableSSAO = ssaoSettings.enableSSAO;
+        if (ImGui::Checkbox("Enable SSAO", &bShouldEnableSSAO))
+        {
+            rendern::renderer_settings_commands::SetSSAOEnabled(rendererSettings, bShouldEnableSSAO);
+        }
         ImGui::BeginDisabled(!ssaoSettings.canEditSettings);
 
-        ImGui::SliderFloat("Radius", &rs.ssaoRadius, 0.05f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Bias", &rs.ssaoBias, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Strength", &rs.ssaoStrength, 0.0f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Power", &rs.ssaoPower, 0.5f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Blur depth threshold", &rs.ssaoBlurDepthThreshold, 0.0f, 0.02f, "%.5f", ImGuiSliderFlags_AlwaysClamp);
+        float requestedSSAORadius = ssaoSettings.radius;
+        if (ImGui::SliderFloat("Radius", &requestedSSAORadius, 0.05f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetSSAORadius(rendererSettings, requestedSSAORadius);
+        }
+        float requestedSSAOBias = ssaoSettings.bias;
+        if (ImGui::SliderFloat("Bias", &requestedSSAOBias, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetSSAOBias(rendererSettings, requestedSSAOBias);
+        }
+        float requestedSSAOStrength = ssaoSettings.strength;
+        if (ImGui::SliderFloat("Strength", &requestedSSAOStrength, 0.0f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetSSAOStrength(rendererSettings, requestedSSAOStrength);
+        }
+        float requestedSSAOPower = ssaoSettings.power;
+        if (ImGui::SliderFloat("Power", &requestedSSAOPower, 0.5f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetSSAOPower(rendererSettings, requestedSSAOPower);
+        }
+        float requestedSSAOBlurDepthThreshold = ssaoSettings.blurDepthThreshold;
+        if (ImGui::SliderFloat("Blur depth threshold", &requestedSSAOBlurDepthThreshold, 0.0f, 0.02f, "%.5f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetSSAOBlurDepthThreshold(rendererSettings, requestedSSAOBlurDepthThreshold);
+        }
 
         if (ImGui::Button("SSAO defaults"))
         {
-            rs.ssaoRadius = 1.0f;
-            rs.ssaoBias = 0.02f;
-            rs.ssaoStrength = 1.25f;
-            rs.ssaoPower = 1.5f;
-            rs.ssaoBlurDepthThreshold = 0.0025f;
+            rendern::renderer_settings_commands::ResetSSAODefaults(rendererSettings);
         }
 
         ImGui::EndDisabled();
         ImGui::Separator();
     }
 
-    static void DrawFogSection(rendern::RendererSettings& rs, const FogSettingsViewModel& fogSettings)
+    static void DrawFogSection(rendern::RendererSettings& rendererSettings, const FogSettingsViewModel& fogSettings)
     {
         if (!ImGui::CollapsingHeader(fogSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
-        ImGui::Checkbox("Enable fog", &rs.enableFog);
+        bool bShouldEnableFog = fogSettings.enableFog;
+        if (ImGui::Checkbox("Enable fog", &bShouldEnableFog))
+        {
+            rendern::renderer_settings_commands::SetFogEnabled(rendererSettings, bShouldEnableFog);
+        }
         ImGui::BeginDisabled(!fogSettings.canEditSettings);
 
         const char* items[] = { "Linear", "Exp", "Exp2" };
-        int mode = static_cast<int>(rs.fogMode);
-        if (ImGui::Combo("Mode##Fog", &mode, items, IM_ARRAYSIZE(items)))
+        int requestedFogMode = static_cast<int>(fogSettings.mode);
+        if (ImGui::Combo("Mode##Fog", &requestedFogMode, items, IM_ARRAYSIZE(items)))
         {
-            if (mode < 0) mode = 0;
-            if (mode > 2) mode = 2;
-            rs.fogMode = static_cast<std::uint32_t>(mode);
+            rendern::renderer_settings_commands::SetFogMode(rendererSettings, requestedFogMode);
         }
 
         if (fogSettings.mode == 0u)
         {
-            ImGui::SliderFloat("Start", &rs.fogStart, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SliderFloat("End", &rs.fogEnd, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
-
-            if (rs.fogEnd < rs.fogStart)
+            float requestedFogStart = fogSettings.start;
+            float requestedFogEnd = fogSettings.end;
+            const bool bChangedFogStart = ImGui::SliderFloat("Start", &requestedFogStart, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            const bool bChangedFogEnd = ImGui::SliderFloat("End", &requestedFogEnd, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            if (bChangedFogStart || bChangedFogEnd)
             {
-                std::swap(rs.fogEnd, rs.fogStart);
+                rendern::renderer_settings_commands::SetFogRange(rendererSettings, requestedFogStart, requestedFogEnd);
             }
         }
         else
         {
-            ImGui::SliderFloat("Density", &rs.fogDensity, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
+            float requestedFogDensity = fogSettings.density;
+            if (ImGui::SliderFloat("Density", &requestedFogDensity, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp))
+            {
+                rendern::renderer_settings_commands::SetFogDensity(rendererSettings, requestedFogDensity);
+            }
         }
 
-        ImGui::ColorEdit3("Color", rs.fogColor.data());
+        std::array<float, 3> requestedFogColor = fogSettings.color;
+        if (ImGui::ColorEdit3("Color", requestedFogColor.data()))
+        {
+            rendern::renderer_settings_commands::SetFogColor(rendererSettings, requestedFogColor);
+        }
 
         if (ImGui::Button("Fog defaults"))
         {
-            rs.fogMode = 0u;
-            rs.fogStart = 15.0f;
-            rs.fogEnd = 80.0f;
-            rs.fogDensity = 0.02f;
-            rs.fogColor = { 0.60f, 0.70f, 0.80f };
+            rendern::renderer_settings_commands::ResetFogDefaults(rendererSettings);
         }
 
         ImGui::EndDisabled();
         ImGui::Separator();
     }
 
-    static void DrawAntiAliasingSection(rendern::RendererSettings& rs, const AntiAliasingSettingsViewModel& antiAliasingSettings)
+    static void DrawAntiAliasingSection(
+        rendern::RendererSettings& rendererSettings, 
+        const AntiAliasingSettingsViewModel& antiAliasingSettings)
     {
         if (!ImGui::CollapsingHeader(antiAliasingSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
         const char* items[] = { "None", "FXAA" };
-        int aaMode = static_cast<int>(rs.antiAliasingMode);
-        if (ImGui::Combo("Mode##AA", &aaMode, items, IM_ARRAYSIZE(items)))
+        int requestedAntiAliasingMode = static_cast<int>(antiAliasingSettings.mode);
+        if (ImGui::Combo("Mode##AA", &requestedAntiAliasingMode, items, IM_ARRAYSIZE(items)))
         {
-            if (aaMode < 0) aaMode = 0;
-            if (aaMode > 1) aaMode = 1;
-            rs.antiAliasingMode = static_cast<std::uint32_t>(aaMode);
+            rendern::renderer_settings_commands::SetAntiAliasingMode(rendererSettings, requestedAntiAliasingMode);
         }
 
         ImGui::BeginDisabled(!antiAliasingSettings.canEditFxaaSettings);
-        ImGui::SliderFloat("FXAA Subpix", &rs.fxaaSubpix, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("FXAA Edge Threshold", &rs.fxaaEdgeThreshold, 0.0312f, 0.333f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("FXAA Edge Threshold Min", &rs.fxaaEdgeThresholdMin, 0.0f, 0.125f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
+        float requestedFxaaSubpix = antiAliasingSettings.fxaaSubpix;
+        if (ImGui::SliderFloat("FXAA Subpix", &requestedFxaaSubpix, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetFxaaSubpix(rendererSettings, requestedFxaaSubpix);
+        }
+        float requestedFxaaEdgeThreshold = antiAliasingSettings.fxaaEdgeThreshold;
+        if (ImGui::SliderFloat("FXAA Edge Threshold", &requestedFxaaEdgeThreshold, 0.0312f, 0.333f, "%.4f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetFxaaEdgeThreshold(rendererSettings, requestedFxaaEdgeThreshold);
+        }
+        float requestedFxaaEdgeThresholdMin = antiAliasingSettings.fxaaEdgeThresholdMin;
+        if (ImGui::SliderFloat("FXAA Edge Threshold Min", &requestedFxaaEdgeThresholdMin, 0.0f, 0.125f, "%.4f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetFxaaEdgeThresholdMin(rendererSettings, requestedFxaaEdgeThresholdMin);
+        }
 
         if (ImGui::Button("FXAA defaults"))
         {
-            rs.fxaaSubpix = 0.75f;
-            rs.fxaaEdgeThreshold = 0.166f;
-            rs.fxaaEdgeThresholdMin = 0.0833f;
+            rendern::renderer_settings_commands::ResetFxaaDefaults(rendererSettings);
         }
 
         ImGui::EndDisabled();
         ImGui::Separator();
     }
 
-    static void DrawHdrBloomSection(rendern::RendererSettings& rs, const HdrBloomSettingsViewModel& hdrBloomSettings)
+    static void DrawHdrBloomSection(
+        rendern::RendererSettings& rendererSettings, 
+        const HdrBloomSettingsViewModel& hdrBloomSettings)
     {
         if (!ImGui::CollapsingHeader(hdrBloomSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
-        ImGui::Checkbox("Enable HDR", &rs.enableHDR);
+        bool bShouldEnableHDR = hdrBloomSettings.enableHDR;
+        if (ImGui::Checkbox("Enable HDR", &bShouldEnableHDR))
+        {
+            rendern::renderer_settings_commands::SetHDREnabled(rendererSettings, bShouldEnableHDR);
+        }
         ImGui::BeginDisabled(!hdrBloomSettings.canEditHdrSettings);
 
         const char* toneItems[] = { "Linear", "Reinhard", "ACES" };
-        int toneMode = static_cast<int>(rs.toneMapMode);
-        if (ImGui::Combo("Tonemap", &toneMode, toneItems, IM_ARRAYSIZE(toneItems)))
+        int requestedToneMapMode = static_cast<int>(hdrBloomSettings.toneMapMode);
+        if (ImGui::Combo("Tonemap", &requestedToneMapMode, toneItems, IM_ARRAYSIZE(toneItems)))
         {
-            if (toneMode < 0) toneMode = 0;
-            if (toneMode > 2) toneMode = 2;
-            rs.toneMapMode = static_cast<std::uint32_t>(toneMode);
+            rendern::renderer_settings_commands::SetToneMapMode(rendererSettings, requestedToneMapMode);
         }
 
-        ImGui::SliderFloat("Exposure", &rs.hdrExposure, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::Checkbox("Enable Bloom", &rs.enableBloom);
+        float requestedHDRExposure = hdrBloomSettings.hdrExposure;
+        if (ImGui::SliderFloat("Exposure", &requestedHDRExposure, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetHDRExposure(rendererSettings, requestedHDRExposure);
+        }
+        bool bShouldEnableBloom = hdrBloomSettings.enableBloom;
+        if (ImGui::Checkbox("Enable Bloom", &bShouldEnableBloom))
+        {
+            rendern::renderer_settings_commands::SetBloomEnabled(rendererSettings, bShouldEnableBloom);
+        }
 
         ImGui::BeginDisabled(!hdrBloomSettings.canEditBloomSettings);
-        ImGui::SliderFloat("Bloom threshold", &rs.bloomThreshold, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Bloom soft knee", &rs.bloomSoftKnee, 0.0f, 2.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Bloom intensity", &rs.bloomIntensity, 0.0f, 1.5f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Bloom clamp", &rs.bloomClamp, 1.0f, 64.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderFloat("Bloom radius", &rs.bloomRadius, 0.25f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        float requestedBloomThreshold = hdrBloomSettings.bloomThreshold;
+        if (ImGui::SliderFloat("Bloom threshold", &requestedBloomThreshold, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetBloomThreshold(rendererSettings, requestedBloomThreshold);
+        }
+        float requestedBloomSoftKnee = hdrBloomSettings.bloomSoftKnee;
+        if (ImGui::SliderFloat("Bloom soft knee", &requestedBloomSoftKnee, 0.0f, 2.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetBloomSoftKnee(rendererSettings, requestedBloomSoftKnee);
+        }
+        float requestedBloomIntensity = hdrBloomSettings.bloomIntensity;
+        if (ImGui::SliderFloat("Bloom intensity", &requestedBloomIntensity, 0.0f, 1.5f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetBloomIntensity(rendererSettings, requestedBloomIntensity);
+        }
+        float requestedBloomClamp = hdrBloomSettings.bloomClamp;
+        if (ImGui::SliderFloat("Bloom clamp", &requestedBloomClamp, 1.0f, 64.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetBloomClamp(rendererSettings, requestedBloomClamp);
+        }
+        float requestedBloomRadius = hdrBloomSettings.bloomRadius;
+        if (ImGui::SliderFloat("Bloom radius", &requestedBloomRadius, 0.25f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            rendern::renderer_settings_commands::SetBloomRadius(rendererSettings, requestedBloomRadius);
+        }
         ImGui::EndDisabled();
 
         if (ImGui::Button("HDR/Bloom defaults"))
         {
-            rs.enableHDR = true;
-            rs.toneMapMode = 2u;
-            rs.hdrExposure = 1.0f;
-            rs.enableBloom = true;
-            rs.bloomThreshold = 1.0f;
-            rs.bloomSoftKnee = 0.5f;
-            rs.bloomIntensity = 0.08f;
-            rs.bloomClamp = 16.0f;
-            rs.bloomRadius = 1.0f;
+            rendern::renderer_settings_commands::ResetHDRBloomDefaults(rendererSettings);
         }
 
         ImGui::EndDisabled();
@@ -377,12 +438,16 @@ namespace rendern::ui
 
         ImGui::Separator();
         ImGui::Text("Shadow cube atlas");
-        ImGui::Checkbox("Show cube atlas", &rs.ShowCubeAtlas);
+        bool bShouldShowCubeAtlas = shadowSettings.showCubeAtlas;
+        if (ImGui::Checkbox("Show cube atlas", &bShouldShowCubeAtlas))
+        {
+            rendern::renderer_settings_commands::SetShowCubeAtlas(rs, bShouldShowCubeAtlas);
+        }
 
         int debugCubeAtlasIndex = static_cast<int>(shadowSettings.debugCubeAtlasIndex);
         if (ImGui::Combo("Type", &current, citems.data(), static_cast<int>(citems.size())))
         {
-            rs.debugShadowCubeMapType = static_cast<std::uint32_t>(current);
+            rendern::renderer_settings_commands::SetDebugShadowCubeMapType(rs, current);
         }
 
         if (current == 1)
@@ -408,19 +473,28 @@ namespace rendern::ui
         const char* debugIndexLabel = (current == 0) ? "Point cube index" : "Reflection owner index";
         if (ImGui::InputInt(debugIndexLabel, &debugCubeAtlasIndex))
         {
-            if (debugCubeAtlasIndex < 0)
-            {
-                debugCubeAtlasIndex = 0;
-            }
-            rs.debugCubeAtlasIndex = static_cast<std::uint32_t>(debugCubeAtlasIndex);
+            rendern::renderer_settings_commands::SetDebugCubeAtlasIndex(rs, debugCubeAtlasIndex);
         }
 
         ImGui::Separator();
         ImGui::Text("Shadow bias (texels)");
-        ImGui::SliderFloat("Dir base", &rs.dirShadowBaseBiasTexels, 0.0f, 5.0f, "%.3f");
-        ImGui::SliderFloat("Spot base", &rs.spotShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-        ImGui::SliderFloat("Point base", &rs.pointShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
-        ImGui::SliderFloat("Slope scale", &rs.shadowSlopeScaleTexels, 0.0f, 10.0f, "%.3f");
+        float requestedDirShadowBaseBiasTexels = shadowSettings.dirShadowBaseBiasTexels;
+        float requestedSpotShadowBaseBiasTexels = shadowSettings.spotShadowBaseBiasTexels;
+        float requestedPointShadowBaseBiasTexels = shadowSettings.pointShadowBaseBiasTexels;
+        float requestedShadowSlopeScaleTexels = shadowSettings.shadowSlopeScaleTexels;
+        const bool bChangedDirShadowBaseBias = ImGui::SliderFloat("Dir base", &requestedDirShadowBaseBiasTexels, 0.0f, 5.0f, "%.3f");
+        const bool bChangedSpotShadowBaseBias = ImGui::SliderFloat("Spot base", &requestedSpotShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
+        const bool bChangedPointShadowBaseBias = ImGui::SliderFloat("Point base", &requestedPointShadowBaseBiasTexels, 0.0f, 10.0f, "%.3f");
+        const bool bChangedShadowSlopeScale = ImGui::SliderFloat("Slope scale", &requestedShadowSlopeScaleTexels, 0.0f, 10.0f, "%.3f");
+        if (bChangedDirShadowBaseBias || bChangedSpotShadowBaseBias || bChangedPointShadowBaseBias || bChangedShadowSlopeScale)
+        {
+            rendern::renderer_settings_commands::SetShadowBiasSettings(
+                rs,
+                requestedDirShadowBaseBiasTexels,
+                requestedSpotShadowBaseBiasTexels,
+                requestedPointShadowBaseBiasTexels,
+                requestedShadowSlopeScaleTexels);
+        }
 
         ImGui::Separator();
         ImGui::Text("Debug draw");
@@ -476,10 +550,26 @@ namespace rendern::ui
         
         ImGui::Begin("Renderer / Shadows");
 
-        ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
-        ImGui::Checkbox("Deferred (experimental)", &rs.enableDeferred);
-        ImGui::Checkbox("Frustum culling", &rs.enableFrustumCulling);
-        ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
+        bool bShouldEnableDepthPrepass = rendererSettingsViewModel.pipeline.enableDepthPrepass;
+        if (ImGui::Checkbox("Depth prepass", &bShouldEnableDepthPrepass))
+        {
+            rendern::renderer_settings_commands::SetDepthPrepassEnabled(rs, bShouldEnableDepthPrepass);
+        }
+        bool bShouldEnableDeferred = rendererSettingsViewModel.pipeline.enableDeferred;
+        if (ImGui::Checkbox("Deferred (experimental)", &bShouldEnableDeferred))
+        {
+            rendern::renderer_settings_commands::SetDeferredEnabled(rs, bShouldEnableDeferred);
+        }
+        bool bShouldEnableFrustumCulling = rendererSettingsViewModel.pipeline.enableFrustumCulling;
+        if (ImGui::Checkbox("Frustum culling", &bShouldEnableFrustumCulling))
+        {
+            rendern::renderer_settings_commands::SetFrustumCullingEnabled(rs, bShouldEnableFrustumCulling);
+        }
+        bool bShouldDebugPrintDrawCalls = rendererSettingsViewModel.pipeline.debugPrintDrawCalls;
+        if (ImGui::Checkbox("Debug print draw calls", &bShouldDebugPrintDrawCalls))
+        {
+            rendern::renderer_settings_commands::SetDebugPrintDrawCallsEnabled(rs, bShouldDebugPrintDrawCalls);
+        }
 
         DrawSSAOSection(rs, rendererSettingsViewModel.ssao);
         DrawFogSection(rs, rendererSettingsViewModel.fog);

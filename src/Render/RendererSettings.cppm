@@ -4,6 +4,8 @@ module;
 #include <cstdint>
 #include <array>
 #include <cstddef>
+#include <algorithm>
+#include <utility>
 
 // Shared, backend-agnostic renderer settings.
 export module core:renderer_settings;
@@ -186,4 +188,218 @@ export namespace rendern
 		float reflectionCaptureFovPadDeg{ 0.0f };
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};
+}
+
+export namespace rendern::renderer_settings_commands
+{
+	void SetDepthPrepassEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableDepthPrepass = bEnabled;
+	}
+
+	void SetDeferredEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableDeferred = bEnabled;
+	}
+
+	void SetFrustumCullingEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableFrustumCulling = bEnabled;
+	}
+
+	void SetDebugPrintDrawCallsEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.debugPrintDrawCalls = bEnabled;
+	}
+
+	void SetSSAOEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableSSAO = bEnabled;
+	}
+
+	void SetSSAORadius(RendererSettings& rendererSettings, const float radius) noexcept
+	{
+		rendererSettings.ssaoRadius = std::clamp(radius, 0.05f, 5.0f);
+	}
+
+	void SetSSAOBias(RendererSettings& rendererSettings, const float bias) noexcept
+	{
+		rendererSettings.ssaoBias = std::clamp(bias, 0.0f, 0.25f);
+	}
+
+	void SetSSAOStrength(RendererSettings& rendererSettings, const float strength) noexcept
+	{
+		rendererSettings.ssaoStrength = std::clamp(strength, 0.0f, 4.0f);
+	}
+
+	void SetSSAOPower(RendererSettings& rendererSettings, const float power) noexcept
+	{
+		rendererSettings.ssaoPower = std::clamp(power, 0.5f, 4.0f);
+	}
+
+	void SetSSAOBlurDepthThreshold(RendererSettings& rendererSettings, const float threshold) noexcept
+	{
+		rendererSettings.ssaoBlurDepthThreshold = std::clamp(threshold, 0.0f, 0.02f);
+	}
+
+	void ResetSSAODefaults(RendererSettings& rendererSettings) noexcept
+	{
+		rendererSettings.ssaoRadius = 1.0f;
+		rendererSettings.ssaoBias = 0.02f;
+		rendererSettings.ssaoStrength = 1.25f;
+		rendererSettings.ssaoPower = 1.5f;
+		rendererSettings.ssaoBlurDepthThreshold = 0.0025f;
+	}
+
+	void SetFogEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableFog = bEnabled;
+	}
+
+	void SetFogMode(RendererSettings& rendererSettings, const int mode) noexcept
+	{
+		rendererSettings.fogMode = static_cast<std::uint32_t>(std::clamp(mode, 0, 2));
+	}
+
+	void SetFogRange(RendererSettings& rendererSettings, const float start, const float end) noexcept
+	{
+		rendererSettings.fogStart = std::clamp(start, 0.0f, 500.0f);
+		rendererSettings.fogEnd = std::clamp(end, 0.0f, 500.0f);
+		if (rendererSettings.fogEnd < rendererSettings.fogStart)
+		{
+			std::swap(rendererSettings.fogEnd, rendererSettings.fogStart);
+		}
+	}
+
+	void SetFogDensity(RendererSettings& rendererSettings, const float density) noexcept
+	{
+		rendererSettings.fogDensity = std::clamp(density, 0.0f, 0.25f);
+	}
+
+	void SetFogColor(RendererSettings& rendererSettings, const std::array<float, 3>& color) noexcept
+	{
+		rendererSettings.fogColor = color;
+	}
+
+	void ResetFogDefaults(RendererSettings& rendererSettings) noexcept
+	{
+		rendererSettings.fogMode = 0u;
+		rendererSettings.fogStart = 15.0f;
+		rendererSettings.fogEnd = 80.0f;
+		rendererSettings.fogDensity = 0.02f;
+		rendererSettings.fogColor = { 0.60f, 0.70f, 0.80f };
+	}
+
+	void SetAntiAliasingMode(RendererSettings& rendererSettings, const int mode) noexcept
+	{
+		rendererSettings.antiAliasingMode = static_cast<std::uint32_t>(std::clamp(mode, 0, 1));
+	}
+
+	void SetFxaaSubpix(RendererSettings& rendererSettings, const float subpix) noexcept
+	{
+		rendererSettings.fxaaSubpix = std::clamp(subpix, 0.0f, 1.0f);
+	}
+
+	void SetFxaaEdgeThreshold(RendererSettings& rendererSettings, const float threshold) noexcept
+	{
+		rendererSettings.fxaaEdgeThreshold = std::clamp(threshold, 0.0312f, 0.333f);
+	}
+
+	void SetFxaaEdgeThresholdMin(RendererSettings& rendererSettings, const float thresholdMin) noexcept
+	{
+		rendererSettings.fxaaEdgeThresholdMin = std::clamp(thresholdMin, 0.0f, 0.125f);
+	}
+
+	void ResetFxaaDefaults(RendererSettings& rendererSettings) noexcept
+	{
+		rendererSettings.fxaaSubpix = 0.75f;
+		rendererSettings.fxaaEdgeThreshold = 0.166f;
+		rendererSettings.fxaaEdgeThresholdMin = 0.0833f;
+	}
+
+	void SetHDREnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableHDR = bEnabled;
+	}
+
+	void SetToneMapMode(RendererSettings& rendererSettings, const int mode) noexcept
+	{
+		rendererSettings.toneMapMode = static_cast<std::uint32_t>(std::clamp(mode, 0, 2));
+	}
+
+	void SetHDRExposure(RendererSettings& rendererSettings, const float exposure) noexcept
+	{
+		rendererSettings.hdrExposure = std::clamp(exposure, 0.1f, 8.0f);
+	}
+
+	void SetBloomEnabled(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.enableBloom = bEnabled;
+	}
+
+	void SetBloomThreshold(RendererSettings& rendererSettings, const float threshold) noexcept
+	{
+		rendererSettings.bloomThreshold = std::clamp(threshold, 0.1f, 8.0f);
+	}
+
+	void SetBloomSoftKnee(RendererSettings& rendererSettings, const float softKnee) noexcept
+	{
+		rendererSettings.bloomSoftKnee = std::clamp(softKnee, 0.0f, 2.0f);
+	}
+
+	void SetBloomIntensity(RendererSettings& rendererSettings, const float intensity) noexcept
+	{
+		rendererSettings.bloomIntensity = std::clamp(intensity, 0.0f, 1.5f);
+	}
+
+	void SetBloomClamp(RendererSettings& rendererSettings, const float clampValue) noexcept
+	{
+		rendererSettings.bloomClamp = std::clamp(clampValue, 1.0f, 64.0f);
+	}
+
+	void SetBloomRadius(RendererSettings& rendererSettings, const float radius) noexcept
+	{
+		rendererSettings.bloomRadius = std::clamp(radius, 0.25f, 4.0f);
+	}
+
+	void ResetHDRBloomDefaults(RendererSettings& rendererSettings) noexcept
+	{
+		rendererSettings.enableHDR = true;
+		rendererSettings.toneMapMode = 2u;
+		rendererSettings.hdrExposure = 1.0f;
+		rendererSettings.enableBloom = true;
+		rendererSettings.bloomThreshold = 1.0f;
+		rendererSettings.bloomSoftKnee = 0.5f;
+		rendererSettings.bloomIntensity = 0.08f;
+		rendererSettings.bloomClamp = 16.0f;
+		rendererSettings.bloomRadius = 1.0f;
+	}
+
+	void SetShowCubeAtlas(RendererSettings& rendererSettings, const bool bEnabled) noexcept
+	{
+		rendererSettings.ShowCubeAtlas = bEnabled;
+	}
+
+	void SetDebugShadowCubeMapType(RendererSettings& rendererSettings, const int type) noexcept
+	{
+		rendererSettings.debugShadowCubeMapType = static_cast<std::uint32_t>(std::clamp(type, 0, 1));
+	}
+
+	void SetDebugCubeAtlasIndex(RendererSettings& rendererSettings, const int index) noexcept
+	{
+		rendererSettings.debugCubeAtlasIndex = static_cast<std::uint32_t>(std::max(index, 0));
+	}
+
+	void SetShadowBiasSettings(
+		RendererSettings& rendererSettings,
+		const float dirBaseBiasTexels,
+		const float spotBaseBiasTexels,
+		const float pointBaseBiasTexels,
+		const float slopeScaleTexels) noexcept
+	{
+		rendererSettings.dirShadowBaseBiasTexels = std::clamp(dirBaseBiasTexels, 0.0f, 5.0f);
+		rendererSettings.spotShadowBaseBiasTexels = std::clamp(spotBaseBiasTexels, 0.0f, 10.0f);
+		rendererSettings.pointShadowBaseBiasTexels = std::clamp(pointBaseBiasTexels, 0.0f, 10.0f);
+		rendererSettings.shadowSlopeScaleTexels = std::clamp(slopeScaleTexels, 0.0f, 10.0f);
+	}
 }
