@@ -1,15 +1,166 @@
 namespace rendern::ui
 {
-    static void DrawSSAOSection(rendern::RendererSettings& rs)
+    struct RendererSettingsEditStateViewModel
     {
-        if (!rs.enableDeferred)
+        const char* displayLabel{""};
+        bool isEnabled{true};
+        const char* disabledReason{""};
+    };
+    
+    struct RendererPipelineSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "Renderer pipeline" };
+        bool enableDeferred{ false };
+        bool enableDepthPrepass{ false };
+        bool enableFrustumCulling{ true };
+        bool debugPrintDrawCalls{ false };
+    };
+    
+    struct SSAOSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "SSAO" };
+        bool enableSSAO{ true };
+        float radius{ 1.0f };
+        float bias{ 0.02f };
+        float strength{ 1.25f };
+        float power{ 1.5f };
+        float blurDepthThreshold{ 0.0025f };
+        bool canEditSettings{ true };
+        const char* disabledReason{ "" };
+    };
+
+    struct FogSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "Fog" };
+        bool enableFog{ false };
+        std::uint32_t mode{ 0u };
+        float start{ 15.0f };
+        float end{ 80.0f };
+        float density{ 0.02f };
+        std::array<float, 3> color{ 0.60f, 0.70f, 0.80f };
+        bool canEditSettings{ false };
+    };
+
+    struct AntiAliasingSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "Anti-Aliasing" };
+        std::uint32_t mode{ 0u };
+        float fxaaSubpix{ 0.75f };
+        float fxaaEdgeThreshold{ 0.166f };
+        float fxaaEdgeThresholdMin{ 0.0833f };
+        bool canEditFxaaSettings{ false };
+        const char* fxaaDisabledReason{ "FXAA controls are available only when FXAA is selected." };
+    };
+
+    struct HdrBloomSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "HDR / Bloom" };
+        bool enableHDR{ true };
+        std::uint32_t toneMapMode{ 2u };
+        float hdrExposure{ 1.0f };
+        bool enableBloom{ true };
+        float bloomThreshold{ 1.0f };
+        float bloomSoftKnee{ 0.5f };
+        float bloomIntensity{ 0.08f };
+        float bloomClamp{ 16.0f };
+        float bloomRadius{ 1.0f };
+        bool canEditHdrSettings{ true };
+        bool canEditBloomSettings{ true };
+        const char* hdrDisabledReason{ "HDR controls are available only when HDR is enabled." };
+        const char* bloomDisabledReason{ "Bloom controls are available only when HDR and bloom are enabled." };
+    };
+
+    struct ShadowSettingsViewModel
+    {
+        RendererSettingsEditStateViewModel category{ "Shadow settings" };
+        bool showCubeAtlas{ false };
+        std::uint32_t debugCubeAtlasIndex{ 0u };
+        std::uint32_t debugShadowCubeMapType{ 1u };
+        float dirShadowBaseBiasTexels{ 0.6f };
+        float spotShadowBaseBiasTexels{ 1.0f };
+        float pointShadowBaseBiasTexels{ 0.4f };
+        float shadowSlopeScaleTexels{ 2.0f };
+    };
+
+    struct RendererSettingsViewModel
+    {
+        RendererPipelineSettingsViewModel pipeline{};
+        SSAOSettingsViewModel ssao{};
+        FogSettingsViewModel fog{};
+        AntiAliasingSettingsViewModel antiAliasing{};
+        HdrBloomSettingsViewModel hdrBloom{};
+        ShadowSettingsViewModel shadows{};
+    };
+    
+    [[nodiscard]] static RendererSettingsViewModel BuildRendererSettingsViewModel(const rendern::RendererSettings& rendererSettings)
+    {
+        RendererSettingsViewModel rendererSettingsViewModel{};
+
+        rendererSettingsViewModel.pipeline.enableDeferred = rendererSettings.enableDeferred;
+        rendererSettingsViewModel.pipeline.enableDepthPrepass = rendererSettings.enableDepthPrepass;
+        rendererSettingsViewModel.pipeline.enableFrustumCulling = rendererSettings.enableFrustumCulling;
+        rendererSettingsViewModel.pipeline.debugPrintDrawCalls = rendererSettings.debugPrintDrawCalls;
+
+        rendererSettingsViewModel.ssao.enableSSAO = rendererSettings.enableSSAO;
+        rendererSettingsViewModel.ssao.radius = rendererSettings.ssaoRadius;
+        rendererSettingsViewModel.ssao.bias = rendererSettings.ssaoBias;
+        rendererSettingsViewModel.ssao.strength = rendererSettings.ssaoStrength;
+        rendererSettingsViewModel.ssao.power = rendererSettings.ssaoPower;
+        rendererSettingsViewModel.ssao.blurDepthThreshold = rendererSettings.ssaoBlurDepthThreshold;
+        rendererSettingsViewModel.ssao.category.isEnabled = rendererSettings.enableDeferred;
+        rendererSettingsViewModel.ssao.category.disabledReason = "SSAO is currently exposed only for the deferred renderer path.";
+        rendererSettingsViewModel.ssao.canEditSettings = rendererSettings.enableDeferred && rendererSettings.enableSSAO;
+        rendererSettingsViewModel.ssao.disabledReason = rendererSettings.enableDeferred
+            ? "SSAO controls are available only when SSAO is enabled."
+            : rendererSettingsViewModel.ssao.category.disabledReason;
+
+        rendererSettingsViewModel.fog.enableFog = rendererSettings.enableFog;
+        rendererSettingsViewModel.fog.mode = rendererSettings.fogMode;
+        rendererSettingsViewModel.fog.start = rendererSettings.fogStart;
+        rendererSettingsViewModel.fog.end = rendererSettings.fogEnd;
+        rendererSettingsViewModel.fog.density = rendererSettings.fogDensity;
+        rendererSettingsViewModel.fog.color = rendererSettings.fogColor;
+        rendererSettingsViewModel.fog.canEditSettings = rendererSettings.enableFog;
+
+        rendererSettingsViewModel.antiAliasing.mode = rendererSettings.antiAliasingMode;
+        rendererSettingsViewModel.antiAliasing.fxaaSubpix = rendererSettings.fxaaSubpix;
+        rendererSettingsViewModel.antiAliasing.fxaaEdgeThreshold = rendererSettings.fxaaEdgeThreshold;
+        rendererSettingsViewModel.antiAliasing.fxaaEdgeThresholdMin = rendererSettings.fxaaEdgeThresholdMin;
+        rendererSettingsViewModel.antiAliasing.canEditFxaaSettings = rendererSettings.antiAliasingMode == 1u;
+
+        rendererSettingsViewModel.hdrBloom.enableHDR = rendererSettings.enableHDR;
+        rendererSettingsViewModel.hdrBloom.toneMapMode = rendererSettings.toneMapMode;
+        rendererSettingsViewModel.hdrBloom.hdrExposure = rendererSettings.hdrExposure;
+        rendererSettingsViewModel.hdrBloom.enableBloom = rendererSettings.enableBloom;
+        rendererSettingsViewModel.hdrBloom.bloomThreshold = rendererSettings.bloomThreshold;
+        rendererSettingsViewModel.hdrBloom.bloomSoftKnee = rendererSettings.bloomSoftKnee;
+        rendererSettingsViewModel.hdrBloom.bloomIntensity = rendererSettings.bloomIntensity;
+        rendererSettingsViewModel.hdrBloom.bloomClamp = rendererSettings.bloomClamp;
+        rendererSettingsViewModel.hdrBloom.bloomRadius = rendererSettings.bloomRadius;
+        rendererSettingsViewModel.hdrBloom.canEditHdrSettings = rendererSettings.enableHDR;
+        rendererSettingsViewModel.hdrBloom.canEditBloomSettings = rendererSettings.enableHDR && rendererSettings.enableBloom;
+
+        rendererSettingsViewModel.shadows.showCubeAtlas = rendererSettings.ShowCubeAtlas;
+        rendererSettingsViewModel.shadows.debugCubeAtlasIndex = rendererSettings.debugCubeAtlasIndex;
+        rendererSettingsViewModel.shadows.debugShadowCubeMapType = rendererSettings.debugShadowCubeMapType;
+        rendererSettingsViewModel.shadows.dirShadowBaseBiasTexels = rendererSettings.dirShadowBaseBiasTexels;
+        rendererSettingsViewModel.shadows.spotShadowBaseBiasTexels = rendererSettings.spotShadowBaseBiasTexels;
+        rendererSettingsViewModel.shadows.pointShadowBaseBiasTexels = rendererSettings.pointShadowBaseBiasTexels;
+        rendererSettingsViewModel.shadows.shadowSlopeScaleTexels = rendererSettings.shadowSlopeScaleTexels;
+
+        return rendererSettingsViewModel;
+    }
+    
+    static void DrawSSAOSection(rendern::RendererSettings& rs, const SSAOSettingsViewModel& ssaoSettings)
+    {
+        if (!ssaoSettings.category.isEnabled)
             return;
 
-        if (!ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(ssaoSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
         ImGui::Checkbox("Enable SSAO", &rs.enableSSAO);
-        ImGui::BeginDisabled(!rs.enableSSAO);
+        ImGui::BeginDisabled(!ssaoSettings.canEditSettings);
 
         ImGui::SliderFloat("Radius", &rs.ssaoRadius, 0.05f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderFloat("Bias", &rs.ssaoBias, 0.0f, 0.25f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
@@ -30,13 +181,13 @@ namespace rendern::ui
         ImGui::Separator();
     }
 
-    static void DrawFogSection(rendern::RendererSettings& rs)
+    static void DrawFogSection(rendern::RendererSettings& rs, const FogSettingsViewModel& fogSettings)
     {
-        if (!ImGui::CollapsingHeader("Fog", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(fogSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
         ImGui::Checkbox("Enable fog", &rs.enableFog);
-        ImGui::BeginDisabled(!rs.enableFog);
+        ImGui::BeginDisabled(!fogSettings.canEditSettings);
 
         const char* items[] = { "Linear", "Exp", "Exp2" };
         int mode = static_cast<int>(rs.fogMode);
@@ -47,7 +198,7 @@ namespace rendern::ui
             rs.fogMode = static_cast<std::uint32_t>(mode);
         }
 
-        if (rs.fogMode == 0u)
+        if (fogSettings.mode == 0u)
         {
             ImGui::SliderFloat("Start", &rs.fogStart, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderFloat("End", &rs.fogEnd, 0.0f, 500.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
@@ -77,9 +228,9 @@ namespace rendern::ui
         ImGui::Separator();
     }
 
-    static void DrawAntiAliasingSection(rendern::RendererSettings& rs)
+    static void DrawAntiAliasingSection(rendern::RendererSettings& rs, const AntiAliasingSettingsViewModel& antiAliasingSettings)
     {
-        if (!ImGui::CollapsingHeader("Anti-Aliasing", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(antiAliasingSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
         const char* items[] = { "None", "FXAA" };
@@ -91,8 +242,7 @@ namespace rendern::ui
             rs.antiAliasingMode = static_cast<std::uint32_t>(aaMode);
         }
 
-        const bool fxaaEnabled = rs.antiAliasingMode == 1u;
-        ImGui::BeginDisabled(!fxaaEnabled);
+        ImGui::BeginDisabled(!antiAliasingSettings.canEditFxaaSettings);
         ImGui::SliderFloat("FXAA Subpix", &rs.fxaaSubpix, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderFloat("FXAA Edge Threshold", &rs.fxaaEdgeThreshold, 0.0312f, 0.333f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderFloat("FXAA Edge Threshold Min", &rs.fxaaEdgeThresholdMin, 0.0f, 0.125f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
@@ -108,13 +258,13 @@ namespace rendern::ui
         ImGui::Separator();
     }
 
-    static void DrawHdrBloomSection(rendern::RendererSettings& rs)
+    static void DrawHdrBloomSection(rendern::RendererSettings& rs, const HdrBloomSettingsViewModel& hdrBloomSettings)
     {
-        if (!ImGui::CollapsingHeader("HDR / Bloom", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(hdrBloomSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
         ImGui::Checkbox("Enable HDR", &rs.enableHDR);
-        ImGui::BeginDisabled(!rs.enableHDR);
+        ImGui::BeginDisabled(!hdrBloomSettings.canEditHdrSettings);
 
         const char* toneItems[] = { "Linear", "Reinhard", "ACES" };
         int toneMode = static_cast<int>(rs.toneMapMode);
@@ -128,7 +278,7 @@ namespace rendern::ui
         ImGui::SliderFloat("Exposure", &rs.hdrExposure, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::Checkbox("Enable Bloom", &rs.enableBloom);
 
-        ImGui::BeginDisabled(!rs.enableBloom);
+        ImGui::BeginDisabled(!hdrBloomSettings.canEditBloomSettings);
         ImGui::SliderFloat("Bloom threshold", &rs.bloomThreshold, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderFloat("Bloom soft knee", &rs.bloomSoftKnee, 0.0f, 2.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderFloat("Bloom intensity", &rs.bloomIntensity, 0.0f, 1.5f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
@@ -214,9 +364,12 @@ namespace rendern::ui
         ImGui::TextDisabled("Controls: hold RMB to look, WASD move, QE up/down, Shift sprint");
     }
 
-    static void DrawShadowAndDebugSection(rendern::RendererSettings& rs, rendern::Scene& scene)
+    static void DrawShadowAndDebugSection(
+        rendern::RendererSettings& rs,
+        rendern::Scene& scene,
+        const ShadowSettingsViewModel& shadowSettings)
     {
-        int current = static_cast<int>(rs.debugShadowCubeMapType);
+        int current = static_cast<int>(shadowSettings.debugShadowCubeMapType);
         std::vector<const char*> citems;
         citems.reserve(2);
         citems.push_back("Point");
@@ -226,7 +379,7 @@ namespace rendern::ui
         ImGui::Text("Shadow cube atlas");
         ImGui::Checkbox("Show cube atlas", &rs.ShowCubeAtlas);
 
-        int debugCubeAtlasIndex = static_cast<int>(rs.debugCubeAtlasIndex);
+        int debugCubeAtlasIndex = static_cast<int>(shadowSettings.debugCubeAtlasIndex);
         if (ImGui::Combo("Type", &current, citems.data(), static_cast<int>(citems.size())))
         {
             rs.debugShadowCubeMapType = static_cast<std::uint32_t>(current);
@@ -319,6 +472,8 @@ namespace rendern::ui
         rendern::Scene& scene,
         rendern::CameraController& camCtl)
     {
+        const RendererSettingsViewModel rendererSettingsViewModel = BuildRendererSettingsViewModel(rs);
+        
         ImGui::Begin("Renderer / Shadows");
 
         ImGui::Checkbox("Depth prepass", &rs.enableDepthPrepass);
@@ -326,13 +481,13 @@ namespace rendern::ui
         ImGui::Checkbox("Frustum culling", &rs.enableFrustumCulling);
         ImGui::Checkbox("Debug print draw calls", &rs.debugPrintDrawCalls);
 
-        DrawSSAOSection(rs);
-        DrawFogSection(rs);
-        DrawAntiAliasingSection(rs);
-        DrawHdrBloomSection(rs);
+        DrawSSAOSection(rs, rendererSettingsViewModel.ssao);
+        DrawFogSection(rs, rendererSettingsViewModel.fog);
+        DrawAntiAliasingSection(rs, rendererSettingsViewModel.antiAliasing);
+        DrawHdrBloomSection(rs, rendererSettingsViewModel.hdrBloom);
 
         DrawCameraDebugSection(scene, camCtl);
-        DrawShadowAndDebugSection(rs, scene);
+        DrawShadowAndDebugSection(rs, scene, rendererSettingsViewModel.shadows);
 
         ImGui::Separator();
         ImGui::TextDisabled("F1: toggle UI");
