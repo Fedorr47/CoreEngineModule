@@ -18,6 +18,7 @@ export module core:render_core;
 
 import :resource_manager;
 import :rhi;
+import :thread_affinity;
 import :shader_files;
 import :file_system;
 import :hash_utils;
@@ -204,10 +205,10 @@ export namespace rendern
 			workers_.reserve(workerCount);
 			for (std::uint32_t i = 0; i < workerCount; ++i)
 			{
-				workers_.emplace_back([this](std::stop_token stopToken)
+				workers_.emplace_back([this, i](std::stop_token stopToken)
 				{
 					currentPool_ = this;
-					Worker(stopToken);
+					Worker(stopToken, i);
 					currentPool_ = nullptr;
 				});
 			}
@@ -259,7 +260,7 @@ export namespace rendern
 		}
 
 	private:
-		void Worker(std::stop_token stopToken)
+		void Worker(std::stop_token stopToken, std::uint32_t workerIndex)
 		{
 			while (!stopToken.stop_requested())
 			{
@@ -278,8 +279,11 @@ export namespace rendern
 					++active_;
 				}
 
-				try { job(); }
-				catch (...) { /* swallow */ }
+				{
+					const threadAffinity::ScopedWorkerContext workerContext{ this, workerIndex };
+					try { job(); }
+					catch (...) { /* swallow */ }
+				}
 
 				{
 					std::scoped_lock lock(mutex_);

@@ -1,3 +1,5 @@
+#include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+
 import core;
 import std;
 
@@ -235,6 +237,11 @@ namespace appLifecycle
         launchState.canUseDebugWindow = appBootstrap::CanUseDebugWindow(launchState.requestedBackend);
         windowState.shell.input = &windowState.input;
 
+        threadAffinity::ResetOwnerThreadRegistry();
+        threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Main);
+        threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Runtime);
+        threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Render);
+
         appBootstrap::CreatePrimaryWindowSet(
             windowState.shell,
             app.config.windowWidth,
@@ -393,6 +400,8 @@ namespace appLifecycle
 
     bool TickApp(AppState& app)
     {
+        CORE_ASSERT_MAIN_THREAD();
+
         using Clock = std::chrono::steady_clock;
         const auto frameStart = std::chrono::steady_clock::now();
         if (!PumpAndCheckRunning(app))
@@ -533,6 +542,8 @@ namespace appLifecycle
 
     void ShutdownApp(AppState& app)
     {
+        CORE_ASSERT_MAIN_THREAD();
+
         if (!app.initialized)
         {
             return;
@@ -573,6 +584,8 @@ namespace appLifecycle
         contentState.textureIO.reset();
         contentState.textureUploader.reset();
         contentState.jobSystem.reset();
+
+        threadAffinity::ResetOwnerThreadRegistry();
         app.initialized = false;
     }
 }

@@ -191,6 +191,8 @@ const rendern::GameplayUpdateContext BuildGameplayUpdateContext(
 
 static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 {
+    CORE_ASSERT_RUNTIME_THREAD();
+
     const rendern::GameplayUpdateContext gameplayCtx = BuildGameplayUpdateContext(app, deltaSeconds);
     auto* gameplayRuntime = app.runtimeState.gameplayRuntime.get();
     
@@ -214,6 +216,8 @@ static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
 
 static void RenderMainViewport(AppState& app)
 {
+    CORE_ASSERT_RENDER_THREAD();
+
     app.graphicsState.renderer->SetSettings(app.graphicsState.rendererSettings);
     app.graphicsState.renderer->RenderFrame(
         *app.graphicsState.swapChain, rendern::RenderSceneExtractor::BuildFrameView(app.runtimeState.scene), /*imguiDrawData=*/nullptr);
@@ -221,6 +225,8 @@ static void RenderMainViewport(AppState& app)
 
 static void RenderDebugWindowIfNeeded(AppState& app, const void* imguiDrawData)
 {
+    CORE_ASSERT_RENDER_THREAD();
+
 #if defined(CORE_USE_DX12)
     if (appRuntime::CanRenderDebugSwapChain(app.windowState.debugWindow, app.graphicsState.debugSwapChain.get()))
     {

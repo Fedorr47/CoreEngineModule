@@ -35,6 +35,7 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestJsonUtils.cpp"
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"
+        "unit/CoreTests/TestThreadAffinity.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
         "unit/EditorTests/TestEditorSelectionService.cpp"
