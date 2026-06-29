@@ -87,6 +87,13 @@ namespace rendern::ui
         float pointShadowBaseBiasTexels{ 0.4f };
         float shadowSlopeScaleTexels{ 2.0f };
     };
+    
+    struct DebugDrawSettingsViewModel
+    {
+        bool showLightGizmos{ false };
+        bool showPickingRay{ false };
+        bool showAnimationRuntimeOverlay{ false };
+    };
 
     struct RendererSettingsViewModel
     {
@@ -165,6 +172,27 @@ namespace rendern::ui
         rendererSettingsViewModel.shadows.shadowSlopeScaleTexels = rendererSettings.shadowSlopeScaleTexels;
 
         return rendererSettingsViewModel;
+    }
+    
+    [[nodiscard]] static DebugDrawSettingsViewModel BuildDebugDrawSettingsViewModel(
+        const rendern::RendererSettings& rendererSettings,
+        const rendern::Scene& scene)
+    {
+        DebugDrawSettingsViewModel debugDrawSettings{};
+        debugDrawSettings.showLightGizmos = rendererSettings.drawLightGizmos;
+        debugDrawSettings.showPickingRay = scene.debugPickRay.enabled;
+        debugDrawSettings.showAnimationRuntimeOverlay = rendererSettings.drawAnimationRuntimeOverlay;
+        return debugDrawSettings;
+    }
+
+    static void ApplyDebugDrawSettingsViewModel(
+        rendern::RendererSettings& rendererSettings,
+        rendern::Scene& scene,
+        const DebugDrawSettingsViewModel& debugDrawSettings)
+    {
+        rendererSettings.drawLightGizmos = debugDrawSettings.showLightGizmos;
+        scene.debugPickRay.enabled = debugDrawSettings.showPickingRay;
+        rendererSettings.drawAnimationRuntimeOverlay = debugDrawSettings.showAnimationRuntimeOverlay;
     }
     
     static void DrawRendererSettingWarning(const rendern::RendererSettingEditState& editState)
@@ -460,7 +488,8 @@ namespace rendern::ui
     static void DrawShadowAndDebugSection(
         rendern::RendererSettings& rs,
         rendern::Scene& scene,
-        const ShadowSettingsViewModel& shadowSettings)
+        const ShadowSettingsViewModel& shadowSettings,
+        const DebugDrawSettingsViewModel& debugDrawSettings)
     {
         int current = static_cast<int>(shadowSettings.debugShadowCubeMapType);
         std::vector<const char*> citems;
@@ -530,7 +559,15 @@ namespace rendern::ui
 
         ImGui::Separator();
         ImGui::Text("Debug draw");
-        ImGui::Checkbox("Light gizmos", &rs.drawLightGizmos);
+        DebugDrawSettingsViewModel editedDebugDrawSettings = debugDrawSettings;
+        bool bDebugDrawSettingsChanged = false;
+        bDebugDrawSettingsChanged |= ImGui::Checkbox("Light gizmos", &editedDebugDrawSettings.showLightGizmos);
+        bDebugDrawSettingsChanged |= ImGui::Checkbox("Picking ray", &editedDebugDrawSettings.showPickingRay);
+        bDebugDrawSettingsChanged |= ImGui::Checkbox("Animation runtime overlay", &editedDebugDrawSettings.showAnimationRuntimeOverlay);
+        if (bDebugDrawSettingsChanged)
+        {
+            ApplyDebugDrawSettingsViewModel(rs, scene, editedDebugDrawSettings);
+        }
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
         ImGui::Checkbox("Log CPU frame timings", &rs.logCpuFrameTimings);
@@ -551,7 +588,7 @@ namespace rendern::ui
             ImGui::SliderFloat("Movement label scale", &rs.gameplayMovementLabelScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderFloat("Movement text scale", &rs.gameplayMovementTextScale, 0.5f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
         }
-        ImGui::Checkbox("Animation runtime overlay", &rs.drawAnimationRuntimeOverlay);
+        
         if (rs.drawAnimationRuntimeOverlay)
         {
             ImGui::Checkbox("Animation overlay: controlled only", &rs.drawAnimationRuntimeOverlayOnlyControlled);
@@ -613,7 +650,8 @@ namespace rendern::ui
         DrawHdrBloomSection(rs, rendererSettingsViewModel.hdrBloom);
 
         DrawCameraDebugSection(scene, camCtl);
-        DrawShadowAndDebugSection(rs, scene, rendererSettingsViewModel.shadows);
+        const DebugDrawSettingsViewModel debugDrawSettingsViewModel = BuildDebugDrawSettingsViewModel(rs, scene);
+        DrawShadowAndDebugSection(rs, scene, rendererSettingsViewModel.shadows, debugDrawSettingsViewModel);
 
         ImGui::Separator();
         ImGui::TextDisabled("F1: toggle UI");
