@@ -14,6 +14,7 @@ namespace rendern::ui
         bool enableDepthPrepass{ false };
         bool enableFrustumCulling{ true };
         bool debugPrintDrawCalls{ false };
+        rendern::RendererSettingEditState deferredEditState{};
     };
     
     struct SSAOSettingsViewModel
@@ -27,6 +28,7 @@ namespace rendern::ui
         float blurDepthThreshold{ 0.0025f };
         bool canEditSettings{ true };
         const char* disabledReason{ "" };
+        rendern::RendererSettingEditState sectionEditState{};
     };
 
     struct FogSettingsViewModel
@@ -50,6 +52,7 @@ namespace rendern::ui
         float fxaaEdgeThresholdMin{ 0.0833f };
         bool canEditFxaaSettings{ false };
         const char* fxaaDisabledReason{ "FXAA controls are available only when FXAA is selected." };
+        rendern::RendererSettingEditState fxaaEditState{};
     };
 
     struct HdrBloomSettingsViewModel
@@ -68,6 +71,9 @@ namespace rendern::ui
         bool canEditBloomSettings{ true };
         const char* hdrDisabledReason{ "HDR controls are available only when HDR is enabled." };
         const char* bloomDisabledReason{ "Bloom controls are available only when HDR and bloom are enabled." };
+        rendern::RendererSettingEditState hdrToggleEditState{};
+        rendern::RendererSettingEditState hdrControlsEditState{};
+        rendern::RendererSettingEditState bloomControlsEditState{};
     };
 
     struct ShadowSettingsViewModel
@@ -95,11 +101,16 @@ namespace rendern::ui
     [[nodiscard]] static RendererSettingsViewModel BuildRendererSettingsViewModel(const rendern::RendererSettings& rendererSettings)
     {
         RendererSettingsViewModel rendererSettingsViewModel{};
+        const bool bIsDeferredEnabled = rendererSettings.enableDeferred;
+        const bool bIsFxaaSelected = rendererSettings.antiAliasingMode == 1u;
+        const bool bIsHdrEnabled = rendererSettings.enableHDR;
+        const bool bIsBloomEnabled = rendererSettings.enableBloom;
 
         rendererSettingsViewModel.pipeline.enableDeferred = rendererSettings.enableDeferred;
         rendererSettingsViewModel.pipeline.enableDepthPrepass = rendererSettings.enableDepthPrepass;
         rendererSettingsViewModel.pipeline.enableFrustumCulling = rendererSettings.enableFrustumCulling;
         rendererSettingsViewModel.pipeline.debugPrintDrawCalls = rendererSettings.debugPrintDrawCalls;
+        rendererSettingsViewModel.pipeline.deferredEditState = rendern::GetDeferredRendererEditState();
 
         rendererSettingsViewModel.ssao.enableSSAO = rendererSettings.enableSSAO;
         rendererSettingsViewModel.ssao.radius = rendererSettings.ssaoRadius;
@@ -107,12 +118,13 @@ namespace rendern::ui
         rendererSettingsViewModel.ssao.strength = rendererSettings.ssaoStrength;
         rendererSettingsViewModel.ssao.power = rendererSettings.ssaoPower;
         rendererSettingsViewModel.ssao.blurDepthThreshold = rendererSettings.ssaoBlurDepthThreshold;
-        rendererSettingsViewModel.ssao.category.isEnabled = rendererSettings.enableDeferred;
-        rendererSettingsViewModel.ssao.category.disabledReason = "SSAO is currently exposed only for the deferred renderer path.";
-        rendererSettingsViewModel.ssao.canEditSettings = rendererSettings.enableDeferred && rendererSettings.enableSSAO;
-        rendererSettingsViewModel.ssao.disabledReason = rendererSettings.enableDeferred
+        rendererSettingsViewModel.ssao.category.isEnabled = true;
+        rendererSettingsViewModel.ssao.category.disabledReason = "";
+        rendererSettingsViewModel.ssao.sectionEditState = rendern::GetSSAOSectionEditState(rendererSettings);
+        rendererSettingsViewModel.ssao.canEditSettings = bIsDeferredEnabled && rendererSettings.enableSSAO;
+        rendererSettingsViewModel.ssao.disabledReason = bIsDeferredEnabled
             ? "SSAO controls are available only when SSAO is enabled."
-            : rendererSettingsViewModel.ssao.category.disabledReason;
+            : rendererSettingsViewModel.ssao.sectionEditState.warning;
 
         rendererSettingsViewModel.fog.enableFog = rendererSettings.enableFog;
         rendererSettingsViewModel.fog.mode = rendererSettings.fogMode;
@@ -126,7 +138,8 @@ namespace rendern::ui
         rendererSettingsViewModel.antiAliasing.fxaaSubpix = rendererSettings.fxaaSubpix;
         rendererSettingsViewModel.antiAliasing.fxaaEdgeThreshold = rendererSettings.fxaaEdgeThreshold;
         rendererSettingsViewModel.antiAliasing.fxaaEdgeThresholdMin = rendererSettings.fxaaEdgeThresholdMin;
-        rendererSettingsViewModel.antiAliasing.canEditFxaaSettings = rendererSettings.antiAliasingMode == 1u;
+        rendererSettingsViewModel.antiAliasing.canEditFxaaSettings = bIsFxaaSelected;
+        rendererSettingsViewModel.antiAliasing.fxaaEditState = rendern::GetFxaaControlsEditState(rendererSettings);
 
         rendererSettingsViewModel.hdrBloom.enableHDR = rendererSettings.enableHDR;
         rendererSettingsViewModel.hdrBloom.toneMapMode = rendererSettings.toneMapMode;
@@ -137,8 +150,11 @@ namespace rendern::ui
         rendererSettingsViewModel.hdrBloom.bloomIntensity = rendererSettings.bloomIntensity;
         rendererSettingsViewModel.hdrBloom.bloomClamp = rendererSettings.bloomClamp;
         rendererSettingsViewModel.hdrBloom.bloomRadius = rendererSettings.bloomRadius;
-        rendererSettingsViewModel.hdrBloom.canEditHdrSettings = rendererSettings.enableHDR;
-        rendererSettingsViewModel.hdrBloom.canEditBloomSettings = rendererSettings.enableHDR && rendererSettings.enableBloom;
+        rendererSettingsViewModel.hdrBloom.canEditHdrSettings = bIsHdrEnabled;
+        rendererSettingsViewModel.hdrBloom.canEditBloomSettings = bIsHdrEnabled && bIsBloomEnabled;
+        rendererSettingsViewModel.hdrBloom.hdrToggleEditState = rendern::GetHDRToggleEditState();
+        rendererSettingsViewModel.hdrBloom.hdrControlsEditState = rendern::GetHDRControlsEditState(rendererSettings);
+        rendererSettingsViewModel.hdrBloom.bloomControlsEditState = rendern::GetBloomControlsEditState(rendererSettings);
 
         rendererSettingsViewModel.shadows.showCubeAtlas = rendererSettings.ShowCubeAtlas;
         rendererSettingsViewModel.shadows.debugCubeAtlasIndex = rendererSettings.debugCubeAtlasIndex;
@@ -151,14 +167,23 @@ namespace rendern::ui
         return rendererSettingsViewModel;
     }
     
+    static void DrawRendererSettingWarning(const rendern::RendererSettingEditState& editState)
+    {
+        if (editState.warning[0] != '\0' && !editState.bCanEditNow)
+        {
+            ImGui::TextDisabled("%s", editState.warning);
+        }
+    }
+    
     static void DrawSSAOSection(rendern::RendererSettings& rendererSettings, const SSAOSettingsViewModel& ssaoSettings)
     {
-        if (!ssaoSettings.category.isEnabled)
-            return;
-
         if (!ImGui::CollapsingHeader(ssaoSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
+        {
             return;
+        }
 
+        DrawRendererSettingWarning(ssaoSettings.sectionEditState);
+        ImGui::BeginDisabled(!ssaoSettings.sectionEditState.bCanEditNow);
         bool bShouldEnableSSAO = ssaoSettings.enableSSAO;
         if (ImGui::Checkbox("Enable SSAO", &bShouldEnableSSAO))
         {
@@ -197,6 +222,7 @@ namespace rendern::ui
             rendern::renderer_settings_commands::ResetSSAODefaults(rendererSettings);
         }
 
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         ImGui::Separator();
     }
@@ -269,7 +295,8 @@ namespace rendern::ui
             rendern::renderer_settings_commands::SetAntiAliasingMode(rendererSettings, requestedAntiAliasingMode);
         }
 
-        ImGui::BeginDisabled(!antiAliasingSettings.canEditFxaaSettings);
+        DrawRendererSettingWarning(antiAliasingSettings.fxaaEditState);
+        ImGui::BeginDisabled(!antiAliasingSettings.fxaaEditState.bCanEditNow);
         float requestedFxaaSubpix = antiAliasingSettings.fxaaSubpix;
         if (ImGui::SliderFloat("FXAA Subpix", &requestedFxaaSubpix, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
         {
@@ -302,12 +329,16 @@ namespace rendern::ui
         if (!ImGui::CollapsingHeader(hdrBloomSettings.category.displayLabel, ImGuiTreeNodeFlags_DefaultOpen))
             return;
 
+        DrawRendererSettingWarning(hdrBloomSettings.hdrToggleEditState);
+        ImGui::BeginDisabled(!hdrBloomSettings.hdrToggleEditState.bCanEditNow);
         bool bShouldEnableHDR = hdrBloomSettings.enableHDR;
-        if (ImGui::Checkbox("Enable HDR", &bShouldEnableHDR))
+        if (ImGui::Checkbox("Enable HDR", &bShouldEnableHDR) && hdrBloomSettings.hdrToggleEditState.bCanEditNow)
         {
             rendern::renderer_settings_commands::SetHDREnabled(rendererSettings, bShouldEnableHDR);
         }
-        ImGui::BeginDisabled(!hdrBloomSettings.canEditHdrSettings);
+        ImGui::EndDisabled();
+        DrawRendererSettingWarning(hdrBloomSettings.hdrControlsEditState);
+        ImGui::BeginDisabled(!hdrBloomSettings.hdrControlsEditState.bCanEditNow);
 
         const char* toneItems[] = { "Linear", "Reinhard", "ACES" };
         int requestedToneMapMode = static_cast<int>(hdrBloomSettings.toneMapMode);
@@ -327,7 +358,8 @@ namespace rendern::ui
             rendern::renderer_settings_commands::SetBloomEnabled(rendererSettings, bShouldEnableBloom);
         }
 
-        ImGui::BeginDisabled(!hdrBloomSettings.canEditBloomSettings);
+        DrawRendererSettingWarning(hdrBloomSettings.bloomControlsEditState);
+        ImGui::BeginDisabled(!hdrBloomSettings.bloomControlsEditState.bCanEditNow);
         float requestedBloomThreshold = hdrBloomSettings.bloomThreshold;
         if (ImGui::SliderFloat("Bloom threshold", &requestedBloomThreshold, 0.1f, 8.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
         {
@@ -556,10 +588,14 @@ namespace rendern::ui
             rendern::renderer_settings_commands::SetDepthPrepassEnabled(rs, bShouldEnableDepthPrepass);
         }
         bool bShouldEnableDeferred = rendererSettingsViewModel.pipeline.enableDeferred;
-        if (ImGui::Checkbox("Deferred (experimental)", &bShouldEnableDeferred))
+        DrawRendererSettingWarning(rendererSettingsViewModel.pipeline.deferredEditState);
+        ImGui::BeginDisabled(!rendererSettingsViewModel.pipeline.deferredEditState.bCanEditNow);
+        if (ImGui::Checkbox("Deferred (experimental)", &bShouldEnableDeferred)
+            && rendererSettingsViewModel.pipeline.deferredEditState.bCanEditNow)
         {
             rendern::renderer_settings_commands::SetDeferredEnabled(rs, bShouldEnableDeferred);
         }
+        ImGui::EndDisabled();
         bool bShouldEnableFrustumCulling = rendererSettingsViewModel.pipeline.enableFrustumCulling;
         if (ImGui::Checkbox("Frustum culling", &bShouldEnableFrustumCulling))
         {

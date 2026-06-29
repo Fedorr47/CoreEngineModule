@@ -188,6 +188,75 @@ export namespace rendern
 		float reflectionCaptureFovPadDeg{ 0.0f };
 		std::filesystem::path modelPath = std::filesystem::path("models") / "cube.obj";
 	};
+	
+	enum class RendererSettingEditPolicy
+	{
+		Instant,
+		Deferred,
+		RequiresResourceRebuild,
+		NotEditableAtRuntime
+	};
+	
+	struct RendererSettingEditState
+	{
+		RendererSettingEditPolicy editPolicy{ RendererSettingEditPolicy::Instant };
+		bool bCanEditNow{ true };
+		const char* warning{ "" };
+	};
+	
+	[[nodiscard]] RendererSettingEditState GetDeferredRendererEditState() noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::RequiresResourceRebuild,
+			false,
+			"Changing deferred rendering at runtime requires renderer resource rebuild. "
+		};
+	}
+	
+	[[nodiscard]] RendererSettingEditState GetSSAOSectionEditState(const RendererSettings& rendererSettings) noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::Instant,
+			rendererSettings.enableDeferred,
+			"SSAO controls require deferred rendering."
+		};
+	}
+
+	[[nodiscard]] RendererSettingEditState GetFxaaControlsEditState(const RendererSettings& rendererSettings) noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::Instant,
+			rendererSettings.antiAliasingMode == 1u,
+			"FXAA controls are available only when FXAA is selected."
+		};
+	}
+
+	[[nodiscard]] RendererSettingEditState GetHDRToggleEditState() noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::RequiresResourceRebuild,
+			false,
+			"Changing HDR at runtime can change render target formats and requires renderer resource rebuild."
+		};
+	}
+
+	[[nodiscard]] RendererSettingEditState GetHDRControlsEditState(const RendererSettings& rendererSettings) noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::Instant,
+			rendererSettings.enableHDR,
+			"HDR controls are available only when HDR is enabled."
+		};
+	}
+
+	[[nodiscard]] RendererSettingEditState GetBloomControlsEditState(const RendererSettings& rendererSettings) noexcept
+	{
+		return RendererSettingEditState{
+			RendererSettingEditPolicy::Instant,
+			rendererSettings.enableHDR && rendererSettings.enableBloom,
+			"Bloom controls are available only when HDR and bloom are enabled."
+		};
+	}
 }
 
 export namespace rendern::renderer_settings_commands
