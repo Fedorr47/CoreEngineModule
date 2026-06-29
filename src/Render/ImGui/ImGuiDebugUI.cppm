@@ -56,6 +56,7 @@ export namespace rendern::ui
 #if defined(CORE_USE_DX12)
 
 #include "ImGuiDebugUI_Common.inl"
+#include "RendererSettingsViewModels.h"
 #include "ImGuiDebugUI_RendererCore.inl"
 #include "ImGuiDebugUI_Performance.inl"
 #include "ImGuiDebugUI_Reflections.inl"
