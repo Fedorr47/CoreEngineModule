@@ -98,7 +98,7 @@ TEST(FileUtils, ReadAllTextThrowsRuntimeErrorForMissingFIle)
     catch (const std::runtime_error& error)
     {
         const std::string message = error.what();
-        EXPECT_TRUE(message.starts_with("Filed to open text file:"));
+        EXPECT_TRUE(message.starts_with("Failed to open text file:"));
         EXPECT_NE(message.find(missingFile.string()), std::string::npos);
     }
     
