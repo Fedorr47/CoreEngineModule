@@ -78,9 +78,9 @@
 
         void GameplayRuntime::UnbindIntentSource(const EntityHandle entity)
         {
-              CORE_ASSERT_RUNTIME_THREAD();
+            CORE_ASSERT_RUNTIME_THREAD();
 
-           const auto it = intentBindingIndexByEntity_.find(entity);
+            const auto it = intentBindingIndexByEntity_.find(entity);
             if (it == intentBindingIndexByEntity_.end())
             {
                 return;
