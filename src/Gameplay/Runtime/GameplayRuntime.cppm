@@ -9,6 +9,8 @@ module;
 #include <utility>
 #include <vector>
 
+#include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+
 export module core:gameplay_runtime;
 
 import :gameplay;
@@ -25,6 +27,7 @@ import :combat_system;
 import :interaction_system;
 import :gameplay_animation_bridge;
 import :gameplay_animation_bridge_system;
+import :thread_affinity;
 
 namespace ProfileUtils
 {

@@ -46,10 +46,13 @@ module;
 #include <cassert>
 #include <bit>
 
+#include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+
 export module core:rhi_dx12;
 
 import :rhi;
 import :dx12_core;
+import :thread_affinity;
 
 #if defined(_WIN32)
 using Microsoft::WRL::ComPtr;

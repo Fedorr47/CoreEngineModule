@@ -17,6 +17,8 @@
 #include <string_view>
 #include <utility>
 
+#include "TestSupport/TestThreadAffinity.h"
+
 import core;
 
 namespace
@@ -186,6 +188,8 @@ namespace
 
 TEST(Dx12BackendSmoke, StartsSubmitsOneEmptyFrameAndShutsDown)
 {
+    InlineThreadOwnerRolesGuard threadOwnerRoles{};
+
     std::unique_ptr<ScopedSmokeWindow> window;
     std::unique_ptr<rhi::IRHIDevice> device;
     std::unique_ptr<rhi::IRHISwapChain> swapChain;

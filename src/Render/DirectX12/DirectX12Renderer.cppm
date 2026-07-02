@@ -30,6 +30,8 @@ module;
 #include <unordered_map>
 #include "assert.h"
 
+#include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+
 export module core:renderer_dx12;
 
 import :rhi;
@@ -50,6 +52,7 @@ import :debug_draw_renderer_dx12;
 import :debug_text;
 import :debug_text_renderer_dx12;
 import :common_DX12_Structs;
+import :thread_affinity;
 
 export namespace rendern
 {
@@ -99,12 +102,16 @@ export namespace rendern
 
 		void SetSettings(const RendererSettings& settings)
 		{
+			CORE_ASSERT_RENDER_THREAD();
+
 			settings_ = settings;
 			EnsureReflectionCaptureResources();
 		}
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData)
 		{
+			CORE_ASSERT_RENDER_THREAD();
+
 			const auto renderFrameStart = std::chrono::steady_clock::now();
 			auto ElapsedMs = [](const auto& a, const auto& b)
 				{
@@ -155,6 +162,8 @@ export namespace rendern
 
 		void Shutdown()
 		{
+			CORE_ASSERT_RENDER_THREAD();
+
 #include "RendererImpl/DirectX12Renderer_Shutdown.inl"
 		}
 

@@ -1,5 +1,7 @@
 void SubmitCommandList(CommandList&& commandList) override
 {
+    CORE_ASSERT_RENDER_THREAD();
+
     // Begin frame: wait/recycle per-frame stuff + reset allocator/list
     const auto submitStart = std::chrono::steady_clock::now();
     lastSubmitCpuTimings_ = {};

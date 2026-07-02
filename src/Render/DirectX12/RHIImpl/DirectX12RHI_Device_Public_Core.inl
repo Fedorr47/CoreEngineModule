@@ -293,7 +293,11 @@
 
         // ---- Dear ImGui hooks ----
         #include "DirectX12RHI_ImGui_Public.inl"
-        void WaitIdle() override { FlushGPU(); }
+        void WaitIdle() override
+        {
+            CORE_ASSERT_RENDER_THREAD();
+            FlushGPU();
+        }
 
         Backend GetBackend() const noexcept override
         {

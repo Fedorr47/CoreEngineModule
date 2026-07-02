@@ -3,6 +3,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "TestSupport/TestThreadAffinity.h"
+
 import core;
 
 using namespace rendern;
@@ -24,7 +26,8 @@ namespace
         };
 
         explicit GameplayRuntimeNodeBoundMappingHarness(const int nodeCount)
-            : levelAsset_(MakeLevelWithNodes(nodeCount))
+            : threadAffinityGuard_{}
+            , levelAsset_(MakeLevelWithNodes(nodeCount))
         {
             runtime_.Initialize(levelAsset_, levelInstance_, scene_);
         }
@@ -106,6 +109,7 @@ namespace
             return asset;
         }
 
+        InlineThreadOwnerRolesGuard threadAffinityGuard_{};
         LevelAsset levelAsset_{};
         LevelInstance levelInstance_{};
         Scene scene_{};

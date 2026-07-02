@@ -1,5 +1,7 @@
         void GameplayRuntime::Initialize(LevelAsset& levelAsset, LevelInstance& levelInstance, Scene& scene)
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             defaultGraphAsset_ = MakeDefaultHumanoidGameplayGraphAsset();
 
             GameplayUpdateContext ctx{};
@@ -13,6 +15,8 @@
 
         void GameplayRuntime::Shutdown()
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             LogSyncInstrumentationSample_();
             
             world_.Clear();
@@ -38,6 +42,8 @@
         // AI/replay/network input source
         void GameplayRuntime::BindIntentSource(const EntityHandle entity, GameplayIntentSourceCallback callback)
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
 
@@ -52,6 +58,8 @@
 
         void GameplayRuntime::BindKeyboardMouseIntentSource(const EntityHandle entity, const GameplayKeyboardMouseBindings& bindings = {})
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             BindIntentSource(entity,
                 [bindings]([[maybe_unused]] const EntityHandle entity,
                     const GameplayUpdateContext& ctx,
@@ -70,7 +78,9 @@
 
         void GameplayRuntime::UnbindIntentSource(const EntityHandle entity)
         {
-           const auto it = intentBindingIndexByEntity_.find(entity);
+            CORE_ASSERT_RUNTIME_THREAD();
+
+            const auto it = intentBindingIndexByEntity_.find(entity);
             if (it == intentBindingIndexByEntity_.end())
             {
                 return;
@@ -82,6 +92,8 @@
 
         void GameplayRuntime::BeginFrame()
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
             CompactTrackedState_();
@@ -94,6 +106,8 @@
 
         void GameplayRuntime::PreAnimationUpdate(const GameplayUpdateContext& ctx)
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             EnsureBootstrapEntity_(ctx);
 
             if (ctx.mode != lastMode_)
@@ -138,6 +152,8 @@
 
         void GameplayRuntime::PostAnimationUpdate(const GameplayUpdateContext& ctx)
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             if (ctx.mode != GameplayRuntimeMode::Game)
             {
                 return;
@@ -213,6 +229,8 @@
             const int nodeIndex,
             const bool playerControlled)
         {
+            CORE_ASSERT_RUNTIME_THREAD();
+
             if (ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
             {
                 return kNullEntity;

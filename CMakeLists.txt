@@ -382,6 +382,7 @@ target_compile_definitions(CoreEngineModuleLib
 target_include_directories(CoreEngineModuleLib
         PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -397,6 +398,8 @@ set(COMMON_MODULES
         Core/IO/FileUtils.cppm
 
         Core/String/StringUtils.cppm
+
+        Core/ThreadAffinity/ThreadAffinity.cppm
 
 
         Input/Input.cppm
@@ -523,6 +526,7 @@ target_sources(CoreEngineModuleLib
 
 target_sources(CoreEngineModuleLib
         PRIVATE
+        "${SRC_DIR}/Core/ThreadAffinity/ThreadAffinity.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"

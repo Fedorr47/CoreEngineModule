@@ -107,6 +107,8 @@ DX12SwapChain::~DX12SwapChain()
 
 void DX12SwapChain::Resize(Extent2D newExtent)
 {
+    CORE_ASSERT_RENDER_THREAD();
+
     // NOTE: ResizeBuffers requires that all references to the swapchain buffers are released.
     if (newExtent.width == 0 || newExtent.height == 0)
     {
@@ -168,6 +170,8 @@ void DX12SwapChain::EnsureSizeUpToDate()
 
 void DX12SwapChain::Present()
 {
+    CORE_ASSERT_RENDER_THREAD();
+
     const bool vsyncEnabled = chainSwapDesc_.base.vsync;
     const UINT syncInterval = vsyncEnabled ? 1u : 0u;
     lastPresentFlags_ = (!vsyncEnabled && swapChainAllowsTearing_) ? DXGI_PRESENT_ALLOW_TEARING : 0u;

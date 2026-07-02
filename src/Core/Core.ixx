@@ -8,6 +8,7 @@ export import :controller_base;
 export import :win32_input;
 export import :gametimer;
 export import :render;
+export import :thread_affinity;
 export import :mesh;
 export import :skeleton;
 export import :animation_clip;

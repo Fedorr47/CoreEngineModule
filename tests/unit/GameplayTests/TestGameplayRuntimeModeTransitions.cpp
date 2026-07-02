@@ -1,6 +1,7 @@
 ﻿#include <gtest/gtest.h>
 
 #include "TestSupport/TestGlobalVariables.h"
+#include "TestSupport/TestThreadAffinity.h"
 
 import core;
 
@@ -53,6 +54,8 @@ namespace
 
 TEST(GameplayRuntimeModeTransitions, EditorToGame_SetsRuntimeModeAndControlledEntity)
 {
+    InlineThreadOwnerRolesGuard guard{};
+
     GameplayRuntime runtime{};
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};
@@ -98,6 +101,8 @@ TEST(GameplayRuntimeModeTransitions, EditorToGame_SetsRuntimeModeAndControlledEn
 
 TEST(GameplayRuntimeModeTransitions, GameToEditor_RestoresEditorModeAndClearsOrRestoresControlledEntity)
 {
+    InlineThreadOwnerRolesGuard guard{};
+
     GameplayRuntime runtime{};
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};
@@ -149,6 +154,8 @@ TEST(GameplayRuntimeModeTransitions, GameToEditor_RestoresEditorModeAndClearsOrR
 
 TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDeterministic)
 {
+    InlineThreadOwnerRolesGuard guard{};
+
     GameplayRuntime runtime{};
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};

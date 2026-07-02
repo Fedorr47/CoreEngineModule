@@ -3,6 +3,8 @@ module;
 #include <memory>
 #include <utility>
 
+#include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+
 export module core:render_renderer;
 
 // Re-export shared settings so external code can keep using
@@ -11,6 +13,7 @@ export import :renderer_settings;
 
 import :rhi;
 import :render_frame_view;
+import :thread_affinity;
 
 #if defined(CORE_USE_GL)
 import :renderer_mesh_gl;
@@ -153,6 +156,8 @@ namespace rendern
 
         void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData = nullptr)
         {
+            CORE_ASSERT_RENDER_THREAD();
+
             swapChain.SetVSyncEnabled(settings_.enableVSync);
             impl_->RenderFrame(swapChain, frameView, imguiDrawData);
             lastPresentDiagnostics_ = swapChain.GetPresentDiagnostics();
@@ -160,6 +165,8 @@ namespace rendern
 
         void SetSettings(const RendererSettings& settings)
         {
+            CORE_ASSERT_RENDER_THREAD();
+
             settings_ = settings;
             impl_->SetSettings(settings);
         }
@@ -173,6 +180,8 @@ namespace rendern
 
         void Shutdown()
         {
+            CORE_ASSERT_RENDER_THREAD();
+
             impl_->Shutdown();
         }
 
