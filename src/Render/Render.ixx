@@ -4,6 +4,7 @@ export import :rhi;
 export import :render_core;
 export import :render_graph;
 export import :render_command_queue;
+export import :render_scheduler;
 export import :render_bindless;
 export import :render_gpu_memory;
 export import :render_renderer;
