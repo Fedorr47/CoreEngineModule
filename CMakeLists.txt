@@ -432,6 +432,7 @@ set(COMMON_MODULES
         Render/Render.ixx
         Render/RenderCore.cppm
         Render/RenderCommandQueue.cppm
+        Render/RenderScheduler.cppm
         Render/RHI.cppm
         Render/RenderGraph.cppm
         Render/Debug/DebugColorUtils.cppm
