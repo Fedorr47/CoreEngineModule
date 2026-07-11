@@ -176,7 +176,7 @@ TEST(RendererSettingsViewModels, SnapshotReflectsCommandClampedSettings)
 
     EXPECT_FLOAT_EQ(viewModel.ssao.radius, 5.0f);
     EXPECT_EQ(viewModel.fog.mode, 2u);
-    EXPECT_FLOAT_EQ(viewModel.hdrBloom.hdrExposure, 0.0f);
+    EXPECT_FLOAT_EQ(viewModel.hdrBloom.hdrExposure, 0.1f);
     EXPECT_FLOAT_EQ(viewModel.hdrBloom.bloomRadius, 4.0f);
     EXPECT_FLOAT_EQ(viewModel.shadows.dirShadowBaseBiasTexels, 0.0f);
     EXPECT_FLOAT_EQ(viewModel.shadows.spotShadowBaseBiasTexels, 10.0f);

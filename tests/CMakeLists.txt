@@ -28,6 +28,7 @@ add_executable(CoreEngineModuleTests
         "unit/RenderTests/TestGpuStructPacking.cpp"
         "unit/RenderTests/TestRendererSettingsCommands.cpp"
         "unit/RenderTests/TestRendererSettingsViewModels.cpp"
+        "unit/RenderTests/TestRenderCommandQueue.cpp"
         "unit/ResourceTests/TestTextureStorage.cpp"
         "unit/ResourceTests/TestMeshStorage.cpp"
         "unit/ResourceTests/TestAssetManagerStartupValidation.cpp"
