@@ -20,6 +20,7 @@ export import :math_utils;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
+export import :ai_system;
 export import :gameplay_graph_assets;
 export import :gameplay_graph;
 export import :gameplay_runtime;

@@ -46,6 +46,12 @@ export namespace rendern
     {
         bool isPrimary{ true };
     };
+    
+    // Marks a gameplay entity as an AI agent. Runtime AI state is introduced by
+    // later tasks and must not be duplicated in a separate registration list.
+    struct AIComponent
+    {
+    };
 
     struct GameplayInputIntentComponent
     {
@@ -587,6 +593,19 @@ export namespace rendern
         [[nodiscard]] const GameplayPlayerControlledComponent* TryGetPlayerControlled(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasPlayerControlled(EntityHandle entity) const noexcept;
         void RemovePlayerControlled(EntityHandle entity);
+        
+        // Attaches the marker component that identifies an entity as an AI agent.
+        void AddAI(EntityHandle entity);
+
+        // Returns whether the entity currently belongs to the AI agent set.
+        [[nodiscard]] bool HasAI(EntityHandle entity) const noexcept;
+
+        // Removes the entity from the AI agent set without affecting other components.
+        void RemoveAI(EntityHandle entity);
+
+        // Replaces outEntities with live AI agents sorted by EntityHandle so update
+        // order does not depend on EnTT storage iteration order.
+        void CollectAIEntities(std::vector<EntityHandle>& outEntities) const;
 
         void AddInputIntent(EntityHandle entity, const GameplayInputIntentComponent& value = {});
         void SetInputIntent(EntityHandle entity, const GameplayInputIntentComponent& value);

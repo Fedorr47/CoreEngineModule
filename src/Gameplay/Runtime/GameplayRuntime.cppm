@@ -19,6 +19,7 @@ import :gameplay_graph;
 import :gameplay_graph_assets;
 import :gameplay_input_system;
 import :gameplay_bootstrap;
+import :ai_system;
 import :gameplay_scene_sync;
 import :gameplay_follow_camera;
 import :character_controller;
@@ -116,6 +117,7 @@ export namespace rendern
         std::unordered_map<EntityHandle, GameplayGraphInstance> graphInstances_{};
         GameplayGraphAsset defaultGraphAsset_{};
         GameplayRuntimeMode lastMode_{ GameplayRuntimeMode::Editor };
+        AISystem aiSystem_{};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};

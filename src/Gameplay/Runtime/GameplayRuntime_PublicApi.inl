@@ -120,6 +120,8 @@
             {
                 return;
             }
+            
+            aiSystem_.Update(world_);
 
             UpdateFollowCamera_(ctx, true);
 
