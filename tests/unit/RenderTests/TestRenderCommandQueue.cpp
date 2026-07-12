@@ -3,6 +3,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -114,4 +115,22 @@ TEST(RenderCommandQueue, CommandsCanEnqueueCommandsWithoutDeadlock)
     queue.DrainReadyCommands();
 
     EXPECT_EQ(values, (std::vector<int>{1, 2}));
+}
+
+
+TEST(RenderCommandQueue, ThrowingCommandLeavesQueueDrainableAndIdleObservable)
+{
+    rendern::FRenderCommandQueue queue;
+    std::atomic<bool> trailingCommandExecuted = false;
+
+    ASSERT_TRUE(queue.Enqueue([] { throw std::runtime_error("queue command failure"); }));
+    ASSERT_TRUE(queue.Enqueue([&] { trailingCommandExecuted = true; }));
+
+    EXPECT_THROW(queue.DrainReadyCommands(), std::runtime_error);
+
+    queue.RequestStop();
+    EXPECT_TRUE(queue.WaitAndDrainReadyCommands());
+    queue.WaitIdle();
+
+    EXPECT_TRUE(trailingCommandExecuted.load());
 }
