@@ -411,6 +411,7 @@ set(COMMON_MODULES
 
         Gameplay/GameplayWorld.cppm
         Gameplay/GameplayWorld_impl.cppm
+        Gameplay/AI/AISystem.cppm
         Gameplay/Input/GameplayInput.cppm
         Gameplay/Camera/GameplayFollowCamera.cppm
         Gameplay/Character/CharacterController.cppm

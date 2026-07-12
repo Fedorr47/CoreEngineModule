@@ -1,6 +1,7 @@
 module;
 
 #include <entt/entt.hpp>
+#include <algorithm>
 #include <utility>
 
 module core:gameplay_impl;
@@ -120,6 +121,39 @@ namespace rendern
     std::size_t GameplayWorld::GetAliveCount() const noexcept
     {
         return impl_->aliveCount;
+    }
+    
+    void GameplayWorld::AddAI(const EntityHandle entity)
+    {
+        if (entity == kNullEntity || !impl_->registry.valid(ToEnTT(entity)))
+        {
+            return;
+        }
+
+        impl_->registry.emplace_or_replace<AIComponent>(ToEnTT(entity));
+    }
+
+    bool GameplayWorld::HasAI(const EntityHandle entity) const noexcept
+    {
+        return HasComponent_<AIComponent>(impl_->registry, entity);
+    }
+
+    void GameplayWorld::RemoveAI(const EntityHandle entity)
+    {
+        RemoveComponent_<AIComponent>(impl_->registry, entity);
+    }
+
+    void GameplayWorld::CollectAIEntities(std::vector<EntityHandle>& outEntities) const
+    {
+        outEntities.clear();
+
+        const auto view = impl_->registry.view<AIComponent>();
+        for (const entt::entity entity : view)
+        {
+            outEntities.push_back(FromEnTT(entity));
+        }
+
+        std::sort(outEntities.begin(), outEntities.end());
     }
 
 #define DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(Name, Type) \
