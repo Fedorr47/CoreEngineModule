@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 export module core:ai_agent_world_state;
 
@@ -11,7 +12,12 @@ export namespace rendern
 {
     struct AIWorldFactId
     {
-        std::uint16_t index{};
+        using ValueType = std::uint16_t;
+
+        static constexpr ValueType InvalidIndex =
+            std::numeric_limits<ValueType>::max();
+
+        ValueType index{ InvalidIndex };
 
         friend constexpr bool operator==(
             const AIWorldFactId&,
