@@ -21,6 +21,7 @@ export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
 export import :ai_system;
+export import :ai_agent_world_state;
 export import :gameplay_graph_assets;
 export import :gameplay_graph;
 export import :gameplay_runtime;

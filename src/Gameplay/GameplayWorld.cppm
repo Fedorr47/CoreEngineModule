@@ -10,6 +10,7 @@ module;
 export module core:gameplay;
 
 import :math_utils;
+export import :ai_agent_world_state;
 import :scene;
 import :level_ecs;
 import :EnTTHelpers;
@@ -47,10 +48,9 @@ export namespace rendern
         bool isPrimary{ true };
     };
     
-    // Marks a gameplay entity as an AI agent. Runtime AI state is introduced by
-    // later tasks and must not be duplicated in a separate registration list.
     struct AIComponent
     {
+        AIAgentWorldState worldState{};
     };
 
     struct GameplayInputIntentComponent
@@ -594,13 +594,11 @@ export namespace rendern
         [[nodiscard]] bool HasPlayerControlled(EntityHandle entity) const noexcept;
         void RemovePlayerControlled(EntityHandle entity);
         
-        // Attaches the marker component that identifies an entity as an AI agent.
-        void AddAI(EntityHandle entity);
-
-        // Returns whether the entity currently belongs to the AI agent set.
+        void AddAI(EntityHandle entity, const AIComponent& value = {});
+        void SetAI(EntityHandle entity, const AIComponent& value);
+        [[nodiscard]] AIComponent* TryGetAI(EntityHandle entity) noexcept;
+        [[nodiscard]] const AIComponent* TryGetAI(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasAI(EntityHandle entity) const noexcept;
-
-        // Removes the entity from the AI agent set without affecting other components.
         void RemoveAI(EntityHandle entity);
 
         // Replaces outEntities with live AI agents sorted by EntityHandle so update
