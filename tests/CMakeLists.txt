@@ -29,7 +29,6 @@ add_executable(CoreEngineModuleTests
         "unit/RenderTests/TestRenderCommandQueue.cpp"
         "unit/RenderTests/TestRendererSettingsCommands.cpp"
         "unit/RenderTests/TestRendererSettingsViewModels.cpp"
-        "unit/RenderTests/TestRenderCommandQueue.cpp"
         "unit/RenderTests/TestInlineRenderScheduler.cpp"
         "unit/RenderTests/TestThreadedRenderScheduler.cpp"
         "unit/ResourceTests/TestTextureStorage.cpp"
