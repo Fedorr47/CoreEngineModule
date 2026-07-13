@@ -17,17 +17,8 @@ export namespace rendern
         std::size_t Update(GameplayWorld& world)
         {
             world.CollectAIEntities(aiEntitiesScratch_);
-
-            std::size_t processedAgentCount = 0;
-            for ([[maybe_unused]] const EntityHandle entity : aiEntitiesScratch_)
-            {
-                // AIComponent is intentionally a marker in CR-336. This loop
-                // establishes the deterministic per-agent update boundary for
-                // the runtime behavior added by later AI tasks.
-                ++processedAgentCount;
-            }
-
-            return processedAgentCount;
+            
+            return aiEntitiesScratch_.size();
         }
 
     private:
