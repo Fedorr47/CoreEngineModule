@@ -415,6 +415,7 @@ set(COMMON_MODULES
         Gameplay/AI/AIAgentWorldState.cppm
         Gameplay/AI/AIDecisionContracts.cppm
         Gameplay/AI/AIActionRuntime.cppm
+        Gameplay/AI/AIActionTask.cppm
         Gameplay/Input/GameplayInput.cppm
         Gameplay/Camera/GameplayFollowCamera.cppm
         Gameplay/Character/CharacterController.cppm

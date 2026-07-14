@@ -60,7 +60,7 @@ export namespace rendern
         // Provides an explicit interruption and cleanup boundary for a running
         // invocation. Cancellation does not apply planner effects; future task
         // state remains responsible for deciding when cancellation is legal.
-        [[nodiscard]] virtual void Cancel(
+        virtual void Cancel(
             const AIActionRuntimeContext& context) noexcept = 0;
     };
 }

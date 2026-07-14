@@ -87,7 +87,8 @@ export namespace rendern
 		NotStarted,
 		Running,
 		Succeeded,
-		Failed
+		Failed,
+		Cancelled
 	};
 	
 	struct AIPlanStep
