@@ -1,7 +1,9 @@
 module;
 
 #include <cassert>
+#include <condition_variable>
 #include <exception>
+#include <stdexcept>
 #include <mutex>
 #include <thread>
 #include <utility>
@@ -39,6 +41,7 @@ export namespace rendern
             {
                 ThreadMain();
             });
+            schedulerThreadId_ = renderThread_.get_id();
 
             state_ = ELifecycleState::Running;
             return true;
@@ -52,29 +55,28 @@ export namespace rendern
                 {
                     return false;
                 }
-            }
 
-            return commandQueue_.Enqueue(std::move(command));
+                return commandQueue_.Enqueue(std::move(command));
+            }            
         }
 
         void RequestStop() noexcept
         {
-            bool bShouldRequestQueueStop = false;
+            bool bShouldRequestQueueStop{ false };
             {
                 std::lock_guard Lock(lifecycleMutex_);
-                if (state_ == ELifecycleState::Running)
-                {
-                    state_ = ELifecycleState::StopRequested;
-                    bShouldRequestQueueStop = true;
-                }
-                else if (state_ == ELifecycleState::NotStarted)
-                {
-                    state_ = ELifecycleState::Stopped;
-                    bShouldRequestQueueStop = true;
-                }
-                else if (state_ == ELifecycleState::StopRequested)
+                if (state_ != ELifecycleState::Stopped)
                 {
                     bShouldRequestQueueStop = true;
+
+                    if (state_ == ELifecycleState::Running)
+                    {
+                        state_ = ELifecycleState::StopRequested;
+                    }
+                    else if (state_ == ELifecycleState::NotStarted)
+                    {
+                        state_ = ELifecycleState::Stopped;
+                    }
                 }
             }
 
@@ -86,25 +88,69 @@ export namespace rendern
 
         void StopAndJoin() noexcept
         {
-            AssertCallerCanBlockOnWorker("Threaded render scheduler cannot join its own worker thread.");
+            std::thread threadToJoin;
+            bool bShouldRequestQueueStop = false;
 
-            RequestStop();
-
-            if (renderThread_.joinable())
             {
-                renderThread_.join();
+                std::unique_lock lock(lifecycleMutex_);
+
+                AssertCallerCanBlockOnWorkerLocked("Threaded render scheduler cannot join its own worker thread.");
+
+                switch (state_)
+                {
+                case ELifecycleState::Joining:
+                    lifecycleCondition_.wait(lock, [this]
+                        {
+                            return state_ == ELifecycleState::Stopped;
+                        });
+                    return;
+
+                case ELifecycleState::Stopped:
+                    return;
+
+                case ELifecycleState::NotStarted:
+                    bShouldRequestQueueStop = true;
+                    state_ = ELifecycleState::Stopped;
+                    break;
+
+                case ELifecycleState::Running:
+                case ELifecycleState::StopRequested:
+                    bShouldRequestQueueStop = true;
+                    state_ = ELifecycleState::Joining;
+
+                    assert(renderThread_.joinable() &&
+                        "Running threaded scheduler must own a joinable worker thread.");
+                    threadToJoin = std::move(renderThread_);
+                    break;
+                }
             }
 
-            std::lock_guard Lock(lifecycleMutex_);
-            if (state_ == ELifecycleState::StopRequested)
+            if (bShouldRequestQueueStop)
             {
+                commandQueue_.RequestStop();
+            }
+
+            if (threadToJoin.joinable())
+            {
+                threadToJoin.join();
+            }
+
+            {
+                std::lock_guard Lock(lifecycleMutex_);
+                schedulerThreadId_ = {};
                 state_ = ELifecycleState::Stopped;
             }
+
+            lifecycleCondition_.notify_all();
         }
 
         void WaitIdle()
         {
-            AssertCallerCanBlockOnWorker("Threaded render scheduler cannot wait idle from its own worker thread.");
+            {
+                std::lock_guard Lock(lifecycleMutex_);
+                AssertCallerCanBlockOnWorkerLocked(
+                    "Threaded render scheduler cannot wait idle from its own worker thread.");
+            }
 
             commandQueue_.WaitIdle();
         }
@@ -138,7 +184,9 @@ export namespace rendern
         [[nodiscard]] bool IsStopRequested() const
         {
             std::lock_guard Lock(lifecycleMutex_);
-            return state_ == ELifecycleState::StopRequested || state_ == ELifecycleState::Stopped;
+            return state_ == ELifecycleState::StopRequested ||
+                state_ == ELifecycleState::Joining ||
+                state_ == ELifecycleState::Stopped;
         }
 
     private:
@@ -147,6 +195,7 @@ export namespace rendern
             NotStarted,
             Running,
             StopRequested,
+            Joining,
             Stopped
         };
 
@@ -184,15 +233,26 @@ export namespace rendern
             }
         }
 
-        void AssertCallerCanBlockOnWorker(const char* message) const
+        void AssertCallerCanBlockOnWorkerLocked(const char* message) const
         {
-            assert((!renderThread_.joinable() || std::this_thread::get_id() != renderThread_.get_id()) && message);
+            const bool bIsWorkerThread =
+                schedulerThreadId_ != std::thread::id{} &&
+                std::this_thread::get_id() == schedulerThreadId_;
+
+            assert(!bIsWorkerThread && message);
+
+            if (bIsWorkerThread)
+            {
+                std::terminate();
+            }
         }
 
         FRenderCommandQueue commandQueue_;
         std::thread renderThread_;
         mutable std::mutex lifecycleMutex_;
+        std::condition_variable lifecycleCondition_;
         std::exception_ptr failure_;
+        std::thread::id schedulerThreadId_;
         ELifecycleState state_{ELifecycleState::NotStarted};
     };
 

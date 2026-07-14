@@ -97,6 +97,90 @@ TEST(ThreadedRenderScheduler, StopAndJoinDrainsAcceptedCommands)
     EXPECT_TRUE(commandCompleted.load());
 }
 
+// Protects enqueue/shutdown races: every command reported as accepted while shutdown races must complete before join returns.
+TEST(ThreadedRenderScheduler, StopAndJoinDrainsCommandsAcceptedDuringConcurrentEnqueue)
+{
+    rendern::FThreadedRenderScheduler scheduler;
+    std::mutex mutex;
+    std::condition_variable commandStartedCondition;
+    std::condition_variable finishCommandCondition;
+    bool commandStarted = false;
+    bool finishCommand = false;
+    std::atomic<bool> stopStarted = false;
+    std::atomic<bool> stopReturned = false;
+    std::atomic<bool> enqueuerSawRejectionAfterStop = false;
+    std::atomic<int> acceptedCommandCount = 0;
+    std::atomic<int> executedCommandCount = 0;
+
+    ASSERT_TRUE(scheduler.Start());
+    ASSERT_TRUE(scheduler.Enqueue([&]
+    {
+        std::unique_lock lock(mutex);
+        commandStarted = true;
+        commandStartedCondition.notify_all();
+        finishCommandCondition.wait(lock, [&] { return finishCommand; });
+    }));
+
+    {
+        std::unique_lock lock(mutex);
+        commandStartedCondition.wait(lock, [&] { return commandStarted; });
+    }
+
+    std::thread enqueuer([&]
+    {
+        while (acceptedCommandCount.load() < 16)
+        {
+            if (scheduler.Enqueue([&] { ++executedCommandCount; }))
+            {
+                ++acceptedCommandCount;
+            }
+        }
+
+        while (!stopReturned.load())
+        {
+            if (scheduler.Enqueue([&] { ++executedCommandCount; }))
+            {
+                ++acceptedCommandCount;
+            }
+            else if (stopStarted.load())
+            {
+                enqueuerSawRejectionAfterStop = true;
+                return;
+            }
+        }
+    });
+
+    while (acceptedCommandCount.load() < 16)
+    {
+        std::this_thread::yield();
+    }
+
+    std::thread stopper([&]
+    {
+        stopStarted = true;
+        scheduler.StopAndJoin();
+        stopReturned = true;
+    });
+
+    for (int attempts = 0; attempts < 100000 && !enqueuerSawRejectionAfterStop.load(); ++attempts)
+    {
+        std::this_thread::yield();
+    }
+    EXPECT_TRUE(enqueuerSawRejectionAfterStop.load());
+
+    {
+        std::lock_guard lock(mutex);
+        finishCommand = true;
+    }
+    finishCommandCondition.notify_all();
+
+    enqueuer.join();
+    stopper.join();
+
+    EXPECT_EQ(executedCommandCount.load(), acceptedCommandCount.load());
+    EXPECT_TRUE(scheduler.IsStopRequested());
+}
+
 // Protects idle observation: WaitIdle must include commands that are actively executing on the scheduler thread.
 TEST(ThreadedRenderScheduler, WaitIdleWaitsForActiveCommand)
 {
@@ -296,4 +380,19 @@ TEST(ThreadedRenderScheduler, FirstCommandFailureIsPreserved)
     {
         EXPECT_STREQ(error.what(), "first failure");
     }
+}
+
+TEST(ThreadedRenderScheduler, ConcurrentStopAndJoinWaitsForSingleJoin)
+{
+    rendern::FThreadedRenderScheduler scheduler;
+    ASSERT_TRUE(scheduler.Start());
+
+    std::thread first([&] { scheduler.StopAndJoin(); });
+    std::thread second([&] { scheduler.StopAndJoin(); });
+
+    first.join();
+    second.join();
+
+    EXPECT_FALSE(scheduler.IsRunning());
+    EXPECT_TRUE(scheduler.IsStopRequested());
 }
