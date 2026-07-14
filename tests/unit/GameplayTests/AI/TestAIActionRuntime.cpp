@@ -85,9 +85,9 @@ TEST(AIActionRuntime, StartForwardsExecutionContextAndReturnsRuntimeStatus)
     EXPECT_EQ(runtime.lastStartContext.actionId, context.actionId);
 }
 
-// Protects running update dispatch and delta forwarding so CR-404 can drive a
-// running action deterministically without the runtime interface owning frame
-// timing or lifecycle state.
+// Protects running update dispatch and delta forwarding so the action task
+// model can drive a running action deterministically without the runtime
+// interface owning frame timing or lifecycle state.
 TEST(AIActionRuntime, TickForwardsDeltaTimeAndReturnsRunningStatus)
 {
     RecordingActionRuntime runtime{};

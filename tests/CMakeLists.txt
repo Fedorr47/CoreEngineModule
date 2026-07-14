@@ -22,6 +22,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestAIAgentWorldState.cpp"
         "unit/GameplayTests/AI/TestAIDecisionContracts.cpp"
         "unit/GameplayTests/AI/TestAIActionRuntime.cpp"
+        "unit/GameplayTests/AI/TestAIActionTask.cpp"
         "unit/AnimationTests/TestAnimationController.cpp"
         "unit/AnimationTests/TestAnimatorSamplingInvariants.cpp"
         "unit/RenderTests/LevelInstantiateTestHelper.h"
