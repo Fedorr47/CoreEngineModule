@@ -24,6 +24,7 @@ export import :ai_system;
 export import :ai_agent_world_state;
 export import :ai_action_runtime;
 export import :ai_action_task;
+export import :gameplay_request;
 export import :gameplay_graph_assets;
 export import :ai_decision_contracts;
 export import :gameplay_graph;
