@@ -8,6 +8,7 @@ namespace MathTestHelper
     constexpr float kEpsVec = 1e-5f;
     constexpr float kEpsMat = 1e-4f;
     constexpr float kEpsTrig = 1e-5f;
+    constexpr float kTolerance = 0.0001f;
 
     inline void ExpectVec3Near(const Vec3& a, const Vec3& b, float eps = kEpsVec)
     {

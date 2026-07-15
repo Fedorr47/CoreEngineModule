@@ -77,6 +77,11 @@ export namespace mathUtils
 		{
 			return a.x == b.x && a.y == b.y && a.z == b.z;
 		}
+		
+		static Vec3 ZeroVector()
+		{
+			return Vec3(0.0f, 0.0f, 0.0f);
+		}
 	};
 
 	struct alignas(16) Vec4
