@@ -1,11 +1,11 @@
 module;
 
+#include <cstdint>
 
 export module core:ai_action_runtime;
 
 import :EnTTHelpers;
 export import :ai_decision_contracts;
-#include <cstdint>
 
 export namespace rendern
 {
