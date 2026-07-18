@@ -419,6 +419,7 @@ set(COMMON_MODULES
         Gameplay/AI/GameplayRequest.cppm
         Gameplay/AI/GameplaySteering.cppm
         Gameplay/AI/GameplayRoute.cppm
+        Gameplay/AI/GameplayRouteFollower.cppm
         Gameplay/Input/GameplayInput.cppm
         Gameplay/Camera/GameplayFollowCamera.cppm
         Gameplay/Character/CharacterController.cppm

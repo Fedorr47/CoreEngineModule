@@ -2,27 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include "TestSupport/GameplayRouteTestHelper.h"
+
 import core;
 
 using namespace rendern;
-
-namespace
-{
-    [[nodiscard]] constexpr GameplayRoutePoint RoutePoint(
-        const float x,
-        const float y,
-        const float z) noexcept
-    {
-        return GameplayRoutePoint{
-            .worldPosition = mathUtils::Vec3{ x, y, z }
-        };
-    }
-
-    [[nodiscard]] constexpr GameplayTraversalLinkHandle ValidTraversalLink() noexcept
-    {
-        return GameplayTraversalLinkHandle{ 42u };
-    }
-}
+using namespace GameplayRouteTestHelper;
 
 // Protects the stationary empty-route contract so future followers can treat
 // missing route data as a valid no-op rather than as malformed input.
@@ -42,7 +27,7 @@ TEST(GameplayRoute, OnePointRouteIsValidWithoutAnnotations)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(1.0f, 2.0f, 3.0f)
+            MakeRoutePoint(1.0f, 2.0f, 3.0f)
         }
     };
 
@@ -56,8 +41,8 @@ TEST(GameplayRoute, TwoPointsWithOrdinarySegmentAreValid)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f),
-            RoutePoint(1.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{}
@@ -73,14 +58,14 @@ TEST(GameplayRoute, MultiplePointsWithMatchingAnnotationsAreValid)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f),
-            RoutePoint(1.0f, 0.0f, 0.0f),
-            RoutePoint(2.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f),
+            MakeRoutePoint(2.0f, 0.0f, 0.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{},
             GameplayRouteSegmentAnnotation{
-                .traversalLink = ValidTraversalLink()
+                .traversalLink = MakeTraversalLink(42u)
             }
         }
     };
@@ -94,8 +79,8 @@ TEST(GameplayRoute, MissingSegmentAnnotationInvalidatesRoute)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f),
-            RoutePoint(1.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f)
         }
     };
 
@@ -108,7 +93,7 @@ TEST(GameplayRoute, ExtraSegmentAnnotationInvalidatesRoute)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{}
@@ -144,10 +129,10 @@ TEST(GameplayRoute, AnnotationWithoutTraversalLinkIsValid)
 
 // Protects the generic traversal boundary so a valid link can mark a segment
 // for resolution by an external traversal system.
-TEST(GameplayRoute, AnnotationWithValidTraversalLinkIsValid)
+TEST(GameplayRoute, AnnotationWithMakeTraversalLinkIsValid)
 {
     const GameplayRouteSegmentAnnotation annotation{
-        .traversalLink = ValidTraversalLink()
+        .traversalLink = MakeTraversalLink(42u)
     };
 
     EXPECT_TRUE(annotation.IsValid());
@@ -157,7 +142,7 @@ TEST(GameplayRoute, AnnotationWithValidTraversalLinkIsValid)
 
 // Protects annotation validation from accepting a present but invalid traversal
 // link, which is different from an intentionally absent traversal link.
-TEST(GameplayRoute, AnnotationWithInvalidTraversalLinkIsInvalid)
+TEST(GameplayRoute, AnnotationWithInMakeTraversalLinkIsInvalid)
 {
     const GameplayRouteSegmentAnnotation annotation{
         .traversalLink = GameplayTraversalLinkHandle{}
@@ -204,12 +189,12 @@ TEST(GameplayRoute, TraversalLinkHandlesCompareByValue)
 
 // Protects route-level validation so a malformed traversal annotation cannot
 // reach a future follower even when point and segment counts are correct.
-TEST(GameplayRoute, InvalidTraversalLinkInvalidatesRoute)
+TEST(GameplayRoute, InMakeTraversalLinkInvalidatesRoute)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f),
-            RoutePoint(1.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{
@@ -229,19 +214,19 @@ TEST(GameplayRoute, NaNInAnyPointCoordinateInvalidatesRoute)
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(nan, 0.0f, 0.0f)
+            MakeRoutePoint(nan, 0.0f, 0.0f)
         }
     }.IsValid());
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(0.0f, nan, 0.0f)
+            MakeRoutePoint(0.0f, nan, 0.0f)
         }
     }.IsValid());
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(0.0f, 0.0f, nan)
+            MakeRoutePoint(0.0f, 0.0f, nan)
         }
     }.IsValid());
 }
@@ -254,19 +239,19 @@ TEST(GameplayRoute, InfinityInAnyPointCoordinateInvalidatesRoute)
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(infinity, 0.0f, 0.0f)
+            MakeRoutePoint(infinity, 0.0f, 0.0f)
         }
     }.IsValid());
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(0.0f, -infinity, 0.0f)
+            MakeRoutePoint(0.0f, -infinity, 0.0f)
         }
     }.IsValid());
 
     EXPECT_FALSE(GameplayRoute{
         .points = {
-            RoutePoint(0.0f, 0.0f, infinity)
+            MakeRoutePoint(0.0f, 0.0f, infinity)
         }
     }.IsValid());
 }
@@ -277,8 +262,8 @@ TEST(GameplayRoute, RepeatedConsecutivePointsRemainStructurallyValid)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(1.0f, 2.0f, 3.0f),
-            RoutePoint(1.0f, 2.0f, 3.0f)
+            MakeRoutePoint(1.0f, 2.0f, 3.0f),
+            MakeRoutePoint(1.0f, 2.0f, 3.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{}
@@ -290,16 +275,16 @@ TEST(GameplayRoute, RepeatedConsecutivePointsRemainStructurallyValid)
 
 // Protects route composition with a valid generic traversal link without
 // coupling the route model to doors, jumps, ladders, or other action types.
-TEST(GameplayRoute, RouteWithValidTraversalLinkIsValid)
+TEST(GameplayRoute, RouteWithMakeTraversalLinkIsValid)
 {
     const GameplayRoute route{
         .points = {
-            RoutePoint(0.0f, 0.0f, 0.0f),
-            RoutePoint(5.0f, 0.0f, 0.0f)
+            MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(5.0f, 0.0f, 0.0f)
         },
         .segmentAnnotations = {
             GameplayRouteSegmentAnnotation{
-                .traversalLink = ValidTraversalLink()
+                .traversalLink = MakeTraversalLink(42u)
             }
         }
     };

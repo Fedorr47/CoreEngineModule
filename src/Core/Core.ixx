@@ -29,6 +29,7 @@ export import :gameplay_steering;
 export import :gameplay_graph_assets;
 export import :ai_decision_contracts;
 export import :gameplay_route;
+export import :gameplay_route_follower;
 export import :gameplay_graph;
 export import :gameplay_runtime;
 export import :json_utils;
