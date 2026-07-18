@@ -28,6 +28,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayRoute.cpp"
         "unit/GameplayTests/TestGameplaySteering.cpp"
         "unit/GameplayTests/TestGameplayRouteFollower.cpp"
+        "unit/GameplayTests/TestGameplayRouteSearch.cpp"
         "unit/AnimationTests/TestAnimationController.cpp"
         "unit/AnimationTests/TestAnimatorSamplingInvariants.cpp"
         "unit/RenderTests/LevelInstantiateTestHelper.h"
