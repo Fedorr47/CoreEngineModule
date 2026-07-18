@@ -24,6 +24,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestAIActionRuntime.cpp"
         "unit/GameplayTests/AI/TestAIActionTask.cpp"
         "unit/GameplayTests/TestGameplayRequest.cpp"
+        "unit/GameplayTests/TestGameplayRoute.cpp"
         "unit/GameplayTests/TestGameplaySteering.cpp"
         "unit/AnimationTests/TestAnimationController.cpp"
         "unit/AnimationTests/TestAnimatorSamplingInvariants.cpp"
