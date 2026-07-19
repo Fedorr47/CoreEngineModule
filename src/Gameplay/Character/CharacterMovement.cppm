@@ -164,8 +164,9 @@ export namespace rendern
 
             if (movementState != nullptr)
             {
-                const bool bHasMoveInput = command->moveMagnitude > 0.1f;
-
+                const bool bHasMoveMagnitude = command->moveMagnitude > mathUtils::kLengthEpsilon;
+                const bool bHasMoveDirection = mathUtils::Length(command->moveWorld) > mathUtils::kLengthEpsilon;
+                const bool bHasMoveInput = bHasMoveMagnitude && bHasMoveDirection;
                 const bool bIsPlayerControlled = world.HasPlayerControlled(entity);
 
                 const bool bCanUseCameraTurnInPlace =
