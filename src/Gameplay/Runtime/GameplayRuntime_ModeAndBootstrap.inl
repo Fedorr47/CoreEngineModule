@@ -69,6 +69,7 @@
 
             if (ctx.mode == GameplayRuntimeMode::Editor)
             {
+                aiSystem_.Reset();
                 ResetSimulationState_();
                 if (ctx.scene != nullptr && ctx.levelInstance != nullptr)
                 {

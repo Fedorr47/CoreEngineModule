@@ -122,7 +122,7 @@ export namespace rendern
             command->moveInputY = intent->moveY;
             command->wantsRun = intent->runHeld;
             command->actionIntentMask = intent->actionIntentMask;
-
+            
             mathUtils::Vec3 desiredMove = moveRight * intent->moveX + moveForward * intent->moveY;
             desiredMove.y = 0.0f;
             const float desiredLenSq = mathUtils::Dot(desiredMove, desiredMove);
@@ -134,36 +134,68 @@ export namespace rendern
             }
 
             motor->desiredMoveWorld = command->moveWorld;
+            const bool bIsPlayerControlled = world.HasPlayerControlled(entity);
+            
+            const bool bHasLockedJumpDirection = 
+                movementState->jumping &&
+                movementState->jumpMovementLocked &&
+                mathUtils::Dot(
+                    movementState->jumpLockedVelocity,
+                    movementState->jumpLockedVelocity) >
+                mathUtils::kLengthEpsilonSq;
 
-            if (movementState != nullptr)
+            const bool bHasMovementDirection =
+                command->moveMagnitude > 0.1f &&
+                mathUtils::Dot(
+                    command->moveWorld,
+                    command->moveWorld) >
+                mathUtils::kLengthEpsilonSq;
+
+            if (bIsPlayerControlled)
             {
+                // Camera-facing state belongs only to a player-controlled
+                // character. Ordinary AI movement must not modify it.
                 movementState->cameraFacingYawDegrees = cameraYawDegrees;
 
-                if (ctx.mode == GameplayRuntimeMode::Game && ctx.scene != nullptr)
+                movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
+
+                if (bHasLockedJumpDirection)
                 {
-                    movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                    if (movementState->jumping && movementState->jumpMovementLocked)
-                    {
-                        if (mathUtils::Dot(movementState->jumpLockedVelocity, movementState->jumpLockedVelocity) > mathUtils::kLengthEpsilonSq)
-                        {
-                            movementState->desiredFacingYawDegrees =
-                                ExtractGameplayYawDegreesFromDirection(movementState->jumpLockedVelocity);
-                        }
-                    }
-                    else if (command->moveMagnitude > 0.1f)
-                    {
-                        movementState->desiredFacingYawDegrees = cameraYawDegrees;
-                    }
+                    movementState->desiredFacingYawDegrees =
+                        ExtractGameplayYawDegreesFromDirection(
+                            movementState->jumpLockedVelocity);
                 }
-                else
+                else if (
+                    ctx.mode == GameplayRuntimeMode::Game &&
+                    ctx.scene != nullptr &&
+                    bHasMovementDirection)
                 {
-                    movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                    if (command->moveInputY > 0.1f && mathUtils::Dot(command->moveWorld, command->moveWorld) > mathUtils::kLengthEpsilonSq)
-                    {
-                        movementState->desiredFacingYawDegrees =
-                            ExtractGameplayYawDegreesFromDirection(command->moveWorld);
-                    }
+                    movementState->desiredFacingYawDegrees =
+                        cameraYawDegrees;
                 }
+                else if (bHasMovementDirection)
+                {
+                    movementState->desiredFacingYawDegrees =
+                        ExtractGameplayYawDegreesFromDirection(
+                            command->moveWorld);
+                }
+
+                continue;
+            }
+
+            // Non-player characters face their own movement direction and do
+            // not consume the player or debug camera orientation.
+            if (bHasLockedJumpDirection)
+            {
+                movementState->desiredFacingYawDegrees =
+                    ExtractGameplayYawDegreesFromDirection(
+                        movementState->jumpLockedVelocity);
+            }
+            else if (bHasMovementDirection)
+            {
+                movementState->desiredFacingYawDegrees =
+                    ExtractGameplayYawDegreesFromDirection(
+                        command->moveWorld);
             }
         }
     }

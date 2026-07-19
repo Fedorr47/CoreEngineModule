@@ -83,7 +83,7 @@ export namespace rendern
         return output;
     }
     
-    void ApplyGaeplayMovementIntent(
+    void ApplyGameplayMovementIntent(
         const GameplayMovementIntent& intent,
         GameplayCharacterCommandComponent& command) noexcept
     {

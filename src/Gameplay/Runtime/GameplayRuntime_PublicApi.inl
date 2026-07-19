@@ -3,6 +3,9 @@
             CORE_ASSERT_RUNTIME_THREAD();
 
             defaultGraphAsset_ = MakeDefaultHumanoidGameplayGraphAsset();
+            currentLevelAsset_ = &levelAsset;
+            currentLevelInstance_ = &levelInstance;
+            currentScene_ = &scene;
 
             GameplayUpdateContext ctx{};
             ctx.mode = GameplayRuntimeMode::Editor;
@@ -18,8 +21,12 @@
             CORE_ASSERT_RUNTIME_THREAD();
 
             LogSyncInstrumentationSample_();
+            aiSystem_.Reset();
             
             world_.Clear();
+            currentLevelAsset_ = nullptr;
+            currentLevelInstance_ = nullptr;
+            currentScene_ = nullptr;
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
             intentBindings_.clear();
@@ -120,13 +127,12 @@
             {
                 return;
             }
-            
-            aiSystem_.Update(world_);
 
             UpdateFollowCamera_(ctx, true);
 
             UpdateGameplayIntentSources(world_, intentBindings_, ctx);
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
+            aiSystem_.Update(world_, ctx.deltaSeconds);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_);
             UpdateGameplayInteractionRequests(world_, nodeBoundEntities_);
             ExecuteGameplayGraphs_(ctx);
@@ -221,9 +227,42 @@
             return lastMode_;
         }
 
+        [[nodiscard]] bool GameplayRuntime::IsCurrentLevelAsset(const LevelAsset& levelAsset) const noexcept
+        {
+            return &levelAsset == currentLevelAsset_;
+        }
+
+        [[nodiscard]] bool GameplayRuntime::IsCurrentLevelContext(const GameplayUpdateContext& ctx) const noexcept
+        {
+            return ctx.levelAsset == currentLevelAsset_ &&
+                ctx.levelInstance == currentLevelInstance_ &&
+                ctx.scene == currentScene_;
+        }
+
         [[nodiscard]] const std::vector<EntityHandle>& GameplayRuntime::GetNodeBoundEntities() const noexcept
         {
             return nodeBoundEntities_;
+        }
+
+        [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFollowRoute(
+            const EntityHandle agentEntity,
+            GameplayRoute route,
+            const GameplayArrivalSteeringSettings& steeringSettings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return aiSystem_.StartFollowRoute(world_, agentEntity, std::move(route), steeringSettings);
+        }
+
+        void GameplayRuntime::CancelAIAction(const EntityHandle agentEntity)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            aiSystem_.CancelAction(agentEntity);
+        }
+
+        [[nodiscard]] AIActionExecutionStatus GameplayRuntime::GetAIActionStatus(
+            const EntityHandle agentEntity) const noexcept
+        {
+            return aiSystem_.GetActionStatus(agentEntity);
         }
 
         [[nodiscard]] EntityHandle GameplayRuntime::SpawnNodeBoundEntity(

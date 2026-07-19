@@ -49,6 +49,99 @@ namespace appUi
         ImGui::DestroyContext();
         shell.imguiInitialized = false;
     }
+    
+    [[nodiscard]] const char* ToAIActionExecutionStatusText(
+            const rendern::AIActionExecutionStatus status) noexcept
+    {
+        switch (status)
+        {
+        case rendern::AIActionExecutionStatus::Running:
+            return "Running";
+
+        case rendern::AIActionExecutionStatus::Succeeded:
+            return "Succeeded";
+
+        case rendern::AIActionExecutionStatus::Failed:
+            return "Failed";
+
+        case rendern::AIActionExecutionStatus::Cancelled:
+            return "Cancelled";
+
+        case rendern::AIActionExecutionStatus::NotStarted:
+        default:
+            return "NotStarted";
+        }
+    }
+    
+    void DrawGameplayAIMovementDevelopmentControls(
+            rendern::GameplayRuntime& gameplayRuntime,
+            rendern::LevelAsset& level,
+            rendern::LevelInstance& levelInstance,
+            rendern::Scene& scene)
+    {
+        ImGui::SeparatorText("AI Movement");
+
+        const rendern::GameplayRuntimeMode currentMode =
+            gameplayRuntime.GetCurrentMode();
+
+        const bool bIsGameMode =
+            currentMode ==
+            rendern::GameplayRuntimeMode::Game;
+
+        ImGui::Text(
+            "Actual runtime mode: %s",
+            bIsGameMode
+                ? "Game"
+                : "Editor");
+
+        const rendern::AIActionExecutionStatus actionStatus =
+            rendern::
+                GetGameplayAIMovementDevelopmentScenarioStatus(
+                    gameplayRuntime,
+                    level);
+
+        ImGui::Text(
+            "Route status: %s",
+            ToAIActionExecutionStatusText(actionStatus));
+
+        ImGui::BeginDisabled(!bIsGameMode);
+
+        if (ImGui::Button("Start / Restart AI Route"))
+        {
+            rendern::GameplayUpdateContext context{};
+            context.mode = currentMode;
+            context.levelAsset = &level;
+            context.levelInstance = &levelInstance;
+            context.scene = &scene;
+
+            (void)rendern::
+                StartGameplayAIMovementDevelopmentScenario(
+                    gameplayRuntime,
+                    context);
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel AI Route"))
+        {
+            rendern::
+                CancelGameplayAIMovementDevelopmentScenario(
+                    gameplayRuntime,
+                    level);
+        }
+
+        ImGui::EndDisabled();
+
+        if (!bIsGameMode)
+        {
+            ImGui::TextDisabled(
+                "Enter Game mode to control the route.");
+        }
+
+        ImGui::TextUnformatted(
+            "Scenario nodes: AI_Move_Agent and at least two "
+            "AI_Move_Point_<number> nodes.");
+    }
 
     const void* BuildImGuiFrameIfEnabled(
         appWin32::AppShellContext& shell,
@@ -80,12 +173,35 @@ namespace appUi
         rendern::ui::DrawRendererDebugUI(settings, scene, cameraController);
 
         ImGui::Begin("App Runtime");
-        const bool inGameMode = runtimeMode == rendern::GameplayRuntimeMode::Game;
-        ImGui::TextUnformatted(inGameMode ? "Mode: Game" : "Mode: Editor");
-        if (ImGui::Button(inGameMode ? "Return to Editor Mode" : "Enter Game Mode (F5)"))
+
+        const bool bIsGameModeRequested =
+            runtimeMode == rendern::GameplayRuntimeMode::Game;
+
+        ImGui::TextUnformatted(
+            bIsGameModeRequested
+                ? "Mode: Game"
+                : "Mode: Editor");
+
+        if (ImGui::Button(
+                bIsGameModeRequested
+                    ? "Return to Editor Mode"
+                    : "Enter Game Mode (F5)"))
         {
-            runtimeMode = inGameMode ? rendern::GameplayRuntimeMode::Editor : rendern::GameplayRuntimeMode::Game;
+            runtimeMode =
+                bIsGameModeRequested
+                    ? rendern::GameplayRuntimeMode::Editor
+                    : rendern::GameplayRuntimeMode::Game;
         }
+
+        if (gameplayRuntime != nullptr)
+        {
+            DrawGameplayAIMovementDevelopmentControls(
+                *gameplayRuntime,
+                levelAsset,
+                levelInstance,
+                scene);
+        }
+
         ImGui::End();
 
         //if (runtimeMode == rendern::GameplayRuntimeMode::Editor)

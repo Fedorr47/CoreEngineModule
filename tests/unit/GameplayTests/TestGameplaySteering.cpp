@@ -177,7 +177,7 @@ TEST(GameplaySteering, AdapterWritesCanonicalCharacterMovementFields)
     command.moveInputX = 0.75f;
     command.moveInputY = -0.25f;
 
-    ApplyGaeplayMovementIntent(intent, command);
+    ApplyGameplayMovementIntent(intent, command);
 
     EXPECT_NEAR(command.moveWorld.x, 0.6f, kTolerance);
     EXPECT_FLOAT_EQ(command.moveWorld.y, 0.0f);
@@ -198,7 +198,7 @@ TEST(GameplaySteering, AdapterPreservesActionIntentMask)
     GameplayCharacterCommandComponent command{};
     command.actionIntentMask = 0xA5u;
 
-    ApplyGaeplayMovementIntent(intent, command);
+    ApplyGameplayMovementIntent(intent, command);
 
     EXPECT_EQ(command.actionIntentMask, 0xA5u);
 }
@@ -212,7 +212,7 @@ TEST(GameplaySteering, AdapterClearsDegenerateMovement)
     degenerateDirection.wantsRun = true;
     GameplayCharacterCommandComponent command{};
 
-    ApplyGaeplayMovementIntent(degenerateDirection, command);
+    ApplyGameplayMovementIntent(degenerateDirection, command);
 
     ExpectZeroVector(command.moveWorld);
     EXPECT_FLOAT_EQ(command.moveMagnitude, 0.0f);
@@ -226,7 +226,7 @@ TEST(GameplaySteering, AdapterClearsDegenerateMovement)
     negativeMagnitude.moveMagnitude = -1.0f;
     negativeMagnitude.wantsRun = true;
 
-    ApplyGaeplayMovementIntent(negativeMagnitude, command);
+    ApplyGameplayMovementIntent(negativeMagnitude, command);
 
     ExpectZeroVector(command.moveWorld);
     EXPECT_FLOAT_EQ(command.moveMagnitude, 0.0f);

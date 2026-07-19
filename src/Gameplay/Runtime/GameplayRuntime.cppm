@@ -20,6 +20,8 @@ import :gameplay_graph_assets;
 import :gameplay_input_system;
 import :gameplay_bootstrap;
 import :ai_system;
+import :gameplay_route;
+import :gameplay_steering;
 import :gameplay_scene_sync;
 import :gameplay_follow_camera;
 import :character_controller;
@@ -68,12 +70,20 @@ export namespace rendern
         [[nodiscard]] const GameplayWorld& GetWorld() const noexcept;
         [[nodiscard]] EntityHandle GetControlledEntity() const noexcept;
         [[nodiscard]] GameplayRuntimeMode GetCurrentMode() const noexcept;
+        [[nodiscard]] bool IsCurrentLevelAsset(const LevelAsset& levelAsset) const noexcept;
+        [[nodiscard]] bool IsCurrentLevelContext(const GameplayUpdateContext& ctx) const noexcept;
         [[nodiscard]] const std::vector<EntityHandle>& GetNodeBoundEntities() const noexcept;
 
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
             const int nodeIndex,
             const bool playerControlled);
+        [[nodiscard]] AIActionExecutionStatus StartAIFollowRoute(
+            EntityHandle agentEntity,
+            GameplayRoute route,
+            const GameplayArrivalSteeringSettings& steeringSettings = {});
+        void CancelAIAction(EntityHandle agentEntity);
+        [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;
 
     private:
         void ResetEntityFrameState_(const EntityHandle entity);
@@ -107,6 +117,9 @@ export namespace rendern
     private:
         GameplayWorld world_{};
         EntityHandle controlledEntity_{ kNullEntity };
+        LevelAsset* currentLevelAsset_{ nullptr };
+        LevelInstance* currentLevelInstance_{ nullptr };
+        Scene* currentScene_{ nullptr };
         std::vector<GameplayIntentBinding> intentBindings_{};
         std::unordered_map<EntityHandle, std::size_t> intentBindingIndexByEntity_{};
         // TODO: change it to methods like these 

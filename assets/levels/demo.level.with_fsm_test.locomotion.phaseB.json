@@ -144,6 +144,10 @@
     {"name": "Ground", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [0.000000,-0.608832,3.979176], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground2", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [4.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground1", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [2.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
-    {"name": "Ground", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [0.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}}
+    {"name": "Ground", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [0.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
+    {"name": "AI_Move_Agent", "parent": -1, "visible": true, "skinnedMesh": "models_character_fbx", "material": "models_character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "transform": {"position": [-2.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,90.000000,0.000000], "scale": [0.010000,0.010000,0.010000]}},
+    {"name": "AI_Move_Point_000", "parent": -1, "visible": false, "transform": {"position": [-2.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
+    {"name": "AI_Move_Point_001", "parent": -1, "visible": false, "transform": {"position": [0.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
+    {"name": "AI_Move_Point_002", "parent": -1, "visible": false, "transform": {"position": [2.000000,-0.593905,1.500000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}}
   ]
 }
