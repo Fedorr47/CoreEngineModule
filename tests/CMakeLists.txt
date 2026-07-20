@@ -54,6 +54,9 @@ add_executable(CoreEngineModuleTests
         "unit/AppTests/TestAppBootstrapArguments.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
         "unit/EditorTests/TestEditorSelectionService.cpp"
+        "unit/GameplayTests/TestAIFollowRouteActionRuntime.cpp"
+        "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
+        "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests

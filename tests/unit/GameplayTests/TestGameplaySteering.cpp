@@ -232,3 +232,44 @@ TEST(GameplaySteering, AdapterClearsDegenerateMovement)
     EXPECT_FLOAT_EQ(command.moveMagnitude, 0.0f);
     EXPECT_FALSE(command.wantsRun);
 }
+
+// Protects the floating-point arrival boundary so an agent negligibly outside
+// the authored radius is accepted instead of returning Moving with no progress.
+TEST(GameplaySteering, PositionWithinArrivalToleranceIsAccepted)
+{
+    GameplayArrivalSteeringSettings settings{};
+    settings.acceptanceRadius = 0.2f;
+    settings.slowingRadius = 1.0f;
+
+    const GameplaySteeringOutput output =
+        BuildGameplayArrivalSteering(
+            {9.79994583f, 0.0f, 0.0f},
+            {10.0f, 0.0f, 0.0f},
+            settings);
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Arrived);
+    EXPECT_FALSE(output.movement.IsMoving());
+    EXPECT_NEAR(output.remainingDistance, 0.20005417f, 0.000001f);
+}
+
+// Protects the steering contract so a Moving result immediately outside the
+// arrival tolerance always provides an executable non-zero movement intent.
+TEST(GameplaySteering, MovingOutsideArrivalToleranceProvidesMovementIntent)
+{
+    GameplayArrivalSteeringSettings settings{};
+    settings.acceptanceRadius = 0.2f;
+    settings.slowingRadius = 1.0f;
+
+    const GameplaySteeringOutput output =
+        BuildGameplayArrivalSteering(
+            {9.798f, 0.0f, 0.0f},
+            {10.0f, 0.0f, 0.0f},
+            settings);
+
+    ASSERT_EQ(output.status, GameplaySteeringStatus::Moving);
+    EXPECT_TRUE(output.movement.IsMoving());
+    EXPECT_GT(output.movement.moveMagnitude, 0.0f);
+    EXPECT_NEAR(output.movement.moveWorld.x, 1.0f, 0.000001f);
+    EXPECT_NEAR(output.movement.moveWorld.z,0.0f,0.000001f);
+}
+        

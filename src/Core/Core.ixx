@@ -41,6 +41,8 @@ export import :string_utils;
 export import :assimp_loader;
 export import :editor_selection_service;
 export import :editor_commands;
+export import :character_controller;
+export import :character_movement;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

@@ -90,7 +90,7 @@ export namespace rendern
         return current + (delta * (maxDelta / deltaLen));
     }
 
-    inline void UpdateGameplayCharacterMovement(
+    void UpdateGameplayCharacterMovement(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
         const float deltaSeconds)

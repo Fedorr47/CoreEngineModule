@@ -91,7 +91,7 @@ export namespace rendern
         return mathUtils::RadToDeg(std::atan2(planar.x, planar.z));
     }
 
-    inline void BuildGameplayCharacterCommands(
+    void BuildGameplayCharacterCommands(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
         const GameplayUpdateContext& ctx)
