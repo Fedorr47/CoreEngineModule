@@ -37,6 +37,59 @@ namespace rendern::ui
         ImGui::Separator();
     }
     
+    static void DrawLevelEditorAIInfo(LevelAsset& level)
+    {
+        constexpr std::string_view kAgentNodeName{
+            "AI_Move_Agent"
+        };
+
+        constexpr std::string_view kRoutePointPrefix{
+            "AI_Move_Point_"
+        };
+
+        bool bHasAgentNode = false;
+        int routePointCount = 0;
+
+        for (const LevelNode& node : level.nodes)
+        {
+            if (!node.alive)
+            {
+                continue;
+            }
+
+            if (node.name == kAgentNodeName)
+            {
+                bHasAgentNode = true;
+            }
+
+            if (node.name.starts_with(kRoutePointPrefix))
+            {
+                ++routePointCount;
+            }
+        }
+
+        const bool bHasRequiredRoutePoints =
+            routePointCount >= 2;
+
+        ImGui::SeparatorText("AI Movement Scenario");
+
+        ImGui::Text(
+            "Agent node: %s",
+            bHasAgentNode
+                ? "Found"
+                : "Missing");
+
+        ImGui::Text(
+            "Route points: %d (%s)",
+            routePointCount,
+            bHasRequiredRoutePoints
+                ? "Valid"
+                : "Need at least two");
+
+        ImGui::TextUnformatted(
+            "Naming: AI_Move_Point_<number>.");
+    }
+    
     void DrawLevelEditorUI(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
@@ -49,6 +102,7 @@ namespace rendern::ui
 
         const LevelEditorStatsSectionViewModel stats = BuildLevelEditorStatsSectionViewModel(level, scene);
         DrawLevelEditorStatsSection(stats);
+        DrawLevelEditorAIInfo(level);
 
         auto& uiState = level_ui_detail::GetState();
 

@@ -9,6 +9,7 @@ module;
 #include <utility>
 #include <array>
 #include <optional>
+#include <string_view>
 
 #if defined(CORE_USE_DX12)
 #include <imgui.h>
@@ -34,6 +35,7 @@ import :animation_controller;
 import :editor_commands;
 import :editor_selection_service;
 import :gameplay_runtime;
+import :gameplay_ai_movement_development_scenario;
 
 export namespace rendern::ui
 {

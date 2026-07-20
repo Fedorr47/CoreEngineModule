@@ -49,41 +49,48 @@ export namespace rendern
         const mathUtils::Vec3& targetPosition,
         const GameplayArrivalSteeringSettings& settings = {}) noexcept
     {
+        constexpr float kArrivalTolerance = 0.001f;
+
         mathUtils::Vec3 planarDelta = targetPosition - currentPosition;
+
         planarDelta.y = 0.0f;
-        
+
         const float planarDistance = mathUtils::Length(planarDelta);
-        const float acceptanceRadius = std::max(settings.acceptanceRadius, 0.0f);
-        const float slowingRadius = std::max(settings.slowingRadius, acceptanceRadius);
-        const bool isDegenerateDelta = planarDistance <= mathUtils::kLengthEpsilon;
-        const bool isInsideAcceptanceRadius = planarDistance <= acceptanceRadius;
-        
+        const float acceptanceRadius = std::max(settings.acceptanceRadius,0.0f);
+        const float slowingRadius = std::max(settings.slowingRadius,acceptanceRadius);
+        const float effectiveAcceptanceRadius =acceptanceRadius + kArrivalTolerance;
+        const bool bIsDegenerateDelta = planarDistance <= mathUtils::kLengthEpsilon;
+        const bool bIsInsideAcceptanceRadius = planarDistance <= effectiveAcceptanceRadius;
+
         GameplaySteeringOutput output{};
         output.remainingDistance = std::max(planarDistance, 0.0f);
-        
-        if (isInsideAcceptanceRadius || isDegenerateDelta)
+
+        if (bIsInsideAcceptanceRadius || bIsDegenerateDelta)
         {
             return output;
         }
-        
+
         output.status = GameplaySteeringStatus::Moving;
         output.movement.moveWorld = planarDelta / planarDistance;
         output.movement.wantsRun = settings.wantsRun;
-        
-        const bool hasSlowingInterval = slowingRadius >= acceptanceRadius;
-        if (!hasSlowingInterval || planarDistance >= slowingRadius)
+
+        const float slowingInterval = slowingRadius - acceptanceRadius;
+        const bool bHasSlowingInterval = slowingInterval > mathUtils::kLengthEpsilon;
+        const bool bIsOutsideSlowingRadius = planarDistance >= slowingRadius;
+
+        if (!bHasSlowingInterval || bIsOutsideSlowingRadius)
         {
             output.movement.moveMagnitude = 1.0f;
             return output;
         }
-        
-        output.movement.moveMagnitude = std::clamp(
-        (planarDistance - acceptanceRadius) / (slowingRadius - acceptanceRadius), 
-        0.0f, 1.0f);
+
+        output.movement.moveMagnitude =
+            std::clamp((planarDistance - acceptanceRadius) / slowingInterval,0.0f, 1.0f);
+
         return output;
     }
     
-    void ApplyGaeplayMovementIntent(
+    void ApplyGameplayMovementIntent(
         const GameplayMovementIntent& intent,
         GameplayCharacterCommandComponent& command) noexcept
     {

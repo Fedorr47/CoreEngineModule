@@ -1,0 +1,473 @@
+module;
+
+#include <algorithm>
+#include <charconv>
+#include <cstddef>
+#include <optional>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+export module core:gameplay_ai_movement_development_scenario;
+
+import :ai_action_task;
+import :gameplay;
+import :gameplay_runtime;
+import :gameplay_route;
+import :gameplay_steering;
+import :level;
+import :math_utils;
+
+namespace rendern
+{
+    namespace
+    {
+        inline constexpr std::string_view kDevelopmentAgentNodeName{
+            "AI_Move_Agent"
+        };
+
+        inline constexpr std::string_view kDevelopmentRoutePointPrefix{
+            "AI_Move_Point_"
+        };
+
+        struct GameplayAIMovementDevelopmentRouteNode
+        {
+            std::size_t order{0};
+            int nodeIndex{-1};
+        };
+
+        struct GameplayAIMovementDevelopmentScenarioNodes
+        {
+            int agentNodeIndex{-1};
+            std::vector<int> routeNodeIndices{};
+        };
+
+        [[nodiscard]] std::optional<int> FindGameplayAIMovementDevelopmentNodeIndex_(
+            const LevelAsset& levelAsset,
+            const std::string_view nodeName) noexcept
+        {
+            for (std::size_t index = 0; index < levelAsset.nodes.size(); ++index)
+            {
+                const LevelNode& node = levelAsset.nodes[index];
+
+                const bool bIsMatchingNode = node.alive && node.name == nodeName;
+
+                if (bIsMatchingNode)
+                {
+                    return static_cast<int>(index);
+                }
+            }
+
+            return std::nullopt;
+        }
+
+        [[nodiscard]] std::optional<int> FindGameplayAIMovementDevelopmentAgentNodeIndex_(
+            const LevelAsset& levelAsset) noexcept
+        {
+            return FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kDevelopmentAgentNodeName);
+        }
+
+        [[nodiscard]] std::optional<std::size_t> ParseGameplayAIMovementDevelopmentRoutePointOrder_(
+            const std::string_view suffix) noexcept
+        {
+            if (suffix.empty())
+            {
+                return std::nullopt;
+            }
+
+            std::size_t order{0};
+
+            const char* const begin = suffix.data();
+            const char* const end = begin + suffix.size();
+
+            const auto [parsedEnd, error] =
+                std::from_chars(begin, end, order);
+
+            const bool bParsedCompleteSuffix =
+                error == std::errc{} &&
+                parsedEnd == end;
+
+            if (!bParsedCompleteSuffix)
+            {
+                return std::nullopt;
+            }
+
+            return order;
+        }
+
+        [[nodiscard]] std::optional<std::vector<int>> ResolveGameplayAIMovementDevelopmentRouteNodeIndices_(
+            const LevelAsset& levelAsset)
+        {
+            std::vector<GameplayAIMovementDevelopmentRouteNode> indexedRouteNodes{};
+
+            for (std::size_t index = 0; index < levelAsset.nodes.size(); ++index)
+            {
+                const LevelNode& node = levelAsset.nodes[index];
+
+                if (!node.alive)
+                {
+                    continue;
+                }
+
+                const std::string_view nodeName = node.name;
+
+                if (!nodeName.starts_with(kDevelopmentRoutePointPrefix))
+                {
+                    continue;
+                }
+
+                const std::string_view orderSuffix = nodeName.substr(kDevelopmentRoutePointPrefix.size());
+
+                const std::optional<std::size_t> routeOrder = 
+                    ParseGameplayAIMovementDevelopmentRoutePointOrder_(orderSuffix);
+
+                // A node using the route-point prefix must contain a valid
+                // numeric suffix so authored route order is unambiguous.
+                if (!routeOrder.has_value())
+                {
+                    return std::nullopt;
+                }
+
+                indexedRouteNodes.push_back(
+                    GameplayAIMovementDevelopmentRouteNode{
+                        .order = *routeOrder,
+                        .nodeIndex = static_cast<int>(index)
+                    });
+            }
+
+            const bool bHasMinimumRoutePointCount = indexedRouteNodes.size() >= 2;
+            if (!bHasMinimumRoutePointCount)
+            {
+                return std::nullopt;
+            }
+
+            std::sort(
+                indexedRouteNodes.begin(),
+                indexedRouteNodes.end(),
+                [](
+                    const GameplayAIMovementDevelopmentRouteNode& lhs,
+                    const GameplayAIMovementDevelopmentRouteNode& rhs)
+                {
+                    return lhs.order < rhs.order;
+                });
+
+            for (std::size_t index = 1; index < indexedRouteNodes.size(); ++index)
+            {
+                const bool bHasDuplicateRouteOrder =
+                    indexedRouteNodes[index - 1].order ==
+                    indexedRouteNodes[index].order;
+
+                // Point_1 and Point_001 describe the same authored order and
+                // therefore make the route definition ambiguous.
+                if (bHasDuplicateRouteOrder)
+                {
+                    return std::nullopt;
+                }
+            }
+
+            std::vector<int> routeNodeIndices{};
+            routeNodeIndices.reserve(indexedRouteNodes.size());
+
+            for (const GameplayAIMovementDevelopmentRouteNode& routeNode : indexedRouteNodes)
+            {
+                routeNodeIndices.push_back(routeNode.nodeIndex);
+            }
+
+            return routeNodeIndices;
+        }
+
+        [[nodiscard]] std::optional<GameplayAIMovementDevelopmentScenarioNodes>
+        ResolveGameplayAIMovementDevelopmentScenarioNodes_(
+            const LevelAsset& levelAsset)
+        {
+            const std::optional<int> agentNodeIndex =
+                FindGameplayAIMovementDevelopmentAgentNodeIndex_(
+                    levelAsset);
+
+            std::optional<std::vector<int>> routeNodeIndices =
+                ResolveGameplayAIMovementDevelopmentRouteNodeIndices_(levelAsset);
+
+            const bool bHasDevelopmentAgent = agentNodeIndex.has_value();
+            const bool bHasDevelopmentRoute = routeNodeIndices.has_value();
+
+            if (!bHasDevelopmentAgent || !bHasDevelopmentRoute)
+            {
+                return std::nullopt;
+            }
+
+            return GameplayAIMovementDevelopmentScenarioNodes{
+                .agentNodeIndex = *agentNodeIndex,
+                .routeNodeIndices = std::move(*routeNodeIndices)
+            };
+        }
+
+        [[nodiscard]] EntityHandle
+        FindGameplayAIMovementDevelopmentAgentEntity_(
+            const GameplayRuntime& runtime,
+            const int agentNodeIndex) noexcept
+        {
+            const GameplayWorld& world = runtime.GetWorld();
+
+            for (const EntityHandle entity : runtime.GetNodeBoundEntities())
+            {
+                if (!world.IsEntityValid(entity))
+                {
+                    continue;
+                }
+
+                const GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(entity);
+
+                const bool bIsDevelopmentAgent =
+                    nodeLink != nullptr &&
+                    nodeLink->nodeIndex == agentNodeIndex;
+
+                if (bIsDevelopmentAgent)
+                {
+                    return entity;
+                }
+            }
+
+            return kNullEntity;
+        }
+
+        [[nodiscard]] GameplayRoute BuildGameplayAIMovementDevelopmentRoute_(
+            const LevelAsset& levelAsset,
+            const std::vector<int>& routeNodeIndices)
+        {
+            GameplayRoute route{};
+            route.points.reserve(routeNodeIndices.size());
+
+            for (const int nodeIndex : routeNodeIndices)
+            {
+                const LevelNode& routeNode = levelAsset.nodes[static_cast<std::size_t>(nodeIndex)];
+
+                route.points.push_back(GameplayRoutePoint{ .worldPosition = routeNode.transform.position});
+            }
+
+            route.segmentAnnotations.resize(route.points.size() - 1);
+            return route;
+        }
+
+        void ResetGameplayAIMovementDevelopmentAgentForRestart_(
+            GameplayWorld& world,
+            const EntityHandle agentEntity,
+            const mathUtils::Vec3& routeStartPosition) noexcept
+        {
+            if (!world.IsEntityValid(agentEntity))
+            {
+                return;
+            }
+
+            if (GameplayTransformComponent* transform = world.TryGetTransform(agentEntity))
+            {
+                transform->position = routeStartPosition;
+            }
+
+            if (GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agentEntity))
+            {
+                ApplyGameplayMovementIntent(GameplayMovementIntent{}, *command);
+            }
+
+            if (GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(agentEntity))
+            {
+                motor->velocity = {};
+                motor->desiredMoveWorld = {};
+            }
+
+            if (GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(agentEntity))
+            {
+                movementState->grounded = true;
+                movementState->jumping = false;
+                movementState->falling = false;
+                movementState->jumpMovementLocked = false;
+                movementState->turningInPlace = false;
+
+                movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->jumpLockedVelocity = {};
+            }
+        }
+    }
+}
+
+export namespace rendern
+{
+    [[nodiscard]] AIActionExecutionStatus
+    StartGameplayAIMovementDevelopmentScenario(
+        GameplayRuntime& runtime,
+        const GameplayUpdateContext& context)
+    {
+        const bool bHasValidContext =
+            context.levelAsset != nullptr &&
+            context.levelInstance != nullptr &&
+            context.scene != nullptr;
+
+        const bool bIsGameMode =
+            context.mode == GameplayRuntimeMode::Game &&
+            runtime.GetCurrentMode() == GameplayRuntimeMode::Game;
+
+        const bool bIsCurrentContext =
+            bHasValidContext &&
+            runtime.IsCurrentLevelContext(context);
+
+        if (!bHasValidContext ||
+            !bIsGameMode ||
+            !bIsCurrentContext)
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        const std::optional<GameplayAIMovementDevelopmentScenarioNodes>
+            scenarioNodes = ResolveGameplayAIMovementDevelopmentScenarioNodes_(*context.levelAsset);
+
+        if (!scenarioNodes.has_value())
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        GameplayRoute route = BuildGameplayAIMovementDevelopmentRoute_(
+                *context.levelAsset,
+                scenarioNodes->routeNodeIndices);
+
+        if (!route.IsValid())
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        GameplayWorld& world = runtime.GetWorld();
+
+        EntityHandle agentEntity =
+            FindGameplayAIMovementDevelopmentAgentEntity_(
+                runtime,
+                scenarioNodes->agentNodeIndex);
+
+        if (agentEntity == kNullEntity)
+        {
+            agentEntity = runtime.SpawnNodeBoundEntity(
+                context,
+                scenarioNodes->agentNodeIndex,
+                false);
+        }
+
+        const bool bHasValidEntity =
+            agentEntity != kNullEntity &&
+            world.IsEntityValid(agentEntity);
+
+        const bool bHasTransform =
+            bHasValidEntity &&
+            world.HasTransform(agentEntity);
+
+        const bool bHasCharacterCommand =
+            bHasValidEntity &&
+            world.HasCharacterCommand(agentEntity);
+
+        const bool bHasCharacterMotor =
+            bHasValidEntity &&
+            world.HasCharacterMotor(agentEntity);
+
+        const bool bHasMovementState =
+            bHasValidEntity &&
+            world.HasCharacterMovementState(agentEntity);
+
+        const bool bHasRequiredMovementComponents =
+            bHasTransform &&
+            bHasCharacterCommand &&
+            bHasCharacterMotor &&
+            bHasMovementState;
+
+        if (!bHasValidEntity || !bHasRequiredMovementComponents)
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        if (!world.HasAI(agentEntity))
+        {
+            world.AddAI(agentEntity);
+        }
+
+        const int routeStartNodeIndex = scenarioNodes->routeNodeIndices.front();
+        const mathUtils::Vec3 routeStartPosition =
+            context.levelAsset->nodes[static_cast<std::size_t>(routeStartNodeIndex)].transform.position;
+
+        runtime.CancelAIAction(agentEntity);
+
+        ResetGameplayAIMovementDevelopmentAgentForRestart_(
+            world,
+            agentEntity,
+            routeStartPosition);
+
+        GameplayArrivalSteeringSettings steering{};
+        steering.acceptanceRadius = 0.2f;
+        steering.slowingRadius = 0.75f;
+        steering.wantsRun = false;
+
+        return runtime.StartAIFollowRoute(
+            agentEntity,
+            std::move(route),
+            steering);
+    }
+
+    void CancelGameplayAIMovementDevelopmentScenario(
+        GameplayRuntime& runtime,
+        const LevelAsset& levelAsset)
+    {
+        const bool bIsCurrentLevel = runtime.IsCurrentLevelAsset(levelAsset);
+
+        if (!bIsCurrentLevel)
+        {
+            return;
+        }
+
+        const std::optional<int> agentNodeIndex = FindGameplayAIMovementDevelopmentAgentNodeIndex_(levelAsset);
+
+        if (!agentNodeIndex.has_value())
+        {
+            return;
+        }
+
+        const EntityHandle agentEntity =
+            FindGameplayAIMovementDevelopmentAgentEntity_(
+                runtime,
+                *agentNodeIndex);
+
+        if (agentEntity == kNullEntity)
+        {
+            return;
+        }
+
+        runtime.CancelAIAction(agentEntity);
+    }
+
+    [[nodiscard]] AIActionExecutionStatus
+    GetGameplayAIMovementDevelopmentScenarioStatus(
+        const GameplayRuntime& runtime,
+        const LevelAsset& levelAsset) noexcept
+    {
+        const bool bIsCurrentLevel = runtime.IsCurrentLevelAsset(levelAsset);
+
+        if (!bIsCurrentLevel)
+        {
+            return AIActionExecutionStatus::NotStarted;
+        }
+
+        const std::optional<int> agentNodeIndex = FindGameplayAIMovementDevelopmentAgentNodeIndex_(levelAsset);
+
+        if (!agentNodeIndex.has_value())
+        {
+            return AIActionExecutionStatus::NotStarted;
+        }
+
+        const EntityHandle agentEntity =
+            FindGameplayAIMovementDevelopmentAgentEntity_(
+                runtime,
+                *agentNodeIndex);
+
+        if (agentEntity == kNullEntity)
+        {
+            return AIActionExecutionStatus::NotStarted;
+        }
+
+        return runtime.GetAIActionStatus(agentEntity);
+    }
+}

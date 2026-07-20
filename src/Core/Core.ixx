@@ -24,6 +24,7 @@ export import :ai_system;
 export import :ai_agent_world_state;
 export import :ai_action_runtime;
 export import :ai_action_task;
+export import :ai_follow_route_action_runtime;
 export import :gameplay_request;
 export import :gameplay_steering;
 export import :gameplay_route_search;
@@ -33,12 +34,15 @@ export import :gameplay_route;
 export import :gameplay_route_follower;
 export import :gameplay_graph;
 export import :gameplay_runtime;
+export import :gameplay_ai_movement_development_scenario;
 export import :json_utils;
 export import :hash_utils;
 export import :string_utils;
 export import :assimp_loader;
 export import :editor_selection_service;
 export import :editor_commands;
+export import :character_controller;
+export import :character_movement;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

@@ -91,8 +91,10 @@ export namespace rendern
         bool jumpMovementLocked{ false };
         bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };
+        // Character body-facing target consumed by movement and locomotion.
         float desiredFacingYawDegrees{ 0.0f };
         float previousFacingYawDegrees{ 0.0f };
+        // View-facing yaw supplied by player or camera systems, not ordinary AI movement.
         float cameraFacingYawDegrees{ 0.0f };
         mathUtils::Vec3 jumpLockedVelocity{ 0.0f, 0.0f, 0.0f };
     };

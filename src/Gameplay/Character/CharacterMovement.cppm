@@ -90,7 +90,7 @@ export namespace rendern
         return current + (delta * (maxDelta / deltaLen));
     }
 
-    inline void UpdateGameplayCharacterMovement(
+    void UpdateGameplayCharacterMovement(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
         const float deltaSeconds)
@@ -114,7 +114,7 @@ export namespace rendern
                 continue;
             }
 
-            const bool jumping = action != nullptr &&
+            const bool bIsJumping  = action != nullptr &&
                 (action->current == GameplayActionKind::Jump || GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump);
 
             float speedScale = 1.0f;
@@ -127,7 +127,7 @@ export namespace rendern
             const float targetSpeed = baseTargetSpeed * speedScale;
             const mathUtils::Vec3 targetVelocity = command->moveWorld * (targetSpeed * command->moveMagnitude);
 
-            if (jumping)
+            if (bIsJumping )
             {
                 if (movementState != nullptr && !movementState->jumping)
                 {
@@ -164,44 +164,70 @@ export namespace rendern
 
             if (movementState != nullptr)
             {
-                movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                const bool bHasMoveMagnitude = command->moveMagnitude > mathUtils::kLengthEpsilon;
+                const bool bHasMoveDirection = mathUtils::Length(command->moveWorld) > mathUtils::kLengthEpsilon;
+                const bool bHasMoveInput = bHasMoveMagnitude && bHasMoveDirection;
+                const bool bIsPlayerControlled = world.HasPlayerControlled(entity);
 
-                const bool hasMoveInput = command->moveMagnitude > 0.1f;
-                if (!jumping && !hasMoveInput)
+                const bool bCanUseCameraTurnInPlace =
+                    bIsPlayerControlled &&
+                    !bIsJumping &&
+                    !bHasMoveInput;
+
+                if (bCanUseCameraTurnInPlace)
                 {
-                    const float aimYawDeltaDegrees = NormalizeGameplayYawDeltaDegrees_(
-                        movementState->cameraFacingYawDegrees - movementState->facingYawDegrees);
+                    const float aimYawDeltaDegrees =
+                        NormalizeGameplayYawDeltaDegrees_(
+                            movementState->cameraFacingYawDegrees -
+                            movementState->facingYawDegrees);
 
-                    if (!movementState->turningInPlace &&
-                        std::abs(aimYawDeltaDegrees) >= kTurnInPlaceActivateDegrees)
+                    const bool bShouldStartTurningInPlace =
+                        !movementState->turningInPlace &&
+                        std::abs(aimYawDeltaDegrees) >=
+                            kTurnInPlaceActivateDegrees;
+
+                    if (bShouldStartTurningInPlace)
                     {
                         movementState->turningInPlace = true;
                     }
 
                     if (movementState->turningInPlace)
                     {
-                        if (std::abs(aimYawDeltaDegrees) <= kTurnInPlaceStopDegrees)
+                        const bool bHasReachedCameraFacing =
+                            std::abs(aimYawDeltaDegrees) <=
+                            kTurnInPlaceStopDegrees;
+
+                        if (bHasReachedCameraFacing)
                         {
                             movementState->turningInPlace = false;
+
                             movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
                         }
                         else
                         {
-                            const float maxStep = kTurnInPlaceSpeedDegreesPerSecond * dt;
-                            movementState->desiredFacingYawDegrees = movementState->facingYawDegrees +
-                                std::clamp(aimYawDeltaDegrees, -maxStep, maxStep);
+                            const float maxTurnStep = kTurnInPlaceSpeedDegreesPerSecond * dt;
+
+                            movementState->desiredFacingYawDegrees =
+                                movementState->facingYawDegrees +
+                                std::clamp(
+                                    aimYawDeltaDegrees,
+                                    -maxTurnStep,
+                                    maxTurnStep);
                         }
                     }
                 }
                 else
                 {
+                    // AI and other non-player characters never turn in place in
+                    // response to the player or debug camera.
                     movementState->turningInPlace = false;
                 }
 
                 transform->rotationDegrees.y = movementState->desiredFacingYawDegrees;
                 movementState->facingYawDegrees = transform->rotationDegrees.y;
-                movementState->jumping = jumping;
-                movementState->grounded = !jumping;
+
+                movementState->jumping = bIsJumping;
+                movementState->grounded = !bIsJumping;
                 movementState->falling = false;
             }
         }

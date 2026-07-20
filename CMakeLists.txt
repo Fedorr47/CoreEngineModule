@@ -421,6 +421,7 @@ set(COMMON_MODULES
         Gameplay/AI/GameplayRoute.cppm
         Gameplay/AI/GameplayRouteFollower.cppm
         Gameplay/AI/GameplayRouteSearch.cppm
+        Gameplay/AI/AIFollowRouteActionRuntime.cppm
         Gameplay/Input/GameplayInput.cppm
         Gameplay/Camera/GameplayFollowCamera.cppm
         Gameplay/Character/CharacterController.cppm
@@ -435,6 +436,7 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayBootstrap.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
+        Gameplay/Runtime/GameplayAIMovementDevelopmentScenario.cppm
 
         Timer/GameTimer.ixx
         Timer/GameTimer.cppm

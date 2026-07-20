@@ -1,5 +1,6 @@
 module;
 
+#include <cassert>
 #include <cstdint>
 #include <cstddef>
 #include <optional>
@@ -101,6 +102,8 @@ export namespace rendern
                 
                 if (steering.status == GameplaySteeringStatus::Moving)
                 {
+                    const bool bHasMovementIntent = steering.movement.IsMoving();
+                    assert(bHasMovementIntent && "Moving steering status must provide a non-zero movement intent.");
                     output.status = GameplayRouteFollowerStatus::Following;
                     output.movement = steering.movement;
                     return output;
