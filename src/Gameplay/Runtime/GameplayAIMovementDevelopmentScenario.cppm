@@ -15,6 +15,7 @@ import :ai_action_task;
 import :gameplay;
 import :gameplay_runtime;
 import :gameplay_route;
+import :gameplay_route_search;
 import :gameplay_steering;
 import :level;
 import :math_utils;
@@ -231,22 +232,45 @@ namespace rendern
             return kNullEntity;
         }
 
-        [[nodiscard]] GameplayRoute BuildGameplayAIMovementDevelopmentRoute_(
+        [[nodiscard]] GameplayRouteNodeId MakeGameplayAIMovementDevelopmentRouteNodeId_(
+            const int nodeIndex) noexcept
+        {
+            return GameplayRouteNodeId{ static_cast<GameplayRouteNodeId::ValueType>(nodeIndex) + 1u };
+        }
+
+        [[nodiscard]] GameplayRouteGraph BuildGameplayAIMovementDevelopmentRouteGraph_(
             const LevelAsset& levelAsset,
             const std::vector<int>& routeNodeIndices)
         {
-            GameplayRoute route{};
-            route.points.reserve(routeNodeIndices.size());
+            GameplayRouteGraph routeGraph{};
+            routeGraph.nodes.reserve(routeNodeIndices.size());
+            routeGraph.edges.reserve(routeNodeIndices.size() - 1u);
 
             for (const int nodeIndex : routeNodeIndices)
             {
                 const LevelNode& routeNode = levelAsset.nodes[static_cast<std::size_t>(nodeIndex)];
 
-                route.points.push_back(GameplayRoutePoint{ .worldPosition = routeNode.transform.position});
+                routeGraph.nodes.push_back(
+                    GameplayRouteGraphNode{
+                        .nodeId = MakeGameplayAIMovementDevelopmentRouteNodeId_(nodeIndex),
+                        .worldPosition = routeNode.transform.position
+                    });
             }
 
-            route.segmentAnnotations.resize(route.points.size() - 1);
-            return route;
+            for (std::size_t pointIndex = 1; pointIndex < routeNodeIndices.size(); ++pointIndex)
+            {
+                routeGraph.edges.push_back(
+                    GameplayRouteGraphEdge{
+                        .fromNodeId = MakeGameplayAIMovementDevelopmentRouteNodeId_(
+                            routeNodeIndices[pointIndex - 1u]),
+                        .toNodeId = MakeGameplayAIMovementDevelopmentRouteNodeId_(
+                            routeNodeIndices[pointIndex]),
+                        .cost = 1.0f,
+                        .annotation = GameplayRouteSegmentAnnotation{}
+                    });
+            }
+
+            return routeGraph;
         }
 
         void ResetGameplayAIMovementDevelopmentAgentForRestart_(
@@ -326,11 +350,11 @@ export namespace rendern
             return AIActionExecutionStatus::Failed;
         }
 
-        GameplayRoute route = BuildGameplayAIMovementDevelopmentRoute_(
+        GameplayRouteGraph routeGraph = BuildGameplayAIMovementDevelopmentRouteGraph_(
                 *context.levelAsset,
                 scenarioNodes->routeNodeIndices);
 
-        if (!route.IsValid())
+        if (!routeGraph.IsValid())
         {
             return AIActionExecutionStatus::Failed;
         }
@@ -402,9 +426,11 @@ export namespace rendern
         steering.slowingRadius = 0.75f;
         steering.wantsRun = false;
 
-        return runtime.StartAIFollowRoute(
+        return runtime.StartAIMoveTo(
             agentEntity,
-            std::move(route),
+            routeGraph,
+            MakeGameplayAIMovementDevelopmentRouteNodeId_(scenarioNodes->routeNodeIndices.front()),
+            MakeGameplayAIMovementDevelopmentRouteNodeId_(scenarioNodes->routeNodeIndices.back()),
             steering);
     }
 

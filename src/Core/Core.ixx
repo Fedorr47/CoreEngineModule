@@ -25,6 +25,8 @@ export import :ai_agent_world_state;
 export import :ai_action_runtime;
 export import :ai_action_task;
 export import :ai_follow_route_action_runtime;
+export import :ai_follow_route_action;
+export import :ai_move_to_action;
 export import :gameplay_request;
 export import :gameplay_steering;
 export import :gameplay_route_search;

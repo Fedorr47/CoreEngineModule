@@ -20,7 +20,10 @@ import :gameplay_graph_assets;
 import :gameplay_input_system;
 import :gameplay_bootstrap;
 import :ai_system;
+import :ai_follow_route_action;
+import :ai_move_to_action;
 import :gameplay_route;
+import :gameplay_route_search;
 import :gameplay_steering;
 import :gameplay_scene_sync;
 import :gameplay_follow_camera;
@@ -81,6 +84,12 @@ export namespace rendern
         [[nodiscard]] AIActionExecutionStatus StartAIFollowRoute(
             EntityHandle agentEntity,
             GameplayRoute route,
+            const GameplayArrivalSteeringSettings& steeringSettings = {});
+        [[nodiscard]] AIActionExecutionStatus StartAIMoveTo(
+            EntityHandle agentEntity,
+            const GameplayRouteGraph& routeGraph,
+            GameplayRouteNodeId startNodeId,
+            GameplayRouteNodeId goalNodeId,
             const GameplayArrivalSteeringSettings& steeringSettings = {});
         void CancelAIAction(EntityHandle agentEntity);
         [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;

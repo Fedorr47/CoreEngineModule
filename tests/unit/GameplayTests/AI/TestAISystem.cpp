@@ -1,11 +1,80 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 import core;
 
 using namespace rendern;
+
+namespace
+{
+    inline constexpr AIActionId kTestActionId{42u};
+    inline constexpr AIActionId kReplacementActionId{43u};
+
+    struct FakeActionRuntimeState
+    {
+        bool bStartCalled{false};
+        bool bTickCalled{false};
+        bool bCancelCalled{false};
+        AIActionRuntimeContext lastContext{};
+        float lastDeltaSeconds{0.0f};
+        AIActionRuntimeResult startResult{AIActionRuntimeResult::Running};
+        AIActionRuntimeResult tickResult{AIActionRuntimeResult::Running};
+    };
+
+    class FakeActionRuntime final : public IAIActionRuntime
+    {
+    public:
+        explicit FakeActionRuntime(FakeActionRuntimeState& state) noexcept
+            : state_(&state)
+        {
+        }
+
+        [[nodiscard]] AIActionRuntimeResult Start(const AIActionRuntimeContext& context) override
+        {
+            state_->bStartCalled = true;
+            state_->lastContext = context;
+            return state_->startResult;
+        }
+
+        [[nodiscard]] AIActionRuntimeResult Tick(
+            const AIActionRuntimeContext& context,
+            const float deltaSeconds) override
+        {
+            state_->bTickCalled = true;
+            state_->lastContext = context;
+            state_->lastDeltaSeconds = deltaSeconds;
+            return state_->tickResult;
+        }
+
+        void Cancel(const AIActionRuntimeContext& context) noexcept override
+        {
+            state_->bCancelCalled = true;
+            state_->lastContext = context;
+        }
+
+    private:
+        FakeActionRuntimeState* state_{};
+    };
+
+    [[nodiscard]] std::unique_ptr<IAIActionRuntime> MakeFakeRuntime(
+        FakeActionRuntimeState& state)
+    {
+        return std::make_unique<FakeActionRuntime>(state);
+    }
+
+    [[nodiscard]] AIActionRuntimeContext MakeActionContext(
+        const EntityHandle agentEntity,
+        const AIActionId actionId = kTestActionId) noexcept
+    {
+        return AIActionRuntimeContext{
+            .agentEntity = agentEntity,
+            .actionId = actionId
+        };
+    }
+}
 
 // Protects the ownership contract that AI-agent membership is derived from
 // AIComponent presence and does not affect unrelated gameplay components.
@@ -107,4 +176,205 @@ TEST(AISystem, EmptyAgentsUpdateWithoutGameplaySideEffects)
     EXPECT_FLOAT_EQ(world.TryGetTransform(aiEntity)->position.x, 4.0f);
     EXPECT_FLOAT_EQ(world.TryGetTransform(aiEntity)->position.y, 5.0f);
     EXPECT_FLOAT_EQ(world.TryGetTransform(aiEntity)->position.z, 6.0f);
+}
+
+// Protects the generic submission boundary: AISystem must store and start a
+// valid runtime without knowing any concrete gameplay-action type.
+TEST(AISystem, StartActionStoresAndStartsValidTask)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState runtimeState{};
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(runtimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_TRUE(runtimeState.bStartCalled);
+    EXPECT_EQ(runtimeState.lastContext, MakeActionContext(agent));
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+    EXPECT_TRUE(aiSystem.HasActiveAction(agent));
+}
+
+// Protects replacement semantics at the generic task-owner layer rather than
+// inside specialized action starters.
+TEST(AISystem, StartActionReplacesExistingRunningTaskForSameAgent)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState firstRuntimeState{};
+    FakeActionRuntimeState secondRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(firstRuntimeState)),
+        AIActionExecutionStatus::Running);
+    EXPECT_EQ(
+        aiSystem.StartAction(
+            world,
+            MakeActionContext(agent, kReplacementActionId),
+            MakeFakeRuntime(secondRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_TRUE(firstRuntimeState.bCancelCalled);
+    EXPECT_TRUE(secondRuntimeState.bStartCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+}
+
+// Protects validation ordering so an invalid generic context cannot cancel or
+// replace the current task.
+TEST(AISystem, StartActionRejectsInvalidContextWithoutReplacingCurrentTask)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState activeRuntimeState{};
+    FakeActionRuntimeState rejectedRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(activeRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, AIActionRuntimeContext{}, MakeFakeRuntime(rejectedRuntimeState)),
+        AIActionExecutionStatus::Failed);
+
+    EXPECT_FALSE(activeRuntimeState.bCancelCalled);
+    EXPECT_FALSE(rejectedRuntimeState.bStartCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+}
+
+// Protects validation ordering so a missing runtime cannot cancel or replace
+// the current task.
+TEST(AISystem, StartActionRejectsNullRuntimeWithoutReplacingCurrentTask)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState activeRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(activeRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent, kReplacementActionId), nullptr),
+        AIActionExecutionStatus::Failed);
+
+    EXPECT_FALSE(activeRuntimeState.bCancelCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+}
+
+// Protects the one-action-per-agent invariant while allowing unrelated agents
+// to keep independent active tasks.
+TEST(AISystem, StartActionPreservesOneActiveTaskPerAgent)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle firstAgent = world.CreateEntity();
+    const EntityHandle secondAgent = world.CreateEntity();
+    world.AddAI(firstAgent);
+    world.AddAI(secondAgent);
+    FakeActionRuntimeState firstRuntimeState{};
+    FakeActionRuntimeState secondRuntimeState{};
+    FakeActionRuntimeState replacementRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(firstAgent), MakeFakeRuntime(firstRuntimeState)),
+        AIActionExecutionStatus::Running);
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(secondAgent), MakeFakeRuntime(secondRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_EQ(
+        aiSystem.StartAction(
+            world,
+            MakeActionContext(firstAgent, kReplacementActionId),
+            MakeFakeRuntime(replacementRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_TRUE(firstRuntimeState.bCancelCalled);
+    EXPECT_FALSE(secondRuntimeState.bCancelCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(firstAgent), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.GetActionStatus(secondAgent), AIActionExecutionStatus::Running);
+}
+
+// Protects validation ordering so a context for a destroyed entity cannot
+// cancel or replace the current task.
+TEST(AISystem, StartActionRejectsInvalidEntityWithoutReplacingCurrentTask)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    const EntityHandle destroyedAgent = world.CreateEntity();
+    world.AddAI(agent);
+    world.AddAI(destroyedAgent);
+    world.DestroyEntity(destroyedAgent);
+    FakeActionRuntimeState activeRuntimeState{};
+    FakeActionRuntimeState rejectedRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(activeRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(destroyedAgent), MakeFakeRuntime(rejectedRuntimeState)),
+        AIActionExecutionStatus::Failed);
+
+    EXPECT_FALSE(activeRuntimeState.bCancelCalled);
+    EXPECT_FALSE(rejectedRuntimeState.bStartCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.GetActionStatus(destroyedAgent), AIActionExecutionStatus::NotStarted);
+}
+
+// Protects validation ordering so a non-AI entity cannot cancel or replace the
+// current task even when it has a valid entity handle.
+TEST(AISystem, StartActionRejectsNonAIAgentWithoutReplacingCurrentTask)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    const EntityHandle nonAIAgent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState activeRuntimeState{};
+    FakeActionRuntimeState rejectedRuntimeState{};
+
+    ASSERT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(activeRuntimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(nonAIAgent), MakeFakeRuntime(rejectedRuntimeState)),
+        AIActionExecutionStatus::Failed);
+
+    EXPECT_FALSE(activeRuntimeState.bCancelCalled);
+    EXPECT_FALSE(rejectedRuntimeState.bStartCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.GetActionStatus(nonAIAgent), AIActionExecutionStatus::NotStarted);
+}
+
+// Protects the generic submission boundary from acquiring movement-specific
+// requirements while preserving AISystem ownership of AI-agent tasks.
+TEST(AISystem, StartActionDoesNotRequireMovementSpecificState)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState runtimeState{};
+
+    EXPECT_EQ(
+        aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(runtimeState)),
+        AIActionExecutionStatus::Running);
+
+    EXPECT_TRUE(runtimeState.bStartCalled);
+    EXPECT_FALSE(world.HasTransform(agent));
+    EXPECT_FALSE(world.HasCharacterCommand(agent));
+    EXPECT_FALSE(world.HasCharacterMotor(agent));
+    EXPECT_FALSE(world.HasCharacterMovementState(agent));
 }

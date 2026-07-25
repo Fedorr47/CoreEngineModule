@@ -10,7 +10,6 @@ export module core:ai_system;
 
 import :gameplay;
 import :ai_action_task;
-import :ai_follow_route_action_runtime;
 
 export namespace rendern
 {
@@ -47,35 +46,27 @@ export namespace rendern
             return aiEntitiesScratch_.size();
         }
         
-        [[nodiscard]] AIActionExecutionStatus StartFollowRoute(
-            GameplayWorld& world,
-            const EntityHandle agentEntity,
-            GameplayRoute route,
-            const GameplayArrivalSteeringSettings& steeringSettings = {})
+        [[nodiscard]] AIActionExecutionStatus StartAction(
+            const GameplayWorld& world,
+            const AIActionRuntimeContext context,
+            std::unique_ptr<IAIActionRuntime> runtime)
         {
-            if (!CanStartFollowRoute_(world, agentEntity, route))
-            {
-                return AIActionExecutionStatus::Failed;
-            }
-            
-            const AIActionRuntimeContext context{
-                .agentEntity = agentEntity,
-                .actionId = kAIFollowRouteActionId
-            };
-            if (!context.IsValid())
-            {
-                return AIActionExecutionStatus::Failed;
-            }
-            
-            auto runtime = std::make_unique<AIFollowRouteActionRuntime>(
-                world,
-                std::move(route),
-                steeringSettings);
+            const bool bHasValidContext = context.IsValid();
+            const bool bHasRuntime = runtime != nullptr;
+            const bool bHasValidEntity = bHasValidContext && world.IsEntityValid(context.agentEntity);
+            const bool bIsAIAgent = bHasValidEntity && world.HasAI(context.agentEntity);
 
-            CancelAction(agentEntity);
-            tasksByEntity_.erase(agentEntity);
+            if (!bHasValidContext || !bHasRuntime || !bHasValidEntity || !bIsAIAgent)
+            {
+                return AIActionExecutionStatus::Failed;
+            }
+            
+            CancelAction(context.agentEntity);
+            tasksByEntity_.erase(context.agentEntity);
             auto taskEntry = tasksByEntity_.emplace(
-                agentEntity, AIActionTask(context, std::move(runtime)));
+                context.agentEntity,
+                AIActionTask(context, std::move(runtime)));
+            
             return taskEntry.first->second.Start();
         }
         
@@ -141,24 +132,6 @@ export namespace rendern
                 }
                 ++it;
             }
-        }
-        
-        [[nodiscard]] bool CanStartFollowRoute_(
-            const GameplayWorld& world,
-            const EntityHandle agentEntity,
-            const GameplayRoute& route) const noexcept
-        {
-            const bool bHasValidEntity = world.IsEntityValid(agentEntity);
-            const bool bIsAIAgent  = bHasValidEntity && world.HasAI(agentEntity);
-            const bool bHasValidRoute = route.IsValid();
-            const bool bHasTransform = bHasValidEntity && world.HasTransform(agentEntity);
-            const bool bHasCommand = bHasValidEntity && world.HasCharacterCommand(agentEntity);
-            const bool bHasMotor = bHasValidEntity && world.HasCharacterMotor(agentEntity);
-            const bool bHasMovementState = bHasValidEntity && world.HasCharacterMovementState(agentEntity);
-            const bool bHasRequiredMovementComponents = 
-                bHasTransform && bHasCommand && bHasMotor && bHasMovementState;
-            
-            return bHasValidEntity && bIsAIAgent && bHasValidRoute && bHasRequiredMovementComponents;
         }
         
         // Reused between frames to avoid allocating a temporary agent list on

@@ -250,7 +250,30 @@
             const GameplayArrivalSteeringSettings& steeringSettings)
         {
             CORE_ASSERT_RUNTIME_THREAD();
-            return aiSystem_.StartFollowRoute(world_, agentEntity, std::move(route), steeringSettings);
+            return AIFollowRouteAction::Start(
+                aiSystem_,
+                world_,
+                agentEntity,
+                std::move(route),
+                steeringSettings);
+        }
+
+        [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIMoveTo(
+            const EntityHandle agentEntity,
+            const GameplayRouteGraph& routeGraph,
+            const GameplayRouteNodeId startNodeId,
+            const GameplayRouteNodeId goalNodeId,
+            const GameplayArrivalSteeringSettings& steeringSettings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return AIMoveToAction::Start(
+                aiSystem_,
+                world_,
+                agentEntity,
+                routeGraph,
+                startNodeId,
+                goalNodeId,
+                steeringSettings);
         }
 
         void GameplayRuntime::CancelAIAction(const EntityHandle agentEntity)
