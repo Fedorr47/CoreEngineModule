@@ -34,6 +34,7 @@ export namespace rendern
     {
         float acceptanceRadius{0.25f};
         float slowingRadius{1.0f};
+        float minimumMoveMagnitude{0.1f};
         bool wantsRun{false};
     };
     
@@ -84,8 +85,13 @@ export namespace rendern
             return output;
         }
 
-        output.movement.moveMagnitude =
-            std::clamp((planarDistance - acceptanceRadius) / slowingInterval,0.0f, 1.0f);
+        const float normalizedMagnitude = std::clamp(
+            (planarDistance - acceptanceRadius) / slowingInterval,
+            0.0f,
+            1.0f);
+
+        const float minimumMoveMagnitude = std::clamp(settings.minimumMoveMagnitude, 0.0f, 1.0f);
+        output.movement.moveMagnitude = std::max(normalizedMagnitude, minimumMoveMagnitude);
 
         return output;
     }

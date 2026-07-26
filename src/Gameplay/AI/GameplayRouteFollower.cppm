@@ -94,11 +94,18 @@ export namespace rendern
                     return output;
                 }
                 
+                const bool bIsFinalSegment = currentSegmentIndex_ + 1u == route_.segmentAnnotations.size();
+
+                GameplayArrivalSteeringSettings segmentSteeringSettings = steeringSettings_;
+                segmentSteeringSettings.slowingRadius = bIsFinalSegment
+                    ? steeringSettings_.slowingRadius
+                    : steeringSettings_.acceptanceRadius;
+                
                 const mathUtils::Vec3& targetPosition = route_.points[currentSegmentIndex_ + 1u].worldPosition;
                 const GameplaySteeringOutput steering = BuildGameplayArrivalSteering(
                     currentPosition,
                     targetPosition,
-                    steeringSettings_);
+                    segmentSteeringSettings);
                 
                 if (steering.status == GameplaySteeringStatus::Moving)
                 {
