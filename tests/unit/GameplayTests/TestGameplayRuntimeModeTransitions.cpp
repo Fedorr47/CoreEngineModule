@@ -206,3 +206,67 @@ TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDetermi
     runTransitionCycle();
     runTransitionCycle();
 }
+
+// Protects runtime mode isolation so reservations created during gameplay
+// do not survive after returning to Editor mode.
+TEST(GameplayRuntime, ClearsObjectReservationsWhenLeavingGameMode)
+{
+    InlineThreadOwnerRolesGuard guard{};
+
+    GameplayRuntime runtime{};
+    LevelAsset levelAsset = MakeMinimalLevelAsset();
+    LevelInstance levelInstance{};
+    Scene scene{};
+    runtime.Initialize(levelAsset, levelInstance, scene);
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+
+    GameplayWorld& world = runtime.GetWorld();
+    const EntityHandle object = world.CreateEntity();
+    world.AddInteractionPoint(object, {});
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+
+    ASSERT_TRUE(runtime.TryReserveGameplayObject(object, agent));
+    ASSERT_TRUE(runtime.IsGameplayObjectReserved(object));
+
+    StepFrame(runtime, GameplayRuntimeMode::Editor, levelAsset, levelInstance, scene);
+
+    EXPECT_FALSE(runtime.IsGameplayObjectReserved(object));
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(object), kNullEntity);
+
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+    EXPECT_FALSE(runtime.IsGameplayObjectReserved(object));
+}
+
+// Protects runtime-owned cleanup so stale reservations are removed during
+// the regular gameplay update.
+TEST(GameplayRuntime, CleansStaleObjectReservationsDuringGameUpdate)
+{
+    InlineThreadOwnerRolesGuard guard{};
+
+    GameplayRuntime runtime{};
+    LevelAsset levelAsset = MakeMinimalLevelAsset();
+    LevelInstance levelInstance{};
+    Scene scene{};
+    runtime.Initialize(levelAsset, levelInstance, scene);
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+
+    GameplayWorld& world = runtime.GetWorld();
+    const EntityHandle object = world.CreateEntity();
+    world.AddInteractionPoint(object, {});
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+
+    ASSERT_TRUE(runtime.TryReserveGameplayObject(object, agent));
+    world.DestroyEntity(agent);
+
+    const GameplayUpdateContext context = MakeGameplayUpdateContext(
+        GameplayRuntimeMode::Game,
+        levelAsset,
+        levelInstance,
+        scene);
+    runtime.PreAnimationUpdate(context);
+
+    EXPECT_FALSE(runtime.IsGameplayObjectReserved(object));
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(object), kNullEntity);
+}

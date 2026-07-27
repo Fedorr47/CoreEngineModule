@@ -20,6 +20,8 @@ export import :math_utils;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
+export import :gameplay_interaction_point;
+export import :gameplay_object_reservation_system;
 export import :ai_system;
 export import :ai_agent_world_state;
 export import :ai_action_runtime;

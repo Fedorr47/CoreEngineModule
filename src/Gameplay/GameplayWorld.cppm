@@ -52,6 +52,12 @@ export namespace rendern
     {
         AIAgentWorldState worldState{};
     };
+    
+    struct GameplayInteractionPointComponent
+    {
+        mathUtils::Vec3 localPosition{};
+        float localFacingYawDegrees{ 0.0f };
+    };
 
     struct GameplayInputIntentComponent
     {
@@ -602,6 +608,13 @@ export namespace rendern
         [[nodiscard]] const AIComponent* TryGetAI(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasAI(EntityHandle entity) const noexcept;
         void RemoveAI(EntityHandle entity);
+        
+        void AddInteractionPoint(EntityHandle entity, const GameplayInteractionPointComponent& value);
+        void SetInteractionPoint(EntityHandle entity, const GameplayInteractionPointComponent& value);
+        [[nodiscard]] GameplayInteractionPointComponent* TryGetInteractionPoint(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayInteractionPointComponent* TryGetInteractionPoint(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasInteractionPoint(EntityHandle entity) const noexcept;
+        void RemoveInteractionPoint(EntityHandle entity);
 
         // Replaces outEntities with live AI agents sorted by EntityHandle so update
         // order does not depend on EnTT storage iteration order.

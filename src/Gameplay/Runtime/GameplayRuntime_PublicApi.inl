@@ -22,6 +22,7 @@
 
             LogSyncInstrumentationSample_();
             aiSystem_.Reset();
+            objectReservationSystem_.Reset();
             
             world_.Clear();
             currentLevelAsset_ = nullptr;
@@ -132,6 +133,7 @@
 
             UpdateGameplayIntentSources(world_, intentBindings_, ctx);
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
+            objectReservationSystem_.CleanupInvalidReservations(world_);
             aiSystem_.Update(world_, ctx.deltaSeconds);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_);
             UpdateGameplayInteractionRequests(world_, nodeBoundEntities_);
@@ -210,6 +212,43 @@
         [[nodiscard]] GameplayWorld& GameplayRuntime::GetWorld() noexcept
         {
             return world_;
+        }
+
+        bool GameplayRuntime::TryReserveGameplayObject(
+            const EntityHandle objectEntity,
+            const EntityHandle agentEntity)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return objectReservationSystem_.TryReserve(world_, objectEntity, agentEntity);
+        }
+        
+        bool GameplayRuntime::ReleaseGameplayObject(
+            const EntityHandle objectEntity,
+            const EntityHandle agentEntity) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return objectReservationSystem_.Release(objectEntity, agentEntity);
+        }
+        
+        bool GameplayRuntime::IsGameplayObjectReserved(const EntityHandle objectEntity) const noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return objectReservationSystem_.IsReserved(objectEntity);
+        }
+        
+        bool GameplayRuntime::IsGameplayObjectReservedBy(
+            const EntityHandle objectEntity,
+            const EntityHandle agentEntity) const noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return objectReservationSystem_.IsReservedBy(objectEntity, agentEntity);
+        }
+        
+        EntityHandle GameplayRuntime::GetGameplayObjectReservationOwner(
+            const EntityHandle objectEntity) const noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return objectReservationSystem_.GetReservationOwner(objectEntity);
         }
 
         [[nodiscard]] const GameplayWorld& GameplayRuntime::GetWorld() const noexcept
