@@ -61,6 +61,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestAIFollowRouteActionRuntime.cpp"
         "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
+        "unit/PhysicsTests/TestJoltRuntime.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests

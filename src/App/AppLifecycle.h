@@ -9,6 +9,11 @@
 #include "AppRuntimeHelpers.h"
 #include "AppBootstrap.h"
 
+namespace physics
+{
+    class JoltRuntime;
+}
+
 namespace appLifecycle
 {
     constexpr std::string_view DefaultStartupLevelName = "levels/demo.level.with_fsm_test.locomotion.phaseB.json";
@@ -122,6 +127,19 @@ namespace appLifecycle
         std::uint64_t frameIndex = 0u;
     };
     
+    struct AppPhysicsState
+    {
+        AppPhysicsState();
+        ~AppPhysicsState();
+
+        AppPhysicsState(const AppPhysicsState&) = delete;
+        AppPhysicsState& operator=(const AppPhysicsState&) = delete;
+        AppPhysicsState(AppPhysicsState&&) = delete;
+        AppPhysicsState& operator=(AppPhysicsState&&) = delete;
+
+        std::unique_ptr<physics::JoltRuntime> joltRuntime;
+    };
+    
     struct AppState
     {
         AppConfig           config{};
@@ -129,8 +147,9 @@ namespace appLifecycle
         AppWindowState      windowState{};
         AppGraphicsState    graphicsState{};
         AppContentState     contentState{};
+        AppPhysicsState     physicsState{};
         AppRuntimeState     runtimeState{};
-        AppFrameState      frameState{};
+        AppFrameState       frameState{};
         bool initialized = false;
         
         std::thread::id mainThreadId;
@@ -141,7 +160,7 @@ namespace appLifecycle
         AppState(AppState&&) = delete;
         AppState& operator=(AppState&&) = delete;
     };
-
+    
     void InitializeApp(AppState& app, int argc, char** argv);
     bool TickApp(AppState& app);
     void ShutdownApp(AppState& app);
