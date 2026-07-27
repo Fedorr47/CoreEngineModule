@@ -22,6 +22,7 @@ import :gameplay_bootstrap;
 import :ai_system;
 import :ai_follow_route_action;
 import :ai_move_to_action;
+import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_steering;
@@ -93,6 +94,11 @@ export namespace rendern
             const GameplayArrivalSteeringSettings& steeringSettings = {});
         void CancelAIAction(EntityHandle agentEntity);
         [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;
+        [[nodiscard]] bool TryReserveGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity);
+        [[nodiscard]] bool ReleaseGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity) noexcept;
+        [[nodiscard]] bool IsGameplayObjectReserved(EntityHandle objectEntity) const noexcept;
+        [[nodiscard]] bool IsGameplayObjectReservedBy(EntityHandle objectEntity, EntityHandle agentEntity) const noexcept;
+        [[nodiscard]] EntityHandle GetGameplayObjectReservationOwner(EntityHandle objectEntity) const noexcept;
 
     private:
         void ResetEntityFrameState_(const EntityHandle entity);
@@ -140,6 +146,7 @@ export namespace rendern
         GameplayGraphAsset defaultGraphAsset_{};
         GameplayRuntimeMode lastMode_{ GameplayRuntimeMode::Editor };
         AISystem aiSystem_{};
+        GameplayObjectReservationSystem objectReservationSystem_{};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};

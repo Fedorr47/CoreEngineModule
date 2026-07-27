@@ -430,6 +430,8 @@ set(COMMON_MODULES
         Gameplay/Character/CharacterMovement.cppm
         Gameplay/Combat/CombatSystem.cppm
         Gameplay/Interaction/InteractionSystem.cppm
+        Gameplay/Interaction/GameplayInteractionPoint.cppm
+        Gameplay/Interaction/GameplayObjectReservationSystem.cppm
         Gameplay/Animation/GameplayAnimationBridge.cppm
         Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
         Gameplay/Graph/GameplayGraph.cppm
