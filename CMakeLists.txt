@@ -148,6 +148,54 @@ set(ENTT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ENTT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(entt)
 
+# ------------------------------------------------------------
+# Jolt Physics
+# ------------------------------------------------------------
+
+# Jolt must not override the parent project's compiler and linker settings.
+set(OVERRIDE_CXX_FLAGS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+
+# Build configuration.
+set(JPH_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "" FORCE)
+set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+
+# CoreEngine currently uses single precision and its default allocator.
+set(DOUBLE_PRECISION OFF CACHE BOOL "" FORCE)
+set(CROSS_PLATFORM_DETERMINISTIC OFF CACHE BOOL "" FORCE)
+set(FLOATING_POINT_EXCEPTIONS_ENABLED OFF CACHE BOOL "" FORCE)
+set(CPP_EXCEPTIONS_ENABLED OFF CACHE BOOL "" FORCE)
+set(CPP_RTTI_ENABLED OFF CACHE BOOL "" FORCE)
+set(DISABLE_CUSTOM_ALLOCATOR OFF CACHE BOOL "" FORCE)
+
+# These features are not needed for the initial CPU physics integration.
+set(DEBUG_RENDERER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
+set(DEBUG_RENDERER_IN_DISTRIBUTION OFF CACHE BOOL "" FORCE)
+set(PROFILER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
+set(PROFILER_IN_DISTRIBUTION OFF CACHE BOOL "" FORCE)
+set(ENABLE_OBJECT_STREAM OFF CACHE BOOL "" FORCE)
+
+# Jolt 5.6 compute backends are unrelated to our rigid-body and character goals.
+set(JPH_USE_DX12 OFF CACHE BOOL "" FORCE)
+set(JPH_USE_VK OFF CACHE BOOL "" FORCE)
+set(JPH_USE_MTL OFF CACHE BOOL "" FORCE)
+set(JPH_USE_CPU_COMPUTE OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+        JoltPhysics
+        GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+        GIT_TAG        v5.6.0
+        SOURCE_SUBDIR  Build
+)
+
+FetchContent_MakeAvailable(JoltPhysics)
+
+if(TARGET Jolt AND NOT TARGET Jolt::Jolt)
+  add_library(Jolt::Jolt ALIAS Jolt)
+endif()
+
 if(CORE_RENDER_BACKEND STREQUAL "GL")
   # ------------------------------------------------------------
   # GLFW
@@ -545,6 +593,7 @@ target_sources(CoreEngineModuleLib
 target_sources(CoreEngineModuleLib
         PRIVATE
         "${SRC_DIR}/Core/ThreadAffinity/ThreadAffinity.cpp"
+        "${SRC_DIR}/Physics/Jolt/JoltRuntime.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"
@@ -557,6 +606,9 @@ target_link_libraries(CoreEngineModuleLib
         PUBLIC
         stb_headers
         assimp::assimp
+
+        PRIVATE
+        Jolt::Jolt
 )
 
 # GL-only deps (link AFTER CoreEngineModuleLib exists)

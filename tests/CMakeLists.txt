@@ -61,6 +61,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestAIFollowRouteActionRuntime.cpp"
         "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
+        "unit/PhysicsTests/TestJoltRuntime.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
@@ -139,3 +140,37 @@ if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
 else()
   message(STATUS "CoreEngineModuleDx12SmokeTests not registered: requires WIN32 and CORE_RENDER_BACKEND=DX12.")
 endif()
+
+# ------------------------------------------------------------
+# Jolt dependency smoke test
+# ------------------------------------------------------------
+
+add_executable(CoreEngineJoltSmokeTests
+        "integration/JoltSmoke/TestJoltDependencySmoke.cpp"
+)
+
+target_link_libraries(CoreEngineJoltSmokeTests
+        PRIVATE
+        Jolt::Jolt
+        GTest::gtest_main
+)
+
+target_compile_features(CoreEngineJoltSmokeTests
+        PRIVATE
+        cxx_std_23
+)
+
+if(TARGET core_test_sanitizers)
+  target_link_libraries(CoreEngineJoltSmokeTests
+          PRIVATE
+          core_test_sanitizers
+  )
+endif()
+
+include(GoogleTest)
+
+gtest_discover_tests(CoreEngineJoltSmokeTests
+        DISCOVERY_MODE PRE_TEST
+        PROPERTIES
+        LABELS "jolt;smoke"
+)

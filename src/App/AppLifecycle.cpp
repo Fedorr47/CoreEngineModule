@@ -13,9 +13,13 @@ import std;
 
 #include "AppLifecycle.h"
 #include "AppArguments.h"
+#include "Physics/Jolt/JoltRuntime.h"
 
 namespace appLifecycle
 {
+    AppPhysicsState::AppPhysicsState() = default;
+    AppPhysicsState::~AppPhysicsState() = default;
+    
     std::uint32_t ComputeStreamingWorkerCount(const unsigned int hardwareThreadCount) noexcept
     {
         if (hardwareThreadCount <= 1u)
@@ -224,6 +228,7 @@ namespace appLifecycle
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
         auto& frameState        = app.frameState;
+        auto& physicsState      = app.physicsState;
         
         const appBootstrap::ParsedBackend parsedBackend =
         appBootstrap::ParseAppArguments(argc, argv, launchState.appArguments);
@@ -241,6 +246,16 @@ namespace appLifecycle
         threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Main);
         threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Runtime);
         threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Render);
+        threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Physics);
+        
+        physicsState.joltRuntime = std::make_unique<physics::JoltRuntime>();
+        const bool joltInitialized = physicsState.joltRuntime->Initialize();
+
+        if (!joltInitialized)
+        {
+            throw std::runtime_error("Failed to initialize the Jolt runtime: "
+                "another process-wide Jolt owner already exists.");
+        }
 
         appBootstrap::CreatePrimaryWindowSet(
             windowState.shell,
@@ -356,6 +371,7 @@ namespace appLifecycle
         frameState.frameTimer.Reset();
         frameState.statsTimer.SetMaxDelta(10.0);
         frameState.statsTimer.Reset();
+        
         app.initialized = true;
         app.mainThreadId = std::this_thread::get_id();
     }
@@ -553,6 +569,7 @@ namespace appLifecycle
         auto& graphicState      = app.graphicsState;
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
+        auto& physicsState      = app.physicsState;
         
         appRuntime::ShutdownRuntime(
             windowState.shell,
@@ -578,6 +595,7 @@ namespace appLifecycle
         runtimeState.gameplayRuntime.reset();
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();
+        physicsState.joltRuntime.reset();
         contentState.levelAsset.reset();
         contentState.assets.reset();
         contentState.meshIO.reset();
