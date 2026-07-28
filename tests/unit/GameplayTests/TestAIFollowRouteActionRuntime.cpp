@@ -55,7 +55,10 @@ TEST(AIFollowRouteActionRuntime, TickUpdatesBodyFacingWithoutModifyingCameraFaci
     movementState->desiredFacingYawDegrees = 0.0f;
     movementState->cameraFacingYawDegrees = 137.0f;
 
-    AIFollowRouteActionRuntime runtime{world, MakeRoute(2.0f)};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
+    AIFollowRouteActionRuntime runtime{
+        world, traversalRegistry, traversalExecutorRegistry, MakeRoute(2.0f)};
 
     ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
     ASSERT_EQ(runtime.Tick(MakeContext(agent), 1.0f / 60.0f), AIActionRuntimeResult::Running);

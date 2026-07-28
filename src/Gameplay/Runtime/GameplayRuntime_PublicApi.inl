@@ -22,6 +22,8 @@
 
             LogSyncInstrumentationSample_();
             aiSystem_.Reset();
+            traversalLinkRegistry_.Reset();
+            traversalExecutorRegistry_.Reset();
             objectReservationSystem_.Reset();
             
             world_.Clear();
@@ -292,6 +294,8 @@
             return AIFollowRouteAction::Start(
                 aiSystem_,
                 world_,
+                traversalLinkRegistry_,
+                traversalExecutorRegistry_,
                 agentEntity,
                 std::move(route),
                 steeringSettings);
@@ -308,11 +312,55 @@
             return AIMoveToAction::Start(
                 aiSystem_,
                 world_,
+                traversalLinkRegistry_,
+                traversalExecutorRegistry_,
                 agentEntity,
                 routeGraph,
                 startNodeId,
                 goalNodeId,
                 steeringSettings);
+        }
+
+        [[nodiscard]] bool GameplayRuntime::RegisterGameplayTraversalLink(GameplayTraversalLink link)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalLinkRegistry_.Register(link);
+        }
+
+        [[nodiscard]] bool GameplayRuntime::RemoveGameplayTraversalLink(
+            const GameplayTraversalLinkHandle handle) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalLinkRegistry_.Remove(handle);
+        }
+
+        [[nodiscard]] std::optional<GameplayTraversalLink> GameplayRuntime::FindGameplayTraversalLink(
+            const GameplayTraversalLinkHandle handle) const noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalLinkRegistry_.Find(handle);
+        }
+
+        [[nodiscard]] bool GameplayRuntime::RegisterGameplayTraversalExecutor(
+            const GameplayTraversalTypeId typeId,
+            IGameplayTraversalExecutor& executor)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalExecutorRegistry_.Register(typeId, executor);
+        }
+
+        [[nodiscard]] bool GameplayRuntime::RemoveGameplayTraversalExecutor(
+        const GameplayTraversalTypeId typeId) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalExecutorRegistry_.Remove(typeId);
+        }
+
+        [[nodiscard]] bool GameplayRuntime::HasGameplayTraversalExecutor(
+        const GameplayTraversalTypeId typeId) const noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return traversalExecutorRegistry_.Contains(typeId);
         }
 
         void GameplayRuntime::CancelAIAction(const EntityHandle agentEntity)

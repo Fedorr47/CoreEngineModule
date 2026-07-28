@@ -97,6 +97,8 @@ TEST(AIMoveToAction, LowerCostBranchIsConsumedByFollower)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     GameplayRouteGraph graph{
@@ -113,7 +115,7 @@ TEST(AIMoveToAction, LowerCostBranchIsConsumedByFollower)
     };
 
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, graph, MoveNodeId(1u), MoveNodeId(3u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, graph, MoveNodeId(1u), MoveNodeId(3u)),
         AIActionExecutionStatus::Running);
     EXPECT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
 
@@ -130,13 +132,15 @@ TEST(AIMoveToAction, NoRouteDoesNotReplaceActiveAction)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     const GameplayRouteGraph activeGraph = MakeLinearMoveToGraph(
         {0.0f, 0.0f, 0.0f},
         {10.0f, 0.0f, 0.0f});
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
     ASSERT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
 
@@ -153,7 +157,7 @@ TEST(AIMoveToAction, NoRouteDoesNotReplaceActiveAction)
     };
 
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, disconnectedGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, disconnectedGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Failed);
     EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
     EXPECT_FLOAT_EQ(command->moveWorld.x, previousMoveWorld.x);
@@ -168,13 +172,15 @@ TEST(AIMoveToAction, InvalidGraphDoesNotReplaceActiveAction)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     const GameplayRouteGraph activeGraph = MakeLinearMoveToGraph(
         {0.0f, 0.0f, 0.0f},
         {10.0f, 0.0f, 0.0f});
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
 
     const GameplayRouteGraph invalidGraph{
@@ -185,7 +191,7 @@ TEST(AIMoveToAction, InvalidGraphDoesNotReplaceActiveAction)
     };
 
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, invalidGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, invalidGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Failed);
     EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
 }
@@ -196,17 +202,19 @@ TEST(AIMoveToAction, InvalidEndpointDoesNotReplaceActiveAction)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     const GameplayRouteGraph activeGraph = MakeLinearMoveToGraph(
         {0.0f, 0.0f, 0.0f},
         {10.0f, 0.0f, 0.0f});
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, activeGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
 
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, activeGraph, GameplayRouteNodeId{}, MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, activeGraph, GameplayRouteNodeId{}, MoveNodeId(2u)),
         AIActionExecutionStatus::Failed);
     EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
 }
@@ -217,20 +225,22 @@ TEST(AIMoveToAction, SuccessfulRequestReplacesPreviousAction)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     const GameplayRouteGraph firstGraph = MakeLinearMoveToGraph(
         {0.0f, 0.0f, 0.0f},
         {10.0f, 0.0f, 0.0f});
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, firstGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, firstGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
 
     const GameplayRouteGraph secondGraph = MakeLinearMoveToGraph(
         {0.0f, 0.0f, 0.0f},
         {0.0f, 0.0f, 10.0f});
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, secondGraph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, secondGraph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
     EXPECT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
 
@@ -246,6 +256,8 @@ TEST(AIMoveToAction, StartEqualsGoalSucceedsWithoutMovement)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
 
     const GameplayRouteGraph graph{
@@ -255,7 +267,7 @@ TEST(AIMoveToAction, StartEqualsGoalSucceedsWithoutMovement)
     };
 
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, graph, MoveNodeId(1u), MoveNodeId(1u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, graph, MoveNodeId(1u), MoveNodeId(1u)),
         AIActionExecutionStatus::Succeeded);
     EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Succeeded);
 
@@ -273,6 +285,8 @@ TEST(AIMoveToAction, SelectedRouteAnnotationsReachFollowerUnchanged)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
     const GameplayRouteSegmentAnnotation traversalAnnotation{
         .traversalLink = GameplayTraversalLinkHandle{77u}
@@ -289,7 +303,7 @@ TEST(AIMoveToAction, SelectedRouteAnnotationsReachFollowerUnchanged)
     };
 
     ASSERT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, graph, MoveNodeId(1u), MoveNodeId(2u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, graph, MoveNodeId(1u), MoveNodeId(2u)),
         AIActionExecutionStatus::Running);
 
     EXPECT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
@@ -302,6 +316,8 @@ TEST(AIMoveToAction, SourceGraphRemainsUnchanged)
 {
     GameplayWorld world{};
     AISystem aiSystem{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
     const EntityHandle agent = CreateMoveToAgent(world);
     GameplayRouteGraph graph{
         .nodes = {
@@ -317,7 +333,7 @@ TEST(AIMoveToAction, SourceGraphRemainsUnchanged)
     const GameplayRouteGraph originalGraph = graph;
 
     EXPECT_EQ(
-        AIMoveToAction::Start(aiSystem, world, agent, graph, MoveNodeId(1u), MoveNodeId(3u)),
+        AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, graph, MoveNodeId(1u), MoveNodeId(3u)),
         AIActionExecutionStatus::Running);
 
     ExpectMoveToGraphUnchanged(graph, originalGraph);

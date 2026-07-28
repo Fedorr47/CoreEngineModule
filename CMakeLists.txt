@@ -469,6 +469,10 @@ set(COMMON_MODULES
         Gameplay/AI/GameplayRoute.cppm
         Gameplay/AI/GameplayRouteFollower.cppm
         Gameplay/AI/GameplayRouteSearch.cppm
+        Gameplay/Traversal/GameplayTraversalLink.cppm
+        Gameplay/Traversal/GameplayTraversalLinkRegistry.cppm
+        Gameplay/Traversal/GameplayTraversalExecutor.cppm
+        Gameplay/Traversal/GameplayTraversalExecutorRegistry.cppm
         Gameplay/AI/AIFollowRouteActionRuntime.cppm
         Gameplay/AI/AIFollowRouteAction.cppm
         Gameplay/AI/AIMoveToAction.cppm

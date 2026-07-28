@@ -1,5 +1,6 @@
 module;
 
+#include <optional>
 #include <utility>
 
 export module core:ai_follow_route_action_runtime;
@@ -10,8 +11,11 @@ import :gameplay_route;
 import :gameplay_route_follower;
 import :gameplay_steering;
 import :character_controller;
+import :gameplay_traversal_link_registry;
+import :gameplay_traversal_executor;
+import :gameplay_traversal_executor_registry;
 
-export namespace rendern 
+export namespace rendern
 {
     inline constexpr AIActionId kAIFollowRouteActionId{1u};
     
@@ -20,9 +24,13 @@ export namespace rendern
     public:
         AIFollowRouteActionRuntime(
             GameplayWorld& world,
+            const GameplayTraversalLinkRegistry& traversalLinkRegistry,
+            const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
             GameplayRoute route,
             GameplayArrivalSteeringSettings steeringSettings = {}) noexcept
         : world_(world)
+        , traversalLinkRegistry_(traversalLinkRegistry)
+        , traversalExecutorRegistry_(traversalExecutorRegistry)
         , route_(std::move(route))
         , steeringSettings_(steeringSettings)
         {
@@ -37,46 +45,166 @@ export namespace rendern
             }
             
             const GameplayRouteFollowerStatus followerStatus = follower_.Start(std::move(route_), steeringSettings_);
-            return MapFollowerStatus_(context.agentEntity, followerStatus);
+            if (followerStatus == GameplayRouteFollowerStatus::Following)
+            {
+                return AIActionRuntimeResult::Running;
+            }
+            ClearMovementIfAccessible_(context.agentEntity);
+            return followerStatus == GameplayRouteFollowerStatus::Succeeded
+                ? AIActionRuntimeResult::Succeeded
+                : AIActionRuntimeResult::Failed;
         }
         
         [[nodiscard]] AIActionRuntimeResult Tick(
             const AIActionRuntimeContext& context,
-            [[maybe_unused]] const float deltaSeconds) override
+            const float deltaSeconds) override
         {
             if (!ValidateContextAndAgent_(context))
             {
                 ClearMovementIfAccessible_(context.agentEntity);
+                CancelActiveTraversal_();
                 follower_.Reset();
                 return AIActionRuntimeResult::Failed;
             }
             
-            const GameplayTransformComponent* transform = world_.TryGetTransform(context.agentEntity);
-            const GameplayRouteFollowerOutput output = follower_.Tick(transform->position);
-            if (output.status == GameplayRouteFollowerStatus::Following)
+            if (activeTraversal_)
             {
-                GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(context.agentEntity);
-                GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(context.agentEntity);
-                GameplayCharacterMovementStateComponent* movementState = world_.TryGetCharacterMovementState(context.agentEntity);
-                ApplyGameplayMovementIntent(output.movement, *command);
-                motor->desiredMoveWorld = command->moveWorld;
-                if (output.movement.IsMoving())
+                ClearMovementIfAccessible_(context.agentEntity);
+                const GameplayTraversalLinkHandle completedTraversal = activeTraversal_->context.traversalLink;
+                const GameplayTraversalExecutionResult result = activeTraversal_->executor->Tick(activeTraversal_->context, deltaSeconds);
+                if (result == GameplayTraversalExecutionResult::Running)
                 {
-                    movementState->desiredFacingYawDegrees = ExtractGameplayYawDegreesFromDirection(command->moveWorld);
+                    return AIActionRuntimeResult::Running;
                 }
-                return AIActionRuntimeResult::Running;
+                
+                activeTraversal_.reset();
+                if (result == GameplayTraversalExecutionResult::Failed 
+                    || !follower_.CompleteTraversal(completedTraversal))
+                {
+                    ClearMovementIfAccessible_(context.agentEntity);
+                    return AIActionRuntimeResult::Failed;
+                }
             }
             
-            return MapFollowerStatus_(context.agentEntity, output.status);
+            return AdvanceFollower_(context.agentEntity);
         }
         
         void Cancel(const AIActionRuntimeContext& context) noexcept override
         {
+            CancelActiveTraversal_();
             ClearMovementIfAccessible_(context.agentEntity);
             follower_.Reset();
         }
         
     private:
+        struct ActiveTraversalState
+        {
+            GameplayTraversalExecutionContext context{};
+            IGameplayTraversalExecutor* executor{nullptr};
+
+            [[nodiscard]] bool IsValid() const noexcept
+            {
+                return context.IsValid() && executor != nullptr;
+            }
+        };
+
+        [[nodiscard]] AIActionRuntimeResult AdvanceFollower_(const EntityHandle entity)
+        {
+            const GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+            const GameplayRouteFollowerOutput output = follower_.Tick(transform->position);
+            switch (output.status)
+            {
+            case GameplayRouteFollowerStatus::Following:
+                ApplyFollowerMovement_(entity, output.movement);
+                return AIActionRuntimeResult::Running;
+            case GameplayRouteFollowerStatus::TraversalRequired:
+                return StartTraversal_(entity, output.requiredTraversalLink);
+            case GameplayRouteFollowerStatus::Succeeded:
+                ClearMovementIfAccessible_(entity);
+                return AIActionRuntimeResult::Succeeded;
+            case GameplayRouteFollowerStatus::InvalidRoute:
+            case GameplayRouteFollowerStatus::NotStarted:
+            default:
+                ClearMovementIfAccessible_(entity);
+                return AIActionRuntimeResult::Failed;
+            }
+        }
+
+        void ApplyFollowerMovement_(
+            const EntityHandle entity,
+            const GameplayMovementIntent& movement) const noexcept
+        {
+            GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity);
+            GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
+            GameplayCharacterMovementStateComponent* movementState =
+                world_.TryGetCharacterMovementState(entity);
+            ApplyGameplayMovementIntent(movement, *command);
+            motor->desiredMoveWorld = command->moveWorld;
+            if (movement.IsMoving())
+            {
+                movementState->desiredFacingYawDegrees =
+                    ExtractGameplayYawDegreesFromDirection(command->moveWorld);
+            }
+        }
+
+        [[nodiscard]] AIActionRuntimeResult StartTraversal_(
+            const EntityHandle entity,
+            const std::optional<GameplayTraversalLinkHandle>& requiredLink)
+        {
+            if (!requiredLink || !requiredLink->IsValid())
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+            const std::optional<GameplayTraversalLink> link = traversalLinkRegistry_.Find(*requiredLink);
+            if (!link || !link->IsValid() || !world_.IsEntityValid(link->targetEntity))
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+            IGameplayTraversalExecutor* executor = traversalExecutorRegistry_.Find(link->traversalTypeId);
+            if (executor == nullptr)
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+            const GameplayTraversalExecutionContext traversalContext{
+                .agentEntity = entity,
+                .traversalLink = link->handle,
+                .traversalTypeId = link->traversalTypeId,
+                .targetEntity = link->targetEntity
+            };
+            if (!traversalContext.IsValid())
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+
+            ClearMovementIfAccessible_(entity);
+            const GameplayTraversalExecutionResult result = executor->Start(traversalContext);
+            if (result == GameplayTraversalExecutionResult::Running)
+            {
+                activeTraversal_ = ActiveTraversalState{
+                    .context = traversalContext,
+                    .executor = executor
+                };
+                return AIActionRuntimeResult::Running;
+            }
+            if (result == GameplayTraversalExecutionResult::Failed ||
+                !follower_.CompleteTraversal(traversalContext.traversalLink))
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+
+            // Defer progression after synchronous completion to the next action
+            // tick so arbitrarily long traversal chains cannot spin in one frame.
+            return AIActionRuntimeResult::Running;
+        }
+
+        void CancelActiveTraversal_() noexcept
+        {
+            if (activeTraversal_)
+            {
+                activeTraversal_->executor->Cancel(activeTraversal_->context);
+                activeTraversal_.reset();
+            }
+        }
         
         [[nodiscard]] bool ValidateContextAndAgent_(const AIActionRuntimeContext& context) const noexcept
         {
@@ -88,7 +216,7 @@ export namespace rendern
             const bool bHasMotor = bHasEntity && world_.HasCharacterMotor(context.agentEntity);
             const bool bHasMovementState = bHasEntity && world_.HasCharacterMovementState(context.agentEntity);
             
-            return bHasContext && bHasEntity && bIsAIAgent && 
+            return bHasContext && bHasEntity && bIsAIAgent &&
                 bHasTransform && bHasCommand && bHasMotor && bHasMovementState;
         }
         
@@ -119,29 +247,12 @@ export namespace rendern
             }
         }
         
-        [[nodiscard]] AIActionRuntimeResult MapFollowerStatus_(
-            const EntityHandle entity,
-            const GameplayRouteFollowerStatus status) const noexcept
-        {
-            switch (status)
-            {
-            case GameplayRouteFollowerStatus::Following:
-                return AIActionRuntimeResult::Running;
-            case GameplayRouteFollowerStatus::Succeeded:
-                ClearMovementIfAccessible_(entity);
-                return AIActionRuntimeResult::Succeeded;
-            case GameplayRouteFollowerStatus::TraversalRequired:
-            case GameplayRouteFollowerStatus::InvalidRoute:
-            case GameplayRouteFollowerStatus::NotStarted:
-            default:
-                ClearMovementIfAccessible_(entity);
-                return AIActionRuntimeResult::Failed;
-            }
-        }
-        
         GameplayWorld& world_;
+        const GameplayTraversalLinkRegistry& traversalLinkRegistry_;
+        const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         GameplayRoute route_{};
         GameplayArrivalSteeringSettings steeringSettings_{};
         GameplayRouteFollower follower_{};
+        std::optional<ActiveTraversalState> activeTraversal_{};
     };
 }

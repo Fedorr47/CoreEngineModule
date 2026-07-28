@@ -9,6 +9,8 @@ import :ai_system;
 import :ai_follow_route_action;
 import :gameplay_route_search;
 import :gameplay_steering;
+import :gameplay_traversal_link_registry;
+import :gameplay_traversal_executor_registry;
 
 export namespace rendern
 {
@@ -18,6 +20,8 @@ export namespace rendern
         [[nodiscard]] static AIActionExecutionStatus Start(
             AISystem& aiSystem,
             GameplayWorld& world,
+            const GameplayTraversalLinkRegistry& traversalLinkRegistry,
+            const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
             const EntityHandle agentEntity,
             const GameplayRouteGraph& routeGraph,
             const GameplayRouteNodeId startNodeId,
@@ -33,6 +37,8 @@ export namespace rendern
             return AIFollowRouteAction::Start(
                 aiSystem, 
                 world, 
+                traversalLinkRegistry,
+                traversalExecutorRegistry,
                 agentEntity, 
                 std::move(searchResult.route), 
                 steeringSettings);

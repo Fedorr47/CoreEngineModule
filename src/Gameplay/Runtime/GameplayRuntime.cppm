@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <iostream>
 #include <string_view>
 #include <unordered_map>
@@ -26,6 +27,10 @@ import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_steering;
+import :gameplay_traversal_link;
+import :gameplay_traversal_link_registry;
+import :gameplay_traversal_executor;
+import :gameplay_traversal_executor_registry;
 import :gameplay_scene_sync;
 import :gameplay_follow_camera;
 import :character_controller;
@@ -92,6 +97,17 @@ export namespace rendern
             GameplayRouteNodeId startNodeId,
             GameplayRouteNodeId goalNodeId,
             const GameplayArrivalSteeringSettings& steeringSettings = {});
+        [[nodiscard]] bool RegisterGameplayTraversalLink(GameplayTraversalLink link);
+        [[nodiscard]] bool RemoveGameplayTraversalLink(GameplayTraversalLinkHandle handle) noexcept;
+        [[nodiscard]] std::optional<GameplayTraversalLink> FindGameplayTraversalLink(
+            GameplayTraversalLinkHandle handle) const noexcept;
+        [[nodiscard]] bool RegisterGameplayTraversalExecutor(
+            GameplayTraversalTypeId typeId,
+            IGameplayTraversalExecutor& executor);
+        [[nodiscard]] bool RemoveGameplayTraversalExecutor(
+            GameplayTraversalTypeId typeId) noexcept;
+        [[nodiscard]] bool HasGameplayTraversalExecutor(
+            GameplayTraversalTypeId typeId) const noexcept;
         void CancelAIAction(EntityHandle agentEntity);
         [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] bool TryReserveGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity);
@@ -146,6 +162,9 @@ export namespace rendern
         GameplayGraphAsset defaultGraphAsset_{};
         GameplayRuntimeMode lastMode_{ GameplayRuntimeMode::Editor };
         AISystem aiSystem_{};
+        GameplayTraversalLinkRegistry traversalLinkRegistry_{};
+        GameplayTraversalExecutorRegistry traversalExecutorRegistry_{};
+        GameplayUnsupportedTraversalExecutor unsupportedTraversalExecutor_{};
         GameplayObjectReservationSystem objectReservationSystem_{};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
