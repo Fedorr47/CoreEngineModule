@@ -10,6 +10,8 @@ import :ai_system;
 import :ai_follow_route_action_runtime;
 import :gameplay_route;
 import :gameplay_steering;
+import :gameplay_traversal_link_registry;
+import :gameplay_traversal_executor_registry;
 
 export namespace rendern
 {
@@ -19,6 +21,8 @@ export namespace rendern
 		[[nodiscard]] static AIActionExecutionStatus Start(
 			AISystem& aiSystem,
 			GameplayWorld& world,
+			const GameplayTraversalLinkRegistry& traversalLinkRegistry,
+			const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
 			const EntityHandle agentEntity,
 			GameplayRoute route,
 			const GameplayArrivalSteeringSettings& steeringSettings = {})
@@ -40,6 +44,8 @@ export namespace rendern
 			
 			auto runtime = std::make_unique<AIFollowRouteActionRuntime>(
 				world,
+				traversalLinkRegistry,
+				traversalExecutorRegistry,
 				std::move(route),
 				steeringSettings);
 			

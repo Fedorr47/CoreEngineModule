@@ -71,6 +71,9 @@
             {
                 aiSystem_.Reset();
                 objectReservationSystem_.Reset();
+                // Runtime-registered traversal services belong to one simulation session.
+                traversalLinkRegistry_.Reset();
+                traversalExecutorRegistry_.Reset();
                 ResetSimulationState_();
                 if (ctx.scene != nullptr && ctx.levelInstance != nullptr)
                 {
