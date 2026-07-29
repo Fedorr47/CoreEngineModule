@@ -75,3 +75,30 @@ TEST(GameplayWorld, MultipleEntitiesMaintainIndependentComponentState)
 	EXPECT_EQ(world.TryGetAction(first)->pending.kind, GameplayActionKind::Interact);
 	EXPECT_EQ(world.TryGetAction(second)->pending.kind, GameplayActionKind::Jump);
 }
+
+// Protects foundational Door storage so its minimal open state can be updated and removed.
+TEST(GameplayWorld, StoresAndRemovesDoorComponent)
+{
+	GameplayWorld world{};
+	const EntityHandle entity = world.CreateEntity();
+	world.AddDoor(entity);
+	ASSERT_TRUE(world.HasDoor(entity));
+	ASSERT_NE(world.TryGetDoor(entity), nullptr);
+	EXPECT_FALSE(world.TryGetDoor(entity)->isOpen);
+	world.TryGetDoor(entity)->isOpen = true;
+	const GameplayWorld& constWorld = world;
+	EXPECT_TRUE(constWorld.TryGetDoor(entity)->isOpen);
+	world.RemoveDoor(entity);
+	EXPECT_FALSE(world.HasDoor(entity));
+}
+
+// Protects entity lifetime boundaries so destroyed Doors cannot expose stale component state.
+TEST(GameplayWorld, DestroyedEntityDoesNotExposeDoorComponent)
+{
+	GameplayWorld world{};
+	const EntityHandle entity = world.CreateEntity();
+	world.AddDoor(entity, GameplayDoorComponent{.isOpen = true});
+	world.DestroyEntity(entity);
+	EXPECT_FALSE(world.HasDoor(entity));
+	EXPECT_EQ(world.TryGetDoor(entity), nullptr);
+}

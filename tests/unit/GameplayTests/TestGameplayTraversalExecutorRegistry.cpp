@@ -98,8 +98,9 @@ TEST(GameplayRuntime, ManagesGameplayTraversalExecutorRegistration)
     InlineThreadOwnerRolesGuard guard{};
     GameplayRuntime runtime{};
     RegistryFakeTraversalExecutor executor{};
-    ASSERT_TRUE(runtime.RegisterGameplayTraversalExecutor(kDoorTraversalTypeId, executor));
-    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
-    EXPECT_TRUE(runtime.RemoveGameplayTraversalExecutor(kDoorTraversalTypeId));
-    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    constexpr GameplayTraversalTypeId kCustomTraversalTypeId{42u};
+    ASSERT_TRUE(runtime.RegisterGameplayTraversalExecutor(kCustomTraversalTypeId, executor));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kCustomTraversalTypeId));
+    EXPECT_TRUE(runtime.RemoveGameplayTraversalExecutor(kCustomTraversalTypeId));
+    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kCustomTraversalTypeId));
 }

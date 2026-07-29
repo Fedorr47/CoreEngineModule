@@ -58,6 +58,11 @@ export namespace rendern
         mathUtils::Vec3 localPosition{};
         float localFacingYawDegrees{ 0.0f };
     };
+    
+    struct GameplayDoorComponent
+    {
+        bool isOpen{false};
+    };
 
     struct GameplayInputIntentComponent
     {
@@ -615,6 +620,13 @@ export namespace rendern
         [[nodiscard]] const GameplayInteractionPointComponent* TryGetInteractionPoint(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasInteractionPoint(EntityHandle entity) const noexcept;
         void RemoveInteractionPoint(EntityHandle entity);
+        
+        void AddDoor(EntityHandle entity, const GameplayDoorComponent& value = {});
+        void SetDoor(EntityHandle entity, const GameplayDoorComponent& value);
+        [[nodiscard]] GameplayDoorComponent* TryGetDoor(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayDoorComponent* TryGetDoor(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasDoor(EntityHandle entity) const noexcept;
+        void RemoveDoor(EntityHandle entity);
 
         // Replaces outEntities with live AI agents sorted by EntityHandle so update
         // order does not depend on EnTT storage iteration order.

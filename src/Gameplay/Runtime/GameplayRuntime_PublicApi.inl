@@ -346,6 +346,10 @@
             IGameplayTraversalExecutor& executor)
         {
             CORE_ASSERT_RUNTIME_THREAD();
+            if (typeId == kDoorTraversalTypeId)
+            {
+                return false;
+            }
             return traversalExecutorRegistry_.Register(typeId, executor);
         }
 
@@ -353,6 +357,10 @@
         const GameplayTraversalTypeId typeId) noexcept
         {
             CORE_ASSERT_RUNTIME_THREAD();
+            if (typeId == kDoorTraversalTypeId)
+            {
+                return false;
+            }
             return traversalExecutorRegistry_.Remove(typeId);
         }
 

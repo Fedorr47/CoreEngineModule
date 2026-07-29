@@ -270,3 +270,40 @@ TEST(GameplayRuntime, CleansStaleObjectReservationsDuringGameUpdate)
     EXPECT_FALSE(runtime.IsGameplayObjectReserved(object));
     EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(object), kNullEntity);
 }
+
+// Protects built-in traversal availability so every Game-mode session restores the stable Door executor registration.
+TEST(GameplayRuntime, RegistersBuiltInDoorTraversalExecutorAcrossModeTransitions)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    GameplayRuntime runtime{};
+    LevelAsset levelAsset = MakeMinimalLevelAsset();
+    LevelInstance levelInstance{};
+    Scene scene{};
+    runtime.Initialize(levelAsset, levelInstance, scene);
+
+    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    StepFrame(runtime, GameplayRuntimeMode::Editor, levelAsset, levelInstance, scene);
+    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+}
+
+// Protects built-in ownership so public APIs cannot replace or remove the runtime Door executor.
+TEST(GameplayRuntime, RejectsPublicDoorTraversalExecutorMutation)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    GameplayRuntime runtime{};
+    GameplayUnsupportedTraversalExecutor executor{};
+    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kDoorTraversalTypeId, executor));
+
+    LevelAsset levelAsset = MakeMinimalLevelAsset();
+    LevelInstance levelInstance{};
+    Scene scene{};
+    runtime.Initialize(levelAsset, levelInstance, scene);
+    StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
+    ASSERT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_FALSE(runtime.RemoveGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+}

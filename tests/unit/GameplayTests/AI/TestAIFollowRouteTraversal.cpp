@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <vector>
+#include <utility>
 
 import core;
 
@@ -369,4 +370,92 @@ TEST(AIFollowRouteActionRuntime, ActiveTraversalPinsSelectedExecutor)
     EXPECT_EQ(executor.tickCallCount, 1);
     runtime.Cancel(MakeContext(agent));
     EXPECT_EQ(executor.cancelCallCount, 1);
+}
+namespace
+{
+    struct DoorRouteRunResult
+    {
+        AIActionRuntimeResult result{AIActionRuntimeResult::Running};
+        bool observedReservation{false};
+        bool observedDoorApproach{false};
+        bool observedContinuedRoute{false};
+        bool preservedVelocityAcrossTraversalTick{false};
+    };
+
+    DoorRouteRunResult RunDoorRoute(const bool initiallyOpen)
+    {
+        constexpr float kDeltaSeconds = 1.0f / 60.0f;
+        GameplayWorld world{};
+        const EntityHandle agent = CreateAgent(world);
+        const EntityHandle door = world.CreateEntity();
+        world.AddTransform(door, GameplayTransformComponent{.position = {2.0f, 0.0f, 0.0f}});
+        world.AddInteractionPoint(door, GameplayInteractionPointComponent{});
+        world.AddDoor(door, GameplayDoorComponent{.isOpen = initiallyOpen});
+
+        GameplayTraversalLinkRegistry linkRegistry{};
+        EXPECT_TRUE(linkRegistry.Register({.handle = GameplayTraversalLinkHandle{71u},
+            .traversalTypeId = kDoorTraversalTypeId, .targetEntity = door}));
+        GameplayObjectReservationSystem reservations{};
+        DoorTraversalExecutor doorExecutor{world, reservations};
+        GameplayTraversalExecutorRegistry executorRegistry{};
+        EXPECT_TRUE(executorRegistry.Register(kDoorTraversalTypeId, doorExecutor));
+        GameplayRoute route{
+            .points = {{.worldPosition = {}}, {.worldPosition = {2.0f, 0.0f, 0.0f}},
+                {.worldPosition = {4.0f, 0.0f, 0.0f}}},
+            .segmentAnnotations = {{.traversalLink = GameplayTraversalLinkHandle{71u}}, {}}};
+        AIFollowRouteActionRuntime runtime{world, linkRegistry, executorRegistry, std::move(route)};
+        const AIActionRuntimeContext context = MakeContext(agent);
+        DoorRouteRunResult run{};
+        run.result = runtime.Start(context);
+        std::vector<EntityHandle> movementEntities{agent};
+        float velocityBeforeActiveTick = 0.0f;
+
+        for (int frame = 0; frame < 600 && run.result == AIActionRuntimeResult::Running; ++frame)
+        {
+            run.result = runtime.Tick(context, kDeltaSeconds);
+            const bool bIsReserved = reservations.IsReservedBy(door, agent);
+            run.observedReservation = run.observedReservation || bIsReserved;
+            const auto* transform = world.TryGetTransform(agent);
+            run.observedDoorApproach = run.observedDoorApproach || transform->position.x > 0.0f;
+            run.observedContinuedRoute = run.observedContinuedRoute || transform->position.x > 2.25f;
+            if (bIsReserved && velocityBeforeActiveTick > 0.0f)
+            {
+                run.preservedVelocityAcrossTraversalTick =
+                    run.preservedVelocityAcrossTraversalTick || world.TryGetCharacterMotor(agent)->velocity.x > 0.0f;
+            }
+            UpdateGameplayCharacterMovement(world, movementEntities, kDeltaSeconds);
+            velocityBeforeActiveTick = world.TryGetCharacterMotor(agent)->velocity.x;
+            if (!initiallyOpen && reservations.IsReservedBy(door, agent) &&
+                world.TryGetTransform(agent)->position.x < 1.75f)
+            {
+                EXPECT_FALSE(world.TryGetDoor(door)->isOpen);
+            }
+        }
+
+        EXPECT_TRUE(world.TryGetDoor(door)->isOpen);
+        EXPECT_FALSE(reservations.IsReserved(door));
+        EXPECT_NEAR(world.TryGetTransform(agent)->position.x, 4.0f, 0.3f);
+        return run;
+    }
+}
+
+// Protects the complete closed-Door vertical slice through real traversal registries and movement integration.
+TEST(AIFollowRouteActionRuntime, DoorTraversalOpensDoorAndResumesRoute)
+{
+    const DoorRouteRunResult run = RunDoorRoute(false);
+    EXPECT_EQ(run.result, AIActionRuntimeResult::Succeeded);
+    EXPECT_TRUE(run.observedReservation);
+    EXPECT_TRUE(run.observedDoorApproach);
+    EXPECT_TRUE(run.preservedVelocityAcrossTraversalTick);
+    EXPECT_TRUE(run.observedContinuedRoute);
+}
+
+// Protects endpoint semantics through FollowRoute so an open Door is approached before the ordinary route resumes.
+TEST(AIFollowRouteActionRuntime, OpenDoorTraversalStillApproachesAndResumesRoute)
+{
+    const DoorRouteRunResult run = RunDoorRoute(true);
+    EXPECT_EQ(run.result, AIActionRuntimeResult::Succeeded);
+    EXPECT_TRUE(run.observedReservation);
+    EXPECT_TRUE(run.observedDoorApproach);
+    EXPECT_TRUE(run.observedContinuedRoute);
 }

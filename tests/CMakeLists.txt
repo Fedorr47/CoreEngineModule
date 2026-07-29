@@ -21,6 +21,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayActionPolicy.cpp"
         "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"
         "unit/GameplayTests/TestGameplayRuntimeNodeBoundMappingConsistency.cpp"
+        "unit/GameplayTests/Traversal/TestDoorTraversalExecutor.cpp"
         "unit/GameplayTests/AI/TestAISystem.cpp"
         "unit/GameplayTests/AI/TestAIAgentWorldState.cpp"
         "unit/GameplayTests/AI/TestAIDecisionContracts.cpp"

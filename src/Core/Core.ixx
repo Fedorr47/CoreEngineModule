@@ -51,6 +51,7 @@ export import :editor_selection_service;
 export import :editor_commands;
 export import :character_controller;
 export import :character_movement;
+export import :door_traversal_executor;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;

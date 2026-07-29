@@ -80,6 +80,20 @@
                     PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
                 }
             }
+            else if (ctx.mode == GameplayRuntimeMode::Game)
+            {
+                RegisterBuiltInTraversalExecutors_();
+            }
+        }
+
+        void GameplayRuntime::RegisterBuiltInTraversalExecutors_()
+        {
+            if (traversalExecutorRegistry_.Contains(kDoorTraversalTypeId))
+            {
+                return;
+            }
+            const bool bRegistered = traversalExecutorRegistry_.Register(kDoorTraversalTypeId, doorTraversalExecutor_);
+            assert(bRegistered && "Built-in Door traversal executor must register exactly once.");
         }
 
         void GameplayRuntime::EnsureBootstrapEntity_(const GameplayUpdateContext& ctx)

@@ -9,6 +9,7 @@ module;
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <cassert>
 
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 
@@ -40,6 +41,7 @@ import :interaction_system;
 import :gameplay_animation_bridge;
 import :gameplay_animation_bridge_system;
 import :thread_affinity;
+import :door_traversal_executor;
 
 namespace ProfileUtils
 {
@@ -137,6 +139,7 @@ export namespace rendern
         void BeginActionState_(EntityHandle entity, GameplayGraphInstance& graph);
         void ResetSimulationState_();
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
+        void RegisterBuiltInTraversalExecutors_();
         // Profiling zone start
         void EnsureBootstrapEntity_(const GameplayUpdateContext& ctx);
         void RecordSyncInstrumentationSample_(
@@ -166,6 +169,7 @@ export namespace rendern
         GameplayTraversalExecutorRegistry traversalExecutorRegistry_{};
         GameplayUnsupportedTraversalExecutor unsupportedTraversalExecutor_{};
         GameplayObjectReservationSystem objectReservationSystem_{};
+        DoorTraversalExecutor doorTraversalExecutor_{world_, objectReservationSystem_};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};

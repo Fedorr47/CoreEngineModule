@@ -40,7 +40,7 @@ export namespace rendern
         {
             if (!ValidateContextAndAgent_(context) || !route_.IsValid())
             {
-                ClearMovementIfAccessible_(context.agentEntity);
+                StopMovementIfAccessible_(context.agentEntity);
                 return AIActionRuntimeResult::Failed;
             }
             
@@ -49,7 +49,7 @@ export namespace rendern
             {
                 return AIActionRuntimeResult::Running;
             }
-            ClearMovementIfAccessible_(context.agentEntity);
+            StopMovementIfAccessible_(context.agentEntity);
             return followerStatus == GameplayRouteFollowerStatus::Succeeded
                 ? AIActionRuntimeResult::Succeeded
                 : AIActionRuntimeResult::Failed;
@@ -61,7 +61,7 @@ export namespace rendern
         {
             if (!ValidateContextAndAgent_(context))
             {
-                ClearMovementIfAccessible_(context.agentEntity);
+                StopMovementIfAccessible_(context.agentEntity);
                 CancelActiveTraversal_();
                 follower_.Reset();
                 return AIActionRuntimeResult::Failed;
@@ -69,7 +69,7 @@ export namespace rendern
             
             if (activeTraversal_)
             {
-                ClearMovementIfAccessible_(context.agentEntity);
+                ClearMovementIntentIfAccessible_(context.agentEntity);
                 const GameplayTraversalLinkHandle completedTraversal = activeTraversal_->context.traversalLink;
                 const GameplayTraversalExecutionResult result = activeTraversal_->executor->Tick(activeTraversal_->context, deltaSeconds);
                 if (result == GameplayTraversalExecutionResult::Running)
@@ -81,7 +81,7 @@ export namespace rendern
                 if (result == GameplayTraversalExecutionResult::Failed 
                     || !follower_.CompleteTraversal(completedTraversal))
                 {
-                    ClearMovementIfAccessible_(context.agentEntity);
+                    StopMovementIfAccessible_(context.agentEntity);
                     return AIActionRuntimeResult::Failed;
                 }
             }
@@ -92,7 +92,7 @@ export namespace rendern
         void Cancel(const AIActionRuntimeContext& context) noexcept override
         {
             CancelActiveTraversal_();
-            ClearMovementIfAccessible_(context.agentEntity);
+            StopMovementIfAccessible_(context.agentEntity);
             follower_.Reset();
         }
         
@@ -120,12 +120,12 @@ export namespace rendern
             case GameplayRouteFollowerStatus::TraversalRequired:
                 return StartTraversal_(entity, output.requiredTraversalLink);
             case GameplayRouteFollowerStatus::Succeeded:
-                ClearMovementIfAccessible_(entity);
+                StopMovementIfAccessible_(entity);
                 return AIActionRuntimeResult::Succeeded;
             case GameplayRouteFollowerStatus::InvalidRoute:
             case GameplayRouteFollowerStatus::NotStarted:
             default:
-                ClearMovementIfAccessible_(entity);
+                StopMovementIfAccessible_(entity);
                 return AIActionRuntimeResult::Failed;
             }
         }
@@ -176,7 +176,7 @@ export namespace rendern
                 return AIActionRuntimeResult::Failed;
             }
 
-            ClearMovementIfAccessible_(entity);
+            StopMovementIfAccessible_(entity);
             const GameplayTraversalExecutionResult result = executor->Start(traversalContext);
             if (result == GameplayTraversalExecutionResult::Running)
             {
@@ -220,7 +220,7 @@ export namespace rendern
                 bHasTransform && bHasCommand && bHasMotor && bHasMovementState;
         }
         
-        void ClearMovementIfAccessible_(const EntityHandle entity) const noexcept
+        void ClearMovementIntentIfAccessible_(const EntityHandle entity) const noexcept
         {
             if (!world_.IsEntityValid(entity))
             {
@@ -239,9 +239,15 @@ export namespace rendern
                     world_.TryGetCharacterMotor(entity))
             {
                 motor->desiredMoveWorld = {};
-
-                // Route movement is planar. Clear the remaining planar velocity so a
-                // completed or cancelled action cannot leave locomotion active.
+            }
+        }
+        
+        void StopMovementIfAccessible_(const EntityHandle entity) const noexcept
+        {
+            ClearMovementIntentIfAccessible_(entity);
+            if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
+            {
+                // Route movement is planar. Preserve vertical motion on terminal cleanup.
                 motor->velocity.x = 0.0f;
                 motor->velocity.z = 0.0f;
             }
