@@ -457,10 +457,18 @@ set(COMMON_MODULES
 
         ECS/EnTTHelpers.cppm
 
+        Gameplay/Components/GameplayEntityComponents.cppm
+        Gameplay/AI/AIAgentWorldState.cppm
+        Gameplay/AI/GameplayAIComponents.cppm
+        Gameplay/Input/GameplayInputComponents.cppm
+        Gameplay/Interaction/GameplayInteractionComponents.cppm
+        Gameplay/Character/GameplayCharacterComponents.cppm
+        Gameplay/Camera/GameplayCameraComponents.cppm
+        Gameplay/Action/GameplayActionComponents.cppm
+        Gameplay/Animation/GameplayAnimationComponents.cppm
         Gameplay/GameplayWorld.cppm
         Gameplay/GameplayWorld_impl.cppm
         Gameplay/AI/AISystem.cppm
-        Gameplay/AI/AIAgentWorldState.cppm
         Gameplay/AI/AIDecisionContracts.cppm
         Gameplay/AI/AIActionRuntime.cppm
         Gameplay/AI/AIActionTask.cppm
