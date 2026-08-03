@@ -58,6 +58,7 @@ add_executable(CoreEngineModuleTests
         "unit/CoreTests/TestThreadAffinity.cpp"
         "unit/AppTests/TestAppBootstrapArguments.cpp"
         "unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp"
+        "unit/AppTests/TestAppPhysicsStateLifecycle.cpp"
         "unit/EditorTests/TestEditorSelectionService.cpp"
         "unit/GameplayTests/TestAIFollowRouteActionRuntime.cpp"
         "unit/GameplayTests/TestGameplayTraversalLinkRegistry.cpp"

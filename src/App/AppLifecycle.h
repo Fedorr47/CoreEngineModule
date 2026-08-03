@@ -12,6 +12,7 @@
 namespace physics
 {
     class JoltRuntime;
+    class JoltPhysicsWorld;
 }
 
 namespace appLifecycle
@@ -136,8 +137,12 @@ namespace appLifecycle
         AppPhysicsState& operator=(const AppPhysicsState&) = delete;
         AppPhysicsState(AppPhysicsState&&) = delete;
         AppPhysicsState& operator=(AppPhysicsState&&) = delete;
+        
+        void Initialize();
+        void Shutdown() noexcept;
 
         std::unique_ptr<physics::JoltRuntime> joltRuntime;
+        std::unique_ptr<physics::JoltPhysicsWorld> joltPhysicsWorld;
     };
     
     struct AppState

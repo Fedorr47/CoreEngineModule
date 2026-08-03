@@ -1,4 +1,6 @@
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
+#include "Physics/Jolt/JoltRuntime.h"
+#include "Physics/Jolt/JoltPhysicsWorld.h"
 
 import core;
 import std;
@@ -13,12 +15,42 @@ import std;
 
 #include "AppLifecycle.h"
 #include "AppArguments.h"
-#include "Physics/Jolt/JoltRuntime.h"
+#include "Jolt/Core/IncludeWindows.h"
 
 namespace appLifecycle
 {
     AppPhysicsState::AppPhysicsState() = default;
-    AppPhysicsState::~AppPhysicsState() = default;
+    AppPhysicsState::~AppPhysicsState()
+    {
+        Shutdown();
+    }
+    
+    void AppPhysicsState::Initialize()
+    {
+        auto newRuntime = std::make_unique<physics::JoltRuntime>();
+        if (!newRuntime->Initialize())
+        {
+            throw std::runtime_error("Failed to initialize the Jolt runtime: "
+                "another process-wide Jolt owner already exists.");
+        }
+    
+        auto newPhysicsWorld = std::make_unique<physics::JoltPhysicsWorld>(*newRuntime);
+        if (!newPhysicsWorld->Initialize())
+        {
+            newPhysicsWorld.reset();
+            newRuntime.reset();
+            throw std::runtime_error("Failed to initialize the Jolt physics world.");
+        }
+    
+        joltRuntime = std::move(newRuntime);
+        joltPhysicsWorld = std::move(newPhysicsWorld);
+    }
+    
+    void AppPhysicsState::Shutdown() noexcept
+    {
+        joltPhysicsWorld.reset();
+        joltRuntime.reset();
+    }
     
     std::uint32_t ComputeStreamingWorkerCount(const unsigned int hardwareThreadCount) noexcept
     {
@@ -248,14 +280,7 @@ namespace appLifecycle
         threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Render);
         threadAffinity::RegisterOwnerThread(threadAffinity::ThreadOwnerRole::Physics);
         
-        physicsState.joltRuntime = std::make_unique<physics::JoltRuntime>();
-        const bool joltInitialized = physicsState.joltRuntime->Initialize();
-
-        if (!joltInitialized)
-        {
-            throw std::runtime_error("Failed to initialize the Jolt runtime: "
-                "another process-wide Jolt owner already exists.");
-        }
+        physicsState.Initialize();
 
         appBootstrap::CreatePrimaryWindowSet(
             windowState.shell,
@@ -595,7 +620,7 @@ namespace appLifecycle
         runtimeState.gameplayRuntime.reset();
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();
-        physicsState.joltRuntime.reset();
+        physicsState.Shutdown();
         contentState.levelAsset.reset();
         contentState.assets.reset();
         contentState.meshIO.reset();
