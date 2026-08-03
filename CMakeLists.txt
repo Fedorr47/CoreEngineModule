@@ -607,6 +607,8 @@ target_sources(CoreEngineModuleLib
         PRIVATE
         "${SRC_DIR}/Core/ThreadAffinity/ThreadAffinity.cpp"
         "${SRC_DIR}/Physics/Jolt/JoltRuntime.cpp"
+        "${SRC_DIR}/Physics/Jolt/JoltCollisionLayers.cpp"
+        "${SRC_DIR}/Physics/Jolt/JoltPhysicsWorld.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"
