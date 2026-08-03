@@ -66,11 +66,14 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
         "unit/PhysicsTests/TestJoltRuntime.cpp"
+        "unit/PhysicsTests/TestJoltCollisionLayers.cpp"
+        "unit/PhysicsTests/TestJoltPhysicsWorld.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
   PRIVATE
-    CoreEngineModuleLib
+    CoreEngineModuleLib 
+    Jolt::Jolt
     GTest::gtest_main
 )
 
