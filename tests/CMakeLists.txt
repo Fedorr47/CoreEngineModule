@@ -67,6 +67,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
         "unit/PhysicsTests/TestJoltRuntime.cpp"
+        "unit/PhysicsTests/TestPhysicsTypes.cpp"
         "unit/PhysicsTests/TestJoltCollisionLayers.cpp"
         "unit/PhysicsTests/TestJoltPhysicsWorld.cpp"
 )

@@ -441,6 +441,8 @@ set(COMMON_MODULES
         Core/Math/MathUtils.cppm
         Core/Math/Geometry.cppm
 
+        Physics/PhysicsTypes.cppm
+
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm
         Core/IO/FileUtils.cppm

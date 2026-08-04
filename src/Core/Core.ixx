@@ -17,6 +17,7 @@ export import :animation_controller;
 export import :skinned_mesh;
 export import :obj_loader;
 export import :math_utils;
+export import :physics_types;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
