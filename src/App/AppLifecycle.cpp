@@ -485,6 +485,8 @@ namespace appLifecycle
         UpdateGameplayAndAnimation(app, deltaSeconds);
         const auto gameplayEnd = Clock::now();
         
+        UpdatePhysics(app, deltaSeconds);
+        
         const auto imguiStart = Clock::now();
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
            app.windowState.shell,
