@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
 namespace physics
@@ -19,7 +20,9 @@ namespace physics
         [[nodiscard]] bool Initialize();
         void Shutdown() noexcept;
         [[nodiscard]] bool IsInitialized() const noexcept;
-    
+        std::uint32_t Update(float deltaSeconds);
+        void ResetSimulationClock() noexcept;
+
     private:
         struct Implementation;
         JoltRuntime& runtime_;

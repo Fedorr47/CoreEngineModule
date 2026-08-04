@@ -122,13 +122,20 @@ static void UpdateInputAndCamera(AppState& app, float deltaSeconds)
 
 static void UpdateEditorViewportInteraction(AppState& app)
 {
+    const rendern::GameplayRuntimeMode previousGameplayMode = app.runtimeState.gameplayMode;
+    
     if (app.windowState.input.State().KeyPressed(VK_F5))
     {
         app.runtimeState.gameplayMode = (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
             ? rendern::GameplayRuntimeMode::Game
             : rendern::GameplayRuntimeMode::Editor;
     }
-
+    
+    if (app.runtimeState.gameplayMode != previousGameplayMode && app.physicsState.joltPhysicsWorld != nullptr)
+    {
+        app.physicsState.joltPhysicsWorld->ResetSimulationClock();
+    }
+    
     if (app.windowState.input.State().KeyPressed(VK_F6))
     {
         app.graphicsState.rendererSettings.drawAnimationRuntimeOverlay = 
@@ -212,6 +219,19 @@ static void UpdateGameplayAndAnimation(AppState& app, float deltaSeconds)
     UpdateGameplayMovementDebug(app);
     UpdateAnimationRuntimeDebug(app);
     app.runtimeState.scene.UpdateParticles(deltaSeconds);
+}
+
+static void UpdatePhysics(AppState& app, const float deltaSeconds)
+{
+    CORE_ASSERT_PHYSICS_THREAD();
+
+    auto* physicsWorld = app.physicsState.joltPhysicsWorld.get();
+    if (physicsWorld == nullptr)
+    {
+        return;
+    }
+
+    physicsWorld->Update(deltaSeconds);
 }
 
 static void RenderMainViewport(AppState& app)
