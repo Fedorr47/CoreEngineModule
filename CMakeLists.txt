@@ -443,6 +443,7 @@ set(COMMON_MODULES
 
         Physics/PhysicsTypes.cppm
         Physics/Jolt/JoltShapeFactory.cppm
+        Physics/Jolt/JoltBodyRegistry.cppm
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm

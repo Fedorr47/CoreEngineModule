@@ -71,6 +71,7 @@ add_executable(CoreEngineModuleTests
         "unit/PhysicsTests/TestJoltCollisionLayers.cpp"
         "unit/PhysicsTests/TestJoltPhysicsWorld.cpp"
         "unit/PhysicsTests/TestJoltShapeFactory.cpp"
+        "unit/PhysicsTests/TestJoltBodyRegistry.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests

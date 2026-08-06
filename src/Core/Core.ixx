@@ -19,6 +19,7 @@ export import :obj_loader;
 export import :math_utils;
 export import :physics_types;
 export import :jolt_shape_factory;
+export import :jolt_body_registry;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
