@@ -442,6 +442,7 @@ set(COMMON_MODULES
         Core/Math/Geometry.cppm
 
         Physics/PhysicsTypes.cppm
+        Physics/Jolt/JoltShapeFactory.cppm
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm

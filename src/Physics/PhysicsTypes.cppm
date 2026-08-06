@@ -1,14 +1,57 @@
 module;
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
+#include <variant>
 
 export module core:physics_types;
 
 import :math_utils;
 
+namespace
+{
+    [[nodiscard]] bool IsPositiveFinite(const float value) noexcept
+    {
+        return value > 0.0f && std::isfinite(value);
+    }
+}
+
+
 export namespace physics
 {
+    struct BoxShapeDescriptor
+    {
+        mathUtils::Vec3 halfExtents{};
+
+        [[nodiscard]] bool IsValid() const noexcept;
+    };
+
+    struct SphereShapeDescriptor
+    {
+        float radius{ 0.0f };
+
+        [[nodiscard]] bool IsValid() const noexcept;
+    };
+
+    struct CapsuleShapeDescriptor
+    {
+        float radius{ 0.0f };
+        float cylinderHeight{ 0.0f };
+
+        [[nodiscard]] bool IsValid() const noexcept;
+
+        [[nodiscard]] constexpr float GetTotalHeight() const noexcept
+        {
+            return cylinderHeight + 2.0f * radius;
+        }
+    };
+
+    using PhysicsShapeDescriptor = std::variant<
+        BoxShapeDescriptor,
+        SphereShapeDescriptor,
+        CapsuleShapeDescriptor>;
+    
     struct PhysicsBodyHandle
     {
         using IndexType = std::uint32_t;
@@ -52,4 +95,21 @@ export namespace physics
         PhysicsTransform transform{};
         PhysicsMotionType motionType{ PhysicsMotionType::Static };
     };
+}
+
+bool physics::BoxShapeDescriptor::IsValid() const noexcept
+{
+    return IsPositiveFinite(halfExtents.x)
+        && IsPositiveFinite(halfExtents.y)
+        && IsPositiveFinite(halfExtents.z);
+}
+
+bool physics::SphereShapeDescriptor::IsValid() const noexcept
+{
+    return IsPositiveFinite(radius);
+}
+
+bool physics::CapsuleShapeDescriptor::IsValid() const noexcept
+{
+    return IsPositiveFinite(radius) && IsPositiveFinite(cylinderHeight);
 }

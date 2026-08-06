@@ -18,6 +18,7 @@ export import :skinned_mesh;
 export import :obj_loader;
 export import :math_utils;
 export import :physics_types;
+export import :jolt_shape_factory;
 export import :geometry;
 export import :EnTTHelpers;
 export import :gameplay;
