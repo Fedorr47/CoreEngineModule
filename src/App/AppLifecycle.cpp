@@ -489,10 +489,6 @@ namespace appLifecycle
             runtimeState.scene = std::move(candidateScene);
             contentState.levelAsset = std::move(candidateLevel);
             runtimeState.levelInstance = std::move(candidateLevelInstance);
-            
-            // The new level owns its active texture handles.
-            // Resources owned only by the previous level can now be released.
-            contentState.assets->UnloadUnused();
 
             runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
 
@@ -508,6 +504,8 @@ namespace appLifecycle
             rendern::ui::ResetLevelEditorUIState();
 
             launchState.currentLevelName = contentState.levelAsset->sourcePath;
+
+            contentState.assets->UnloadUnused();
 
             frameState.loadingOverlay = LoadingOverlayState{};
 

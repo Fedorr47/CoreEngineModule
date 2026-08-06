@@ -198,23 +198,12 @@ namespace rendern::ui::level_ui_detail
             {
                 const std::string meshId = MakeUniqueMeshId(level, makeImportBaseId("mesh"));
 
-                rendern::LevelMeshDef def{};
-                def.path = pathStr;
-                def.debugName = meshId;
-                def.flipUVs = uiState.importFlipUVs;
-                level.meshes.emplace(meshId, std::move(def));
+                rendern::LevelMeshDef definition{};
+                definition.path = pathStr;
+                definition.debugName = meshId;
+                definition.flipUVs = uiState.importFlipUVs;
 
-                try
-                {
-                    rendern::MeshProperties p{};
-                    p.filePath = pathStr;
-                    p.debugName = meshId;
-                    p.flipUVs = uiState.importFlipUVs;
-                    assets.LoadMeshAsync(meshId, std::move(p));
-                }
-                catch (...)
-                {
-                }
+                level.meshes.emplace(meshId, std::move(definition));
             }
         }
         ImGui::SameLine();

@@ -1,3 +1,20 @@
+static std::string MakeLevelResourceKey_(
+const LevelAsset& level,
+const std::string_view resourceType,
+const std::string_view resourceId)
+{
+	const std::string_view levelScope =
+		level.sourcePath.empty()
+			? std::string_view{ level.name }
+			: std::string_view{ level.sourcePath };
+
+	return std::string(levelScope)
+		+ "::"
+		+ std::string(resourceType)
+		+ "::"
+		+ std::string(resourceId);
+}
+
 rhi::TextureHandle TryGetTextureHandle_(
 	const std::string_view textureId) const noexcept
 {
@@ -36,23 +53,15 @@ rhi::TextureDescIndex GetOrCreateTextureDesc_(
 	BindlessTable& bindless,
 	const std::string_view textureId)
 {
-	const std::string textureKey{
-		textureId
-	};
-
-	const rhi::TextureHandle textureHandle =
-		TryGetTextureHandle_(textureId);
-
-	const auto descriptorIt =
-		textureDesc_.find(textureKey);
+	const std::string textureKey{textureId};
+	const rhi::TextureHandle textureHandle = TryGetTextureHandle_(textureId);
+	const auto descriptorIt = textureDesc_.find(textureKey);
 
 	if (descriptorIt != textureDesc_.end())
 	{
 		if (textureHandle)
 		{
-			bindless.UpdateTexture(
-				descriptorIt->second,
-				textureHandle);
+			bindless.UpdateTexture(descriptorIt->second, textureHandle);
 		}
 
 		return descriptorIt->second;
@@ -63,32 +72,40 @@ rhi::TextureDescIndex GetOrCreateTextureDesc_(
 		return 0;
 	}
 
-	const rhi::TextureDescIndex descriptorIndex =
-		bindless.RegisterTexture(
-			textureHandle);
-
-	textureDesc_.emplace(
-		textureKey,
-		descriptorIndex);
+	const rhi::TextureDescIndex descriptorIndex = bindless.RegisterTexture(textureHandle);
+	textureDesc_.emplace(textureKey, descriptorIndex);
 
 	return descriptorIndex;
 }
 
-MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, const std::string& meshId) const
+MeshHandle GetOrLoadMeshHandle_(
+	const LevelAsset& asset,
+	AssetManager& assets,
+	const std::string& meshId) const
 {
-	auto it = asset.meshes.find(meshId);
-	if (it == asset.meshes.end())
+	const auto meshIt = asset.meshes.find(meshId);
+
+	if (meshIt == asset.meshes.end())
 	{
 		throw std::runtime_error("Level: node references unknown meshId: " + meshId);
 	}
 
-	MeshProperties p{};
-	p.filePath = it->second.path;
-	p.debugName = it->second.debugName;
-	p.flipUVs = it->second.flipUVs;
-	p.submeshIndex = it->second.submeshIndex;
-	p.bakeNodeTransforms = it->second.bakeNodeTransforms;
-	return assets.LoadMeshAsync(meshId, std::move(p));
+	const LevelMeshDef& meshDefinition = meshIt->second;
+
+	MeshProperties properties{};
+	properties.filePath = meshDefinition.path;
+	properties.debugName = meshDefinition.debugName;
+	properties.flipUVs = meshDefinition.flipUVs;
+	properties.submeshIndex = meshDefinition.submeshIndex;
+	properties.bakeNodeTransforms = meshDefinition.bakeNodeTransforms;
+
+	const std::string resourceKey =
+		MakeLevelResourceKey_(
+			asset,
+			"mesh",
+			meshId);
+
+	return assets.LoadMeshAsync(resourceKey, std::move(properties));
 }
 
 const LevelModelDef& GetModelDef_(const LevelAsset& asset, const std::string& modelId) const
@@ -408,8 +425,14 @@ std::vector<int> MakeDrawsForModelNode_(const LevelAsset& asset, Scene& scene, A
 		p.debugName = md.debugName.empty() ? sub.name : (md.debugName + "_" + sub.name);
 		p.flipUVs = md.flipUVs;
 		p.submeshIndex = sub.submeshIndex;
-		const std::string meshKey = node.model + "#submesh=" + std::to_string(sub.submeshIndex);
-		MeshHandle mesh = assets.LoadMeshAsync(meshKey, std::move(p));
+		
+		const std::string modelSubmeshId =
+			node.model
+			+ "#submesh="
+			+ std::to_string(sub.submeshIndex);
+
+		const std::string resourceKey = MakeLevelResourceKey_(asset, "model-submesh", modelSubmeshId);
+		MeshHandle mesh = assets.LoadMeshAsync(resourceKey, std::move(p));
 
 		std::string materialId = node.material;
 		if (auto itOverride = node.materialOverrides.find(sub.submeshIndex); itOverride != node.materialOverrides.end())
