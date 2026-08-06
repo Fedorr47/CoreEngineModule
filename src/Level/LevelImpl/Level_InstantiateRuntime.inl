@@ -1,3 +1,17 @@
+static std::string MakeLevelTextureResourceKey(
+	const LevelAsset& level,
+	const std::string_view textureId)
+{
+	const std::string_view levelScope =
+		level.sourcePath.empty()
+			? std::string_view{ level.name }
+			: std::string_view{ level.sourcePath };
+
+	return std::string(levelScope)
+		+ "::texture::"
+		+ std::string(textureId);
+}
+
 LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable&, const LevelAsset& asset, const mathUtils::Mat4& root)
 {
 	LevelInstance inst;
@@ -33,39 +47,59 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		return false;
 	};
 
+	inst.textureHandles_.reserve(asset.textures.size());
 	// Textures: request loads (descriptor indices are resolved later)
-	for (const auto& [id, td] : asset.textures)
+	for (const auto& [textureId, textureDefinition] : asset.textures)
 	{
-		if (td.kind == LevelTextureKind::Tex2D)
+		TextureProperties properties = textureDefinition.props;
+		properties.isNormalMap = properties.isNormalMap || IsTextureUsedAsNormalMap(textureId);
+
+		const std::string resourceKey = MakeLevelTextureResourceKey(asset, textureId);
+		std::shared_ptr<TextureResource> textureHandle;
+		
+		if (textureDefinition.kind == LevelTextureKind::Tex2D)
 		{
-			TextureProperties p = td.props;
-			p.isNormalMap = p.isNormalMap || IsTextureUsedAsNormalMap(id);
-			assets.LoadTextureAsync(id, std::move(p));
+			textureHandle = assets.LoadTextureAsync(resourceKey, std::move(properties));
 		}
-		else
+		else if (textureDefinition.cubeSource == LevelCubeSource::Cross)
 		{
-			TextureProperties p = td.props;
-			if (td.cubeSource == LevelCubeSource::Cross)
+			properties.cubeFromCross = true;
+
+			textureHandle =
+				assets.LoadTextureAsync(
+					resourceKey,
+					std::move(properties));
+		}
+		else if (textureDefinition.cubeSource == LevelCubeSource::AutoFaces)
+		{
+			if (!textureDefinition.preferBase.empty())
 			{
-				p.cubeFromCross = true;
-				assets.LoadTextureAsync(id, std::move(p));
-			}
-			else if (td.cubeSource == LevelCubeSource::AutoFaces)
-			{
-				if (!td.preferBase.empty())
-				{
-					assets.LoadTextureCubeAsync(id, td.baseOrDir, td.preferBase, std::move(p));
-				}
-				else
-				{
-					assets.LoadTextureCubeAsync(id, td.baseOrDir, std::move(p));
-				}
+				textureHandle =
+					assets.LoadTextureCubeAsync(
+						resourceKey,
+						textureDefinition.baseOrDir,
+						textureDefinition.preferBase,
+						std::move(properties));
 			}
 			else
 			{
-				assets.LoadTextureCubeAsync(id, td.facePaths, std::move(p));
+				textureHandle =
+					assets.LoadTextureCubeAsync(
+						resourceKey,
+						textureDefinition.baseOrDir,
+						std::move(properties));
 			}
 		}
+		else
+		{
+			textureHandle =
+				assets.LoadTextureCubeAsync(
+					resourceKey,
+					textureDefinition.facePaths,
+					std::move(properties));
+		}
+
+		inst.textureHandles_.emplace(textureId,std::move(textureHandle));
 	}
 
 	// Meshes: request loads

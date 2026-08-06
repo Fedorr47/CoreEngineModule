@@ -50,7 +50,7 @@ namespace appRuntime
             budget.maxMeshUploadsPerFrame,
             budget.maxMeshDeletesPerFrame);
 
-        levelInstance.ResolveTextureBindings(assets, bindless, scene);
+        levelInstance.ResolveTextureBindings(bindless, scene);
     }
 
     inline bool CanRenderDebugSwapChain(const appWin32::Win32Window& debugWindow, const rhi::IRHISwapChain* debugSwapChain)

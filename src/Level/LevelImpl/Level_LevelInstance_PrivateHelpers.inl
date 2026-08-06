@@ -1,44 +1,78 @@
-rhi::TextureHandle TryGetTextureHandle_(ResourceManager& rm, std::string_view id) const noexcept
+rhi::TextureHandle TryGetTextureHandle_(
+	const std::string_view textureId) const noexcept
 {
-	if (auto texRes = rm.Get<TextureResource>(id))
+	const auto textureIt =
+		textureHandles_.find(
+			std::string(textureId));
+
+	if (textureIt == textureHandles_.end())
 	{
-		const auto& gpu = texRes->GetResource();
-		if (gpu.id != 0)
-		{
-			return rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
-		}
+		return {};
 	}
-	return {};
+
+	const std::shared_ptr<TextureResource>& textureResource =
+		textureIt->second;
+
+	if (!textureResource)
+	{
+		return {};
+	}
+
+	const GPUTexture& gpuTexture =
+		textureResource->GetResource();
+
+	if (gpuTexture.id == 0)
+	{
+		return {};
+	}
+
+	return rhi::TextureHandle{
+		static_cast<std::uint32_t>(
+			gpuTexture.id)
+	};
 }
 
 rhi::TextureDescIndex GetOrCreateTextureDesc_(
-	ResourceManager& rm,
 	BindlessTable& bindless,
-	std::string_view textureId)
+	const std::string_view textureId)
 {
-	const std::string key{ textureId };
+	const std::string textureKey{
+		textureId
+	};
 
-	if (auto it = textureDesc_.find(key); it != textureDesc_.end())
+	const rhi::TextureHandle textureHandle =
+		TryGetTextureHandle_(textureId);
+
+	const auto descriptorIt =
+		textureDesc_.find(textureKey);
+
+	if (descriptorIt != textureDesc_.end())
 	{
-		const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
-		if (handle)
+		if (textureHandle)
 		{
-			bindless.UpdateTexture(it->second, handle);
+			bindless.UpdateTexture(
+				descriptorIt->second,
+				textureHandle);
 		}
-		return it->second;
+
+		return descriptorIt->second;
 	}
 
-	const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
-	if (!handle)
+	if (!textureHandle)
 	{
 		return 0;
 	}
 
-	const rhi::TextureDescIndex index = bindless.RegisterTexture(handle);
-	textureDesc_.emplace(key, index);
-	return index;
-}
+	const rhi::TextureDescIndex descriptorIndex =
+		bindless.RegisterTexture(
+			textureHandle);
 
+	textureDesc_.emplace(
+		textureKey,
+		descriptorIndex);
+
+	return descriptorIndex;
+}
 
 MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, const std::string& meshId) const
 {

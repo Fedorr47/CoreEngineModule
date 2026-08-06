@@ -90,6 +90,11 @@ namespace rendern::ui
             "Naming: AI_Move_Point_<number>.");
     }
     
+    void ResetLevelEditorUIState()
+    {
+        level_ui_detail::GetState() = level_ui_detail::LevelEditorUIState{};
+    }
+    
     void DrawLevelEditorUI(
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
