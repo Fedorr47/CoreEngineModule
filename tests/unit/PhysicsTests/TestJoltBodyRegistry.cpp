@@ -13,7 +13,7 @@ namespace
     const JPH::BodyID SecondBodyId{ 20u, JPH::uint8{ 2u } };
     const JPH::BodyID ThirdBodyId{ 30u, JPH::uint8{ 3u } };
 
-    void ExpectBodyId(const std::optional<JPH::BodyID>& actual, const JPH::BodyID expected)
+    void ExpectBodyID(const std::optional<JPH::BodyID>& actual, const JPH::BodyID expected)
     {
         ASSERT_TRUE(actual.has_value());
         EXPECT_EQ(actual->GetIndexAndSequenceNumber(), expected.GetIndexAndSequenceNumber());
@@ -36,7 +36,7 @@ TEST(JoltBodyRegistry, AllocatesAndResolvesBodyId)
 
     EXPECT_TRUE(handle.IsValid());
     EXPECT_TRUE(registry.IsValid(handle));
-    ExpectBodyId(registry.ResolveBodyID(handle), FirstBodyId);
+    ExpectBodyID(registry.ResolveBodyID(handle), FirstBodyId);
 }
 
 TEST(JoltBodyRegistry, MultipleLiveBodiesUseDifferentSlots)
@@ -48,8 +48,8 @@ TEST(JoltBodyRegistry, MultipleLiveBodiesUseDifferentSlots)
     EXPECT_TRUE(firstHandle.IsValid());
     EXPECT_TRUE(secondHandle.IsValid());
     EXPECT_NE(firstHandle.index, secondHandle.index);
-    ExpectBodyId(registry.ResolveBodyID(firstHandle), FirstBodyId);
-    ExpectBodyId(registry.ResolveBodyID(secondHandle), SecondBodyId);
+    ExpectBodyID(registry.ResolveBodyID(firstHandle), FirstBodyId);
+    ExpectBodyID(registry.ResolveBodyID(secondHandle), SecondBodyId);
 }
 
 TEST(JoltBodyRegistry, ReleaseInvalidatesHandle)
@@ -73,7 +73,7 @@ TEST(JoltBodyRegistry, ReusesReleasedSlotWithNewGeneration)
     EXPECT_EQ(secondHandle.index, firstHandle.index);
     EXPECT_NE(secondHandle.generation, firstHandle.generation);
     EXPECT_TRUE(registry.IsValid(secondHandle));
-    ExpectBodyId(registry.ResolveBodyID(secondHandle), SecondBodyId);
+    ExpectBodyID(registry.ResolveBodyID(secondHandle), SecondBodyId);
 }
 
 TEST(JoltBodyRegistry, StaleHandleDoesNotResolveAfterReuse)
