@@ -28,11 +28,15 @@ namespace appWin32
         Win32Window* debugWindow{nullptr};
         rendern::Win32Input* input{nullptr};
         HMENU mainMenu{nullptr};
+        
+        std::string requestedLevelPath;
+        
         bool showDebugWindow{false};
         bool imguiInitialized{false};
     };
 
     constexpr UINT IDM_MAIN_EXIT = 0x1001;
+    constexpr UINT IDM_FILE_OPEN_LEVEL = 0x1002;
     constexpr UINT IDM_VIEW_DEBUG_WINDOW = 0x2001;
 
 #if defined(CORE_USE_DX12)

@@ -7,15 +7,60 @@ import std;
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <commdlg.h>
 #endif
 
 #include "Win32AppShell.h"
 
 namespace appWin32
 {
-#if defined(CORE_USE_DX12)
     namespace
     {
+        std::string OpenLevelFileDialog(HWND ownerWindow)
+        {
+            wchar_t selectedPath[32768]{};
+
+            OPENFILENAMEW dialog{};
+            dialog.lStructSize = sizeof(dialog);
+            dialog.hwndOwner = ownerWindow;
+            dialog.lpstrFile = selectedPath;
+            dialog.nMaxFile = static_cast<DWORD>(std::size(selectedPath));
+
+            dialog.lpstrFilter =
+                L"CoreEngine level files (*.json)\0"
+                L"*.json\0"
+                L"All files (*.*)\0"
+                L"*.*\0";
+
+            dialog.lpstrTitle = L"Open Level";
+
+            dialog.Flags =
+                OFN_FILEMUSTEXIST |
+                OFN_PATHMUSTEXIST |
+                OFN_NOCHANGEDIR;
+
+            if (!GetOpenFileNameW(&dialog))
+            {
+                return {};
+            }
+
+            return std::filesystem::path(selectedPath).string();
+        }
+
+        void RequestOpenLevel(
+            AppShellContext& shell,
+            HWND ownerWindow)
+        {
+            std::string selectedLevelPath = OpenLevelFileDialog(ownerWindow);
+
+            if (selectedLevelPath.empty())
+            {
+                return;
+            }
+
+            shell.requestedLevelPath = std::move(selectedLevelPath);
+        }
+#if defined(CORE_USE_DX12)       
         void ToggleDebugWindowVisibility(AppShellContext& shell)
         {
             if (shell.debugWindow && shell.debugWindow->hwnd)
@@ -29,6 +74,7 @@ namespace appWin32
 
             UpdateMainMenuDebugWindowCheck(shell);
         }
+#endif
     }
 
     void UpdateMainMenuDebugWindowCheck(AppShellContext& shell)
@@ -49,29 +95,32 @@ namespace appWin32
             DrawMenuBar(shell.mainWindow->hwnd);
         }
     }
-#endif
 
     HMENU CreateMainMenu(bool enableDebugItem, bool debugChecked)
     {
         HMENU menu = CreateMenu();
-        HMENU mainPopup = CreatePopupMenu();
+        HMENU filePopup = CreatePopupMenu();
         HMENU viewPopup = CreatePopupMenu();
 
-        AppendMenuW(mainPopup, MF_STRING, IDM_MAIN_EXIT, L"Exit");
-        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(mainPopup), L"Main");
+        AppendMenuW(filePopup, MF_STRING, IDM_FILE_OPEN_LEVEL, L"Open Level...\tCtrl+O");
+        AppendMenuW(filePopup,MF_SEPARATOR,0,nullptr);
+        AppendMenuW( filePopup, MF_STRING, IDM_MAIN_EXIT, L"Exit");
+        AppendMenuW( menu, MF_POPUP, reinterpret_cast<UINT_PTR>(filePopup), L"File");
 
         UINT viewFlags = MF_STRING;
+
         if (!enableDebugItem)
         {
             viewFlags |= MF_GRAYED;
         }
+
         if (debugChecked)
         {
             viewFlags |= MF_CHECKED;
         }
 
-        AppendMenuW(viewPopup, viewFlags, IDM_VIEW_DEBUG_WINDOW, L"Open Debug Window	F1");
-        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(viewPopup), L"View");
+        AppendMenuW(viewPopup,viewFlags,IDM_VIEW_DEBUG_WINDOW, L"Open Debug Window\tF1");
+        AppendMenuW(menu,MF_POPUP,reinterpret_cast<UINT_PTR>(viewPopup),L"View");
 
         return menu;
     }
@@ -114,11 +163,24 @@ namespace appWin32
         {
         case WM_COMMAND:
         {
-            const int cmdId = static_cast<int>(LOWORD(wParam));
-            if (shell && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
-            {
+                const int cmdId = static_cast<int>(LOWORD(wParam));
+
+                const bool bIsMainWindow =
+                    shell != nullptr
+                    && shell->mainWindow != nullptr
+                    && hwnd == shell->mainWindow->hwnd;
+
+                if (!bIsMainWindow)
+                {
+                    break;
+                }
+
                 switch (cmdId)
                 {
+                case IDM_FILE_OPEN_LEVEL:
+                    RequestOpenLevel(*shell, hwnd);
+                    return 0;
+
                 case IDM_MAIN_EXIT:
                     DestroyWindow(hwnd);
                     return 0;
@@ -133,8 +195,8 @@ namespace appWin32
                 default:
                     break;
                 }
-            }
-            break;
+
+                break;
         }
         case WM_CLOSE:
 #if defined(CORE_USE_DX12)
@@ -176,27 +238,43 @@ namespace appWin32
         }
 
         case WM_KEYDOWN:
-            if (wParam == VK_ESCAPE)
             {
-                if (shell && shell->mainWindow && hwnd == shell->mainWindow->hwnd)
+                const bool bIsMainWindow =
+                    shell != nullptr
+                    && shell->mainWindow != nullptr
+                    && hwnd == shell->mainWindow->hwnd;
+
+                const bool bWasDown = (lParam & (1 << 30)) != 0;
+                const bool bIsControlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+
+                if (bIsMainWindow
+                    && !bWasDown
+                    && bIsControlDown
+                    && wParam == 'O')
                 {
-                    DestroyWindow(hwnd);
+                    RequestOpenLevel(*shell, hwnd);
                     return 0;
                 }
-            }
-#if defined(CORE_USE_DX12)
-            if (wParam == VK_F1)
-            {
-                const bool wasDown = (lParam & (1 << 30)) != 0;
-                if (!wasDown && shell)
+
+                if (wParam == VK_ESCAPE)
                 {
-                    shell->showDebugWindow = !shell->showDebugWindow;
-                    ToggleDebugWindowVisibility(*shell);
+                    if (bIsMainWindow)
+                    {
+                        DestroyWindow(hwnd);
+                        return 0;
+                    }
                 }
-                return 0;
+                if (wParam == VK_F1)
+                {
+                    if (!bWasDown && shell)
+                    {
+                        shell->showDebugWindow = !shell->showDebugWindow;
+                        ToggleDebugWindowVisibility(*shell);
+                    }
+                    return 0;
+                }
+                break;
             }
-#endif
-            break;
 
         default:
             break;

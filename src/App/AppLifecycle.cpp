@@ -438,6 +438,93 @@ namespace appLifecycle
             : performanceSnapshot.frameTimeMs;
         performanceSnapshot.PushFrameTimeSample(frameTimeSampleMs);
     }
+    
+    static bool TryOpenLevel(
+        AppState& app,
+        std::string_view requestedPath,
+        std::string& outError)
+    {
+        CORE_ASSERT_MAIN_THREAD();
+
+        auto& runtimeState = app.runtimeState;
+        auto& contentState = app.contentState;
+        auto& graphicState = app.graphicsState;
+        auto& launchState = app.launchState;
+        auto& frameState = app.frameState;
+
+        try
+        {
+            // Prepare the complete candidate before touching the current level.
+            auto candidateLevel =
+                std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson(requestedPath));
+
+            rendern::Scene candidateScene{};
+
+            auto candidateLevelInstance =
+                std::make_unique<rendern::LevelInstance>(
+                    rendern::InstantiateLevel(
+                        candidateScene,
+                        *contentState.assets,
+                        *graphicState.bindless,
+                        *candidateLevel,
+                        mathUtils::Mat4(1.0f)));
+
+            // Level replacement is rare. Prefer a safe GPU synchronization
+            // point over keeping old descriptors alive across the switch.
+            graphicState.device->WaitIdle();
+
+            ResetEditorInteractionState(app);
+
+            if (runtimeState.gameplayRuntime)
+            {
+                runtimeState.gameplayRuntime->Shutdown();
+                runtimeState.gameplayRuntime.reset();
+            }
+
+            if (runtimeState.levelInstance)
+            {
+                runtimeState.levelInstance->FreeDescriptors(*graphicState.bindless);
+            }
+
+            runtimeState.scene = std::move(candidateScene);
+            contentState.levelAsset = std::move(candidateLevel);
+            runtimeState.levelInstance = std::move(candidateLevelInstance);
+
+            runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
+
+            runtimeState.gameplayRuntime->Initialize(
+                *contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene);
+
+            runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
+
+            runtimeState.gameplayMode = rendern::GameplayRuntimeMode::Editor;
+            
+            rendern::ui::ResetLevelEditorUIState();
+
+            launchState.currentLevelName = contentState.levelAsset->sourcePath;
+
+            contentState.assets->UnloadUnused();
+
+            frameState.loadingOverlay = LoadingOverlayState{};
+
+            graphicState.rendererSettings.loadingOverlayVisible = true;
+            graphicState.rendererSettings.loadingOverlayProgressBar = 0.0f;
+
+            if (app.physicsState.joltPhysicsWorld)
+            {
+                app.physicsState.joltPhysicsWorld->ResetSimulationClock();
+            }
+
+            return true;
+        }
+        catch (const std::exception& exception)
+        {
+            outError = exception.what();
+            return false;
+        }
+    }
 
     bool TickApp(AppState& app)
     {
@@ -448,6 +535,25 @@ namespace appLifecycle
         if (!PumpAndCheckRunning(app))
         {
             return false;
+        }
+        
+        std::string requestedLevelPath =
+            std::exchange(app.windowState.shell.requestedLevelPath,{});
+
+        if (!requestedLevelPath.empty())
+        {
+            std::string levelOpenError;
+
+            const bool bLevelOpened = TryOpenLevel(app, requestedLevelPath, levelOpenError);
+            if (!bLevelOpened)
+            {
+                std::cerr
+                    << "[Level] Failed to open level '"
+                    << requestedLevelPath.data()
+                    << "': "
+                    << levelOpenError.data()
+                    << '\n';
+            }
         }
 
         ApplyPendingResize(app);
