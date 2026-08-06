@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <memory>
 
+import core;
+
 namespace physics
 {
     class JoltRuntime;
@@ -22,6 +24,9 @@ namespace physics
         [[nodiscard]] bool IsInitialized() const noexcept;
         std::uint32_t Update(float deltaSeconds);
         void ResetSimulationClock() noexcept;
+        [[nodiscard]] PhysicsBodyHandle CreateBody(const PhysicsBodyDescriptor& descriptor);
+        [[nodiscard]] bool DestroyBody(PhysicsBodyHandle handle);
+        [[nodiscard]] bool IsBodyValid(PhysicsBodyHandle handle) const noexcept;
 
     private:
         struct Implementation;
