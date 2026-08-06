@@ -92,6 +92,7 @@ export namespace physics
 
     struct PhysicsBodyDescriptor
     {
+        PhysicsShapeDescriptor shape{};
         PhysicsTransform transform{};
         PhysicsMotionType motionType{ PhysicsMotionType::Static };
     };

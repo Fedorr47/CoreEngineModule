@@ -204,6 +204,16 @@ export namespace mathUtils
 	}
 
 	inline float Length(const Vec3& v) noexcept { return std::sqrt(Dot(v, v)); }
+	
+	[[nodiscard]] inline float LengthSquared(const Vec3& value) noexcept
+	{
+		return Dot(value, value);
+	}
+
+	[[nodiscard]] inline float LengthSquared(const Vec4& value) noexcept
+	{
+		return Dot(value, value);
+	}
 
 	inline Vec3 MakeUnitVector(const Vec3& v) noexcept
 	{
@@ -612,5 +622,26 @@ export namespace mathUtils
 		return std::fabs(a.x - b.x) <= eps &&
 			std::fabs(a.y - b.y) <= eps &&
 			std::fabs(a.z - b.z) <= eps;
+	}
+	
+	[[nodiscard]] inline bool IsFinite(const Vec2& value) noexcept
+	{
+		return std::isfinite(value.x)
+			&& std::isfinite(value.y);
+	}
+
+	[[nodiscard]] inline bool IsFinite(const Vec3& value) noexcept
+	{
+		return std::isfinite(value.x)
+			&& std::isfinite(value.y)
+			&& std::isfinite(value.z);
+	}
+
+	[[nodiscard]] inline bool IsFinite(const Vec4& value) noexcept
+	{
+		return std::isfinite(value.x)
+			&& std::isfinite(value.y)
+			&& std::isfinite(value.z)
+			&& std::isfinite(value.w);
 	}
 }

@@ -5,6 +5,7 @@ module;
 
 #include <limits>
 #include <optional>
+#include <utility>
 #include <vector>
 
 export module core:jolt_body_registry;
@@ -32,6 +33,20 @@ export namespace physics::jolt
         [[nodiscard]] bool ReleaseHandle(const PhysicsBodyHandle handle);
         
         [[nodiscard]] bool IsValid(PhysicsBodyHandle handle) const noexcept;
+        
+        template<typename Visitor>
+        void VisitActiveBodyIDs(Visitor&& visitor) const
+        {
+            for (const Slot& slot : slots_)
+            {
+                if (slot.bOccupied)
+                {
+                    std::forward<Visitor>(visitor)(slot.bodyID);
+                }
+            }
+        }
+
+        void Reset() noexcept;
         
     private:
         struct Slot
@@ -66,6 +81,7 @@ physics::PhysicsBodyHandle physics::jolt::JoltBodyRegistry::AllocateHandle(JPH::
             return InvalidPhysicsBodyHandle;
         }
         
+        freeSlotIndices_.reserve(slots_.size() + 1u);
         slotIndex = static_cast<PhysicsBodyHandle::IndexType>(slots_.size());
         slots_.emplace_back();
     }
@@ -125,4 +141,24 @@ bool physics::jolt::JoltBodyRegistry::ReleaseHandle(const PhysicsBodyHandle hand
 bool physics::jolt::JoltBodyRegistry::IsValid(const PhysicsBodyHandle handle) const noexcept
 {
     return ResolveBodyID(handle).has_value();
+}
+
+void physics::jolt::JoltBodyRegistry::Reset() noexcept
+{
+    freeSlotIndices_.clear();
+    for (PhysicsBodyHandle::IndexType index = 0u; index < slots_.size(); ++index)
+    {
+        Slot& slot = slots_[index];
+        slot.bodyID = JPH::BodyID{};
+        slot.bOccupied = false;
+        if (slot.generation == std::numeric_limits<PhysicsBodyHandle::GenerationType>::max())
+        {
+            slot.generation = 1u;
+        }
+        else
+        {
+            ++slot.generation;
+        }
+        freeSlotIndices_.push_back(index);
+    }
 }

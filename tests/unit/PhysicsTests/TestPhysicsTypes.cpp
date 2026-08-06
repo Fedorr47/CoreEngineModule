@@ -177,6 +177,7 @@ TEST(PhysicsBodyDescriptor, DefaultsToStaticBody)
 {
     constexpr physics::PhysicsBodyDescriptor descriptor;
 
+    EXPECT_FALSE(std::get<physics::BoxShapeDescriptor>(descriptor.shape).IsValid());
     EXPECT_EQ(descriptor.transform, physics::PhysicsTransform{});
     EXPECT_EQ(descriptor.motionType, physics::PhysicsMotionType::Static);
 }
