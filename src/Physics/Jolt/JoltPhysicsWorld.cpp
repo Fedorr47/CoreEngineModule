@@ -183,11 +183,6 @@ namespace physics
         
         CORE_ASSERT_PHYSICS_THREAD();
         
-        if (descriptor.motionType == PhysicsMotionType::Kinematic)
-        {
-            return InvalidPhysicsBodyHandle;
-        }
-        
         const std::optional<ConvertedTransform> transform = ConvertTransform(descriptor.transform);
         if (!transform.has_value())
         {
@@ -211,6 +206,12 @@ namespace physics
         {
             motionType = JPH::EMotionType::Static;
             objectLayer = jolt::ObjectLayers::StaticWorld;
+            activation = JPH::EActivation::DontActivate;
+        }
+        else if (descriptor.motionType == PhysicsMotionType::Kinematic)
+        {
+            motionType = JPH::EMotionType::Kinematic;
+            objectLayer = jolt::ObjectLayers::DynamicWorld;
             activation = JPH::EActivation::DontActivate;
         }
         else if (descriptor.motionType == PhysicsMotionType::Dynamic)
@@ -344,5 +345,127 @@ namespace physics
             velocity.GetY(),
             velocity.GetZ()
         };
+    }
+    
+    bool JoltPhysicsWorld::SetLinearVelocity(
+        const PhysicsBodyHandle handle, 
+        const mathUtils::Vec3& velocity)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !mathUtils::IsFinite(velocity))
+        {
+            return false;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!bodyID.has_value())
+        {
+            return false;
+        }
+
+        JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+        if (bodyInterface.GetMotionType(*bodyID) != JPH::EMotionType::Dynamic)
+        {
+            return false;
+        }
+
+        bodyInterface.SetLinearVelocity(*bodyID, JPH::Vec3(velocity.x, velocity.y, velocity.z));
+        return true;
+    }
+
+    bool JoltPhysicsWorld::AddImpulse(
+        const PhysicsBodyHandle handle, 
+        const mathUtils::Vec3& impulse)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !mathUtils::IsFinite(impulse))
+        {
+            return false;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!bodyID.has_value())
+        {
+            return false;
+        }
+
+        JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+        if (bodyInterface.GetMotionType(*bodyID) != JPH::EMotionType::Dynamic)
+        {
+            return false;
+        }
+
+        bodyInterface.AddImpulse(*bodyID, JPH::Vec3(impulse.x, impulse.y, impulse.z));
+        return true;
+    }
+
+    bool JoltPhysicsWorld::TeleportBody(
+        const PhysicsBodyHandle handle, const PhysicsTransform& transform)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<ConvertedTransform> convertedTransform = ConvertTransform(transform);
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!convertedTransform.has_value() || !bodyID.has_value())
+        {
+            return false;
+        }
+
+        JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+        const JPH::EMotionType motionType = bodyInterface.GetMotionType(*bodyID);
+        if (motionType == JPH::EMotionType::Static)
+        {
+            return false;
+        }
+
+        const JPH::EActivation activation = motionType == JPH::EMotionType::Dynamic
+            ? JPH::EActivation::Activate
+            : JPH::EActivation::DontActivate;
+        bodyInterface.SetPositionAndRotation(
+            *bodyID, convertedTransform->position, convertedTransform->rotation, activation);
+        if (motionType == JPH::EMotionType::Kinematic)
+        {
+            bodyInterface.SetLinearAndAngularVelocity(
+                *bodyID, JPH::Vec3::sZero(), JPH::Vec3::sZero());
+        }
+        return true;
+    }
+
+    bool JoltPhysicsWorld::MoveKinematic(
+        const PhysicsBodyHandle handle,
+        const PhysicsTransform& target,
+        const float durationSeconds)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized()
+            || !std::isfinite(durationSeconds) || durationSeconds <= 0.0f)
+        {
+            return false;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<ConvertedTransform> convertedTarget = ConvertTransform(target);
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!convertedTarget.has_value() || !bodyID.has_value())
+        {
+            return false;
+        }
+
+        JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+        if (bodyInterface.GetMotionType(*bodyID) != JPH::EMotionType::Kinematic)
+        {
+            return false;
+        }
+
+        bodyInterface.MoveKinematic(
+            *bodyID, convertedTarget->position, convertedTarget->rotation, durationSeconds);
+        return true;
     }
 }

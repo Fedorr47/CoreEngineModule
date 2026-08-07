@@ -74,6 +74,7 @@ add_executable(CoreEngineModuleTests
         "unit/PhysicsTests/TestJoltBodyRegistry.cpp"
         "unit/PhysicsTests/TestJoltBodyCreation.cpp"
         "unit/PhysicsTests/TestJoltFallingBody.cpp"
+        "unit/PhysicsTests/TestJoltBodyMutation.cpp"
         "unit/PhysicsTests/TestLevelPhysicsSerialization.cpp"
         "unit/PhysicsTests/TestLevelPhysicsRuntime.cpp"
 )
