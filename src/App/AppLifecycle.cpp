@@ -1,6 +1,7 @@
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 #include "Physics/Jolt/JoltRuntime.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
+#include "Physics/LevelPhysicsRuntime.h"
 
 import core;
 import std;
@@ -44,10 +45,12 @@ namespace appLifecycle
     
         joltRuntime = std::move(newRuntime);
         joltPhysicsWorld = std::move(newPhysicsWorld);
+        levelPhysicsRuntime = std::make_unique<physics::LevelPhysicsRuntime>(*joltPhysicsWorld);
     }
     
     void AppPhysicsState::Shutdown() noexcept
     {
+        levelPhysicsRuntime.reset();
         joltPhysicsWorld.reset();
         joltRuntime.reset();
     }
@@ -401,6 +404,44 @@ namespace appLifecycle
         app.mainThreadId = std::this_thread::get_id();
     }
     
+    bool SetGameplayMode(
+        AppState& app, 
+        rendern::GameplayRuntimeMode mode, 
+        std::string& errorMessage)
+    {
+        auto& runtimeState = app.runtimeState;
+        auto& physicsState = app.physicsState;
+        if (runtimeState.gameplayMode == mode)
+        {
+            return true;
+        }
+        if (mode == rendern::GameplayRuntimeMode::Game)
+        {
+            if (!physicsState.levelPhysicsRuntime->EnterGame(
+                *app.contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene,
+                errorMessage))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const bool leftGame = physicsState.levelPhysicsRuntime->LeaveGame(
+                *app.contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene,
+                errorMessage);
+            if (!leftGame)
+            {
+                return false;
+            }
+        }
+        runtimeState.gameplayMode = mode;
+        return true;
+    }
+    
 #include "AppLifecycleImpl/AppLifecycle_TickImpl.inl"
     
     static double Ms(auto duration)
@@ -438,6 +479,107 @@ namespace appLifecycle
             : performanceSnapshot.frameTimeMs;
         performanceSnapshot.PushFrameTimeSample(frameTimeSampleMs);
     }
+    
+    static bool TryOpenLevel(
+        AppState& app,
+        std::string_view requestedPath,
+        std::string& outError)
+    {
+        CORE_ASSERT_MAIN_THREAD();
+
+        auto& runtimeState = app.runtimeState;
+        auto& contentState = app.contentState;
+        auto& graphicState = app.graphicsState;
+        auto& launchState = app.launchState;
+        auto& frameState = app.frameState;
+
+        try
+        {
+            // Prepare the complete candidate before touching the current level.
+            auto candidateLevel =
+                std::make_unique<rendern::LevelAsset>(rendern::LoadLevelAssetFromJson(requestedPath));
+
+            rendern::Scene candidateScene{};
+
+            auto candidateLevelInstance =
+                std::make_unique<rendern::LevelInstance>(
+                    rendern::InstantiateLevel(
+                        candidateScene,
+                        *contentState.assets,
+                        *graphicState.bindless,
+                        *candidateLevel,
+                        mathUtils::Mat4(1.0f)));
+
+            // Level replacement is rare. Prefer a safe GPU synchronization
+            // point over keeping old descriptors alive across the switch.
+            graphicState.device->WaitIdle();
+            
+            if (runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Game)
+            {
+                std::string gameplayModeError;
+                if (!SetGameplayMode(
+                    app,
+                    rendern::GameplayRuntimeMode::Editor,
+                    gameplayModeError))
+                {
+                    outError = "Failed to leave game before opening level: "
+                        + gameplayModeError;
+                    return false;
+                }
+            }
+
+            ResetEditorInteractionState(app);
+
+            if (runtimeState.gameplayRuntime)
+            {
+                runtimeState.gameplayRuntime->Shutdown();
+                runtimeState.gameplayRuntime.reset();
+            }
+
+            if (runtimeState.levelInstance)
+            {
+                runtimeState.levelInstance->FreeDescriptors(*graphicState.bindless);
+            }
+
+            runtimeState.scene = std::move(candidateScene);
+            contentState.levelAsset = std::move(candidateLevel);
+            runtimeState.levelInstance = std::move(candidateLevelInstance);
+            
+            // The new level owns its active texture handles.
+            // Resources owned only by the previous level can now be released.
+            contentState.assets->UnloadUnused();
+
+            runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
+
+            runtimeState.gameplayRuntime->Initialize(
+                *contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene);
+
+            runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
+            
+            rendern::ui::ResetLevelEditorUIState();
+
+            launchState.currentLevelName = contentState.levelAsset->sourcePath;
+
+            frameState.loadingOverlay = LoadingOverlayState{};
+
+            graphicState.rendererSettings.loadingOverlayVisible = true;
+            graphicState.rendererSettings.loadingOverlayProgressBar = 0.0f;
+
+            if (app.physicsState.joltPhysicsWorld)
+            {
+                app.physicsState.joltPhysicsWorld->ResetSimulationClock();
+            }
+
+            return true;
+        }
+        catch (const std::exception& exception)
+        {
+            outError = exception.what();
+            return false;
+        }
+    }
 
     bool TickApp(AppState& app)
     {
@@ -448,6 +590,44 @@ namespace appLifecycle
         if (!PumpAndCheckRunning(app))
         {
             return false;
+        }
+        
+        if (std::exchange(
+        app.windowState.shell.requestedGameplayModeToggle,
+        false))
+        {
+            const rendern::GameplayRuntimeMode requestedMode =
+                app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor
+                    ? rendern::GameplayRuntimeMode::Game
+                    : rendern::GameplayRuntimeMode::Editor;
+
+            std::string error;
+            if (!SetGameplayMode(app, requestedMode, error))
+            {
+                std::cerr
+                    << "[Physics] Failed to change runtime mode: "
+                    << error
+                    << '\n';
+            }
+        }
+        
+        std::string requestedLevelPath =
+            std::exchange(app.windowState.shell.requestedLevelPath,{});
+
+        if (!requestedLevelPath.empty())
+        {
+            std::string levelOpenError;
+
+            const bool bLevelOpened = TryOpenLevel(app, requestedLevelPath, levelOpenError);
+            if (!bLevelOpened)
+            {
+                std::cerr
+                    << "[Level] Failed to open level '"
+                    << requestedLevelPath.data()
+                    << "': "
+                    << levelOpenError.data()
+                    << '\n';
+            }
         }
 
         ApplyPendingResize(app);
@@ -597,6 +777,11 @@ namespace appLifecycle
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
         auto& physicsState      = app.physicsState;
+        
+        if (physicsState.levelPhysicsRuntime && physicsState.levelPhysicsRuntime->IsActive())
+        {
+            physicsState.levelPhysicsRuntime->Shutdown();
+        }
         
         appRuntime::ShutdownRuntime(
             windowState.shell,

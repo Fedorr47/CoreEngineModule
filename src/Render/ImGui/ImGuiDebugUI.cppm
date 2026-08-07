@@ -44,6 +44,8 @@ export namespace rendern::ui
     void BeginDebugDockSpace();
 
     void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene, rendern::CameraController& camCtl);
+    
+    void ResetLevelEditorUIState();
 
     // Minimal Level Editor:
     // - add/remove objects (recursive delete)
@@ -154,6 +156,10 @@ namespace rendern::ui
         rendern::RendererSettings& rs [[maybe_unused]],
         rendern::Scene& scene [[maybe_unused]],
         rendern::CameraController& camCtl [[maybe_unused]])
+    {
+    }
+    
+    void ResetLevelEditorUIState()
     {
     }
 

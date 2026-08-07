@@ -25,15 +25,7 @@ export namespace rendern
                 return static_cast<int>(i);
             }
         }
-
-        for (std::size_t i = 0; i < levelAsset.nodes.size(); ++i)
-        {
-            const LevelNode& node = levelAsset.nodes[i];
-            if (node.alive && node.visible)
-            {
-                return static_cast<int>(i);
-            }
-        }
+        
         return -1;
     }
 

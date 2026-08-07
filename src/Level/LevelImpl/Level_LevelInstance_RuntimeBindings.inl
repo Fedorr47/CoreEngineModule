@@ -51,57 +51,102 @@ bool TryParseMaterialTextureSlot_(std::string_view slotName, MaterialTextureSlot
 // -----------------------------
 // Runtime: descriptor management
 // -----------------------------
-void ResolveTextureBindings(AssetManager& assets, BindlessTable& bindless, Scene& scene)
+void ResolveTextureBindings(BindlessTable& bindless, Scene& scene)
 {
-	ResourceManager& rm = assets.GetResourceManager();
+    for (const PendingMaterialBinding& pendingBinding
+         : pendingBindings_)
+    {
+        const rhi::TextureDescIndex descriptorIndex =
+            GetOrCreateTextureDesc_(
+                bindless,
+                pendingBinding.textureId);
 
+        if (descriptorIndex == 0)
+        {
+            continue;
+        }
 
-	// Materials
-	for (auto& pb : pendingBindings_)
-	{
-		rhi::TextureDescIndex idx = GetOrCreateTextureDesc_(rm, bindless, pb.textureId);
-		if (idx == 0)
-		{
-			continue;
-		}
+        Material& material =
+            scene.GetMaterial(
+                pendingBinding.material);
 
-		Material& m = scene.GetMaterial(pb.material);
-		switch (pb.slot)
-		{
-		case MaterialTextureSlot::Albedo:    m.params.albedoDescIndex = idx; break;
-		case MaterialTextureSlot::Normal:    m.params.normalDescIndex = idx; break;
-		case MaterialTextureSlot::Metalness: m.params.metalnessDescIndex = idx; break;
-		case MaterialTextureSlot::Roughness: m.params.roughnessDescIndex = idx; break;
-		case MaterialTextureSlot::AO:        m.params.aoDescIndex = idx; break;
-		case MaterialTextureSlot::Emissive:  m.params.emissiveDescIndex = idx; break;
-		case MaterialTextureSlot::Specular:  m.params.specularDescIndex = idx; break;
-		case MaterialTextureSlot::Gloss:     m.params.glossDescIndex = idx; break;
-		case MaterialTextureSlot::Height:    m.params.heightDescIndex = idx; break;
-		}
-	}
+        switch (pendingBinding.slot)
+        {
+        case MaterialTextureSlot::Albedo:
+            material.params.albedoDescIndex =
+                descriptorIndex;
+            break;
 
-	// Skybox
-	if (skyboxTextureId_)
-	{
-		rhi::TextureDescIndex idx = GetOrCreateTextureDesc_(rm, bindless, *skyboxTextureId_);
-		if (idx != 0)
-		{
-			scene.skyboxDescIndex = idx;
-		}
-	}
+        case MaterialTextureSlot::Normal:
+            material.params.normalDescIndex =
+                descriptorIndex;
+            break;
 
-	// Particle emitters
-	for (auto& emitter : scene.particleEmitters)
-	{
-		if (!emitter.textureId.empty())
-		{
-			emitter.textureDescIndex = GetOrCreateTextureDesc_(rm, bindless, emitter.textureId);
-		}
-		else
-		{
-			emitter.textureDescIndex = 0;
-		}
-	}
+        case MaterialTextureSlot::Metalness:
+            material.params.metalnessDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::Roughness:
+            material.params.roughnessDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::AO:
+            material.params.aoDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::Emissive:
+            material.params.emissiveDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::Specular:
+            material.params.specularDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::Gloss:
+            material.params.glossDescIndex =
+                descriptorIndex;
+            break;
+
+        case MaterialTextureSlot::Height:
+            material.params.heightDescIndex =
+                descriptorIndex;
+            break;
+        }
+    }
+
+    if (skyboxTextureId_)
+    {
+        const rhi::TextureDescIndex descriptorIndex =
+            GetOrCreateTextureDesc_(
+                bindless,
+                *skyboxTextureId_);
+
+        if (descriptorIndex != 0)
+        {
+            scene.skyboxDescIndex =
+                descriptorIndex;
+        }
+    }
+
+    for (ParticleEmitter& emitter
+         : scene.particleEmitters)
+    {
+        if (emitter.textureId.empty())
+        {
+            emitter.textureDescIndex = 0;
+            continue;
+        }
+
+        emitter.textureDescIndex =
+            GetOrCreateTextureDesc_(
+                bindless,
+                emitter.textureId);
+    }
 }
 
 void FreeDescriptors(BindlessTable& bindless) noexcept

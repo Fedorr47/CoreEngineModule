@@ -1,5 +1,6 @@
 // Descriptor runtime
 std::unordered_map<std::string, rhi::TextureDescIndex> textureDesc_;
+std::unordered_map<std::string, std::shared_ptr<TextureResource>> textureHandles_;
 std::vector<PendingMaterialBinding> pendingBindings_;
 std::optional<std::string> skyboxTextureId_;
 

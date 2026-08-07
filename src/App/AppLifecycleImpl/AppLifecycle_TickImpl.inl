@@ -111,29 +111,38 @@ static void UpdateInputAndCamera(AppState& app, float deltaSeconds)
 {
     app.windowState.input.SetCaptureMode(appUi::GetInputCaptureForImGui(app.windowState.shell));
     app.windowState.input.NewFrame(app.windowState.mainWindow.hwnd);
-    if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+    const bool bIsEditorMode = app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor;
+
+    const bool bHasControlledEntity =
+        app.runtimeState.gameplayRuntime
+        && app.runtimeState.gameplayRuntime->GetControlledEntity() != rendern::kNullEntity;
+
+    const bool bUseFreeCamera = bIsEditorMode || !bHasControlledEntity;
+
+    if (bUseFreeCamera)
     {
         app.runtimeState.cameraController->Update(
-            deltaSeconds, 
-            app.windowState.input.State(), 
+            deltaSeconds,
+            app.windowState.input.State(),
             app.runtimeState.scene.camera);
     }
 }
 
 static void UpdateEditorViewportInteraction(AppState& app)
 {
-    const rendern::GameplayRuntimeMode previousGameplayMode = app.runtimeState.gameplayMode;
-    
+   
     if (app.windowState.input.State().KeyPressed(VK_F5))
     {
-        app.runtimeState.gameplayMode = (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+        const rendern::GameplayRuntimeMode requestedMode =
+            (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
             ? rendern::GameplayRuntimeMode::Game
             : rendern::GameplayRuntimeMode::Editor;
-    }
-    
-    if (app.runtimeState.gameplayMode != previousGameplayMode && app.physicsState.joltPhysicsWorld != nullptr)
-    {
-        app.physicsState.joltPhysicsWorld->ResetSimulationClock();
+        
+        std::string error;
+        if (!SetGameplayMode(app, requestedMode, error))
+        {
+            std::cerr << "[Physics] Failed to change runtime mode: " << error << '\n';
+        }
     }
     
     if (app.windowState.input.State().KeyPressed(VK_F6))
@@ -226,12 +235,22 @@ static void UpdatePhysics(AppState& app, const float deltaSeconds)
     CORE_ASSERT_PHYSICS_THREAD();
 
     auto* physicsWorld = app.physicsState.joltPhysicsWorld.get();
-    if (physicsWorld == nullptr)
+    if (physicsWorld == nullptr
+        || app.runtimeState.gameplayMode != rendern::GameplayRuntimeMode::Game)
     {
         return;
     }
 
     physicsWorld->Update(deltaSeconds);
+    std::string error;
+    if (!app.physicsState.levelPhysicsRuntime->Synchronize(
+        *app.contentState.levelAsset,
+        *app.runtimeState.levelInstance,
+        app.runtimeState.scene,
+        error))
+    {
+        std::cerr << "[Physics] " << error << '\n';
+    }
 }
 
 static void RenderMainViewport(AppState& app)

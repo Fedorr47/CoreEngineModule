@@ -73,6 +73,9 @@ add_executable(CoreEngineModuleTests
         "unit/PhysicsTests/TestJoltShapeFactory.cpp"
         "unit/PhysicsTests/TestJoltBodyRegistry.cpp"
         "unit/PhysicsTests/TestJoltBodyCreation.cpp"
+        "unit/PhysicsTests/TestJoltFallingBody.cpp"
+        "unit/PhysicsTests/TestLevelPhysicsSerialization.cpp"
+        "unit/PhysicsTests/TestLevelPhysicsRuntime.cpp"
 )
 
 target_link_libraries(CoreEngineModuleTests
@@ -112,6 +115,54 @@ include(GoogleTest)
 gtest_discover_tests(CoreEngineModuleTests
   DISCOVERY_MODE PRE_TEST
 )
+
+# Physics smoke start
+add_executable(CoreEnginePhysicsLevelSmokeTests
+        "integration/PhysicsLevelSmoke/TestPhysicsLevelSmoke.cpp"
+)
+
+target_link_libraries(CoreEnginePhysicsLevelSmokeTests
+        PRIVATE
+        CoreEngineModuleLib
+        GTest::gtest_main
+)
+
+target_compile_features(CoreEnginePhysicsLevelSmokeTests PRIVATE cxx_std_23)
+core_enable_import_std(CoreEnginePhysicsLevelSmokeTests)
+
+target_include_directories(CoreEnginePhysicsLevelSmokeTests
+        PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+if(TARGET core_test_sanitizers)
+  target_link_libraries(CoreEnginePhysicsLevelSmokeTests PRIVATE core_test_sanitizers)
+endif()
+
+add_custom_command(TARGET CoreEnginePhysicsLevelSmokeTests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:CoreEnginePhysicsLevelSmokeTests>/assets"
+)
+
+if(WIN32)
+  add_custom_command(TARGET CoreEnginePhysicsLevelSmokeTests POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_RUNTIME_DLLS:CoreEnginePhysicsLevelSmokeTests>
+          $<TARGET_FILE_DIR:CoreEnginePhysicsLevelSmokeTests>
+          COMMAND_EXPAND_LISTS
+  )
+endif()
+
+gtest_discover_tests(CoreEnginePhysicsLevelSmokeTests
+        DISCOVERY_MODE PRE_TEST
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:CoreEnginePhysicsLevelSmokeTests>"
+        PROPERTIES
+        LABELS "physics;smoke;integration"
+        TIMEOUT 30
+)
+#Physics smoke end
 
 if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   add_executable(CoreEngineModuleDx12SmokeTests

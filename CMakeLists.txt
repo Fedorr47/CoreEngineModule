@@ -613,6 +613,7 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/Physics/Jolt/JoltRuntime.cpp"
         "${SRC_DIR}/Physics/Jolt/JoltCollisionLayers.cpp"
         "${SRC_DIR}/Physics/Jolt/JoltPhysicsWorld.cpp"
+        "${SRC_DIR}/Physics/LevelPhysicsRuntime.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"
@@ -648,7 +649,7 @@ endif()
 # DX12-only deps
 if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   target_include_directories(CoreEngineModuleLib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/extern")
-  target_link_libraries(CoreEngineModuleLib PUBLIC d3d12 dxgi dxguid)
+  target_link_libraries(CoreEngineModuleLib PUBLIC d3d12 dxgi dxguid comdlg32)
   if(TARGET imgui)
     target_link_libraries(CoreEngineModuleLib PUBLIC imgui)
   endif()

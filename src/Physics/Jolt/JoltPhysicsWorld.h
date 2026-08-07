@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 import core;
 
@@ -27,6 +28,10 @@ namespace physics
         [[nodiscard]] PhysicsBodyHandle CreateBody(const PhysicsBodyDescriptor& descriptor);
         [[nodiscard]] bool DestroyBody(PhysicsBodyHandle handle);
         [[nodiscard]] bool IsBodyValid(PhysicsBodyHandle handle) const noexcept;
+        [[nodiscard]] std::optional<PhysicsTransform> GetBodyTransform(
+            PhysicsBodyHandle handle) const noexcept;
+        [[nodiscard]] std::optional<mathUtils::Vec3> GetLinearVelocity(
+            PhysicsBodyHandle handle) const noexcept;
 
     private:
         struct Implementation;

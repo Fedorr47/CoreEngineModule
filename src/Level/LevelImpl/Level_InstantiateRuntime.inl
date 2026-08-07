@@ -33,53 +33,80 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 		return false;
 	};
 
+	inst.textureHandles_.reserve(asset.textures.size());
 	// Textures: request loads (descriptor indices are resolved later)
-	for (const auto& [id, td] : asset.textures)
+	for (const auto& [textureId, textureDefinition] : asset.textures)
 	{
-		if (td.kind == LevelTextureKind::Tex2D)
+		TextureProperties properties = textureDefinition.props;
+		properties.isNormalMap = properties.isNormalMap || IsTextureUsedAsNormalMap(textureId);
+
+		const std::string resourceKey = LevelInstance::MakeLevelResourceKey_(asset, "texture", textureId);
+		std::shared_ptr<TextureResource> textureHandle;
+		
+		if (textureDefinition.kind == LevelTextureKind::Tex2D)
 		{
-			TextureProperties p = td.props;
-			p.isNormalMap = p.isNormalMap || IsTextureUsedAsNormalMap(id);
-			assets.LoadTextureAsync(id, std::move(p));
+			textureHandle = assets.LoadTextureAsync(resourceKey, std::move(properties));
 		}
-		else
+		else if (textureDefinition.cubeSource == LevelCubeSource::Cross)
 		{
-			TextureProperties p = td.props;
-			if (td.cubeSource == LevelCubeSource::Cross)
+			properties.cubeFromCross = true;
+
+			textureHandle =
+				assets.LoadTextureAsync(
+					resourceKey,
+					std::move(properties));
+		}
+		else if (textureDefinition.cubeSource == LevelCubeSource::AutoFaces)
+		{
+			if (!textureDefinition.preferBase.empty())
 			{
-				p.cubeFromCross = true;
-				assets.LoadTextureAsync(id, std::move(p));
-			}
-			else if (td.cubeSource == LevelCubeSource::AutoFaces)
-			{
-				if (!td.preferBase.empty())
-				{
-					assets.LoadTextureCubeAsync(id, td.baseOrDir, td.preferBase, std::move(p));
-				}
-				else
-				{
-					assets.LoadTextureCubeAsync(id, td.baseOrDir, std::move(p));
-				}
+				textureHandle =
+					assets.LoadTextureCubeAsync(
+						resourceKey,
+						textureDefinition.baseOrDir,
+						textureDefinition.preferBase,
+						std::move(properties));
 			}
 			else
 			{
-				assets.LoadTextureCubeAsync(id, td.facePaths, std::move(p));
+				textureHandle =
+					assets.LoadTextureCubeAsync(
+						resourceKey,
+						textureDefinition.baseOrDir,
+						std::move(properties));
 			}
 		}
+		else
+		{
+			textureHandle =
+				assets.LoadTextureCubeAsync(
+					resourceKey,
+					textureDefinition.facePaths,
+					std::move(properties));
+		}
+
+		inst.textureHandles_.emplace(textureId,std::move(textureHandle));
 	}
 
 	// Meshes: request loads
 	std::unordered_map<std::string, MeshHandle> meshHandles;
 	meshHandles.reserve(asset.meshes.size());
-	for (const auto& [id, md] : asset.meshes)
+
+	for (const auto& [meshId, meshDefinition] : asset.meshes)
 	{
-		MeshProperties p{};
-		p.filePath = md.path;
-		p.debugName = md.debugName;
-		p.flipUVs = md.flipUVs;
-		p.submeshIndex = md.submeshIndex;
-		p.bakeNodeTransforms = md.bakeNodeTransforms;
-		meshHandles.emplace(id, assets.LoadMeshAsync(id, std::move(p)));
+		MeshProperties properties{};
+		properties.filePath = meshDefinition.path;
+		properties.debugName = meshDefinition.debugName;
+		properties.flipUVs = meshDefinition.flipUVs;
+		properties.submeshIndex = meshDefinition.submeshIndex;
+		properties.bakeNodeTransforms =
+			meshDefinition.bakeNodeTransforms;
+
+		const std::string resourceKey = LevelInstance::MakeLevelResourceKey_(asset, "mesh", meshId);
+
+		meshHandles.emplace(
+			meshId,
+			assets.LoadMeshAsync(resourceKey, std::move(properties)));
 	}
 
 	// Materials: create in Scene and collect pending texture bindings
@@ -184,13 +211,19 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 			const ImportedModelScene meta = LoadAssimpScene(modelIt->second.path, modelIt->second.flipUVs);
 			for (const ImportedSubmeshInfo& sub : meta.submeshes)
 			{
-				MeshProperties p{};
-				p.filePath = modelIt->second.path;
-				p.debugName = modelIt->second.debugName.empty() ? sub.name : (modelIt->second.debugName + "_" + sub.name);
-				p.flipUVs = modelIt->second.flipUVs;
-				p.submeshIndex = sub.submeshIndex;
-				const std::string meshKey = n.model + "#submesh=" + std::to_string(sub.submeshIndex);
-				MeshHandle mh = assets.LoadMeshAsync(meshKey, std::move(p));
+				MeshProperties properties{};
+				properties.filePath = modelIt->second.path;
+				properties.debugName = modelIt->second.debugName.empty() ? sub.name : (modelIt->second.debugName + "_" + sub.name);
+				properties.flipUVs = modelIt->second.flipUVs;
+				properties.submeshIndex = sub.submeshIndex;
+				const std::string modelSubmeshId =
+					n.model
+					+ "#submesh="
+					+ std::to_string(sub.submeshIndex);
+
+				const std::string resourceKey =
+					LevelInstance::MakeLevelResourceKey_(asset, "model-submesh", modelSubmeshId);
+				MeshHandle meshHandle = assets.LoadMeshAsync(resourceKey, std::move(properties));
 
 				std::string materialId = n.material;
 				if (auto itOv = n.materialOverrides.find(sub.submeshIndex); itOv != n.materialOverrides.end())
@@ -208,7 +241,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 					mat = it->second;
 				}
 				DrawItem item{};
-				item.mesh = mh;
+				item.mesh = meshHandle;
 				item.material = mat;
 				item.transform.useMatrix = true;
 				item.transform.matrix = inst.world_[i];

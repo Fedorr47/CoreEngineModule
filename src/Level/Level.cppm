@@ -18,6 +18,7 @@ module;
 #include <limits>
 #include <cmath>
 #include <cassert>
+#include <type_traits>
 
 export module core:level;
 import :scene; 
@@ -34,6 +35,7 @@ import :assimp_loader;
 import :animator;
 import :animation_controller;
 import :animation_clip;
+import :physics_types;
 
 // ------------------------------------------------------------
 // LevelAsset / LevelInstance

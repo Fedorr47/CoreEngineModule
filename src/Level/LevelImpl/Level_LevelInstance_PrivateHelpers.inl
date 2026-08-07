@@ -1,60 +1,111 @@
-rhi::TextureHandle TryGetTextureHandle_(ResourceManager& rm, std::string_view id) const noexcept
+static std::string MakeLevelResourceKey_(
+const LevelAsset& level,
+const std::string_view resourceType,
+const std::string_view resourceId)
 {
-	if (auto texRes = rm.Get<TextureResource>(id))
+	const std::string_view levelScope =
+		level.sourcePath.empty()
+			? std::string_view{ level.name }
+			: std::string_view{ level.sourcePath };
+
+	return std::string(levelScope)
+		+ "::"
+		+ std::string(resourceType)
+		+ "::"
+		+ std::string(resourceId);
+}
+
+rhi::TextureHandle TryGetTextureHandle_(
+	const std::string_view textureId) const noexcept
+{
+	const auto textureIt =
+		textureHandles_.find(
+			std::string(textureId));
+
+	if (textureIt == textureHandles_.end())
 	{
-		const auto& gpu = texRes->GetResource();
-		if (gpu.id != 0)
-		{
-			return rhi::TextureHandle{ static_cast<std::uint32_t>(gpu.id) };
-		}
+		return {};
 	}
-	return {};
+
+	const std::shared_ptr<TextureResource>& textureResource =
+		textureIt->second;
+
+	if (!textureResource)
+	{
+		return {};
+	}
+
+	const GPUTexture& gpuTexture =
+		textureResource->GetResource();
+
+	if (gpuTexture.id == 0)
+	{
+		return {};
+	}
+
+	return rhi::TextureHandle{
+		static_cast<std::uint32_t>(
+			gpuTexture.id)
+	};
 }
 
 rhi::TextureDescIndex GetOrCreateTextureDesc_(
-	ResourceManager& rm,
 	BindlessTable& bindless,
-	std::string_view textureId)
+	const std::string_view textureId)
 {
-	const std::string key{ textureId };
+	const std::string textureKey{textureId};
+	const rhi::TextureHandle textureHandle = TryGetTextureHandle_(textureId);
+	const auto descriptorIt = textureDesc_.find(textureKey);
 
-	if (auto it = textureDesc_.find(key); it != textureDesc_.end())
+	if (descriptorIt != textureDesc_.end())
 	{
-		const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
-		if (handle)
+		if (textureHandle)
 		{
-			bindless.UpdateTexture(it->second, handle);
+			bindless.UpdateTexture(descriptorIt->second, textureHandle);
 		}
-		return it->second;
+
+		return descriptorIt->second;
 	}
 
-	const rhi::TextureHandle handle = TryGetTextureHandle_(rm, textureId);
-	if (!handle)
+	if (!textureHandle)
 	{
 		return 0;
 	}
 
-	const rhi::TextureDescIndex index = bindless.RegisterTexture(handle);
-	textureDesc_.emplace(key, index);
-	return index;
+	const rhi::TextureDescIndex descriptorIndex = bindless.RegisterTexture(textureHandle);
+	textureDesc_.emplace(textureKey, descriptorIndex);
+
+	return descriptorIndex;
 }
 
-
-MeshHandle GetOrLoadMeshHandle_(const LevelAsset& asset, AssetManager& assets, const std::string& meshId) const
+MeshHandle GetOrLoadMeshHandle_(
+	const LevelAsset& asset,
+	AssetManager& assets,
+	const std::string& meshId) const
 {
-	auto it = asset.meshes.find(meshId);
-	if (it == asset.meshes.end())
+	const auto meshIt = asset.meshes.find(meshId);
+
+	if (meshIt == asset.meshes.end())
 	{
 		throw std::runtime_error("Level: node references unknown meshId: " + meshId);
 	}
 
-	MeshProperties p{};
-	p.filePath = it->second.path;
-	p.debugName = it->second.debugName;
-	p.flipUVs = it->second.flipUVs;
-	p.submeshIndex = it->second.submeshIndex;
-	p.bakeNodeTransforms = it->second.bakeNodeTransforms;
-	return assets.LoadMeshAsync(meshId, std::move(p));
+	const LevelMeshDef& meshDefinition = meshIt->second;
+
+	MeshProperties properties{};
+	properties.filePath = meshDefinition.path;
+	properties.debugName = meshDefinition.debugName;
+	properties.flipUVs = meshDefinition.flipUVs;
+	properties.submeshIndex = meshDefinition.submeshIndex;
+	properties.bakeNodeTransforms = meshDefinition.bakeNodeTransforms;
+
+	const std::string resourceKey =
+		MakeLevelResourceKey_(
+			asset,
+			"mesh",
+			meshId);
+
+	return assets.LoadMeshAsync(resourceKey, std::move(properties));
 }
 
 const LevelModelDef& GetModelDef_(const LevelAsset& asset, const std::string& modelId) const
@@ -374,8 +425,14 @@ std::vector<int> MakeDrawsForModelNode_(const LevelAsset& asset, Scene& scene, A
 		p.debugName = md.debugName.empty() ? sub.name : (md.debugName + "_" + sub.name);
 		p.flipUVs = md.flipUVs;
 		p.submeshIndex = sub.submeshIndex;
-		const std::string meshKey = node.model + "#submesh=" + std::to_string(sub.submeshIndex);
-		MeshHandle mesh = assets.LoadMeshAsync(meshKey, std::move(p));
+		
+		const std::string modelSubmeshId =
+			node.model
+			+ "#submesh="
+			+ std::to_string(sub.submeshIndex);
+
+		const std::string resourceKey = MakeLevelResourceKey_(asset, "model-submesh", modelSubmeshId);
+		MeshHandle mesh = assets.LoadMeshAsync(resourceKey, std::move(p));
 
 		std::string materialId = node.material;
 		if (auto itOverride = node.materialOverrides.find(sub.submeshIndex); itOverride != node.materialOverrides.end())
