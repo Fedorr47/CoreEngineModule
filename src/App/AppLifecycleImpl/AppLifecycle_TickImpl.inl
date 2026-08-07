@@ -240,10 +240,17 @@ static void UpdatePhysics(AppState& app, const float deltaSeconds)
     {
         return;
     }
-
-    physicsWorld->Update(deltaSeconds);
+    
     std::string error;
-    if (!app.physicsState.levelPhysicsRuntime->Synchronize(
+    if (!app.physicsState.levelPhysicsRuntime->SynchronizeBeforePhysics(
+        *app.contentState.levelAsset,
+        error))
+    {
+        std::cerr << "[Physics] " << error << '\n';
+        return;
+    }
+    physicsWorld->Update(deltaSeconds);
+    if (!app.physicsState.levelPhysicsRuntime->SynchronizeAfterPhysics(
         *app.contentState.levelAsset,
         *app.runtimeState.levelInstance,
         app.runtimeState.scene,

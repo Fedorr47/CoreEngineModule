@@ -304,6 +304,10 @@ inline void ParseNodeSection_(LevelAsset& out, const JsonObject& jsonObject)
 				{
 					bodyDef.motionType = physics::PhysicsMotionType::Dynamic;
 				}
+				else if (motionType == "kinematic")
+				{
+					bodyDef.motionType = physics::PhysicsMotionType::Kinematic;
+				}
 				else
 				{
 					throw std::runtime_error("Level physics body for node '" + n.name

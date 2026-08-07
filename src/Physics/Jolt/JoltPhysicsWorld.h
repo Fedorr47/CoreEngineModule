@@ -38,6 +38,7 @@ namespace physics
             PhysicsBodyHandle handle, 
             const PhysicsTransform& target, 
             float durationSeconds);
+        [[nodiscard]] bool SetKinematicTarget(PhysicsBodyHandle handle, const PhysicsTransform& target);
         
     private:
         struct Implementation;

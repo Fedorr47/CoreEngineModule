@@ -82,12 +82,6 @@ namespace physics
                 errorMessage = "Level physics node index cannot be represented by the runtime binding.";
                 return false;
             }
-            if (node.physicsBody->motionType != PhysicsMotionType::Static
-                && node.physicsBody->motionType != PhysicsMotionType::Dynamic)
-            {
-                errorMessage = "Level physics node '" + node.name + "' has an unsupported motion type.";
-                return false;
-            }
             if (!IsShapeValid(node.physicsBody->shape))
             {
                 errorMessage = "Level physics node '" + node.name + "' has an invalid shape.";
@@ -164,7 +158,46 @@ namespace physics
         return true;
     }
     
-    bool LevelPhysicsRuntime::Synchronize(
+    bool LevelPhysicsRuntime::SynchronizeBeforePhysics(
+        rendern::LevelAsset& levelAsset, std::string& errorMessage)
+    {
+        if (!bActive_)
+        {
+            return true;
+        }
+        for (const TeleportRequest& request : teleportRequests_)
+        {
+            const auto binding = std::ranges::find(bindings_, request.nodeIndex, &Binding::nodeIndex);
+            if (binding == bindings_.end() || binding->motionType != PhysicsMotionType::Dynamic
+                || !world_.TeleportBody(binding->handle, request.transform))
+            {
+                errorMessage = "Dynamic teleport request has no valid dynamic body binding.";
+                teleportRequests_.clear();
+                return false;
+            }
+        }
+        teleportRequests_.clear();
+
+        for (const Binding& binding : bindings_)
+        {
+            if (binding.motionType != PhysicsMotionType::Kinematic)
+            {
+                continue;
+            }
+            if (binding.nodeIndex < 0
+                || static_cast<std::size_t>(binding.nodeIndex) >= levelAsset.nodes.size()
+                || !levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].alive
+                || !world_.SetKinematicTarget(binding.handle,
+                    { .position = levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.position }))
+            {
+                errorMessage = "Level physics kinematic binding is invalid.";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool LevelPhysicsRuntime::SynchronizeAfterPhysics(
         rendern::LevelAsset& levelAsset,
         rendern::LevelInstance& levelInstance,
         rendern::Scene& scene,
@@ -216,6 +249,22 @@ namespace physics
             levelInstance.MarkTransformsDirty();
             levelInstance.SyncTransformsIfDirty(levelAsset, scene);
         }
+        return true;
+    }
+    
+    bool LevelPhysicsRuntime::RequestDynamicTeleport(
+        const int nodeIndex, const PhysicsTransform& transform)
+    {
+        if (!bActive_)
+        {
+            return false;
+        }
+        const auto binding = std::ranges::find(bindings_, nodeIndex, &Binding::nodeIndex);
+        if (binding == bindings_.end() || binding->motionType != PhysicsMotionType::Dynamic)
+        {
+            return false;
+        }
+        teleportRequests_.push_back({ .nodeIndex = nodeIndex, .transform = transform });
         return true;
     }
     
@@ -288,6 +337,7 @@ namespace physics
             }
         }
         bindings_.clear();
+        teleportRequests_.clear();
         return allDestroyed;
     }
 }

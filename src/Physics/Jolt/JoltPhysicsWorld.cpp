@@ -17,6 +17,7 @@ import core;
 #include <optional>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace
 {
@@ -70,12 +71,19 @@ namespace physics
 {
     struct JoltPhysicsWorld::Implementation
     {
+        struct KinematicTarget
+        {
+            PhysicsBodyHandle handle{};
+            PhysicsTransform transform{};
+        };
+        
         jolt::JoltBroadPhaseLayerInterface broadPhaseLayerInterface;
         jolt::JoltObjectLayerPairFilter objectLayerPairFilter;
         jolt::JoltObjectVsBroadPhaseLayerFilter objectVsBroadPhaseLayerFilter;
         jolt::JoltBodyRegistry bodyRegistry;
         JPH::PhysicsSystem physicsSystem;
         FixedStepScheduler fixedStepScheduler{ FixedPhysicsDeltaSeconds };
+        std::vector<KinematicTarget> kinematicTargets;
         bool initialized{ false };
     };
     
@@ -125,6 +133,7 @@ namespace physics
             bodyInterface.DestroyBody(bodyID);
         });
         impl_->bodyRegistry.Reset();
+        impl_->kinematicTargets.clear();
         impl_->fixedStepScheduler.Reset();
         impl_->initialized = false;
     }
@@ -156,6 +165,19 @@ namespace physics
 
         for (std::uint32_t stepIndex = 0u; stepIndex < stepCount; ++stepIndex)
         {
+            JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+            for (const Implementation::KinematicTarget& target : impl_->kinematicTargets)
+            {
+                const auto bodyID = impl_->bodyRegistry.ResolveBodyID(target.handle);
+                const auto converted = ConvertTransform(target.transform);
+                if (bodyID.has_value() && converted.has_value())
+                {
+                    bodyInterface.MoveKinematic(
+                        *bodyID, converted->position, converted->rotation,
+                        static_cast<float>(FixedPhysicsDeltaSeconds));
+                }
+            }
+            
             impl_->physicsSystem.Update(
                 static_cast<float>(FixedPhysicsDeltaSeconds),
                 CollisionSteps,
@@ -275,7 +297,13 @@ namespace physics
         {
             return false;
         }
-
+        
+        std::erase_if(impl_->kinematicTargets,
+            [handle](const Implementation::KinematicTarget& target)
+            {
+                return target.handle == handle;
+            });
+        
         JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
         bodyInterface.RemoveBody(*bodyID);
         bodyInterface.DestroyBody(*bodyID);
@@ -466,6 +494,36 @@ namespace physics
 
         bodyInterface.MoveKinematic(
             *bodyID, convertedTarget->position, convertedTarget->rotation, durationSeconds);
+        return true;
+    }
+    
+    bool JoltPhysicsWorld::SetKinematicTarget(
+        const PhysicsBodyHandle handle, const PhysicsTransform& target)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        const auto bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        const auto converted = ConvertTransform(target);
+        if (!bodyID.has_value() || !converted.has_value()
+            || impl_->physicsSystem.GetBodyInterface().GetMotionType(*bodyID) != JPH::EMotionType::Kinematic)
+        {
+            return false;
+        }
+        const auto existing = std::ranges::find(
+            impl_->kinematicTargets, handle, &Implementation::KinematicTarget::handle);
+        if (existing != impl_->kinematicTargets.end())
+        {
+            existing->transform = target;
+        }
+        else
+        {
+            impl_->kinematicTargets.push_back({ .handle = handle, .transform = target });
+        }
         return true;
     }
 }

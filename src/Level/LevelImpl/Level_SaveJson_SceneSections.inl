@@ -254,6 +254,10 @@ inline void WriteNodesSection_(std::ostringstream& ss, const LevelAsset& level, 
 			{
 				WriteJsonEscaped(ss, "dynamic");
 			}
+			else if (n.physicsBody->motionType == physics::PhysicsMotionType::Kinematic)
+			{
+				WriteJsonEscaped(ss, "kinematic");
+			}
 			else
 			{
 				throw std::runtime_error("Level physics body for node '" + n.name
