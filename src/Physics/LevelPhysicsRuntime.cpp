@@ -59,7 +59,7 @@ namespace physics
         for (std::size_t index = 0; index < levelAsset.nodes.size(); ++index)
         {
             const rendern::LevelNode& node = levelAsset.nodes[index];
-            if (node.alive || !node.physicsBody.has_value())
+            if (!node.alive || !node.physicsBody.has_value())
             {
                 continue;
             }

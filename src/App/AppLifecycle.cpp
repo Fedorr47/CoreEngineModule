@@ -513,6 +513,20 @@ namespace appLifecycle
             // Level replacement is rare. Prefer a safe GPU synchronization
             // point over keeping old descriptors alive across the switch.
             graphicState.device->WaitIdle();
+            
+            if (runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Game)
+            {
+                std::string gameplayModeError;
+                if (!SetGameplayMode(
+                    app,
+                    rendern::GameplayRuntimeMode::Editor,
+                    gameplayModeError))
+                {
+                    outError = "Failed to leave game before opening level: "
+                        + gameplayModeError;
+                    return false;
+                }
+            }
 
             ResetEditorInteractionState(app);
 
@@ -543,8 +557,6 @@ namespace appLifecycle
                 runtimeState.scene);
 
             runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
-
-            runtimeState.gameplayMode = rendern::GameplayRuntimeMode::Editor;
             
             rendern::ui::ResetLevelEditorUIState();
 
