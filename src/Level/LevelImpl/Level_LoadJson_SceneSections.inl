@@ -285,6 +285,88 @@ inline void ParseNodeSection_(LevelAsset& out, const JsonObject& jsonObject)
 				}
 				n.transform = t;
 			}
+			
+			if (const auto* physicsV = TryGet(nd, "physicsBody"))
+			{
+				const JsonObject& physicsObject = physicsV->AsObject();
+				if (TryGet(physicsObject, "motionType") == nullptr)
+				{
+					throw std::runtime_error("Level physics body for node '" + n.name
+						+ "' is missing motion type.");
+				}
+				const std::string motionType = GetStringOpt(physicsObject, "motionType");
+				LevelPhysicsBodyDef bodyDef{};
+				if (motionType == "static")
+				{
+					bodyDef.motionType = physics::PhysicsMotionType::Static;
+				}
+				else if (motionType == "dynamic")
+				{
+					bodyDef.motionType = physics::PhysicsMotionType::Dynamic;
+				}
+				else
+				{
+					throw std::runtime_error("Level physics body for node '" + n.name
+						+ "' uses unsupported motion type '" + motionType + "'.");
+				}
+
+				const JsonValue* shapeV = TryGet(physicsObject, "shape");
+				if (shapeV == nullptr)
+				{
+					throw std::runtime_error("Level physics body for node '" + n.name
+						+ "' is missing its shape.");
+				}
+				const JsonObject& shapeObject = shapeV->AsObject();
+				const std::string shapeType = GetStringOpt(shapeObject, "type");
+				if (shapeType == "box")
+				{
+					const JsonValue* dimensions = TryGet(shapeObject, "halfExtents");
+					if (dimensions == nullptr)
+					{
+						throw std::runtime_error("Level physics body for node '" + n.name
+							+ "' is missing box half extents.");
+					}
+					const auto values = ReadFloatArray(*dimensions, 3, "physicsBody.shape.halfExtents");
+					const physics::BoxShapeDescriptor descriptor{ .halfExtents = { values[0], values[1], values[2] } };
+					if (!descriptor.IsValid())
+					{
+						throw std::runtime_error("Level physics body for node '" + n.name
+							+ "' has invalid box half extents.");
+					}
+					bodyDef.shape = descriptor;
+				}
+				else if (shapeType == "sphere")
+				{
+					const physics::SphereShapeDescriptor descriptor{
+						.radius = GetFloatOpt(shapeObject, "radius", 0.0f)
+					};
+					if (!descriptor.IsValid())
+					{
+						throw std::runtime_error("Level physics body for node '" + n.name
+							+ "' has an invalid sphere radius.");
+					}
+					bodyDef.shape = descriptor;
+				}
+				else if (shapeType == "capsule")
+				{
+					const physics::CapsuleShapeDescriptor descriptor{
+						.radius = GetFloatOpt(shapeObject, "radius", 0.0f),
+						.cylinderHeight = GetFloatOpt(shapeObject, "cylinderHeight", 0.0f)
+					};
+					if (!descriptor.IsValid())
+					{
+						throw std::runtime_error("Level physics body for node '" + n.name
+							+ "' has invalid capsule dimensions.");
+					}
+					bodyDef.shape = descriptor;
+				}
+				else
+				{
+					throw std::runtime_error("Level physics body for node '" + n.name
+						+ "' uses unsupported shape type '" + shapeType + "'.");
+				}
+				n.physicsBody = std::move(bodyDef);
+			}
 
 			out.nodes.push_back(std::move(n));
 		}
