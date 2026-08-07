@@ -30,9 +30,15 @@ namespace physics
         [[nodiscard]] bool IsBodyValid(PhysicsBodyHandle handle) const noexcept;
         [[nodiscard]] std::optional<PhysicsTransform> GetBodyTransform(
             PhysicsBodyHandle handle) const noexcept;
-        [[nodiscard]] std::optional<mathUtils::Vec3> GetLinearVelocity(
-            PhysicsBodyHandle handle) const noexcept;
-
+        [[nodiscard]] std::optional<mathUtils::Vec3> GetLinearVelocity(PhysicsBodyHandle handle) const noexcept;
+        [[nodiscard]] bool SetLinearVelocity(PhysicsBodyHandle handle, const mathUtils::Vec3& velocity);
+        [[nodiscard]] bool AddImpulse(PhysicsBodyHandle handle, const mathUtils::Vec3& impulse);
+        [[nodiscard]] bool TeleportBody(PhysicsBodyHandle handle, const PhysicsTransform& transform);
+        [[nodiscard]] bool MoveKinematic(
+            PhysicsBodyHandle handle, 
+            const PhysicsTransform& target, 
+            float durationSeconds);
+        
     private:
         struct Implementation;
         JoltRuntime& runtime_;

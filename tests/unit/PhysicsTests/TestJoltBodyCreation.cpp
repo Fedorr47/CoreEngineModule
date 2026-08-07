@@ -55,11 +55,11 @@ TEST_F(JoltBodyCreationTest, RejectsInvalidShape)
     EXPECT_FALSE(world.IsBodyValid(handle));
 }
 
-TEST_F(JoltBodyCreationTest, RejectsUnsupportedKinematicBody)
+TEST_F(JoltBodyCreationTest, CreatesKinematicBody)
 {
     auto descriptor = StaticBox();
     descriptor.motionType = physics::PhysicsMotionType::Kinematic;
-    EXPECT_EQ(world.CreateBody(descriptor), physics::InvalidPhysicsBodyHandle);
+    EXPECT_TRUE(world.IsBodyValid(world.CreateBody(descriptor)));
 }
 
 TEST_F(JoltBodyCreationTest, RejectsInvalidTransform)
