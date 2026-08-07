@@ -50,6 +50,21 @@ namespace
         runtime.PreAnimationUpdate(context);
         runtime.PostAnimationUpdate(context);
     }
+    
+    [[nodiscard]] EntityHandle SpawnControlledEntity(
+    GameplayRuntime& runtime,
+    LevelAsset& levelAsset,
+    LevelInstance& levelInstance,
+    Scene& scene)
+    {
+        const GameplayUpdateContext context = MakeGameplayUpdateContext(
+            GameplayRuntimeMode::Editor,
+            levelAsset,
+            levelInstance,
+            scene);
+
+        return runtime.SpawnNodeBoundEntity(context, 0, true);
+    }
 }
 
 TEST(GameplayRuntimeModeTransitions, EditorToGame_SetsRuntimeModeAndControlledEntity)
@@ -65,8 +80,19 @@ TEST(GameplayRuntimeModeTransitions, EditorToGame_SetsRuntimeModeAndControlledEn
     
     ASSERT_EQ(runtime.GetCurrentMode(), GameplayRuntimeMode::Editor);
     
-    const EntityHandle controlledBeforeGame = runtime.GetControlledEntity();
+    runtime.Initialize(levelAsset, levelInstance, scene);
+
+    ASSERT_EQ(runtime.GetCurrentMode(), GameplayRuntimeMode::Editor);
+
+    const EntityHandle controlledBeforeGame = SpawnControlledEntity(
+        runtime,
+        levelAsset,
+        levelInstance,
+        scene);
+
     ASSERT_NE(controlledBeforeGame, kNullEntity);
+    ASSERT_EQ(runtime.GetControlledEntity(), controlledBeforeGame);
+    ASSERT_TRUE(runtime.GetWorld().IsEntityValid(controlledBeforeGame));
     ASSERT_TRUE(runtime.GetWorld().IsEntityValid(controlledBeforeGame));
     
     GameplayWorld& world = runtime.GetWorld();
@@ -107,11 +133,16 @@ TEST(GameplayRuntimeModeTransitions, GameToEditor_RestoresEditorModeAndClearsOrR
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};
     Scene scene{};
-    
+        
     runtime.Initialize(levelAsset, levelInstance, scene);
-    
-    const EntityHandle controlled  = runtime.GetControlledEntity();
-    ASSERT_NE(controlled , kNullEntity);
+
+    const EntityHandle controlled = SpawnControlledEntity(
+        runtime,
+        levelAsset,
+        levelInstance,
+        scene);
+
+    ASSERT_NE(controlled, kNullEntity);
     
     StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
     
@@ -160,9 +191,15 @@ TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDetermi
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};
     Scene scene{};
-
+    
     runtime.Initialize(levelAsset, levelInstance, scene);
-    const EntityHandle controlled = runtime.GetControlledEntity();
+
+    const EntityHandle controlled = SpawnControlledEntity(
+        runtime,
+        levelAsset,
+        levelInstance,
+        scene);
+
     ASSERT_NE(controlled, kNullEntity);
 
     auto runTransitionCycle = [&]()

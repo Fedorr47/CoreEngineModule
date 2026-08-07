@@ -1,10 +1,19 @@
 #include <gtest/gtest.h>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 import core;
 import std;
 
 #include "App/AppLifecycle.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
+#include "Physics/Jolt/JoltRuntime.h"
 #include "Physics/LevelPhysicsRuntime.h"
 
 namespace
