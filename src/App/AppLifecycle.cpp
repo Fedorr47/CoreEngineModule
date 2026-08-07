@@ -1,6 +1,7 @@
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 #include "Physics/Jolt/JoltRuntime.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
+#include "Physics/LevelPhysicsRuntime.h"
 
 import core;
 import std;
@@ -44,10 +45,12 @@ namespace appLifecycle
     
         joltRuntime = std::move(newRuntime);
         joltPhysicsWorld = std::move(newPhysicsWorld);
+        levelPhysicsRuntime = std::make_unique<physics::LevelPhysicsRuntime>(*joltPhysicsWorld);
     }
     
     void AppPhysicsState::Shutdown() noexcept
     {
+        levelPhysicsRuntime.reset();
         joltPhysicsWorld.reset();
         joltRuntime.reset();
     }
@@ -401,6 +404,44 @@ namespace appLifecycle
         app.mainThreadId = std::this_thread::get_id();
     }
     
+    bool SetGameplayMode(
+        AppState& app, 
+        rendern::GameplayRuntimeMode mode, 
+        std::string& errorMessage)
+    {
+        auto& runtimeState = app.runtimeState;
+        auto& physicsState = app.physicsState;
+        if (runtimeState.gameplayMode == mode)
+        {
+            return true;
+        }
+        if (mode == rendern::GameplayRuntimeMode::Game)
+        {
+            if (!physicsState.levelPhysicsRuntime->EnterGame(
+                *app.contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene,
+                errorMessage))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const bool leftGame = physicsState.levelPhysicsRuntime->LeaveGame(
+                *app.contentState.levelAsset,
+                *runtimeState.levelInstance,
+                runtimeState.scene,
+                errorMessage);
+            if (!leftGame)
+            {
+                return false;
+            }
+        }
+        runtimeState.gameplayMode = mode;
+        return true;
+    }
+    
 #include "AppLifecycleImpl/AppLifecycle_TickImpl.inl"
     
     static double Ms(auto duration)
@@ -705,6 +746,11 @@ namespace appLifecycle
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
         auto& physicsState      = app.physicsState;
+        
+        if (physicsState.levelPhysicsRuntime && physicsState.levelPhysicsRuntime->IsActive())
+        {
+            physicsState.levelPhysicsRuntime->Shutdown();
+        }
         
         appRuntime::ShutdownRuntime(
             windowState.shell,

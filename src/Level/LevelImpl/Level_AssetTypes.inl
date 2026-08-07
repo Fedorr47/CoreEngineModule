@@ -63,6 +63,12 @@ struct LevelMaterialDef
 	std::unordered_map<std::string, std::string> textureBindings; // slotName -> textureId
 };
 
+struct LevelPhysicsBodyDef
+{
+	physics::PhysicsShapeDescriptor shape{};
+	physics::PhysicsMotionType motionType{ physics::PhysicsMotionType::Static };
+};
+
 struct LevelNode
 {
 	std::string name;
@@ -86,6 +92,7 @@ struct LevelNode
 	bool animationLoop{ true };
 	float animationPlayRate{ 1.0f };
 	std::unordered_map<std::uint32_t, std::string> materialOverrides; // submeshIndex -> materialId
+	std::optional<LevelPhysicsBodyDef> physicsBody;
 };
 
 struct LevelAsset

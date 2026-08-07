@@ -13,6 +13,7 @@ namespace physics
 {
     class JoltRuntime;
     class JoltPhysicsWorld;
+    class LevelPhysicsRuntime;
 }
 
 namespace appLifecycle
@@ -143,6 +144,7 @@ namespace appLifecycle
 
         std::unique_ptr<physics::JoltRuntime> joltRuntime;
         std::unique_ptr<physics::JoltPhysicsWorld> joltPhysicsWorld;
+        std::unique_ptr<physics::LevelPhysicsRuntime> levelPhysicsRuntime;
     };
     
     struct AppState
@@ -168,5 +170,6 @@ namespace appLifecycle
     
     void InitializeApp(AppState& app, int argc, char** argv);
     bool TickApp(AppState& app);
+    [[nodiscard]] bool SetGameplayMode(AppState& app, rendern::GameplayRuntimeMode mode, std::string& errorMessage);
     void ShutdownApp(AppState& app);
 }

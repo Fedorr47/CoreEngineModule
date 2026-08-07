@@ -285,4 +285,64 @@ namespace physics
     {
         return IsInitialized() && handle.IsValid() && impl_->bodyRegistry.IsValid(handle);
     }
+    
+    std::optional<PhysicsTransform> JoltPhysicsWorld::GetBodyTransform(
+        PhysicsBodyHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !handle.IsValid())
+        {
+            return std::nullopt;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!bodyID.has_value())
+        {
+            return std::nullopt;
+        }
+
+        JPH::RVec3 position;
+        JPH::Quat rotation;
+        impl_->physicsSystem.GetBodyInterface().GetPositionAndRotation(
+            *bodyID, position, rotation);
+        return PhysicsTransform{
+            .position = {
+                position.GetX(),
+                position.GetY(),
+                position.GetZ()
+            },
+            .rotationQuaternion = {
+                rotation.GetX(),
+                rotation.GetY(),
+                rotation.GetZ(),
+                rotation.GetW()
+            }
+        };
+    }
+
+    std::optional<mathUtils::Vec3> JoltPhysicsWorld::GetLinearVelocity(
+        PhysicsBodyHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !handle.IsValid())
+        {
+            return std::nullopt;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
+        if (!bodyID.has_value())
+        {
+            return std::nullopt;
+        }
+
+        const JPH::Vec3 velocity =
+            impl_->physicsSystem.GetBodyInterface().GetLinearVelocity(*bodyID);
+        return mathUtils::Vec3{
+            velocity.GetX(),
+            velocity.GetY(),
+            velocity.GetZ()
+        };
+    }
 }

@@ -242,6 +242,47 @@ inline void WriteNodesSection_(std::ostringstream& ss, const LevelAsset& level, 
 			WriteJsonVec3(ss, n.transform.scale);
 		}
 		ss << "}";
+		
+		if (n.physicsBody.has_value())
+		{
+			ss << ", \"physicsBody\": {\"motionType\": ";
+			if (n.physicsBody->motionType == physics::PhysicsMotionType::Static)
+			{
+				WriteJsonEscaped(ss, "static");
+			}
+			else if (n.physicsBody->motionType == physics::PhysicsMotionType::Dynamic)
+			{
+				WriteJsonEscaped(ss, "dynamic");
+			}
+			else
+			{
+				throw std::runtime_error("Level physics body for node '" + n.name
+					+ "' uses an unsupported motion type while saving.");
+			}
+			ss << ", \"shape\": {";
+			std::visit([&ss](const auto& shape)
+			{
+				using Shape = std::decay_t<decltype(shape)>;
+				if constexpr (std::is_same_v<Shape, physics::BoxShapeDescriptor>)
+				{
+					ss << "\"type\": \"box\", \"halfExtents\": ";
+					WriteJsonVec3(ss, shape.halfExtents);
+				}
+				else if constexpr (std::is_same_v<Shape, physics::SphereShapeDescriptor>)
+				{
+					ss << "\"type\": \"sphere\", \"radius\": ";
+					WriteJsonFloat(ss, shape.radius);
+				}
+				else
+				{
+					ss << "\"type\": \"capsule\", \"radius\": ";
+					WriteJsonFloat(ss, shape.radius);
+					ss << ", \"cylinderHeight\": ";
+					WriteJsonFloat(ss, shape.cylinderHeight);
+				}
+			}, n.physicsBody->shape);
+			ss << "}}";
+		}
 
 		ss << "}";
 	}
