@@ -29,11 +29,6 @@ namespace physics
         bool SynchronizeAfterPhysics(rendern::LevelAsset& levelAsset, rendern::LevelInstance& levelInstance,
                                      rendern::Scene& scene, std::string& errorMessage);
         bool RequestDynamicTeleport(int nodeIndex, const PhysicsTransform& transform);
-        [[nodiscard]] bool Synchronize(
-            rendern::LevelAsset& levelAsset,
-            rendern::LevelInstance& levelInstance,
-            rendern::Scene& scene,
-            std::string& errorMessage);
         [[nodiscard]] bool LeaveGame(
             rendern::LevelAsset& levelAsset,
             rendern::LevelInstance& levelInstance,

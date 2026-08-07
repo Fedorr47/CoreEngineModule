@@ -440,6 +440,7 @@ namespace physics
         CORE_ASSERT_PHYSICS_THREAD();
 
         const std::optional<ConvertedTransform> convertedTransform = ConvertTransform(transform);
+
         const std::optional<JPH::BodyID> bodyID = impl_->bodyRegistry.ResolveBodyID(handle);
         if (!convertedTransform.has_value() || !bodyID.has_value())
         {
@@ -452,17 +453,35 @@ namespace physics
         {
             return false;
         }
+        if (motionType == JPH::EMotionType::Kinematic)
+        {
+            std::erase_if(
+                impl_->kinematicTargets,
+                [handle](const Implementation::KinematicTarget& target)
+                {
+                    return target.handle == handle;
+                });
+        }
 
-        const JPH::EActivation activation = motionType == JPH::EMotionType::Dynamic
-            ? JPH::EActivation::Activate
-            : JPH::EActivation::DontActivate;
+        const JPH::EActivation activation =
+            motionType == JPH::EMotionType::Dynamic
+                ? JPH::EActivation::Activate
+                : JPH::EActivation::DontActivate;
+
         bodyInterface.SetPositionAndRotation(
-            *bodyID, convertedTransform->position, convertedTransform->rotation, activation);
+            *bodyID,
+            convertedTransform->position,
+            convertedTransform->rotation,
+            activation);
+
         if (motionType == JPH::EMotionType::Kinematic)
         {
             bodyInterface.SetLinearAndAngularVelocity(
-                *bodyID, JPH::Vec3::sZero(), JPH::Vec3::sZero());
+                *bodyID,
+                JPH::Vec3::sZero(),
+                JPH::Vec3::sZero());
         }
+
         return true;
     }
 

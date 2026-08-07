@@ -143,7 +143,7 @@ TEST_F(LevelPhysicsRuntime, LeaveGameRestoresAuthoredPosition)
     {
         ASSERT_EQ(world.Update(FixedDeltaSeconds), 1u);
     }
-    ASSERT_TRUE(runtime.Synchronize(level, levelInstance, scene, error)) << error;
+    ASSERT_TRUE(runtime.SynchronizeAfterPhysics(level, levelInstance, scene, error)) << error;
     EXPECT_LT(level.nodes[0].transform.position.y, authoredPosition.y);
     EXPECT_TRUE(runtime.LeaveGame(level, levelInstance, scene, error)) << error;
     EXPECT_EQ(level.nodes[0].transform.position, authoredPosition);
