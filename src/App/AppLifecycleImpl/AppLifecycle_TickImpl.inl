@@ -111,11 +111,19 @@ static void UpdateInputAndCamera(AppState& app, float deltaSeconds)
 {
     app.windowState.input.SetCaptureMode(appUi::GetInputCaptureForImGui(app.windowState.shell));
     app.windowState.input.NewFrame(app.windowState.mainWindow.hwnd);
-    if (app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+    const bool bIsEditorMode = app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor;
+
+    const bool bHasControlledEntity =
+        app.runtimeState.gameplayRuntime
+        && app.runtimeState.gameplayRuntime->GetControlledEntity() != rendern::kNullEntity;
+
+    const bool bUseFreeCamera = bIsEditorMode || !bHasControlledEntity;
+
+    if (bUseFreeCamera)
     {
         app.runtimeState.cameraController->Update(
-            deltaSeconds, 
-            app.windowState.input.State(), 
+            deltaSeconds,
+            app.windowState.input.State(),
             app.runtimeState.scene.camera);
     }
 }

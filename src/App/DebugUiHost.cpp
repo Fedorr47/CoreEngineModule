@@ -183,14 +183,11 @@ namespace appUi
                 : "Mode: Editor");
 
         if (ImGui::Button(
-                bIsGameModeRequested
-                    ? "Return to Editor Mode"
-                    : "Enter Game Mode (F5)"))
+        bIsGameModeRequested
+            ? "Return to Editor Mode"
+            : "Enter Game Mode (F5)"))
         {
-            runtimeMode =
-                bIsGameModeRequested
-                    ? rendern::GameplayRuntimeMode::Editor
-                    : rendern::GameplayRuntimeMode::Game;
+            shell.requestedGameplayModeToggle = true;
         }
 
         if (gameplayRuntime != nullptr)

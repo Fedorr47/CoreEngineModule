@@ -30,6 +30,7 @@ namespace appWin32
         HMENU mainMenu{nullptr};
         
         std::string requestedLevelPath;
+        bool requestedGameplayModeToggle{ false };
         
         bool showDebugWindow{false};
         bool imguiInitialized{false};

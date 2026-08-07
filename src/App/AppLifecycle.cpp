@@ -592,6 +592,25 @@ namespace appLifecycle
             return false;
         }
         
+        if (std::exchange(
+        app.windowState.shell.requestedGameplayModeToggle,
+        false))
+        {
+            const rendern::GameplayRuntimeMode requestedMode =
+                app.runtimeState.gameplayMode == rendern::GameplayRuntimeMode::Editor
+                    ? rendern::GameplayRuntimeMode::Game
+                    : rendern::GameplayRuntimeMode::Editor;
+
+            std::string error;
+            if (!SetGameplayMode(app, requestedMode, error))
+            {
+                std::cerr
+                    << "[Physics] Failed to change runtime mode: "
+                    << error
+                    << '\n';
+            }
+        }
+        
         std::string requestedLevelPath =
             std::exchange(app.windowState.shell.requestedLevelPath,{});
 
