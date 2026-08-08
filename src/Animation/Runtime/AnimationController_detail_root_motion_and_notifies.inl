@@ -110,6 +110,86 @@
 			return bestIndex;
 		}
 
+		[[nodiscard]] inline bool AnimationStateIndexHasTag(
+			const AnimationControllerRuntime& runtime,
+			const int stateIndex,
+			const std::string_view tag) noexcept
+		{
+			if (runtime.stateMachineAsset == nullptr ||
+				stateIndex < 0 ||
+				static_cast<std::size_t>(stateIndex) >= runtime.stateMachineAsset->states.size())
+			{
+				return false;
+			}
+
+			const AnimationStateDesc& state = runtime.stateMachineAsset->states[static_cast<std::size_t>(stateIndex)];
+			for (const std::string& candidate : state.tags)
+			{
+				if (candidate == tag)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		[[nodiscard]] inline bool ShouldStripTurnInPlaceYaw(const AnimationControllerRuntime& runtime) noexcept
+		{
+			constexpr std::string_view kTurnInPlaceTag = "turn_in_place";
+			if (AnimationStateIndexHasTag(runtime, runtime.currentStateIndex, kTurnInPlaceTag))
+			{
+				return true;
+			}
+
+			return runtime.transitionActive &&
+				AnimationStateIndexHasTag(runtime, runtime.transitionSourceStateIndex, kTurnInPlaceTag);
+		}
+
+		[[nodiscard]] inline mathUtils::Vec4 ConjugateRootMotionQuat(const mathUtils::Vec4& rotation) noexcept
+		{
+			const mathUtils::Vec4 normalized = NormalizeQuat(rotation);
+			return mathUtils::Vec4(-normalized.x, -normalized.y, -normalized.z, normalized.w);
+		}
+
+		[[nodiscard]] inline mathUtils::Vec4 MultiplyRootMotionQuats(
+			const mathUtils::Vec4& lhs,
+			const mathUtils::Vec4& rhs) noexcept
+		{
+			return NormalizeQuat(mathUtils::Vec4(
+				lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
+				lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
+				lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w,
+				lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z));
+		}
+
+		[[nodiscard]] inline mathUtils::Vec4 RemoveRootMotionYawRelativeToBind(
+			const mathUtils::Vec4& rotation,
+			const mathUtils::Vec4& bindRotation) noexcept
+		{
+			const mathUtils::Vec4 normalizedBind = NormalizeQuat(bindRotation);
+			const mathUtils::Vec4 relativeRotation = MultiplyRootMotionQuats(
+				ConjugateRootMotionQuat(normalizedBind),
+				NormalizeQuat(rotation));
+
+			const float sinYaw = 2.0f *
+				(relativeRotation.w * relativeRotation.y + relativeRotation.x * relativeRotation.z);
+			const float cosYaw = 1.0f - 2.0f *
+				(relativeRotation.x * relativeRotation.x + relativeRotation.y * relativeRotation.y);
+			const float yawRadians = std::atan2(sinYaw, cosYaw);
+			const float halfYawRadians = yawRadians * 0.5f;
+			const mathUtils::Vec4 yawRotation(
+				0.0f,
+				std::sin(halfYawRadians),
+				0.0f,
+				std::cos(halfYawRadians));
+
+			const mathUtils::Vec4 rotationWithoutYaw = MultiplyRootMotionQuats(
+				ConjugateRootMotionQuat(yawRotation),
+				relativeRotation);
+			return MultiplyRootMotionQuats(normalizedBind, rotationWithoutYaw);
+		}
+
 		inline void ApplyRootMotionModeToAnimatorPose(AnimationControllerRuntime& runtime, AnimatorState& animator)
 		{
 			runtime.lastAppliedRootMotionDelta = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
@@ -143,6 +223,14 @@
 				motionTransform.translation.z - bindTranslation.z);
 			motionTransform.translation.x = bindTranslation.x;
 			motionTransform.translation.z = bindTranslation.z;
+
+			// Gameplay owns actor-facing yaw. Turn-in-place clips provide footwork and pose only.
+			if (ShouldStripTurnInPlaceYaw(runtime))
+			{
+				motionTransform.rotation = RemoveRootMotionYawRelativeToBind(
+					motionTransform.rotation,
+					bindRotation);
+			}
 		}
 
 		inline void PushNotifyEvent(
