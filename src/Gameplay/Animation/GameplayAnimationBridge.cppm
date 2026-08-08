@@ -182,6 +182,7 @@ export namespace rendern
         notifyState.interactionPointThisFrame = false;
         notifyState.actionStartedThisFrame = false;
         notifyState.actionFinishedThisFrame = false;
+        notifyState.jumpTakeoffThisFrame = false;
         notifyState.hitWindowOpenedThisFrame = false;
         notifyState.hitWindowClosedThisFrame = false;
     }
@@ -189,6 +190,8 @@ export namespace rendern
     inline void ApplyGameplayEventToGameplayState(
         GameplayAnimationNotifyStateComponent& notifyState,
         GameplayActionComponent* action,
+        GameplayCharacterMovementStateComponent* movementState,
+        GameplayCharacterMotorComponent* motor,
         std::string_view gameplayEventId,
         const AnimationNotifyEvent& sourceEvent)
     {
@@ -207,6 +210,21 @@ export namespace rendern
         if (detail::NameMatchesAnyAlias_(gameplayEventId, { "Interact", "Interaction", "InteractionPoint", "UsePoint", "InteractionEvent" }))
         {
             notifyState.interactionPointThisFrame = true;
+        }
+        
+        if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpTakeoff" }))
+        {
+            notifyState.jumpTakeoffThisFrame = true;
+            if (movementState != nullptr && movementState->jumpPhase == GameplayJumpPhase::Preparing)
+            {
+                movementState->jumpPhase = GameplayJumpPhase::Airborne;
+                movementState->grounded = false;
+                movementState->jumping = true;
+                if (motor != nullptr)
+                {
+                    motor->velocity = movementState->jumpLockedVelocity;
+                }
+            }
         }
 
         if (detail::NameMatchesAnyAlias_(
@@ -250,15 +268,50 @@ export namespace rendern
             {
                 FinishGameplayActionState(*action);
             }
+            if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpEnd", "JumpFinish" }) && movementState != nullptr)
+            {
+                movementState->jumpPhase = GameplayJumpPhase::None;
+                movementState->jumpLockedVelocity = {};
+                movementState->grounded = true;
+                movementState->jumping = false;
+            }
         }
     }
+    
+    inline void ApplyAnimationNotifyToGameplayState(
+        GameplayAnimationNotifyStateComponent& notifyState,
+        GameplayActionComponent* action,
+        GameplayCharacterMovementStateComponent* movementState,
+        GameplayCharacterMotorComponent* motor,
+        const AnimationNotifyEvent& event)
+    {
+        ApplyGameplayEventToGameplayState(notifyState, action, movementState, motor, event.id, event);
+    }
+
+    // Compatibility overloads keep non-character event consumers independent
+    // from character movement while character bridge systems pass full state.
+    inline void ApplyGameplayEventToGameplayState(
+        GameplayAnimationNotifyStateComponent& notifyState,
+        GameplayActionComponent* action,
+        std::string_view gameplayEventId,
+        const AnimationNotifyEvent& sourceEvent)
+    {
+        ApplyGameplayEventToGameplayState(
+            notifyState,
+            action,
+            nullptr,
+            nullptr,
+            gameplayEventId,
+            sourceEvent);
+    }
+
 
     inline void ApplyAnimationNotifyToGameplayState(
         GameplayAnimationNotifyStateComponent& notifyState,
         GameplayActionComponent* action,
         const AnimationNotifyEvent& event)
     {
-        ApplyGameplayEventToGameplayState(notifyState, action, event.id, event);
+        ApplyAnimationNotifyToGameplayState(notifyState, action, nullptr, nullptr, event);
     }
 
     inline void CollectGameplayEventIdsForAnimationEvent(

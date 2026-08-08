@@ -146,31 +146,36 @@
 				AnimationStateIndexHasTag(runtime, runtime.transitionSourceStateIndex, kTurnInPlaceTag);
 		}
 
-		[[nodiscard]] inline mathUtils::Vec4 ConjugateRootMotionQuat(const mathUtils::Vec4& rotation) noexcept
+		[[nodiscard]] inline bool ShouldPreserveIdlePose(
+			const AnimationControllerRuntime& runtime) noexcept
 		{
-			const mathUtils::Vec4 normalized = NormalizeQuat(rotation);
-			return mathUtils::Vec4(-normalized.x, -normalized.y, -normalized.z, normalized.w);
+			constexpr std::string_view kIdleTag = "idle";
+
+			if (runtime.transitionActive)
+			{
+				return false;
+			}
+
+			return AnimationStateIndexHasTag(
+				runtime,
+				runtime.currentStateIndex,
+				kIdleTag);
 		}
 
-		[[nodiscard]] inline mathUtils::Vec4 MultiplyRootMotionQuats(
-			const mathUtils::Vec4& lhs,
-			const mathUtils::Vec4& rhs) noexcept
+		[[nodiscard]] inline mathUtils::Vec4 ConjugateRootMotionQuat(const mathUtils::Vec4& rotation) noexcept
 		{
-			return NormalizeQuat(mathUtils::Vec4(
-				lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
-				lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
-				lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w,
-				lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z));
+			const mathUtils::Vec4 normalized = mathUtils::NormalizeQuat(rotation);
+			return mathUtils::Vec4(-normalized.x, -normalized.y, -normalized.z, normalized.w);
 		}
 
 		[[nodiscard]] inline mathUtils::Vec4 RemoveRootMotionYawRelativeToBind(
 			const mathUtils::Vec4& rotation,
 			const mathUtils::Vec4& bindRotation) noexcept
 		{
-			const mathUtils::Vec4 normalizedBind = NormalizeQuat(bindRotation);
-			const mathUtils::Vec4 relativeRotation = MultiplyRootMotionQuats(
+			const mathUtils::Vec4 normalizedBind = mathUtils::NormalizeQuat(bindRotation);
+			const mathUtils::Vec4 relativeRotation = mathUtils::MultiplyRootMotionQuats(
 				ConjugateRootMotionQuat(normalizedBind),
-				NormalizeQuat(rotation));
+				mathUtils::NormalizeQuat(rotation));
 
 			const float sinYaw = 2.0f *
 				(relativeRotation.w * relativeRotation.y + relativeRotation.x * relativeRotation.z);
@@ -197,6 +202,13 @@
 			if (runtime.rootMotionMode != AnimationRootMotionMode::InPlace ||
 				!IsAnimatorReady(animator) ||
 				animator.localPose.empty())
+			{
+				return;
+			}
+			
+			// Idle clips keep their authored skeletal motion.
+			// Gameplay still owns the entity world transform.
+			if (ShouldPreserveIdlePose(runtime))
 			{
 				return;
 			}

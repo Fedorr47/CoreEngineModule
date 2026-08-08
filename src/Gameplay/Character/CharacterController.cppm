@@ -137,8 +137,7 @@ export namespace rendern
             const bool bIsPlayerControlled = world.HasPlayerControlled(entity);
             
             const bool bHasLockedJumpDirection = 
-                movementState->jumping &&
-                movementState->jumpMovementLocked &&
+                movementState->jumpPhase != GameplayJumpPhase::None &&
                 mathUtils::Dot(
                     movementState->jumpLockedVelocity,
                     movementState->jumpLockedVelocity) >

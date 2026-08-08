@@ -70,7 +70,7 @@ export namespace rendern
                 .grounded = true,
                 .jumping = false,
                 .falling = false,
-                .jumpMovementLocked = false,
+                .jumpPhase = GameplayJumpPhase::None,
                 .turningInPlace = false,
                 .facingYawDegrees = node.transform.rotationDegrees.y,
                 .desiredFacingYawDegrees = node.transform.rotationDegrees.y,

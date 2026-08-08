@@ -304,7 +304,7 @@ namespace rendern
                 movementState->grounded = true;
                 movementState->jumping = false;
                 movementState->falling = false;
-                movementState->jumpMovementLocked = false;
+                movementState->jumpPhase = GameplayJumpPhase::None;
                 movementState->turningInPlace = false;
 
                 movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;

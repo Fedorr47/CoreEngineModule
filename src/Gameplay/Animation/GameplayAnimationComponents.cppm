@@ -19,6 +19,7 @@ export namespace rendern
         bool footstepThisFrame{ false };
         bool interactionPointThisFrame{ false };
         bool actionStartedThisFrame{ false };
+        bool jumpTakeoffThisFrame{ false };
         bool actionFinishedThisFrame{ false };
         bool hitWindowOpenedThisFrame{ false };
         bool hitWindowClosedThisFrame{ false };

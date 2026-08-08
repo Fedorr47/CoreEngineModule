@@ -8,6 +8,13 @@ import :math_utils;
 
 export namespace rendern
 {
+    enum class GameplayJumpPhase : std::uint8_t
+    {
+        None,
+        Preparing,
+        Airborne
+    };
+    
     struct GameplayCharacterCommandComponent
     {
         float moveInputX{ 0.0f };
@@ -35,7 +42,7 @@ export namespace rendern
         bool grounded{ true };
         bool jumping{ false };
         bool falling{ false };
-        bool jumpMovementLocked{ false };
+        GameplayJumpPhase jumpPhase{ GameplayJumpPhase::None };
         bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };
         // Character body-facing target consumed by movement and locomotion.

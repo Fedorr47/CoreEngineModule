@@ -60,6 +60,10 @@
         "fireOnEnter": true
       },
       {
+        "id": "JumpTakeoff",
+        "time": 0.2
+      },
+      {
         "id": "JumpLand",
         "time": 0.72
       },

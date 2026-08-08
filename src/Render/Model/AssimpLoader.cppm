@@ -366,7 +366,7 @@ namespace
                 const aiQuatKey& key = src->mRotationKeys[keyIndex];
                 dst.rotationKeys.push_back(rendern::RotationKey{
                     .timeTicks = static_cast<float>(key.mTime),
-                    .value = rendern::NormalizeQuat(rendern::assimp_detail::AiToQuatVec4(key.mValue))
+                    .value = mathUtils::NormalizeQuat(rendern::assimp_detail::AiToQuatVec4(key.mValue))
                     });
             }
 
@@ -440,7 +440,7 @@ namespace
             sampled.translation = rendern::SampleTranslationKeys(channel.translationKeys, timeTicks, sampled.translation);
             sampled.rotation = rendern::SampleRotationKeys(channel.rotationKeys, timeTicks, sampled.rotation);
             sampled.scale = rendern::SampleScaleKeys(channel.scaleKeys, timeTicks, sampled.scale);
-            localPose[boneIndex] = rendern::ComposeTRS(sampled.translation, sampled.rotation, sampled.scale);
+            localPose[boneIndex] = mathUtils::ComposeTRS(sampled.translation, sampled.rotation, sampled.scale);
         }
 
         for (std::size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)
