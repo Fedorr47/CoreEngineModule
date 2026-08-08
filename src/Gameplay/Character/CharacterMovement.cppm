@@ -114,8 +114,9 @@ export namespace rendern
                 continue;
             }
 
-            const bool bIsJumping  = action != nullptr &&
-                (action->current == GameplayActionKind::Jump || GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump);
+            const bool jumpRequested = action != nullptr &&
+                (action->current == GameplayActionKind::Jump ||
+                    GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump);
 
             float speedScale = 1.0f;
             if (command->moveInputY < -0.1f)
@@ -127,37 +128,47 @@ export namespace rendern
             const float targetSpeed = baseTargetSpeed * speedScale;
             const mathUtils::Vec3 targetVelocity = command->moveWorld * (targetSpeed * command->moveMagnitude);
 
-            if (bIsJumping )
+            if (movementState != nullptr &&
+                jumpRequested &&
+                movementState->jumpPhase == GameplayJumpPhase::None)
             {
-                if (movementState != nullptr && !movementState->jumping)
-                {
-                    mathUtils::Vec3 launchVelocity = motor->velocity;
-                    if (mathUtils::Dot(targetVelocity, targetVelocity) > mathUtils::kMoveEpsilonSq)
-                    {
-                        launchVelocity = targetVelocity;
-                    }
+                // Capture the actual planar momentum at jump preparation start.
+                // Ground movement continues until the explicit takeoff notify.
+                movementState->jumpLockedVelocity = motor->velocity;
+                movementState->jumpPhase = GameplayJumpPhase::Preparing;
+            }
 
-                    movementState->jumpLockedVelocity = launchVelocity;
-                    movementState->jumpMovementLocked = true;
-                    motor->velocity = launchVelocity;
-                }
+            const bool bIsAirborne = movementState != nullptr &&
+                movementState->jumpPhase == GameplayJumpPhase::Airborne;
+            const bool bIsPreparing = movementState != nullptr &&
+                movementState->jumpPhase == GameplayJumpPhase::Preparing;
 
-                const float airDeceleration = std::max(motor->airDeceleration, 0.0f) * dt;
-                motor->velocity = MoveVelocityTowards_(motor->velocity, mathUtils::Vec3(0.0f, 0.0f, 0.0f), airDeceleration);
+            if (bIsAirborne)
+            {
+                const float airDeceleration =
+                    std::max(motor->airDeceleration, 0.0f) * dt;
+
+                motor->velocity = MoveVelocityTowards_(
+                    motor->velocity,
+                    mathUtils::Vec3(0.0f, 0.0f, 0.0f),
+                    airDeceleration);
             }
             else
             {
                 const float currentSpeedSq = mathUtils::Dot(motor->velocity, motor->velocity);
                 const float desiredSpeedSq = mathUtils::Dot(targetVelocity, targetVelocity);
-                const float rate = desiredSpeedSq > currentSpeedSq ? motor->acceleration : motor->deceleration;
-                const float maxDelta = std::max(rate, 0.0f) * dt;
-                motor->velocity = MoveVelocityTowards_(motor->velocity, targetVelocity, maxDelta);
 
-                if (movementState != nullptr)
-                {
-                    movementState->jumpMovementLocked = false;
-                    movementState->jumpLockedVelocity = mathUtils::Vec3(0.0f, 0.0f, 0.0f);
-                }
+                const float rate =
+                    desiredSpeedSq > currentSpeedSq
+                        ? motor->acceleration
+                        : motor->deceleration;
+
+                const float maxDelta = std::max(rate, 0.0f) * dt;
+
+                motor->velocity = MoveVelocityTowards_(
+                    motor->velocity,
+                    targetVelocity,
+                    maxDelta);
             }
 
             transform->position = transform->position + motor->velocity * dt;
@@ -170,9 +181,10 @@ export namespace rendern
                 const bool bIsPlayerControlled = world.HasPlayerControlled(entity);
 
                 const bool bCanUseCameraTurnInPlace =
-                    bIsPlayerControlled &&
-                    !bIsJumping &&
-                    !bHasMoveInput;
+                    bIsPlayerControlled 
+                && !bIsAirborne 
+                && !bIsPreparing 
+                && !bHasMoveInput;
 
                 if (bCanUseCameraTurnInPlace)
                 {
@@ -226,8 +238,8 @@ export namespace rendern
                 transform->rotationDegrees.y = movementState->desiredFacingYawDegrees;
                 movementState->facingYawDegrees = transform->rotationDegrees.y;
 
-                movementState->jumping = bIsJumping;
-                movementState->grounded = !bIsJumping;
+                movementState->jumping = bIsAirborne;
+                movementState->grounded = !bIsAirborne;
                 movementState->falling = false;
             }
         }

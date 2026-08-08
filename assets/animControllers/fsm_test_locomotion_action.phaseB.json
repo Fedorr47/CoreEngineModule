@@ -159,7 +159,7 @@
     },
     "TurnLeftStart": {
       "clip": "",
-      "clipSourceAssetId": "left_turn",
+      "clipSourceAssetId": "right_turn",
       "loop": false,
       "playRate": 1.0,
       "tags": [
@@ -177,7 +177,7 @@
     },
     "TurnRightStart": {
       "clip": "",
-      "clipSourceAssetId": "right_turn",
+      "clipSourceAssetId": "left_turn",
       "loop": false,
       "playRate": 1.0,
       "tags": [

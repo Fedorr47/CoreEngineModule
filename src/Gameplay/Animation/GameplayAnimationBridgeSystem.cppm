@@ -216,14 +216,17 @@ export namespace rendern
                     .skinnedDrawIndex = animLink->skinnedDrawIndex,
                     .event = event
                 });
+                
+                GameplayCharacterMovementStateComponent* movementState = world.TryGetCharacterMovementState(entity);
+                GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(entity);
 
-                ApplyAnimationNotifyToGameplayState(*notifyState, action, event);
+                ApplyAnimationNotifyToGameplayState(*notifyState, action, movementState, motor, event);
 
                 std::vector<std::string> gameplayEventIds{};
                 CollectGameplayEventIdsForAnimationEvent(skinnedItem->controller.stateMachineAsset, event, gameplayEventIds);
                 for (const std::string& gameplayEventId : gameplayEventIds)
                 {
-                    ApplyGameplayEventToGameplayState(*notifyState, action, gameplayEventId, event);
+                    ApplyGameplayEventToGameplayState(*notifyState, action, movementState, motor, gameplayEventId, event);
                     outGameplayEvents.push_back(GameplayEventRecord{
                         .entity = entity,
                         .nodeIndex = nodeLink->nodeIndex,

@@ -9,6 +9,12 @@ import core;
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
+#include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
+#include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
 #include <algorithm>
@@ -18,6 +24,8 @@ import core;
 #include <utility>
 #include <variant>
 #include <vector>
+
+#include "Jolt/Physics/Collision/CastResult.h"
 
 namespace
 {
@@ -31,6 +39,52 @@ namespace
     constexpr double MaximumAcceptedFrameDeltaSeconds =
         FixedPhysicsDeltaSeconds * static_cast<double>(MaximumPhysicsStepsPerFrame);
     constexpr float MinimumQuaternionLengthSquared = 1.0e-12f;
+    
+    class QueryObjectLayerFilter final : public JPH::ObjectLayerFilter
+    {
+    public:
+        explicit QueryObjectLayerFilter(const physics::PhysicsQueryLayerMask mask) noexcept : mask_(mask) {}
+
+        [[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer layer) const override
+        {
+            using enum physics::PhysicsQueryLayerMask;
+            if (layer == physics::jolt::ObjectLayers::StaticWorld)
+            {
+                return HasQueryLayer(mask_, StaticWorld);
+            }
+            if (layer == physics::jolt::ObjectLayers::DynamicWorld)
+            {
+                return HasQueryLayer(mask_, DynamicWorld);
+            }
+            if (layer == physics::jolt::ObjectLayers::Character)
+            {
+                return HasQueryLayer(mask_, Character);
+            }
+            if (layer == physics::jolt::ObjectLayers::Trigger)
+            {
+                return HasQueryLayer(mask_, Trigger);
+            }
+            return false;
+        }
+
+    private:
+        physics::PhysicsQueryLayerMask mask_;
+    };
+
+    class IgnoredBodyFilter final : public JPH::BodyFilter
+    {
+    public:
+        explicit IgnoredBodyFilter(const std::optional<JPH::BodyID> ignoredBody) noexcept
+            : ignoredBody_(ignoredBody) {}
+
+        [[nodiscard]] bool ShouldCollide(const JPH::BodyID& bodyID) const override
+        {
+            return !ignoredBody_.has_value() || bodyID != *ignoredBody_;
+        }
+
+    private:
+        std::optional<JPH::BodyID> ignoredBody_;
+    };
 }
 
 struct ConvertedTransform
@@ -544,5 +598,77 @@ namespace physics
             impl_->kinematicTargets.push_back({ .handle = handle, .transform = target });
         }
         return true;
+    }
+    
+    std::optional<PhysicsHit> JoltPhysicsWorld::RayCastClosest(
+        const PhysicsRayCastRequest& request) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return std::nullopt;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const float directionLengthSquared = mathUtils::LengthSquared(request.direction);
+        if (!mathUtils::IsFinite(request.origin)
+            || !mathUtils::IsFinite(request.direction)
+            || !std::isfinite(directionLengthSquared)
+            || directionLengthSquared <= mathUtils::kLengthEpsilonSq
+            || !std::isfinite(request.maxDistance)
+            || request.maxDistance <= 0.0f
+            || request.layerMask == PhysicsQueryLayerMask::None)
+        {
+            return std::nullopt;
+        }
+
+        const float inverseDirectionLength = 1.0f / std::sqrt(directionLengthSquared);
+        const mathUtils::Vec3 direction{
+            request.direction.x * inverseDirectionLength,
+            request.direction.y * inverseDirectionLength,
+            request.direction.z * inverseDirectionLength
+        };
+        const JPH::RRayCast ray{
+            JPH::RVec3(request.origin.x, request.origin.y, request.origin.z),
+            JPH::Vec3(direction.x, direction.y, direction.z) * request.maxDistance
+        };
+        const QueryObjectLayerFilter layerFilter{ request.layerMask };
+        const IgnoredBodyFilter bodyFilter{ impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
+        JPH::RayCastResult result;
+        if (!impl_->physicsSystem.GetNarrowPhaseQuery().CastRay(
+            ray,
+            result,
+            JPH::BroadPhaseLayerFilter{},
+            layerFilter,
+            bodyFilter))
+        {
+            return std::nullopt;
+        }
+
+        const std::optional<PhysicsBodyHandle> handle = impl_->bodyRegistry.ResolveHandle(result.mBodyID);
+        if (!handle.has_value())
+        {
+            return std::nullopt;
+        }
+
+        const float distance = result.mFraction * request.maxDistance;
+        const JPH::RVec3 hitPosition = ray.GetPointOnRay(result.mFraction);
+        const JPH::BodyLockRead lock{ impl_->physicsSystem.GetBodyLockInterface(), result.mBodyID };
+        if (!lock.Succeeded())
+        {
+            return std::nullopt;
+        }
+        const JPH::Vec3 normal = lock.GetBody().GetWorldSpaceSurfaceNormal(
+            result.mSubShapeID2, hitPosition).Normalized();
+        return PhysicsHit{
+            .body = *handle,
+            .position = {
+                static_cast<float>(hitPosition.GetX()),
+                static_cast<float>(hitPosition.GetY()),
+                static_cast<float>(hitPosition.GetZ())
+            },
+            .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
+            .distance = distance
+        };
     }
 }
