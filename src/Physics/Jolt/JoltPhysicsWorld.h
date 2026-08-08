@@ -39,6 +39,7 @@ namespace physics
             const PhysicsTransform& target, 
             float durationSeconds);
         [[nodiscard]] bool SetKinematicTarget(PhysicsBodyHandle handle, const PhysicsTransform& target);
+        [[nodiscard]] std::optional<PhysicsHit> RayCastClosest(const PhysicsRayCastRequest& request) const noexcept;
         
     private:
         struct Implementation;

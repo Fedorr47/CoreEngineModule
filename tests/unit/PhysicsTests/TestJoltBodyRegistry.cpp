@@ -37,6 +37,8 @@ TEST(JoltBodyRegistry, AllocatesAndResolvesBodyId)
     EXPECT_TRUE(handle.IsValid());
     EXPECT_TRUE(registry.IsValid(handle));
     ExpectBodyID(registry.ResolveBodyID(handle), FirstBodyId);
+    ASSERT_TRUE(registry.ResolveHandle(FirstBodyId).has_value());
+    EXPECT_EQ(*registry.ResolveHandle(FirstBodyId), handle);
 }
 
 TEST(JoltBodyRegistry, MultipleLiveBodiesUseDifferentSlots)
@@ -60,6 +62,7 @@ TEST(JoltBodyRegistry, ReleaseInvalidatesHandle)
     EXPECT_TRUE(registry.ReleaseHandle(handle));
     EXPECT_FALSE(registry.IsValid(handle));
     EXPECT_FALSE(registry.ResolveBodyID(handle).has_value());
+    EXPECT_FALSE(registry.ResolveHandle(FirstBodyId).has_value());
     EXPECT_FALSE(registry.ReleaseHandle(handle));
 }
 
@@ -74,6 +77,18 @@ TEST(JoltBodyRegistry, ReusesReleasedSlotWithNewGeneration)
     EXPECT_NE(secondHandle.generation, firstHandle.generation);
     EXPECT_TRUE(registry.IsValid(secondHandle));
     ExpectBodyID(registry.ResolveBodyID(secondHandle), SecondBodyId);
+    EXPECT_EQ(*registry.ResolveHandle(SecondBodyId), secondHandle);
+    EXPECT_FALSE(registry.ResolveHandle(FirstBodyId).has_value());
+}
+
+TEST(JoltBodyRegistry, ResetClearsReverseLookup)
+{
+    physics::jolt::JoltBodyRegistry registry;
+    const auto handle = registry.AllocateHandle(FirstBodyId);
+    registry.Reset();
+
+    EXPECT_FALSE(registry.ResolveHandle(FirstBodyId).has_value());
+    EXPECT_FALSE(registry.IsValid(handle));
 }
 
 TEST(JoltBodyRegistry, StaleHandleDoesNotResolveAfterReuse)

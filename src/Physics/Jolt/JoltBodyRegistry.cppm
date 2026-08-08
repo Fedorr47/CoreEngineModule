@@ -5,6 +5,7 @@ module;
 
 #include <limits>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -29,6 +30,9 @@ export namespace physics::jolt
         
         [[nodiscard]] std::optional<JPH::BodyID> ResolveBodyID
             (const PhysicsBodyHandle handle) const noexcept;
+        
+        [[nodiscard]] std::optional<PhysicsBodyHandle> ResolveHandle(
+            JPH::BodyID bodyID) const noexcept;
         
         [[nodiscard]] bool ReleaseHandle(const PhysicsBodyHandle handle);
         
@@ -58,6 +62,7 @@ export namespace physics::jolt
         
         std::vector<Slot> slots_;
         std::vector<PhysicsBodyHandle::IndexType> freeSlotIndices_;
+        std::unordered_map<JPH::uint32, PhysicsBodyHandle> handlesByBodyID_;
     };
 }
 
@@ -86,10 +91,26 @@ physics::PhysicsBodyHandle physics::jolt::JoltBodyRegistry::AllocateHandle(JPH::
         slots_.emplace_back();
     }
     
+    const PhysicsBodyHandle handle{.index = slotIndex, .generation = slots_[slotIndex].generation};
+    try
+    {
+        const bool inserted = handlesByBodyID_.emplace(bodyID.GetIndexAndSequenceNumber(), handle).second;
+        if (!inserted)
+        {
+            freeSlotIndices_.push_back(slotIndex);
+            return InvalidPhysicsBodyHandle;
+        }
+    }
+    catch (...)
+    {
+        freeSlotIndices_.push_back(slotIndex);
+        throw;
+    }
+    
     Slot& slot = slots_[slotIndex];
     slot.bodyID = bodyID;
     slot.bOccupied = true;
-    return PhysicsBodyHandle{.index = slotIndex, .generation = slot.generation};
+    return handle;
 }
 
 std::optional<JPH::BodyID> physics::jolt::JoltBodyRegistry::ResolveBodyID(
@@ -109,6 +130,22 @@ std::optional<JPH::BodyID> physics::jolt::JoltBodyRegistry::ResolveBodyID(
     return slot.bodyID;
 }
 
+std::optional<physics::PhysicsBodyHandle> physics::jolt::JoltBodyRegistry::ResolveHandle(
+    const JPH::BodyID bodyID) const noexcept
+{
+    if (bodyID.IsInvalid())
+    {
+        return std::nullopt;
+    }
+
+    const auto iterator = handlesByBodyID_.find(bodyID.GetIndexAndSequenceNumber());
+    if (iterator == handlesByBodyID_.end() || !IsValid(iterator->second))
+    {
+        return std::nullopt;
+    }
+    return iterator->second;
+}
+
 bool physics::jolt::JoltBodyRegistry::ReleaseHandle(const PhysicsBodyHandle handle)
 {
     if (!handle.IsValid() || handle.index >= slots_.size())
@@ -123,6 +160,7 @@ bool physics::jolt::JoltBodyRegistry::ReleaseHandle(const PhysicsBodyHandle hand
     }
 
     freeSlotIndices_.push_back(handle.index);
+    handlesByBodyID_.erase(slot.bodyID.GetIndexAndSequenceNumber());
     slot.bodyID = JPH::BodyID{};
     slot.bOccupied = false;
 
@@ -145,6 +183,7 @@ bool physics::jolt::JoltBodyRegistry::IsValid(const PhysicsBodyHandle handle) co
 
 void physics::jolt::JoltBodyRegistry::Reset() noexcept
 {
+    handlesByBodyID_.clear();
     freeSlotIndices_.clear();
     for (PhysicsBodyHandle::IndexType index = 0u; index < slots_.size(); ++index)
     {

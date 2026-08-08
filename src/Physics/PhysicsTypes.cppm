@@ -72,6 +72,45 @@ export namespace physics
     };
 
     inline constexpr PhysicsBodyHandle InvalidPhysicsBodyHandle{};
+    
+    enum class PhysicsQueryLayerMask : std::uint8_t
+    {
+        None = 0u,
+        StaticWorld = 1u << 0u,
+        DynamicWorld = 1u << 1u,
+        Character = 1u << 2u,
+        Trigger = 1u << 3u,
+        All = (1u << 4u) - 1u
+    };
+
+    [[nodiscard]] constexpr PhysicsQueryLayerMask operator|(
+        const PhysicsQueryLayerMask first, const PhysicsQueryLayerMask second) noexcept
+    {
+        return static_cast<PhysicsQueryLayerMask>(static_cast<std::uint8_t>(first) | static_cast<std::uint8_t>(second));
+    }
+
+    [[nodiscard]] constexpr bool HasQueryLayer(
+        const PhysicsQueryLayerMask mask, const PhysicsQueryLayerMask layer) noexcept
+    {
+        return (static_cast<std::uint8_t>(mask) & static_cast<std::uint8_t>(layer)) != 0u;
+    }
+
+    struct PhysicsRayCastRequest
+    {
+        mathUtils::Vec3 origin{};
+        mathUtils::Vec3 direction{};
+        float maxDistance{ 0.0f };
+        PhysicsQueryLayerMask layerMask{ PhysicsQueryLayerMask::All };
+        PhysicsBodyHandle ignoredBody{ InvalidPhysicsBodyHandle };
+    };
+
+    struct PhysicsHit
+    {
+        PhysicsBodyHandle body{ InvalidPhysicsBodyHandle };
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 normal{};
+        float distance{ 0.0f };
+    };
 
     enum class PhysicsMotionType : std::uint8_t
     {
