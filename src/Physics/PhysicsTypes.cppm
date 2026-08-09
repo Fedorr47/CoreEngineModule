@@ -128,6 +128,24 @@ export namespace physics
 
         friend constexpr bool operator==(const PhysicsTransform&, const PhysicsTransform&) noexcept = default;
     };
+    
+    struct PhysicsShapeCastRequest
+    {
+        PhysicsShapeDescriptor shape{};
+        PhysicsTransform startTransform{};
+        mathUtils::Vec3 direction{};
+        float maxDistance{ 0.0f };
+        PhysicsQueryLayerMask layerMask{ PhysicsQueryLayerMask::All };
+        PhysicsBodyHandle ignoredBody{ InvalidPhysicsBodyHandle };
+    };
+
+    struct PhysicsOverlapRequest
+    {
+        PhysicsShapeDescriptor shape{};
+        PhysicsTransform transform{};
+        PhysicsQueryLayerMask layerMask{ PhysicsQueryLayerMask::All };
+        PhysicsBodyHandle ignoredBody{ InvalidPhysicsBodyHandle };
+    };
 
     struct PhysicsBodyDescriptor
     {

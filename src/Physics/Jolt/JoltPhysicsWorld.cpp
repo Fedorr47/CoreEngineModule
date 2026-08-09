@@ -13,6 +13,9 @@ import core;
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/ShapeCast.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/PhysicsSystem.h>
@@ -85,6 +88,11 @@ namespace
     private:
         std::optional<JPH::BodyID> ignoredBody_;
     };
+    
+    [[nodiscard]] bool IsShapeValid(const physics::PhysicsShapeDescriptor& descriptor) noexcept
+    {
+        return std::visit([](const auto& shape) { return shape.IsValid(); }, descriptor);
+    }
 }
 
 struct ConvertedTransform
@@ -119,6 +127,14 @@ struct ConvertedTransform
             rotation.z * inverseLength,
             rotation.w * inverseLength)
             };
+}
+
+[[nodiscard]] JPH::RMat44 ToCenterOfMassTransform(
+    const ConvertedTransform& transform, const JPH::Shape& shape) noexcept
+{
+    return JPH::RMat44::sRotationTranslation(
+        transform.rotation,
+        transform.position + transform.rotation * shape.GetCenterOfMass());
 }
 
 namespace physics
@@ -670,5 +686,177 @@ namespace physics
             .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
             .distance = distance
         };
+    }
+    
+    std::optional<PhysicsHit> JoltPhysicsWorld::ShapeCastClosest(
+        const PhysicsShapeCastRequest& request) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return std::nullopt;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const auto transform = ConvertTransform(request.startTransform);
+        const float directionLengthSquared = mathUtils::LengthSquared(request.direction);
+        if (!transform.has_value()
+            || !IsShapeValid(request.shape)
+            || !mathUtils::IsFinite(request.direction)
+            || !std::isfinite(directionLengthSquared)
+            || directionLengthSquared <= mathUtils::kLengthEpsilonSq
+            || !std::isfinite(request.maxDistance)
+            || request.maxDistance <= 0.0f
+            || request.layerMask == PhysicsQueryLayerMask::None)
+        {
+            return std::nullopt;
+        }
+
+        const auto shapeResult = std::visit([](const auto& descriptor)
+        {
+            return jolt::CreateShape(descriptor);
+        }, request.shape);
+        if (!shapeResult.has_value())
+        {
+            return std::nullopt;
+        }
+
+        const float inverseLength = 1.0f / std::sqrt(directionLengthSquared);
+        const JPH::Vec3 displacement{
+            request.direction.x * inverseLength * request.maxDistance,
+            request.direction.y * inverseLength * request.maxDistance,
+            request.direction.z * inverseLength * request.maxDistance
+        };
+        const JPH::ShapeRefC& shape = shapeResult.value();
+        const JPH::RShapeCast cast{
+            shape.GetPtr(),
+            JPH::Vec3::sReplicate(1.0f),
+            ToCenterOfMassTransform(*transform, *shape),
+            displacement
+        };
+        const QueryObjectLayerFilter layerFilter{ request.layerMask };
+        const IgnoredBodyFilter bodyFilter{ impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
+        JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+        impl_->physicsSystem.GetNarrowPhaseQuery().CastShape(
+            cast,
+            JPH::ShapeCastSettings{},
+            JPH::RVec3::sZero(),
+            collector,
+            JPH::BroadPhaseLayerFilter{},
+            layerFilter,
+            bodyFilter);
+        if (!collector.HadHit())
+        {
+            return std::nullopt;
+        }
+
+        const JPH::ShapeCastResult& result = collector.mHit;
+        const auto handle = impl_->bodyRegistry.ResolveHandle(result.mBodyID2);
+        if (!handle.has_value())
+        {
+            return std::nullopt;
+        }
+
+        const JPH::Vec3 normal = (-result.mPenetrationAxis).NormalizedOr(JPH::Vec3::sZero());
+        return PhysicsHit{
+            .body = *handle,
+            .position = {
+                result.mContactPointOn2.GetX(),
+                result.mContactPointOn2.GetY(),
+                result.mContactPointOn2.GetZ()
+            },
+            .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
+            .distance = result.mFraction * request.maxDistance
+        };
+    }
+
+    std::vector<PhysicsBodyHandle> JoltPhysicsWorld::OverlapShape(
+        const PhysicsOverlapRequest& request) const
+    {
+        std::vector<PhysicsBodyHandle> handles;
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return handles;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+        const auto transform = ConvertTransform(request.transform);
+        if (!transform.has_value() || !IsShapeValid(request.shape)
+            || request.layerMask == PhysicsQueryLayerMask::None)
+        {
+            return handles;
+        }
+        const auto shapeResult = std::visit([](const auto& descriptor)
+        {
+            return jolt::CreateShape(descriptor);
+        }, request.shape);
+        if (!shapeResult.has_value())
+        {
+            return handles;
+        }
+
+        const JPH::ShapeRefC& shape = shapeResult.value();
+        const QueryObjectLayerFilter layerFilter{ request.layerMask };
+        const IgnoredBodyFilter bodyFilter{ impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
+        JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+        impl_->physicsSystem.GetNarrowPhaseQuery().CollideShape(
+            shape.GetPtr(),
+            JPH::Vec3::sReplicate(1.0f),
+            ToCenterOfMassTransform(*transform, *shape),
+            JPH::CollideShapeSettings{},
+            JPH::RVec3::sZero(),
+            collector,
+            JPH::BroadPhaseLayerFilter{},
+            layerFilter,
+            bodyFilter);
+        for (const JPH::CollideShapeResult& hit : collector.mHits)
+        {
+            const auto handle = impl_->bodyRegistry.ResolveHandle(hit.mBodyID2);
+            if (handle.has_value() && std::ranges::find(handles, *handle) == handles.end())
+            {
+                handles.push_back(*handle);
+            }
+        }
+        return handles;
+    }
+
+    bool JoltPhysicsWorld::CanPlaceShape(const PhysicsOverlapRequest& request) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+
+        CORE_ASSERT_PHYSICS_THREAD();
+        const auto transform = ConvertTransform(request.transform);
+        if (!transform.has_value() || !IsShapeValid(request.shape)
+            || request.layerMask == PhysicsQueryLayerMask::None)
+        {
+            return false;
+        }
+        const auto shapeResult = std::visit([](const auto& descriptor)
+        {
+            return jolt::CreateShape(descriptor);
+        }, request.shape);
+        if (!shapeResult.has_value())
+        {
+            return false;
+        }
+
+        const JPH::ShapeRefC& shape = shapeResult.value();
+        const QueryObjectLayerFilter layerFilter{ request.layerMask };
+        const IgnoredBodyFilter bodyFilter{ impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
+        JPH::AnyHitCollisionCollector<JPH::CollideShapeCollector> collector;
+        impl_->physicsSystem.GetNarrowPhaseQuery().CollideShape(
+            shape.GetPtr(),
+            JPH::Vec3::sReplicate(1.0f),
+            ToCenterOfMassTransform(*transform, *shape),
+            JPH::CollideShapeSettings{},
+            JPH::RVec3::sZero(),
+            collector,
+            JPH::BroadPhaseLayerFilter{},
+            layerFilter,
+            bodyFilter);
+        return !collector.HadHit();
     }
 }

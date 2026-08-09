@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <vector>
 
 import core;
 
@@ -40,6 +41,9 @@ namespace physics
             float durationSeconds);
         [[nodiscard]] bool SetKinematicTarget(PhysicsBodyHandle handle, const PhysicsTransform& target);
         [[nodiscard]] std::optional<PhysicsHit> RayCastClosest(const PhysicsRayCastRequest& request) const noexcept;
+        [[nodiscard]] std::optional<PhysicsHit> ShapeCastClosest(const PhysicsShapeCastRequest& request) const noexcept;
+        [[nodiscard]] std::vector<PhysicsBodyHandle> OverlapShape(const PhysicsOverlapRequest& request) const;
+        [[nodiscard]] bool CanPlaceShape(const PhysicsOverlapRequest& request) const noexcept;
         
     private:
         struct Implementation;
