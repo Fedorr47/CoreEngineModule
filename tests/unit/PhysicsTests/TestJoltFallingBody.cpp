@@ -5,6 +5,9 @@ import core;
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "Physics/Jolt/JoltRuntime.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace
 {
     constexpr float FixedDeltaSeconds = 1.0f / 60.0f;
@@ -24,6 +27,17 @@ namespace
             .shape = physics::SphereShapeDescriptor{ .radius = 0.5f },
             .transform = { .position = { 0.0f, 5.0f, 0.0f } },
             .motionType = physics::PhysicsMotionType::Dynamic
+        };
+    }
+    
+    [[nodiscard]] physics::PhysicsBodyDescriptor BoxDescriptor(
+        const mathUtils::Vec3 position, const physics::PhysicsMaterialDescriptor material)
+    {
+        return {
+            .shape = physics::BoxShapeDescriptor{ .halfExtents = { 0.5f, 0.5f, 0.5f } },
+            .transform = { .position = position },
+            .motionType = physics::PhysicsMotionType::Dynamic,
+            .material = material
         };
     }
 
@@ -145,4 +159,71 @@ TEST_F(JoltFallingBodyTest, DynamicSphereFallsOntoStaticFloorAndComesToRest)
     EXPECT_TRUE(world.DestroyBody(floorHandle));
     EXPECT_FALSE(world.IsBodyValid(sphereHandle));
     EXPECT_FALSE(world.IsBodyValid(floorHandle));
+}
+
+TEST_F(JoltFallingBodyTest, RestitutionChangesCollisionResponse)
+{
+    auto floor = FloorDescriptor();
+    floor.material.restitution = 0.0f;
+    ASSERT_TRUE(world.CreateBody(floor).IsValid());
+
+    auto nonBouncing = SphereDescriptor();
+    nonBouncing.transform.position.x = -2.0f;
+    nonBouncing.material.restitution = 0.0f;
+    auto bouncing = SphereDescriptor();
+    bouncing.transform.position.x = 2.0f;
+    bouncing.material.restitution = 1.0f;
+    const auto nonBouncingHandle = world.CreateBody(nonBouncing);
+    const auto bouncingHandle = world.CreateBody(bouncing);
+    ASSERT_TRUE(nonBouncingHandle.IsValid());
+    ASSERT_TRUE(bouncingHandle.IsValid());
+
+    float nonBouncingMaximumHeightAfterImpact = 0.0f;
+    float bouncingMaximumHeightAfterImpact = 0.0f;
+    for (int stepIndex = 0; stepIndex < 150; ++stepIndex)
+    {
+        ASSERT_EQ(world.Update(FixedDeltaSeconds), 1u);
+        if (stepIndex >= 65)
+        {
+            const auto nonBouncingTransform = world.GetBodyTransform(nonBouncingHandle);
+            const auto bouncingTransform = world.GetBodyTransform(bouncingHandle);
+            ASSERT_TRUE(nonBouncingTransform.has_value());
+            ASSERT_TRUE(bouncingTransform.has_value());
+            nonBouncingMaximumHeightAfterImpact = std::max(
+                nonBouncingMaximumHeightAfterImpact, nonBouncingTransform->position.y);
+            bouncingMaximumHeightAfterImpact = std::max(
+                bouncingMaximumHeightAfterImpact, bouncingTransform->position.y);
+        }
+    }
+
+    EXPECT_LT(nonBouncingMaximumHeightAfterImpact, 0.6f);
+    EXPECT_GT(bouncingMaximumHeightAfterImpact, 2.0f);
+}
+
+TEST_F(JoltFallingBodyTest, FrictionChangesTangentialMotion)
+{
+    auto floor = FloorDescriptor();
+    floor.material.friction = 1.0f;
+    ASSERT_TRUE(world.CreateBody(floor).IsValid());
+
+    const auto frictionlessHandle = world.CreateBody(BoxDescriptor(
+        { -4.0f, 0.55f, -2.0f }, { .friction = 0.0f, .restitution = 0.0f }));
+    const auto highFrictionHandle = world.CreateBody(BoxDescriptor(
+        { -4.0f, 0.55f, 2.0f }, { .friction = 1.0f, .restitution = 0.0f }));
+    ASSERT_TRUE(frictionlessHandle.IsValid());
+    ASSERT_TRUE(highFrictionHandle.IsValid());
+    ASSERT_TRUE(world.SetLinearVelocity(frictionlessHandle, { 5.0f, 0.0f, 0.0f }));
+    ASSERT_TRUE(world.SetLinearVelocity(highFrictionHandle, { 5.0f, 0.0f, 0.0f }));
+
+    for (int stepIndex = 0; stepIndex < 90; ++stepIndex)
+    {
+        ASSERT_EQ(world.Update(FixedDeltaSeconds), 1u);
+    }
+
+    const auto frictionlessVelocity = world.GetLinearVelocity(frictionlessHandle);
+    const auto highFrictionVelocity = world.GetLinearVelocity(highFrictionHandle);
+    ASSERT_TRUE(frictionlessVelocity.has_value());
+    ASSERT_TRUE(highFrictionVelocity.has_value());
+    EXPECT_GT(frictionlessVelocity->x, 4.0f);
+    EXPECT_LT(std::abs(highFrictionVelocity->x), 1.0f);
 }

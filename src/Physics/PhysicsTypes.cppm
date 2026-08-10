@@ -20,6 +20,32 @@ namespace
 
 export namespace physics
 {
+    struct PhysicsMaterialDescriptor
+    {
+        float friction{ 0.2f };
+        float restitution{ 0.0f };
+
+        [[nodiscard]] bool IsValid() const noexcept;
+    };
+
+    struct SurfaceTypeId
+    {
+        using ValueType = std::uint32_t;
+        static constexpr ValueType InvalidValue = 0u;
+
+        ValueType value{ InvalidValue };
+
+        [[nodiscard]] constexpr bool IsValid() const noexcept
+        {
+            return value != InvalidValue;
+        }
+
+        friend constexpr bool operator==(const SurfaceTypeId&, const SurfaceTypeId&) noexcept = default;
+    };
+
+    inline constexpr SurfaceTypeId InvalidSurfaceType{};
+    inline constexpr SurfaceTypeId DefaultSurfaceType{ 1u };
+    
     struct BoxShapeDescriptor
     {
         mathUtils::Vec3 halfExtents{};
@@ -110,6 +136,7 @@ export namespace physics
         mathUtils::Vec3 position{};
         mathUtils::Vec3 normal{};
         float distance{ 0.0f };
+        SurfaceTypeId surface{ InvalidSurfaceType };
     };
 
     enum class PhysicsMotionType : std::uint8_t
@@ -152,7 +179,16 @@ export namespace physics
         PhysicsShapeDescriptor shape{};
         PhysicsTransform transform{};
         PhysicsMotionType motionType{ PhysicsMotionType::Static };
+        PhysicsMaterialDescriptor material{};
+        SurfaceTypeId surface{ DefaultSurfaceType };
     };
+}
+
+bool physics::PhysicsMaterialDescriptor::IsValid() const noexcept
+{
+    // CoreEngine material coefficients must be finite and non-negative.
+    return std::isfinite(friction) && friction >= 0.0f
+        && std::isfinite(restitution) && restitution >= 0.0f;
 }
 
 bool physics::BoxShapeDescriptor::IsValid() const noexcept

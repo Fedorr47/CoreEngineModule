@@ -66,6 +66,18 @@ TEST_F(JoltShapeQueriesTest, CapsuleCastHitsWall)
     EXPECT_NEAR(hit->distance, 3.5f, Tolerance);
     EXPECT_NEAR(hit->position.x, 4.0f, Tolerance);
     EXPECT_LT(hit->normal.x, -0.99f);
+    EXPECT_TRUE(hit->surface.IsValid());
+}
+
+TEST_F(JoltShapeQueriesTest, ShapeCastReturnsHitBodySurface)
+{
+    constexpr physics::SurfaceTypeId testSurface{ 303u };
+    auto descriptor = BoxAt({ 5, 0, 0 });
+    descriptor.surface = testSurface;
+    ASSERT_TRUE(world.CreateBody(descriptor).IsValid());
+    const auto hit = world.ShapeCastClosest(CapsuleCast());
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_EQ(hit->surface, testSurface);
 }
 
 TEST_F(JoltShapeQueriesTest, ShapeCastMissReturnsNullopt)

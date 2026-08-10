@@ -55,6 +55,32 @@ TEST_F(JoltBodyCreationTest, RejectsInvalidShape)
     EXPECT_FALSE(world.IsBodyValid(handle));
 }
 
+TEST_F(JoltBodyCreationTest, RejectsInvalidMaterialWithoutCreatingBody)
+{
+    auto descriptor = StaticBox();
+    descriptor.material.friction = -1.0f;
+    const auto rejected = world.CreateBody(descriptor);
+
+    EXPECT_EQ(rejected, physics::InvalidPhysicsBodyHandle);
+    EXPECT_FALSE(world.IsBodyValid(rejected));
+
+    const auto valid = world.CreateBody(StaticBox());
+    EXPECT_EQ(valid.index, 0u);
+}
+
+TEST_F(JoltBodyCreationTest, RejectsInvalidSurfaceWithoutCreatingBody)
+{
+    auto descriptor = StaticBox();
+    descriptor.surface = physics::InvalidSurfaceType;
+    const auto rejected = world.CreateBody(descriptor);
+
+    EXPECT_EQ(rejected, physics::InvalidPhysicsBodyHandle);
+    EXPECT_FALSE(world.IsBodyValid(rejected));
+
+    const auto valid = world.CreateBody(StaticBox());
+    EXPECT_EQ(valid.index, 0u);
+}
+
 TEST_F(JoltBodyCreationTest, CreatesKinematicBody)
 {
     auto descriptor = StaticBox();

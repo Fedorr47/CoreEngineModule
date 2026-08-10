@@ -275,6 +275,11 @@ namespace physics
         
         CORE_ASSERT_PHYSICS_THREAD();
         
+        if (!descriptor.material.IsValid() || !descriptor.surface.IsValid())
+        {
+            return InvalidPhysicsBodyHandle;
+        }
+        
         const std::optional<ConvertedTransform> transform = ConvertTransform(descriptor.transform);
         if (!transform.has_value())
         {
@@ -317,8 +322,10 @@ namespace physics
             return InvalidPhysicsBodyHandle;
         }
 
-        const JPH::BodyCreationSettings settings(
+        JPH::BodyCreationSettings settings(
             shapeResult.value(), transform->position, transform->rotation, motionType, objectLayer);
+        settings.mFriction = descriptor.material.friction;
+        settings.mRestitution = descriptor.material.restitution;
         
         JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
         const JPH::BodyID bodyID = bodyInterface.CreateAndAddBody(settings, activation);
@@ -329,7 +336,7 @@ namespace physics
 
         try
         {
-            const PhysicsBodyHandle handle = impl_->bodyRegistry.AllocateHandle(bodyID);
+            const PhysicsBodyHandle handle = impl_->bodyRegistry.AllocateHandle(bodyID, descriptor.surface);
             if (handle.IsValid())
             {
                 return handle;
@@ -666,6 +673,11 @@ namespace physics
         {
             return std::nullopt;
         }
+        const auto surface = impl_->bodyRegistry.ResolveSurface(*handle);
+        if (!surface.has_value())
+        {
+            return std::nullopt;
+        }
 
         const float distance = result.mFraction * request.maxDistance;
         const JPH::RVec3 hitPosition = ray.GetPointOnRay(result.mFraction);
@@ -684,7 +696,8 @@ namespace physics
                 static_cast<float>(hitPosition.GetZ())
             },
             .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
-            .distance = distance
+            .distance = distance,
+            .surface = *surface
         };
     }
     
@@ -756,6 +769,11 @@ namespace physics
         {
             return std::nullopt;
         }
+        const auto surface = impl_->bodyRegistry.ResolveSurface(*handle);
+        if (!surface.has_value())
+        {
+            return std::nullopt;
+        }
 
         const JPH::Vec3 normal = (-result.mPenetrationAxis).NormalizedOr(JPH::Vec3::sZero());
         return PhysicsHit{
@@ -766,7 +784,8 @@ namespace physics
                 result.mContactPointOn2.GetZ()
             },
             .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
-            .distance = result.mFraction * request.maxDistance
+            .distance = result.mFraction * request.maxDistance,
+            .surface = *surface
         };
     }
 
