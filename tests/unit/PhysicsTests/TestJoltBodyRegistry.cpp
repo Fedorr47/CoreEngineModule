@@ -104,6 +104,26 @@ TEST(JoltBodyRegistry, StaleHandleDoesNotResolveAfterReuse)
     EXPECT_TRUE(registry.IsValid(currentHandle));
 }
 
+TEST(JoltBodyRegistry, SurfaceMetadataFollowsHandleGeneration)
+{
+    constexpr physics::SurfaceTypeId firstSurface{ 11u };
+    constexpr physics::SurfaceTypeId secondSurface{ 22u };
+    physics::jolt::JoltBodyRegistry registry;
+    const auto staleHandle = registry.AllocateHandle(FirstBodyId, firstSurface);
+    ASSERT_EQ(registry.ResolveSurface(staleHandle), firstSurface);
+    ASSERT_TRUE(registry.ReleaseHandle(staleHandle));
+    EXPECT_FALSE(registry.ResolveSurface(staleHandle).has_value());
+
+    const auto currentHandle = registry.AllocateHandle(SecondBodyId, secondSurface);
+    EXPECT_EQ(currentHandle.index, staleHandle.index);
+    EXPECT_FALSE(registry.ResolveSurface(staleHandle).has_value());
+    ASSERT_TRUE(registry.ResolveSurface(currentHandle).has_value());
+    EXPECT_EQ(*registry.ResolveSurface(currentHandle), secondSurface);
+
+    registry.Reset();
+    EXPECT_FALSE(registry.ResolveSurface(currentHandle).has_value());
+}
+
 TEST(JoltBodyRegistry, OutOfRangeHandleIsRejected)
 {
     physics::jolt::JoltBodyRegistry registry;
