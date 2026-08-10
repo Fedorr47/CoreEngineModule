@@ -44,6 +44,12 @@ namespace physics
         [[nodiscard]] std::optional<PhysicsHit> ShapeCastClosest(const PhysicsShapeCastRequest& request) const noexcept;
         [[nodiscard]] std::vector<PhysicsBodyHandle> OverlapShape(const PhysicsOverlapRequest& request) const;
         [[nodiscard]] bool CanPlaceShape(const PhysicsOverlapRequest& request) const noexcept;
+        [[nodiscard]] PhysicsCharacterHandle CreateCharacter(const PhysicsCharacterDescriptor& descriptor);
+        [[nodiscard]] bool DestroyCharacter(PhysicsCharacterHandle handle);
+        [[nodiscard]] bool IsCharacterValid(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<mathUtils::Vec3> GetCharacterPosition(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<mathUtils::Vec3> GetCharacterVelocity(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] bool TeleportCharacter(PhysicsCharacterHandle handle, const mathUtils::Vec3& position);
         
     private:
         struct Implementation;

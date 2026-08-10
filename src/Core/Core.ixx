@@ -21,6 +21,7 @@ export import :physics_types;
 export import :jolt_shape_factory;
 export import :jolt_body_registry;
 export import :geometry;
+export import :jolt_character_registry;
 export import :EnTTHelpers;
 export import :gameplay;
 export import :gameplay_interaction_point;

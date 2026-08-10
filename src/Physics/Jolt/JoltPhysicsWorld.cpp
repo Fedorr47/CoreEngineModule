@@ -19,10 +19,12 @@ import core;
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
 #include <optional>
 #include <utility>
 #include <variant>
@@ -42,6 +44,8 @@ namespace
     constexpr double MaximumAcceptedFrameDeltaSeconds =
         FixedPhysicsDeltaSeconds * static_cast<double>(MaximumPhysicsStepsPerFrame);
     constexpr float MinimumQuaternionLengthSquared = 1.0e-12f;
+    constexpr float CharacterPadding = 0.02f;
+    constexpr float PredictiveContactDistance = 0.1f;
     
     class QueryObjectLayerFilter final : public JPH::ObjectLayerFilter
     {
@@ -92,6 +96,27 @@ namespace
     [[nodiscard]] bool IsShapeValid(const physics::PhysicsShapeDescriptor& descriptor) noexcept
     {
         return std::visit([](const auto& shape) { return shape.IsValid(); }, descriptor);
+    }
+    
+    [[nodiscard]] JPH::RVec3 CharacterCenterToBasePosition(
+        const mathUtils::Vec3& centerPosition,
+        const JPH::Quat& rotation,
+        const JPH::Vec3& shapeOffset) noexcept
+    {
+        const JPH::Vec3 worldOffset = rotation * shapeOffset;
+        return JPH::RVec3(centerPosition.x, centerPosition.y, centerPosition.z) - worldOffset;
+    }
+
+    [[nodiscard]] mathUtils::Vec3 CharacterBaseToCenterPosition(
+        const JPH::CharacterVirtual& character) noexcept
+    {
+        const JPH::Vec3 worldOffset = character.GetRotation() * character.GetShapeOffset();
+        const JPH::RVec3 centerPosition = character.GetPosition() + worldOffset;
+        return {
+            static_cast<float>(centerPosition.GetX()),
+            static_cast<float>(centerPosition.GetY()),
+            static_cast<float>(centerPosition.GetZ())
+        };
     }
 }
 
@@ -151,6 +176,7 @@ namespace physics
         jolt::JoltObjectLayerPairFilter objectLayerPairFilter;
         jolt::JoltObjectVsBroadPhaseLayerFilter objectVsBroadPhaseLayerFilter;
         jolt::JoltBodyRegistry bodyRegistry;
+        jolt::JoltCharacterRegistry characterRegistry;
         JPH::PhysicsSystem physicsSystem;
         FixedStepScheduler fixedStepScheduler{ FixedPhysicsDeltaSeconds };
         std::vector<KinematicTarget> kinematicTargets;
@@ -196,6 +222,7 @@ namespace physics
             return;
         }
 
+        impl_->characterRegistry.Reset();
         JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
         impl_->bodyRegistry.VisitActiveBodyIDs([&bodyInterface](const JPH::BodyID bodyID)
         {
@@ -877,5 +904,125 @@ namespace physics
             layerFilter,
             bodyFilter);
         return !collector.HadHit();
+    }
+    
+    PhysicsCharacterHandle JoltPhysicsWorld::CreateCharacter(const PhysicsCharacterDescriptor& descriptor)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !descriptor.IsValid())
+        {
+            return InvalidPhysicsCharacterHandle;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+
+        const CapsuleShapeDescriptor capsule{
+            .radius = descriptor.collider.radius,
+            .cylinderHeight = descriptor.collider.cylinderHeight
+        };
+        const auto shapeResult = jolt::CreateShape(capsule);
+        if (!shapeResult.has_value())
+        {
+            return InvalidPhysicsCharacterHandle;
+        }
+
+        const float halfHeight = descriptor.collider.GetTotalHeight() * 0.5f;
+        
+        JPH::CharacterVirtualSettings settings;
+        settings.mShape = shapeResult.value();
+        settings.mUp = JPH::Vec3::sAxisY();
+        settings.mShapeOffset = JPH::Vec3(0.0f, halfHeight, 0.0f);
+        settings.mMaxSlopeAngle = mathUtils::DegToRad(descriptor.maximumSlopeAngleDegrees);
+        settings.mMass = descriptor.mass;
+        settings.mCharacterPadding = CharacterPadding;
+        settings.mPredictiveContactDistance = PredictiveContactDistance;
+        settings.mInnerBodyLayer = jolt::ObjectLayers::Character;
+        
+        const JPH::Quat rotation = JPH::Quat::sIdentity();
+        const JPH::RVec3 basePosition = CharacterCenterToBasePosition(
+            descriptor.position, rotation, settings.mShapeOffset);
+        JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
+            &settings, basePosition, rotation, &impl_->physicsSystem);
+        return impl_->characterRegistry.AllocateHandle(std::move(character));
+    }
+
+    bool JoltPhysicsWorld::DestroyCharacter(const PhysicsCharacterHandle handle)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        return impl_->characterRegistry.ReleaseHandle(handle);
+    }
+
+    bool JoltPhysicsWorld::IsCharacterValid(const PhysicsCharacterHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        return impl_->characterRegistry.IsValid(handle);
+    }
+
+    std::optional<mathUtils::Vec3> JoltPhysicsWorld::GetCharacterPosition(
+        const PhysicsCharacterHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return std::nullopt;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        const JPH::CharacterVirtual* character = impl_->characterRegistry.ResolveCharacter(handle);
+        if (character == nullptr)
+        {
+            return std::nullopt;
+        }
+        return CharacterBaseToCenterPosition(*character);
+    }
+
+    std::optional<mathUtils::Vec3> JoltPhysicsWorld::GetCharacterVelocity(
+        const PhysicsCharacterHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return std::nullopt;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        const JPH::CharacterVirtual* character = impl_->characterRegistry.ResolveCharacter(handle);
+        if (character == nullptr)
+        {
+            return std::nullopt;
+        }
+        const JPH::Vec3 velocity = character->GetLinearVelocity();
+        return mathUtils::Vec3{ velocity.GetX(), velocity.GetY(), velocity.GetZ() };
+    }
+
+    bool JoltPhysicsWorld::TeleportCharacter(
+        const PhysicsCharacterHandle handle, const mathUtils::Vec3& position)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !mathUtils::IsFinite(position))
+        {
+            return false;
+        }
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        JPH::CharacterVirtual* character = impl_->characterRegistry.ResolveCharacter(handle);
+        if (character == nullptr)
+        {
+            return false;
+        }
+        character->SetPosition(CharacterCenterToBasePosition(
+            position, character->GetRotation(), character->GetShapeOffset()));
+        return true;
     }
 }
