@@ -72,11 +72,45 @@ export namespace physics
             return cylinderHeight + 2.0f * radius;
         }
     };
-
+    
     using PhysicsShapeDescriptor = std::variant<
         BoxShapeDescriptor,
         SphereShapeDescriptor,
         CapsuleShapeDescriptor>;
+    
+    struct CharacterColliderDescriptor
+    {
+        // Radius of each hemispherical cap. cylinderHeight excludes both caps.
+        float radius{ 0.0f };
+        float cylinderHeight{ 0.0f };
+
+        [[nodiscard]] bool IsValid() const noexcept;
+
+        [[nodiscard]] constexpr float GetTotalHeight() const noexcept
+        {
+            return cylinderHeight + 2.0f * radius;
+        }
+    };
+    
+    struct PhysicsCharacterDescriptor
+    {
+        CharacterColliderDescriptor collider{};
+
+        // World-space center of the complete capsule, independent of backend center-of-mass details.
+        mathUtils::Vec3 position{};
+
+        // Degrees from the horizontal support plane. Valid values are in [0, 90).
+        float maximumSlopeAngleDegrees{ 0.0f };
+
+        // Zero disables automatic stepping for this character.
+        float maximumStepHeight{ 0.0f };
+        float mass{ 0.0f };
+
+        // Zero represents a valid stationary or movement-disabled character.
+        float maximumSpeed{ 0.0f };
+
+        [[nodiscard]] bool IsValid() const noexcept;
+    };
     
     struct PhysicsBodyHandle
     {
@@ -98,6 +132,41 @@ export namespace physics
     };
 
     inline constexpr PhysicsBodyHandle InvalidPhysicsBodyHandle{};
+
+    struct PhysicsCharacterHandle
+    {
+        using IndexType = std::uint32_t;
+        using GenerationType = std::uint32_t;
+
+        static constexpr IndexType InvalidIndex = std::numeric_limits<IndexType>::max();
+        static constexpr GenerationType InvalidGeneration = 0u;
+
+        IndexType index{ InvalidIndex };
+        GenerationType generation{ InvalidGeneration };
+
+        [[nodiscard]] constexpr bool IsValid() const noexcept
+        {
+            return index != InvalidIndex && generation != InvalidGeneration;
+        }
+
+        friend constexpr bool operator==(
+            const PhysicsCharacterHandle&, const PhysicsCharacterHandle&) noexcept = default;
+    };
+
+    inline constexpr PhysicsCharacterHandle InvalidPhysicsCharacterHandle{};
+
+    struct CharacterGroundState
+    {
+        bool bIsSupported{ false };
+        bool bIsWalkable{ false };
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 normal{};
+
+        // Velocity of the supporting ground at the support point.
+        mathUtils::Vec3 velocity{};
+        PhysicsBodyHandle body{ InvalidPhysicsBodyHandle };
+        SurfaceTypeId surface{ InvalidSurfaceType };
+    };
     
     enum class PhysicsQueryLayerMask : std::uint8_t
     {
@@ -206,4 +275,23 @@ bool physics::SphereShapeDescriptor::IsValid() const noexcept
 bool physics::CapsuleShapeDescriptor::IsValid() const noexcept
 {
     return IsPositiveFinite(radius) && IsPositiveFinite(cylinderHeight);
+}
+
+bool physics::CharacterColliderDescriptor::IsValid() const noexcept
+{
+    return IsPositiveFinite(radius) && IsPositiveFinite(cylinderHeight);
+}
+
+bool physics::PhysicsCharacterDescriptor::IsValid() const noexcept
+{
+    return collider.IsValid()
+        && mathUtils::IsFinite(position)
+        && std::isfinite(maximumSlopeAngleDegrees)
+        && maximumSlopeAngleDegrees >= 0.0f
+        && maximumSlopeAngleDegrees < 90.0f
+        && std::isfinite(maximumStepHeight)
+        && maximumStepHeight >= 0.0f
+        && IsPositiveFinite(mass)
+        && std::isfinite(maximumSpeed)
+        && maximumSpeed >= 0.0f;
 }
