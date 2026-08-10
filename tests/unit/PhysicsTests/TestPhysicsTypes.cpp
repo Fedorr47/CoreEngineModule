@@ -203,6 +203,148 @@ TEST(PhysicsBodyHandle, ReusedSlotGenerationDoesNotMatchStaleHandle)
     EXPECT_NE(staleHandle, reusedSlotHandle);
 }
 
+TEST(CharacterColliderDescriptor, ValidatesDimensionsAndDefinesTotalHeight)
+{
+    constexpr physics::CharacterColliderDescriptor collider{ .radius = 0.5f, .cylinderHeight = 1.0f };
+    static_assert(collider.GetTotalHeight() == 2.0f);
+    EXPECT_TRUE(collider.IsValid());
+    EXPECT_FLOAT_EQ(collider.GetTotalHeight(), 2.0f);
+}
+
+TEST(CharacterColliderDescriptor, RejectsNonPositiveAndNonFiniteDimensions)
+{
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float infinity = std::numeric_limits<float>::infinity();
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ 0.0f, 1.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ -0.5f, 1.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ 0.5f, 0.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ 0.5f, -1.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ nan, 1.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ 0.5f, nan }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ infinity, 1.0f }).IsValid());
+    EXPECT_FALSE((physics::CharacterColliderDescriptor{ 0.5f, infinity }).IsValid());
+}
+
+TEST(PhysicsCharacterHandle, IsGenerationSafeValueType)
+{
+    constexpr physics::PhysicsCharacterHandle invalid;
+    constexpr physics::PhysicsCharacterHandle invalidIndex{
+        physics::PhysicsCharacterHandle::InvalidIndex, 1u };
+    constexpr physics::PhysicsCharacterHandle invalidGeneration{
+        3u, physics::PhysicsCharacterHandle::InvalidGeneration };
+    constexpr physics::PhysicsCharacterHandle current{ 3u, 4u };
+    constexpr physics::PhysicsCharacterHandle equal{ 3u, 4u };
+    constexpr physics::PhysicsCharacterHandle stale{ 3u, 3u };
+    static_assert(!invalid.IsValid());
+    static_assert(!invalidIndex.IsValid());
+    static_assert(!invalidGeneration.IsValid());
+    static_assert(invalid == physics::InvalidPhysicsCharacterHandle);
+    static_assert(current.IsValid());
+    static_assert(current == equal);
+    static_assert(current != stale);
+    EXPECT_NE(current, stale);
+}
+
+namespace
+{
+    constexpr physics::PhysicsCharacterDescriptor ValidCharacterDescriptor()
+    {
+        return {
+            .collider = { .radius = 0.5f, .cylinderHeight = 1.0f },
+            .position = { 1.0f, 2.0f, 3.0f },
+            .maximumSlopeAngleDegrees = 50.0f,
+            .maximumStepHeight = 0.3f,
+            .mass = 80.0f,
+            .maximumSpeed = 7.0f
+        };
+    }
+}
+
+TEST(PhysicsCharacterDescriptor, ValidatesEngineFacingInvariants)
+{
+    EXPECT_TRUE(ValidCharacterDescriptor().IsValid());
+
+    auto descriptor = ValidCharacterDescriptor();
+    descriptor.collider.radius = 0.0f;
+    EXPECT_FALSE(descriptor.IsValid());
+    descriptor = ValidCharacterDescriptor();
+    descriptor.position.x = std::numeric_limits<float>::infinity();
+    EXPECT_FALSE(descriptor.IsValid());
+
+    descriptor = ValidCharacterDescriptor();
+    descriptor.maximumSlopeAngleDegrees = 0.0f;
+    EXPECT_TRUE(descriptor.IsValid());
+    descriptor.maximumSlopeAngleDegrees = 89.0f;
+    EXPECT_TRUE(descriptor.IsValid());
+
+    for (const float angle : { -1.0f, 90.0f, std::numeric_limits<float>::quiet_NaN(),
+                              std::numeric_limits<float>::infinity() })
+    {
+        descriptor = ValidCharacterDescriptor();
+        descriptor.maximumSlopeAngleDegrees = angle;
+        EXPECT_FALSE(descriptor.IsValid());
+    }
+
+    descriptor = ValidCharacterDescriptor();
+    descriptor.maximumStepHeight = 0.0f;
+    EXPECT_TRUE(descriptor.IsValid());
+    descriptor.maximumStepHeight = -0.1f;
+    EXPECT_FALSE(descriptor.IsValid());
+    descriptor.maximumStepHeight = std::numeric_limits<float>::infinity();
+    EXPECT_FALSE(descriptor.IsValid());
+}
+
+TEST(PhysicsCharacterDescriptor, ValidatesMassAndMaximumSpeed)
+{
+    for (const float mass : { 0.0f, -1.0f, std::numeric_limits<float>::quiet_NaN(),
+                             std::numeric_limits<float>::infinity() })
+    {
+        auto descriptor = ValidCharacterDescriptor();
+        descriptor.mass = mass;
+        EXPECT_FALSE(descriptor.IsValid());
+    }
+
+    auto descriptor = ValidCharacterDescriptor();
+    descriptor.maximumSpeed = 0.0f;
+    EXPECT_TRUE(descriptor.IsValid());
+    for (const float speed : { -1.0f, std::numeric_limits<float>::quiet_NaN(),
+                              std::numeric_limits<float>::infinity() })
+    {
+        descriptor = ValidCharacterDescriptor();
+        descriptor.maximumSpeed = speed;
+        EXPECT_FALSE(descriptor.IsValid());
+    }
+}
+
+TEST(CharacterGroundState, DefaultsToUnsupportedWithoutBackendIdentity)
+{
+    constexpr physics::CharacterGroundState state;
+    static_assert(!state.bIsSupported);
+    static_assert(!state.bIsWalkable);
+    static_assert(state.body == physics::InvalidPhysicsBodyHandle);
+    static_assert(state.surface == physics::InvalidSurfaceType);
+    EXPECT_FALSE(state.bIsSupported);
+    EXPECT_FALSE(state.bIsWalkable);
+    EXPECT_FALSE(state.body.IsValid());
+    EXPECT_FALSE(state.surface.IsValid());
+}
+
+TEST(CharacterGroundState, RepresentsWalkableRegisteredBodySupport)
+{
+    constexpr physics::CharacterGroundState state{
+        .bIsSupported = true,
+        .bIsWalkable = true,
+        .position = { 1.0f, 2.0f, 3.0f },
+        .normal = { 0.0f, 1.0f, 0.0f },
+        .velocity = { 2.0f, 0.0f, 0.0f },
+        .body = { 5u, 2u },
+        .surface = { 7u }
+    };
+    static_assert(state.body.IsValid());
+    static_assert(state.surface.IsValid());
+    EXPECT_TRUE(state.bIsSupported && state.bIsWalkable);
+}
+
 TEST(PhysicsTransform, DefaultValueIsIdentity)
 {
     constexpr physics::PhysicsTransform transform;
