@@ -103,7 +103,9 @@ namespace physics
                 const PhysicsBodyDescriptor descriptor{
                     .shape = node.physicsBody->shape,
                     .transform = { .position = node.transform.position },
-                    .motionType = node.physicsBody->motionType
+                    .motionType = node.physicsBody->motionType,
+                    .material = node.physicsBody->material,
+                    .surface = node.physicsBody->surface
                 };
                 const PhysicsBodyHandle handle = world_.CreateBody(descriptor);
                 if (!handle.IsValid())
