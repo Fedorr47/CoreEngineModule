@@ -285,7 +285,33 @@ inline void WriteNodesSection_(std::ostringstream& ss, const LevelAsset& level, 
 					WriteJsonFloat(ss, shape.cylinderHeight);
 				}
 			}, n.physicsBody->shape);
-			ss << "}}";
+			
+			ss << "}";
+
+			if (!n.physicsBody->material.IsValid())
+			{
+				throw std::runtime_error(
+					"Level physics body for node '" + n.name
+					+ "' has an invalid physics material while saving.");
+			}
+
+			if (!n.physicsBody->surface.IsValid())
+			{
+				throw std::runtime_error(
+					"Level physics body for node '" + n.name
+					+ "' has an invalid surface while saving.");
+			}
+
+			ss << ", \"material\": {\"friction\": ";
+			WriteJsonFloat(ss, n.physicsBody->material.friction);
+			ss << ", \"restitution\": ";
+			WriteJsonFloat(ss, n.physicsBody->material.restitution);
+			ss << "}";
+
+			ss << ", \"surfaceId\": "
+			   << n.physicsBody->surface.value;
+			
+			ss << "}";
 		}
 
 		ss << "}";

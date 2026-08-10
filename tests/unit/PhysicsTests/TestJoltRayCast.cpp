@@ -193,4 +193,31 @@ TEST_F(JoltRayCastTest, NonNormalizedDirectionWorks)
     ASSERT_TRUE(hit.has_value());
     EXPECT_NEAR(hit->position.y, 1.0f, Tolerance);
     EXPECT_NEAR(hit->distance, 9.0f, Tolerance);
+    EXPECT_EQ(hit->surface, physics::DefaultSurfaceType);
+    EXPECT_TRUE(hit->surface.IsValid());
+}
+
+TEST_F(JoltRayCastTest, ReturnsOpaqueSurfaceIndependentOfPhysicalMaterial)
+{
+    constexpr physics::SurfaceTypeId firstSurface{ 101u };
+    constexpr physics::SurfaceTypeId secondSurface{ 202u };
+    constexpr physics::PhysicsMaterialDescriptor sharedMaterial{ .friction = 0.8f, .restitution = 0.1f };
+    auto firstDescriptor = BoxAt({ -3.0f, 0.0f, 0.0f });
+    firstDescriptor.material = sharedMaterial;
+    firstDescriptor.surface = firstSurface;
+    auto secondDescriptor = BoxAt({ 3.0f, 0.0f, 0.0f });
+    secondDescriptor.material = sharedMaterial;
+    secondDescriptor.surface = secondSurface;
+    ASSERT_TRUE(world.CreateBody(firstDescriptor).IsValid());
+    ASSERT_TRUE(world.CreateBody(secondDescriptor).IsValid());
+
+    auto request = DownwardRay();
+    request.origin.x = -3.0f;
+    const auto firstHit = world.RayCastClosest(request);
+    ASSERT_TRUE(firstHit.has_value());
+    EXPECT_EQ(firstHit->surface, firstSurface);
+    request.origin.x = 3.0f;
+    const auto secondHit = world.RayCastClosest(request);
+    ASSERT_TRUE(secondHit.has_value());
+    EXPECT_EQ(secondHit->surface, secondSurface);
 }

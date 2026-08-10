@@ -67,6 +67,8 @@ struct LevelPhysicsBodyDef
 {
 	physics::PhysicsShapeDescriptor shape{};
 	physics::PhysicsMotionType motionType{ physics::PhysicsMotionType::Static };
+	physics::PhysicsMaterialDescriptor material{};
+	physics::SurfaceTypeId surface{ physics::DefaultSurfaceType };
 };
 
 struct LevelNode

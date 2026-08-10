@@ -313,6 +313,59 @@ inline void ParseNodeSection_(LevelAsset& out, const JsonObject& jsonObject)
 					throw std::runtime_error("Level physics body for node '" + n.name
 						+ "' uses unsupported motion type '" + motionType + "'.");
 				}
+				
+				if (const JsonValue* materialV = TryGet(physicsObject, "material"))
+				{
+					const JsonObject& materialObject = materialV->AsObject();
+
+					bodyDef.material.friction = GetFloatOpt(
+						materialObject,
+						"friction",
+						bodyDef.material.friction);
+
+					bodyDef.material.restitution = GetFloatOpt(
+						materialObject,
+						"restitution",
+						bodyDef.material.restitution);
+
+					if (!bodyDef.material.IsValid())
+					{
+						throw std::runtime_error(
+							"Level physics body for node '" + n.name
+							+ "' has an invalid physics material.");
+					}
+				}
+
+				if (const JsonValue* surfaceV = TryGet(physicsObject, "surfaceId"))
+				{
+					if (!surfaceV->IsNumber())
+					{
+						throw std::runtime_error(
+							"Level physics body for node '" + n.name
+							+ "' has a non-numeric surfaceId.");
+					}
+
+					const double surfaceValue = surfaceV->AsNumber();
+					constexpr double MaxSurfaceValue =
+						static_cast<double>(std::numeric_limits<physics::SurfaceTypeId::ValueType>::max());
+
+					const bool bIsFinite = std::isfinite(surfaceValue);
+					const bool bIsInteger = std::floor(surfaceValue) == surfaceValue;
+					const bool bIsInRange =
+						surfaceValue > 0.0
+						&& surfaceValue <= MaxSurfaceValue;
+
+					if (!bIsFinite || !bIsInteger || !bIsInRange)
+					{
+						throw std::runtime_error(
+							"Level physics body for node '" + n.name
+							+ "' has an invalid surfaceId.");
+					}
+
+					bodyDef.surface = physics::SurfaceTypeId{
+						static_cast<physics::SurfaceTypeId::ValueType>(surfaceValue)
+					};
+				}
 
 				const JsonValue* shapeV = TryGet(physicsObject, "shape");
 				if (shapeV == nullptr)
