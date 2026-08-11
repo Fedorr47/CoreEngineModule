@@ -20,6 +20,7 @@ import core;
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
+#include <Jolt/Geometry/Plane.h>
 
 #include <algorithm>
 #include <cmath>
@@ -46,6 +47,10 @@ namespace
     constexpr float MinimumQuaternionLengthSquared = 1.0e-12f;
     constexpr float CharacterPadding = 0.02f;
     constexpr float PredictiveContactDistance = 0.1f;
+    // Keeps contact across shallow downward changes without increasing the permitted step height.
+    constexpr float CharacterStickToFloorDistance = 0.1f;
+    // Airborne intent converges gradually while grounded intent is immediate.
+    constexpr float AirControlPerSecond = 3.0f;
     
     class QueryObjectLayerFilter final : public JPH::ObjectLayerFilter
     {
@@ -274,6 +279,64 @@ namespace physics
                         static_cast<float>(FixedPhysicsDeltaSeconds));
                 }
             }
+            
+            // Kinematic velocities are established first, characters then consume them as
+            // ground velocity, and rigid bodies finally advance for this fixed tick.
+            const float fixedDelta = static_cast<float>(FixedPhysicsDeltaSeconds);
+            const JPH::Vec3 gravity = impl_->physicsSystem.GetGravity();
+            impl_->characterRegistry.VisitActiveCharacters(
+                [this, fixedDelta, gravity](
+                    JPH::CharacterVirtual& character,
+                    const mathUtils::Vec3& desiredVelocity,
+                    const float maximumStepHeight)
+                {
+                    JPH::Vec3 velocity = character.GetLinearVelocity();
+                    character.UpdateGroundVelocity();
+                    const JPH::Vec3 groundVelocity = character.GetGroundVelocity();
+                    const auto groundState = character.GetGroundState();
+
+                    const bool bIsWalkable =
+                        groundState == JPH::CharacterBase::EGroundState::OnGround;
+                    
+                    const bool bIsSupported =
+                        bIsWalkable ||
+                        groundState == JPH::CharacterBase::EGroundState::OnSteepGround;
+
+                    if (bIsSupported && (velocity - groundVelocity).Dot(character.GetUp()) < 0.0f)
+                    {
+                        velocity -= character.GetUp() * (velocity - groundVelocity).Dot(character.GetUp());
+                    }
+                    else
+                    {
+                        velocity += gravity * fixedDelta;
+                    }
+
+                    const float response = bIsSupported ? 1.0f
+                        : std::min(1.0f, AirControlPerSecond * fixedDelta);
+                    const JPH::Vec3 target{
+                        desiredVelocity.x + (bIsSupported ? groundVelocity.GetX() : 0.0f),
+                        velocity.GetY(),
+                        desiredVelocity.z + (bIsSupported ? groundVelocity.GetZ() : 0.0f)
+                    };
+                    velocity.SetX(velocity.GetX() + (target.GetX() - velocity.GetX()) * response);
+                    velocity.SetZ(velocity.GetZ() + (target.GetZ() - velocity.GetZ()) * response);
+                    character.SetLinearVelocity(velocity);
+
+                    JPH::CharacterVirtual::ExtendedUpdateSettings settings;
+                    settings.mStickToFloorStepDown =
+                        -character.GetUp() * CharacterStickToFloorDistance;
+                    settings.mWalkStairsStepUp = maximumStepHeight > 0.0f
+                        ? character.GetUp() * maximumStepHeight : JPH::Vec3::sZero();
+                    character.ExtendedUpdate(
+                        fixedDelta,
+                        gravity,
+                        settings,
+                        impl_->physicsSystem.GetDefaultBroadPhaseLayerFilter(jolt::ObjectLayers::Character),
+                        impl_->physicsSystem.GetDefaultLayerFilter(jolt::ObjectLayers::Character),
+                        JPH::BodyFilter{},
+                        JPH::ShapeFilter{},
+                        runtime_.GetTempAllocator());
+                });
             
             impl_->physicsSystem.Update(
                 static_cast<float>(FixedPhysicsDeltaSeconds),
@@ -931,6 +994,8 @@ namespace physics
         settings.mShape = shapeResult.value();
         settings.mUp = JPH::Vec3::sAxisY();
         settings.mShapeOffset = JPH::Vec3(0.0f, halfHeight, 0.0f);
+        // In base-position space, only contacts within the capsule's lower cap may support it.
+        settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -descriptor.collider.radius);
         settings.mMaxSlopeAngle = mathUtils::DegToRad(descriptor.maximumSlopeAngleDegrees);
         settings.mMass = descriptor.mass;
         settings.mCharacterPadding = CharacterPadding;
@@ -942,7 +1007,8 @@ namespace physics
             descriptor.position, rotation, settings.mShapeOffset);
         JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
             &settings, basePosition, rotation, &impl_->physicsSystem);
-        return impl_->characterRegistry.AllocateHandle(std::move(character));
+        return impl_->characterRegistry.AllocateHandle(
+            std::move(character), descriptor.maximumSpeed, descriptor.maximumStepHeight);
     }
 
     bool JoltPhysicsWorld::DestroyCharacter(const PhysicsCharacterHandle handle)
@@ -1024,5 +1090,52 @@ namespace physics
         character->SetPosition(CharacterCenterToBasePosition(
             position, character->GetRotation(), character->GetShapeOffset()));
         return true;
+    }
+    
+    bool JoltPhysicsWorld::SetCharacterDesiredVelocity(
+        const PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+        CORE_ASSERT_PHYSICS_THREAD();
+        return impl_->characterRegistry.SetDesiredVelocity(handle, velocity);
+    }
+
+    std::optional<CharacterGroundState> JoltPhysicsWorld::GetCharacterGroundState(
+        const PhysicsCharacterHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return std::nullopt;
+        }
+        CORE_ASSERT_PHYSICS_THREAD();
+        const JPH::CharacterVirtual* character = impl_->characterRegistry.ResolveCharacter(handle);
+        if (character == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        const auto state = character->GetGroundState();
+        const bool walkable = state == JPH::CharacterBase::EGroundState::OnGround;
+        const bool supported = walkable
+            || state == JPH::CharacterBase::EGroundState::OnSteepGround;
+        const JPH::RVec3 position = character->GetGroundPosition();
+        const JPH::Vec3 normal = character->GetGroundNormal();
+        const JPH::Vec3 velocity = character->GetGroundVelocity();
+        CharacterGroundState result{
+            .bIsSupported = supported,
+            .bIsWalkable = walkable,
+            .position = { static_cast<float>(position.GetX()), static_cast<float>(position.GetY()), static_cast<float>(position.GetZ()) },
+            .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
+            .velocity = { velocity.GetX(), velocity.GetY(), velocity.GetZ() }
+        };
+        if (const auto body = impl_->bodyRegistry.ResolveHandle(character->GetGroundBodyID()))
+        {
+            result.body = *body;
+            result.surface = impl_->bodyRegistry.ResolveSurface(*body).value_or(InvalidSurfaceType);
+        }
+        return result;
     }
 }

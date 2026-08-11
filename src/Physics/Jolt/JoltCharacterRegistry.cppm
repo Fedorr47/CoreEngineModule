@@ -4,6 +4,7 @@ module;
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include <limits>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -16,17 +17,36 @@ export namespace physics::jolt
     class JoltCharacterRegistry final
     {
     public:
-        [[nodiscard]] PhysicsCharacterHandle AllocateHandle(JPH::Ref<JPH::CharacterVirtual> character);
+        [[nodiscard]] PhysicsCharacterHandle AllocateHandle(
+            JPH::Ref<JPH::CharacterVirtual> character, float maximumSpeed, float maximumStepHeight);
         [[nodiscard]] JPH::CharacterVirtual* ResolveCharacter(PhysicsCharacterHandle handle) noexcept;
         [[nodiscard]] const JPH::CharacterVirtual* ResolveCharacter(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] bool ReleaseHandle(PhysicsCharacterHandle handle);
         [[nodiscard]] bool IsValid(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] bool SetDesiredVelocity(PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity) noexcept;
+
+        template<typename Visitor>
+        void VisitActiveCharacters(Visitor&& visitor)
+        {
+            for (Slot& slot : slots_)
+            {
+                if (slot.bOccupied)
+                {
+                    std::forward<Visitor>(visitor)(
+                        *slot.character, slot.desiredHorizontalVelocity,
+                        slot.maximumStepHeight);
+                }
+            }
+        }
         void Reset() noexcept;
 
     private:
         struct Slot
         {
             JPH::Ref<JPH::CharacterVirtual> character;
+            mathUtils::Vec3 desiredHorizontalVelocity{};
+            float maximumSpeed{ 0.0f };
+            float maximumStepHeight{ 0.0f };
             PhysicsCharacterHandle::GenerationType generation{ 1u };
             bool bOccupied{ false };
         };
@@ -45,7 +65,9 @@ namespace
 }
 
 physics::PhysicsCharacterHandle physics::jolt::JoltCharacterRegistry::AllocateHandle(
-    JPH::Ref<JPH::CharacterVirtual> character)
+    JPH::Ref<JPH::CharacterVirtual> character,
+    const float maximumSpeed,
+    const float maximumStepHeight)
 {
     if (character == nullptr)
     {
@@ -74,12 +96,33 @@ physics::PhysicsCharacterHandle physics::jolt::JoltCharacterRegistry::AllocateHa
 
     Slot& slot = slots_[index];
     slot.character = std::move(character);
+    slot.desiredHorizontalVelocity = {};
+    slot.maximumSpeed = maximumSpeed;
+    slot.maximumStepHeight = maximumStepHeight;
     slot.bOccupied = true;
 
     return {
         .index = index,
         .generation = slot.generation
     };
+}
+
+bool physics::jolt::JoltCharacterRegistry::SetDesiredVelocity(
+    const PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity) noexcept
+{
+    if (!mathUtils::IsFinite(velocity) || ResolveCharacter(handle) == nullptr)
+    {
+        return false;
+    }
+
+    Slot& slot = slots_[handle.index];
+    const float horizontalLength = std::hypot(velocity.x, velocity.z);
+    const float scale = horizontalLength > slot.maximumSpeed
+        ? slot.maximumSpeed / horizontalLength : 1.0f;
+    slot.desiredHorizontalVelocity = {
+        velocity.x * scale, 0.0f, velocity.z * scale
+    };
+    return true;
 }
 
 JPH::CharacterVirtual* physics::jolt::JoltCharacterRegistry::ResolveCharacter(
@@ -107,6 +150,7 @@ bool physics::jolt::JoltCharacterRegistry::ReleaseHandle(const PhysicsCharacterH
     }
     Slot& slot = slots_[handle.index];
     slot.character = nullptr;
+    slot.desiredHorizontalVelocity = {};
     slot.bOccupied = false;
     AdvanceGeneration(slot.generation);
     freeSlotIndices_.push_back(handle.index);
@@ -125,6 +169,9 @@ void physics::jolt::JoltCharacterRegistry::Reset() noexcept
     {
         Slot& slot = slots_[index];
         slot.character = nullptr;
+        slot.desiredHorizontalVelocity = {};
+        slot.maximumSpeed = 0.0f;
+        slot.maximumStepHeight = 0.0f;
         slot.bOccupied = false;
         AdvanceGeneration(slot.generation);
         freeSlotIndices_.push_back(index);

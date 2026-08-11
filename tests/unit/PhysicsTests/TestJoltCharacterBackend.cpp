@@ -3,6 +3,7 @@
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "Physics/Jolt/JoltRuntime.h"
 
+#include <cmath>
 #include <limits>
 
 namespace
@@ -24,6 +25,22 @@ namespace
         return {
             .shape = physics::BoxShapeDescriptor{ .halfExtents = { 5.0f, 0.5f, 5.0f } },
             .transform = { .position = { 0.0f, -0.5f, 0.0f } },
+            .motionType = physics::PhysicsMotionType::Static
+        };
+    }
+    
+    [[nodiscard]] physics::PhysicsBodyDescriptor StaticBox(
+        const mathUtils::Vec3& position,
+        const mathUtils::Vec3& halfExtents,
+        const float rotationDegrees = 0.0f)
+    {
+        const float halfAngle = mathUtils::DegToRad(rotationDegrees) * 0.5f;
+        return {
+            .shape = physics::BoxShapeDescriptor{ .halfExtents = halfExtents },
+            .transform = {
+                .position = position,
+                .rotationQuaternion = { 0.0f, 0.0f, std::sin(halfAngle), std::cos(halfAngle) }
+            },
             .motionType = physics::PhysicsMotionType::Static
         };
     }
@@ -56,6 +73,24 @@ namespace
         physics::JoltRuntime runtime;
         physics::JoltPhysicsWorld world{ runtime };
     };
+    
+    void SimulateSteps(physics::JoltPhysicsWorld& world, const int count)
+    {
+        for (int step = 0; step < count; ++step)
+        {
+            EXPECT_EQ(world.Update(static_cast<float>(FixedDeltaSec60)), 1u);
+        }
+    }
+
+    void SettleCharacter(
+        physics::JoltPhysicsWorld& world,
+        const physics::PhysicsCharacterHandle character)
+    {
+        SimulateSteps(world, 90);
+        const auto ground = world.GetCharacterGroundState(character);
+        ASSERT_TRUE(ground.has_value());
+        ASSERT_TRUE(ground->bIsWalkable);
+    }
 }
 
 TEST(JoltCharacterBackend, RequiresInitializedWorld)
@@ -144,4 +179,283 @@ TEST_F(JoltCharacterBackendTest, CharacterAndStaticFloorHaveIndependentLifetimes
     ASSERT_TRUE(world.IsBodyValid(replacementFloor));
     EXPECT_TRUE(world.DestroyCharacter(character));
     EXPECT_TRUE(world.IsBodyValid(replacementFloor));
+}
+
+TEST_F(JoltCharacterBackendTest, FallsLandsAndReportsRegisteredGround)
+{
+    const auto floor = world.CreateBody(FloorDescriptor());
+    ASSERT_TRUE(floor.IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 4.0f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+
+    SimulateSteps(world, 180);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto velocity = world.GetCharacterVelocity(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(velocity.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_NEAR(position->y, 1.0f, 0.08f);
+    EXPECT_NEAR(velocity->y, 0.0f, 0.2f);
+    EXPECT_TRUE(ground->bIsSupported);
+    EXPECT_TRUE(ground->bIsWalkable);
+    EXPECT_EQ(ground->body, floor);
+    EXPECT_EQ(ground->surface, physics::DefaultSurfaceType);
+}
+
+TEST_F(JoltCharacterBackendTest, DesiredHorizontalVelocityMovesOnlyOnFixedStepsAndIsClamped)
+{
+    ASSERT_TRUE(world.CreateBody(FloorDescriptor()).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    descriptor.maximumSpeed = 2.0f;
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SimulateSteps(world, 10);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 20.0f, 100.0f, 0.0f }));
+    const auto before = world.GetCharacterPosition(character);
+    ASSERT_TRUE(before.has_value());
+    EXPECT_EQ(world.Update(static_cast<float>(FixedDeltaSec60 * 0.5)), 0u);
+    const auto positionWithoutStep = world.GetCharacterPosition(character);
+    ASSERT_TRUE(positionWithoutStep.has_value());
+    ExpectPosition(*positionWithoutStep, *before);
+    SimulateSteps(world, 60);
+
+    const auto after = world.GetCharacterPosition(character);
+    const auto velocity = world.GetCharacterVelocity(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(after.has_value());
+    ASSERT_TRUE(velocity.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_GT(after->x - before->x, 1.5f);
+    EXPECT_LT(after->x - before->x, 2.2f);
+    EXPECT_LE(std::sqrt(velocity->x * velocity->x + velocity->z * velocity->z), 2.01f);
+    EXPECT_TRUE(ground->bIsWalkable);
+}
+
+TEST_F(JoltCharacterBackendTest, RejectsInvalidIntentAndStaleHandles)
+{
+    const auto stale = world.CreateCharacter(CharacterDescriptor());
+    ASSERT_TRUE(stale.IsValid());
+    EXPECT_FALSE(world.SetCharacterDesiredVelocity(stale, {
+        std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f }));
+    EXPECT_FALSE(world.SetCharacterDesiredVelocity(stale, {
+        0.0f, 0.0f, std::numeric_limits<float>::infinity() }));
+    EXPECT_TRUE(world.DestroyCharacter(stale));
+    const auto replacement = world.CreateCharacter(CharacterDescriptor());
+    ASSERT_TRUE(replacement.IsValid());
+    EXPECT_FALSE(world.SetCharacterDesiredVelocity(stale, { 1.0f, 0.0f, 0.0f }));
+    EXPECT_FALSE(world.GetCharacterGroundState(stale).has_value());
+    EXPECT_TRUE(world.SetCharacterDesiredVelocity(replacement, {}));
+}
+
+TEST_F(JoltCharacterBackendTest, CollidesWithAndSlidesAlongWall)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 8.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 1.0f, 2.0f, 0.0f }, { 0.25f, 2.0f, 8.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -1.0f, 1.05f, -3.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 4.0f, 0.0f, 4.0f }));
+    SimulateSteps(world, 90);
+
+    const auto position = world.GetCharacterPosition(character);
+    ASSERT_TRUE(position.has_value());
+    EXPECT_LT(position->x, 0.32f);
+    EXPECT_GT(position->z, 1.0f);
+}
+
+TEST_F(JoltCharacterBackendTest, TraversesWalkableSlope)
+{
+    constexpr float slopeDegrees = 20.0f;
+    constexpr float slopeCenterHeight = 1.133f;
+    ASSERT_TRUE(world.CreateBody(StaticBox({ -6.0f, -0.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox(
+        { 0.0f, slopeCenterHeight, 0.0f }, { 4.0f, 0.25f, 3.0f }, slopeDegrees)).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -5.0f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 120);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_GT(position->x, 0.0f);
+    EXPECT_GT(position->y, 1.8f);
+    EXPECT_TRUE(ground->bIsWalkable);
+}
+
+TEST_F(JoltCharacterBackendTest, RejectsSlopeAboveConfiguredLimit)
+{
+    constexpr float slopeDegrees = 60.0f;
+    constexpr float slopeCenterHeight = 3.34f;
+    ASSERT_TRUE(world.CreateBody(StaticBox({ -4.0f, -0.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox(
+        { 0.0f, slopeCenterHeight, 0.0f }, { 4.0f, 0.25f, 3.0f }, slopeDegrees)).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -3.5f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 120);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_LT(position->x, -1.0f);
+    EXPECT_LT(position->y, 1.8f);
+    if (ground->bIsSupported)
+    {
+        EXPECT_FALSE(ground->bIsWalkable);
+    }
+}
+
+TEST_F(JoltCharacterBackendTest, TraversesStepWithinMaximumHeight)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 3.0f, 0.125f, 0.0f }, { 2.0f, 0.125f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 2.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 90);
+
+    const auto position = world.GetCharacterPosition(character);
+    ASSERT_TRUE(position.has_value());
+    EXPECT_GT(position->x, 2.0f);
+    EXPECT_NEAR(position->y, 1.25f, 0.08f);
+}
+
+TEST_F(JoltCharacterBackendTest, RejectsStepAboveMaximumHeight)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 3.0f, 0.4f, 0.0f }, { 2.0f, 0.4f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 2.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 150);
+
+    const auto position = world.GetCharacterPosition(character);
+    ASSERT_TRUE(position.has_value());
+    EXPECT_LT(position->x, 0.58f);
+    EXPECT_LT(position->y, 1.15f);
+}
+
+TEST_F(JoltCharacterBackendTest, ZeroStepHeightDisablesStepsButPreservesGrounding)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 3.0f, 0.125f, 0.0f }, { 2.0f, 0.125f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    descriptor.maximumStepHeight = 0.0f;
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 2.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 150);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_LT(position->x, 0.58f);
+    EXPECT_TRUE(ground->bIsWalkable);
+}
+
+TEST_F(JoltCharacterBackendTest, ZeroStepHeightStillFollowsSmallDownwardGroundChange)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ -2.0f, -0.4f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 2.0f, -0.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -1.0f, 1.15f, 0.0f };
+    descriptor.maximumStepHeight = 0.0f;
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 1.0f, 0.0f, 0.0f }));
+    SimulateSteps(world, 120);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_GT(position->x, 0.5f);
+    EXPECT_NEAR(position->y, 1.0f, 0.08f);
+    EXPECT_TRUE(ground->bIsWalkable);
+}
+
+TEST_F(JoltCharacterBackendTest, WalksOffLedgeFallsAndLandsAgain)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ -1.0f, 1.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 3.0f, -0.5f, 0.0f }, { 6.0f, 0.5f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -1.5f, 3.05f, 0.0f };
+    descriptor.maximumSpeed = 3.0f;
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+    ASSERT_TRUE(world.GetCharacterGroundState(character)->bIsSupported);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, 0.0f }));
+    bool becameUnsupported = false;
+    bool descended = false;
+    bool landed = false;
+    for (int step = 0; step < 180; ++step)
+    {
+        SimulateSteps(world, 1);
+        const auto position = world.GetCharacterPosition(character);
+        const auto ground = world.GetCharacterGroundState(character);
+        ASSERT_TRUE(position.has_value());
+        ASSERT_TRUE(ground.has_value());
+        becameUnsupported = becameUnsupported || !ground->bIsSupported;
+        descended = descended || position->y < 2.5f;
+        landed = landed || (becameUnsupported && ground->bIsWalkable && position->y < 1.2f);
+    }
+    EXPECT_TRUE(becameUnsupported);
+    EXPECT_TRUE(descended);
+    EXPECT_TRUE(landed);
+}
+
+TEST_F(JoltCharacterBackendTest, VerticalWallContactDoesNotProvideGroundSupport)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, 2.0f, 0.0f }, { 0.25f, 4.0f, 3.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { -0.8f, 5.0f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, 0.0f }));
+
+    SimulateSteps(world, 60);
+
+    const auto position = world.GetCharacterPosition(character);
+    const auto ground = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(position.has_value());
+    ASSERT_TRUE(ground.has_value());
+    EXPECT_LT(position->y, 3.5f);
+    EXPECT_FALSE(ground->bIsSupported);
+    EXPECT_FALSE(ground->bIsWalkable);
 }
