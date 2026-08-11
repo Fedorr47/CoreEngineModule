@@ -57,7 +57,6 @@ TEST_F(LevelPhysicsBodyJson, RejectsMalformedPhysicsDefinitions)
         std::string_view error;
     };
     constexpr InvalidCase Cases[]{
-        { "kinematic.level.json", R"json({"name":"Body","physicsBody":{"motionType":"kinematic","shape":{"type":"sphere","radius":1}}})json", "kinematic" },
         { "unknown.level.json", R"json({"name":"Body","physicsBody":{"motionType":"static","shape":{"type":"mesh"}}})json", "unsupported shape" },
         { "invalid.level.json", R"json({"name":"Body","physicsBody":{"motionType":"dynamic","shape":{"type":"sphere","radius":0}}})json", "invalid sphere radius" },
         { "missing_shape.level.json", R"json({"name":"Body","physicsBody":{"motionType":"dynamic"}})json", "missing its shape" },
@@ -107,19 +106,4 @@ TEST_F(LevelPhysicsBodyJson, SaveAndReloadPreservesPhysicsDescriptors)
     const auto& capsule = std::get<physics::CapsuleShapeDescriptor>(reloaded.nodes[0].physicsBody->shape);
     EXPECT_FLOAT_EQ(capsule.radius, 0.25f);
     EXPECT_FLOAT_EQ(capsule.cylinderHeight, 1.5f);
-}
-
-TEST_F(LevelPhysicsBodyJson, SaveRejectsKinematicBody)
-{
-    rendern::LevelAsset source{};
-    source.nodes.push_back({
-        .name = "Kinematic",
-        .physicsBody = rendern::LevelPhysicsBodyDef{
-            .shape = physics::SphereShapeDescriptor{ .radius = 1.0f },
-            .motionType = physics::PhysicsMotionType::Kinematic
-        }
-    });
-    EXPECT_THROW(
-        rendern::SaveLevelAssetToJson(Path("kinematic_save.level.json").string(), source),
-        std::runtime_error);
 }

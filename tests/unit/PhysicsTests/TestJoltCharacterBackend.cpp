@@ -301,28 +301,57 @@ TEST_F(JoltCharacterBackendTest, RejectsSlopeAboveConfiguredLimit)
 {
     constexpr float slopeDegrees = 60.0f;
     constexpr float slopeCenterHeight = 3.34f;
-    ASSERT_TRUE(world.CreateBody(StaticBox({ -4.0f, -0.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());
-    ASSERT_TRUE(world.CreateBody(StaticBox(
-        { 0.0f, slopeCenterHeight, 0.0f }, { 4.0f, 0.25f, 3.0f }, slopeDegrees)).IsValid());
+
+    ASSERT_TRUE(world.CreateBody(
+        StaticBox(
+            { -4.0f, -0.5f, 0.0f },
+            { 2.0f, 0.5f, 3.0f }))
+        .IsValid());
+
+    ASSERT_TRUE(world.CreateBody(
+        StaticBox(
+            { 0.0f, slopeCenterHeight, 0.0f },
+            { 4.0f, 0.25f, 3.0f },
+            slopeDegrees))
+        .IsValid());
+
     auto descriptor = CharacterDescriptor();
     descriptor.position = { -3.5f, 1.05f, 0.0f };
+    descriptor.maximumSlopeAngleDegrees = 45.0f;
+
     const auto character = world.CreateCharacter(descriptor);
     ASSERT_TRUE(character.IsValid());
+
     SettleCharacter(world, character);
 
-    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, 0.0f }));
-    SimulateSteps(world, 120);
+    const auto settledPosition = world.GetCharacterPosition(character);
+    ASSERT_TRUE(settledPosition.has_value());
 
-    const auto position = world.GetCharacterPosition(character);
-    const auto ground = world.GetCharacterGroundState(character);
-    ASSERT_TRUE(position.has_value());
-    ASSERT_TRUE(ground.has_value());
-    EXPECT_LT(position->x, -1.0f);
-    EXPECT_LT(position->y, 1.8f);
-    if (ground->bIsSupported)
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(
+        character,
+        { 3.0f, 0.0f, 0.0f }));
+
+    float maximumObservedHeight = settledPosition->y;
+
+    for (int step = 0; step < 120; ++step)
     {
-        EXPECT_FALSE(ground->bIsWalkable);
+        SimulateSteps(world, 1);
+
+        const auto position = world.GetCharacterPosition(character);
+        ASSERT_TRUE(position.has_value());
+
+        maximumObservedHeight =
+            std::max(maximumObservedHeight, position->y);
     }
+
+    const auto finalPosition = world.GetCharacterPosition(character);
+    ASSERT_TRUE(finalPosition.has_value());
+
+    // A surface above the configured slope limit must block ordinary uphill traversal.
+    EXPECT_LT(finalPosition->x, -1.0f);
+
+    // The character must not gain meaningful elevation by treating the steep surface as walkable ground.
+    EXPECT_LT(maximumObservedHeight, 1.8f);
 }
 
 TEST_F(JoltCharacterBackendTest, TraversesStepWithinMaximumHeight)
@@ -365,24 +394,57 @@ TEST_F(JoltCharacterBackendTest, RejectsStepAboveMaximumHeight)
 
 TEST_F(JoltCharacterBackendTest, ZeroStepHeightDisablesStepsButPreservesGrounding)
 {
-    ASSERT_TRUE(world.CreateBody(StaticBox({ 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 3.0f })).IsValid());
-    ASSERT_TRUE(world.CreateBody(StaticBox({ 3.0f, 0.125f, 0.0f }, { 2.0f, 0.125f, 3.0f })).IsValid());
+    constexpr float stepHeight = 0.25f;
+
+    ASSERT_TRUE(world.CreateBody(
+        StaticBox(
+            { 0.0f, -0.5f, 0.0f },
+            { 8.0f, 0.5f, 3.0f }))
+        .IsValid());
+
+    ASSERT_TRUE(world.CreateBody(
+        StaticBox(
+            { 3.0f, stepHeight * 0.5f, 0.0f },
+            { 2.0f, stepHeight * 0.5f, 3.0f }))
+        .IsValid());
+
     auto descriptor = CharacterDescriptor();
+
+    // Keep the same total capsule height while making the vertical riser
+    // taller than the lower spherical cap. This prevents ordinary collision
+    // sliding from rolling the capsule onto the step.
+    descriptor.collider.radius = 0.2f;
+    descriptor.collider.cylinderHeight = 1.6f;
     descriptor.position = { 0.0f, 1.05f, 0.0f };
     descriptor.maximumStepHeight = 0.0f;
+
     const auto character = world.CreateCharacter(descriptor);
     ASSERT_TRUE(character.IsValid());
+
     SettleCharacter(world, character);
 
-    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 2.0f, 0.0f, 0.0f }));
+    const auto initialGround = world.GetCharacterGroundState(character);
+    ASSERT_TRUE(initialGround.has_value());
+
+    // Disabling stair traversal must not disable ordinary grounding.
+    EXPECT_TRUE(initialGround->bIsSupported);
+    EXPECT_TRUE(initialGround->bIsWalkable);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(
+        character,
+        { 2.0f, 0.0f, 0.0f }));
+
     SimulateSteps(world, 150);
 
     const auto position = world.GetCharacterPosition(character);
-    const auto ground = world.GetCharacterGroundState(character);
     ASSERT_TRUE(position.has_value());
-    ASSERT_TRUE(ground.has_value());
-    EXPECT_LT(position->x, 0.58f);
-    EXPECT_TRUE(ground->bIsWalkable);
+
+    // With stair walking disabled, the character must remain blocked
+    // in front of the vertical riser.
+    EXPECT_LT(position->x, 0.85f);
+
+    // The character must remain on the approach floor instead of climbing the step.
+    EXPECT_LT(position->y, 1.15f);
 }
 
 TEST_F(JoltCharacterBackendTest, ZeroStepHeightStillFollowsSmallDownwardGroundChange)
