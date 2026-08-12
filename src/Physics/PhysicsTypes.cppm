@@ -1,6 +1,8 @@
 module;
 
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <variant>
@@ -20,6 +22,8 @@ namespace
 
 export namespace physics
 {
+    inline constexpr std::uint32_t MaximumPhysicsStepsPerUpdate = 4u;
+    
     struct PhysicsMaterialDescriptor
     {
         float friction{ 0.2f };
@@ -166,6 +170,21 @@ export namespace physics
         mathUtils::Vec3 velocity{};
         PhysicsBodyHandle body{ InvalidPhysicsBodyHandle };
         SurfaceTypeId surface{ InvalidSurfaceType };
+    };
+    
+    struct CharacterMotionStepObservation
+    {
+        mathUtils::Vec3 displacement{};
+        bool bIsSupported{ false };
+    };
+
+    struct CharacterMotionObservation
+    {
+        std::array<
+        CharacterMotionStepObservation,
+        MaximumPhysicsStepsPerUpdate> steps{};
+
+        std::uint32_t stepCount{0u};
     };
     
     enum class PhysicsQueryLayerMask : std::uint8_t

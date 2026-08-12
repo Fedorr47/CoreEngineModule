@@ -256,7 +256,9 @@ TEST(AIFollowRouteActionRuntime, RunningTraversalTickFailureFailsAction)
 
     ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
     ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    world.TryGetCharacterMovementState(agent)->physicallyBlocked = true;
     EXPECT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Failed);
+    EXPECT_FALSE(runtime.IsPhysicallyBlocked());
     EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
     EXPECT_EQ(executor.startCallCount, 1);
     EXPECT_EQ(executor.tickCallCount, 1);

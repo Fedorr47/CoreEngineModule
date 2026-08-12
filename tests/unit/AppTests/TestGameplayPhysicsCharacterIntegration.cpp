@@ -51,6 +51,11 @@ namespace
             playerNode.alive = true;
             playerNode.visible = false;
             levelAsset.nodes.push_back(playerNode);
+            rendern::LevelNode npcNode{};
+            npcNode.name = "NPC";
+            npcNode.alive = true;
+            npcNode.visible = false;
+            levelAsset.nodes.push_back(npcNode);
             scene.camera.position = {0.0f, 2.0f, -5.0f};
             scene.camera.target = {0.0f, 0.0f, 0.0f};
             gameplayRuntime.Initialize(levelAsset, levelInstance, scene);
@@ -69,7 +74,7 @@ namespace
 
         void TearDown() override
         {
-            EXPECT_TRUE(appRuntime::DestroyControlledGameplayPhysicsCharacter(
+            EXPECT_TRUE(appRuntime::DestroyGameplayPhysicsCharacters(
                 gameplayRuntime, physicsWorld));
             gameplayRuntime.Shutdown();
             physicsWorld.Shutdown();
@@ -91,19 +96,54 @@ namespace
                 });
         }
 
-        void StepFrame()
+        rendern::EntityHandle SpawnNPC()
+        {
+            const rendern::EntityHandle npc = gameplayRuntime.SpawnNodeBoundEntity(
+                editorContext, 1, false);
+            if (npc != rendern::kNullEntity)
+            {
+                gameplayRuntime.GetWorld().SetCharacterPhysicalSettings(npc, {
+                    .radius = 0.22f,
+                    .cylinderHeight = 0.86f,
+                    .maximumSlopeAngleDegrees = 38.0f,
+                    .maximumStepHeight = 0.18f,
+                    .mass = 54.0f
+                });
+                gameplayRuntime.GetWorld().AddAI(npc);
+            }
+            return npc;
+        }
+
+        void SetEntityMoveIntent(const rendern::EntityHandle entity, const float moveX, const float moveY)
+        {
+            gameplayRuntime.BindIntentSource(
+                entity,
+                [moveX, moveY](rendern::EntityHandle,
+                    const rendern::GameplayUpdateContext&,
+                    rendern::GameplayWorld&,
+                    rendern::GameplayInputIntentComponent& intent,
+                    rendern::GameplayActionComponent*)
+                {
+                    intent.moveX = moveX;
+                    intent.moveY = moveY;
+                });
+        }
+
+        void StepFrame(const float frameSeconds = StepSeconds)
         {
             // Mirrors the app's CR-443 gameplay/physics phase order.
+            rendern::GameplayUpdateContext frameContext = gameContext;
+            frameContext.deltaSeconds = frameSeconds;
             gameplayRuntime.BeginFrame();
-            ASSERT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+            ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
                 gameplayRuntime, physicsWorld, levelAsset));
-            gameplayRuntime.PrePhysicsUpdate(gameContext);
-            ASSERT_TRUE(appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
+            gameplayRuntime.PrePhysicsUpdate(frameContext);
+            ASSERT_TRUE(appRuntime::SubmitGameplayPhysicsCharacterVelocities(
                 gameplayRuntime, physicsWorld));
-            ASSERT_EQ(physicsWorld.Update(StepSeconds), 1u);
-            ASSERT_TRUE(appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
+            [[maybe_unused]] const std::uint32_t physicsSteps = physicsWorld.Update(frameSeconds);
+            ASSERT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
                 gameplayRuntime, physicsWorld));
-            gameplayRuntime.PostPhysicsUpdate(gameContext);
+            gameplayRuntime.PostPhysicsUpdate(frameContext);
         }
 
         std::optional<InlineThreadOwnerRolesGuard> threadGuard{};
@@ -150,7 +190,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ForwardMovementFeedsBackActualSt
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, CreationConvertsVisualRootToCapsuleCenterExplicitly)
 {
-    ASSERT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         gameplayRuntime, physicsWorld, levelAsset));
     const rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
     const auto* binding = world.TryGetPhysicsCharacter(player);
@@ -233,7 +273,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ModeLifecycleRecreatesOneFreshCh
     const physics::PhysicsCharacterHandle first = binding->character;
     ASSERT_TRUE(physicsWorld.IsCharacterValid(first));
 
-    ASSERT_TRUE(appRuntime::DestroyControlledGameplayPhysicsCharacter(gameplayRuntime, physicsWorld));
+    ASSERT_TRUE(appRuntime::DestroyGameplayPhysicsCharacters(gameplayRuntime, physicsWorld));
     EXPECT_FALSE(physicsWorld.IsCharacterValid(first));
     EXPECT_FALSE(gameplayRuntime.GetWorld().HasPhysicsCharacter(player));
 
@@ -257,11 +297,11 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, StaleBindingIsRemovedWithoutOver
     const mathUtils::Vec3 preservedPosition{7.0f, 8.0f, 9.0f};
     world.TryGetTransform(player)->position = preservedPosition;
 
-    EXPECT_TRUE(appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
+    EXPECT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
         gameplayRuntime, physicsWorld));
     EXPECT_EQ(world.TryGetTransform(player)->position, preservedPosition);
     EXPECT_FALSE(world.HasPhysicsCharacter(player));
-    EXPECT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    EXPECT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         gameplayRuntime, physicsWorld, levelAsset));
     EXPECT_TRUE(world.HasPhysicsCharacter(player));
 }
@@ -275,7 +315,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, NodeOwnerDestructionReleasesPhys
     levelAsset.nodes[0].alive = false;
 
     gameplayRuntime.BeginFrame();
-    ASSERT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         gameplayRuntime, physicsWorld, levelAsset));
     EXPECT_FALSE(physicsWorld.IsCharacterValid(character));
     // The normal pre-physics phase removes gameplay state only after the App
@@ -287,16 +327,16 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, NodeOwnerDestructionReleasesPhys
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, NoControlledEntityIsSuccessfulNoOp)
 {
-    ASSERT_TRUE(appRuntime::DestroyControlledGameplayPhysicsCharacter(gameplayRuntime, physicsWorld));
+    ASSERT_TRUE(appRuntime::DestroyGameplayPhysicsCharacters(gameplayRuntime, physicsWorld));
     gameplayRuntime.GetWorld().DestroyEntity(player);
 
-    EXPECT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    EXPECT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         gameplayRuntime, physicsWorld, levelAsset));
-    EXPECT_TRUE(appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
+    EXPECT_TRUE(appRuntime::SubmitGameplayPhysicsCharacterVelocities(
         gameplayRuntime, physicsWorld));
-    EXPECT_TRUE(appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
+    EXPECT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
         gameplayRuntime, physicsWorld));
-    EXPECT_TRUE(appRuntime::DestroyControlledGameplayPhysicsCharacter(
+    EXPECT_TRUE(appRuntime::DestroyGameplayPhysicsCharacters(
         gameplayRuntime, physicsWorld));
 }
 
@@ -321,6 +361,223 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ReleasedInputSubmitsDeceleration
     ASSERT_NE(motor, nullptr);
     EXPECT_LT(std::abs(motor->desiredVelocity.z), 0.01f);
     EXPECT_LT(std::abs(motor->velocity.z), 0.1f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, NPCFreeMovementUsesSharedPhysicsFeedback)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    SetEntityMoveIntent(npc, 0.0f, 1.0f);
+
+    for (int frame = 0; frame < 60; ++frame)
+    {
+        StepFrame();
+    }
+
+    const auto& world = gameplayRuntime.GetWorld();
+    const auto* binding = world.TryGetPhysicsCharacter(npc);
+    const auto* transform = world.TryGetTransform(npc);
+    const auto* motor = world.TryGetCharacterMotor(npc);
+    const auto* movement = world.TryGetCharacterMovementState(npc);
+    ASSERT_NE(binding, nullptr);
+    ASSERT_NE(transform, nullptr);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(movement, nullptr);
+    const auto physicalPosition = physicsWorld.GetCharacterPosition(binding->character);
+    ASSERT_TRUE(physicalPosition.has_value());
+    EXPECT_GT(transform->position.z, 0.5f);
+    EXPECT_NEAR(binding->visualRootOffset.y, -0.65f, 0.001f);
+    EXPECT_NE(binding->visualRootOffset, mathUtils::Vec3(0.0f, -0.9f, 0.0f));
+    EXPECT_NEAR(transform->position.z, physicalPosition->z, 0.001f);
+    EXPECT_GT(motor->velocity.z, 1.0f);
+    EXPECT_FALSE(movement->physicallyBlocked);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, NPCWallReportsObservedStopAndBecomesPhysicallyBlocked)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const physics::PhysicsBodyDescriptor wall{
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 3.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 2.0f } },
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(wall).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    SetEntityMoveIntent(npc, 0.0f, 1.0f);
+
+    for (int frame = 0; frame < 180; ++frame)
+    {
+        StepFrame();
+    }
+
+    const auto& world = gameplayRuntime.GetWorld();
+    const auto* binding = world.TryGetPhysicsCharacter(npc);
+    const auto* motor = world.TryGetCharacterMotor(npc);
+    const auto* movement = world.TryGetCharacterMovementState(npc);
+    ASSERT_NE(binding, nullptr);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(movement, nullptr);
+    const auto positionBefore = physicsWorld.GetCharacterPosition(binding->character);
+    ASSERT_TRUE(positionBefore.has_value());
+    StepFrame();
+    const auto positionAfter = physicsWorld.GetCharacterPosition(binding->character);
+    ASSERT_TRUE(positionAfter.has_value());
+    EXPECT_GT(motor->desiredVelocity.z, 1.5f);
+    EXPECT_LT(std::abs(motor->velocity.z), 0.05f);
+    EXPECT_LT(std::abs(positionAfter->z - positionBefore->z), 0.001f);
+    EXPECT_TRUE(movement->physicallyBlocked);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, NPCWallSlidingPreservesTangentialObservedMovement)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const physics::PhysicsBodyDescriptor wall{
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 20.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 2.0f } },
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(wall).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    SetEntityMoveIntent(npc, 1.0f, 1.0f);
+
+    for (int frame = 0; frame < 180; ++frame)
+    {
+        StepFrame();
+    }
+
+    const auto& world = gameplayRuntime.GetWorld();
+    const auto* motor = world.TryGetCharacterMotor(npc);
+    const auto* movement = world.TryGetCharacterMovementState(npc);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(movement, nullptr);
+    const auto* transform = world.TryGetTransform(npc);
+    ASSERT_NE(transform, nullptr);
+    EXPECT_GT(std::abs(motor->velocity.x), 0.5f);
+    EXPECT_NEAR(transform->position.z, 1.53f, 0.08f);
+    EXPECT_LT(std::abs(motor->velocity.z), 0.1f);
+    EXPECT_FALSE(movement->physicallyBlocked);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, CharacterTeleportResetsObservedVelocity)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    StepFrame();
+    auto& world = gameplayRuntime.GetWorld();
+    const auto* binding = world.TryGetPhysicsCharacter(npc);
+    ASSERT_NE(binding, nullptr);
+    ASSERT_TRUE(physicsWorld.TeleportCharacter(
+        binding->character, {2.0f, 0.65f, 0.0f}));
+    const auto velocity = physicsWorld.GetCharacterVelocity(binding->character);
+    ASSERT_TRUE(velocity.has_value());
+    EXPECT_LT(mathUtils::Length(*velocity), 0.001f);
+    const auto teleportObservation =
+        physicsWorld.ConsumeCharacterMotionObservation(binding->character);
+    ASSERT_TRUE(teleportObservation.has_value());
+    EXPECT_EQ(teleportObservation->stepCount, 0u);
+    SetEntityMoveIntent(npc, 1.0f, 0.0f);
+    StepFrame();
+    const auto resumedVelocity = physicsWorld.GetCharacterVelocity(binding->character);
+    ASSERT_TRUE(resumedVelocity.has_value());
+    EXPECT_GT(resumedVelocity->x, 0.1f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, MixedThirtyFpsFrameCountsOnlyBlockedFixedStep)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    ASSERT_TRUE(physicsWorld.CreateBody({
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 3.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 0.75f } },
+        .motionType = physics::PhysicsMotionType::Static }).IsValid());
+    const auto npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    StepFrame();
+    auto& world = gameplayRuntime.GetWorld();
+    const auto* binding = world.TryGetPhysicsCharacter(npc);
+    auto* motor = world.TryGetCharacterMotor(npc);
+    auto* movement = world.TryGetCharacterMovementState(npc);
+    ASSERT_NE(binding, nullptr);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(movement, nullptr);
+
+    ASSERT_TRUE(physicsWorld.TeleportCharacter(binding->character, {0.0f, 0.65f, 0.225f}));
+    motor->desiredVelocity = {0.0f, 0.0f, 2.0f};
+    ASSERT_TRUE(physicsWorld.SetCharacterDesiredVelocity(
+        binding->character, motor->desiredVelocity));
+    ASSERT_EQ(physicsWorld.Update(1.0f / 30.0f), 2u);
+    ASSERT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
+        gameplayRuntime, physicsWorld));
+
+    EXPECT_NEAR(movement->physicalBlockedSeconds, StepSeconds, 0.001f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, BlockedPersistenceAt120FpsUsesFixedSteps)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const physics::PhysicsBodyDescriptor wall{
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 3.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 0.75f } },
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(wall).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    SetEntityMoveIntent(npc, 0.0f, 1.0f);
+
+    const float initialBlockedSeconds =
+        gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds;
+    StepFrame(1.0f / 120.0f);
+    EXPECT_FLOAT_EQ(
+        gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds,
+        initialBlockedSeconds);
+    for (int frame = 0; frame < 240 &&
+        !gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked; ++frame)
+    {
+        StepFrame(1.0f / 120.0f);
+    }
+    EXPECT_TRUE(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked);
+    EXPECT_NEAR(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds,
+        0.25f, StepSeconds);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, BlockedPersistenceAt60FpsUsesFixedSteps)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    ASSERT_TRUE(physicsWorld.CreateBody({
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 3.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 0.75f } },
+        .motionType = physics::PhysicsMotionType::Static }).IsValid());
+    const auto npc = SpawnNPC(); SetEntityMoveIntent(npc, 0.0f, 1.0f);
+    for (int frame = 0; frame < 120 &&
+        !gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked; ++frame)
+    {
+        StepFrame(1.0f / 60.0f);
+    }
+    EXPECT_TRUE(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked);
+    EXPECT_NEAR(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds,
+        0.25f, StepSeconds);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, BlockedPersistenceAt30FpsUsesFixedSteps)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    ASSERT_TRUE(physicsWorld.CreateBody({
+        .shape = physics::BoxShapeDescriptor{ .halfExtents = { 3.0f, 2.0f, 0.25f } },
+        .transform = { .position = { 0.0f, 2.0f, 0.75f } },
+        .motionType = physics::PhysicsMotionType::Static }).IsValid());
+    const auto npc = SpawnNPC(); SetEntityMoveIntent(npc, 0.0f, 1.0f);
+    for (int frame = 0; frame < 60 &&
+        !gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked; ++frame)
+    {
+        StepFrame(1.0f / 30.0f);
+    }
+    EXPECT_TRUE(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked);
+    EXPECT_NEAR(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds,
+        0.25f, StepSeconds);
 }
 
 TEST(GameplayPhysicsCharacterAppLifecycle, SetGameplayModeDestroysAndRecreatesControlledCharacter)
@@ -353,7 +610,7 @@ TEST(GameplayPhysicsCharacterAppLifecycle, SetGameplayModeDestroysAndRecreatesCo
     std::string error;
     ASSERT_TRUE(appLifecycle::SetGameplayMode(
         app, rendern::GameplayRuntimeMode::Game, error)) << error;
-    ASSERT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         *app.runtimeState.gameplayRuntime,
         *app.physicsState.joltPhysicsWorld,
         *app.contentState.levelAsset));
@@ -370,7 +627,7 @@ TEST(GameplayPhysicsCharacterAppLifecycle, SetGameplayModeDestroysAndRecreatesCo
 
     ASSERT_TRUE(appLifecycle::SetGameplayMode(
         app, rendern::GameplayRuntimeMode::Game, error)) << error;
-    ASSERT_TRUE(appRuntime::EnsureControlledGameplayPhysicsCharacter(
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
         *app.runtimeState.gameplayRuntime,
         *app.physicsState.joltPhysicsWorld,
         *app.contentState.levelAsset));

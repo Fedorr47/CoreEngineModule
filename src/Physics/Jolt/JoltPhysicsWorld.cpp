@@ -23,6 +23,7 @@ import core;
 #include <Jolt/Geometry/Plane.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <numbers>
@@ -215,7 +216,7 @@ namespace physics
             impl_ = std::move(implementation);
         }
         impl_->initialized = true;
-        impl_->fixedStepScheduler.SetMaxCatchupTicks(MaximumPhysicsStepsPerFrame);
+        impl_->fixedStepScheduler.SetMaxCatchupTicks(MaximumPhysicsStepsPerUpdate);
         ResetSimulationClock();
         return true;
     }
@@ -264,6 +265,8 @@ namespace physics
             static_cast<double>(deltaSeconds), MaximumAcceptedFrameDeltaSeconds);
         const FixedStepResult fixedStepResult = impl_->fixedStepScheduler.Advance(acceptedDeltaSeconds);
         const std::uint32_t stepCount = static_cast<std::uint32_t>(fixedStepResult.tickToSimulate);
+        
+        impl_->characterRegistry.ResetMotionObservations();
 
         for (std::uint32_t stepIndex = 0u; stepIndex < stepCount; ++stepIndex)
         {
@@ -288,8 +291,11 @@ namespace physics
                 [this, fixedDelta, gravity](
                     JPH::CharacterVirtual& character,
                     const mathUtils::Vec3& desiredVelocity,
-                    const float maximumStepHeight)
+                    const float maximumStepHeight,
+                    mathUtils::Vec3& observedVelocity,
+                    CharacterMotionObservation& motionObservation)
                 {
+                    const JPH::RVec3 positionBefore = character.GetPosition();
                     JPH::Vec3 velocity = character.GetLinearVelocity();
                     character.UpdateGroundVelocity();
                     const JPH::Vec3 groundVelocity = character.GetGroundVelocity();
@@ -336,6 +342,30 @@ namespace physics
                         JPH::BodyFilter{},
                         JPH::ShapeFilter{},
                         runtime_.GetTempAllocator());
+                    
+                    const JPH::RVec3 displacement = character.GetPosition() - positionBefore;
+                    observedVelocity = {
+                        static_cast<float>(displacement.GetX()) / fixedDelta,
+                        static_cast<float>(displacement.GetY()) / fixedDelta,
+                        static_cast<float>(displacement.GetZ()) / fixedDelta
+                    };
+                    
+                    assert(motionObservation.stepCount < motionObservation.steps.size());
+                    
+                    if (motionObservation.stepCount < motionObservation.steps.size())
+                    {
+                        const auto postUpdateGroundState = character.GetGroundState();
+                        motionObservation.steps[motionObservation.stepCount++] = {
+                            .displacement = {
+                                static_cast<float>(displacement.GetX()),
+                                static_cast<float>(displacement.GetY()),
+                                static_cast<float>(displacement.GetZ())
+                            },
+                            .bIsSupported =
+                                postUpdateGroundState == JPH::CharacterBase::EGroundState::OnGround ||
+                                postUpdateGroundState == JPH::CharacterBase::EGroundState::OnSteepGround
+                        };
+                    }
                 });
             
             impl_->physicsSystem.Update(
@@ -1063,13 +1093,20 @@ namespace physics
         
         CORE_ASSERT_PHYSICS_THREAD();
         
-        const JPH::CharacterVirtual* character = impl_->characterRegistry.ResolveCharacter(handle);
-        if (character == nullptr)
+        return impl_->characterRegistry.GetObservedVelocity(handle);
+    }
+
+    std::optional<CharacterMotionObservation> JoltPhysicsWorld::ConsumeCharacterMotionObservation(
+        const PhysicsCharacterHandle handle) noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
         {
             return std::nullopt;
         }
-        const JPH::Vec3 velocity = character->GetLinearVelocity();
-        return mathUtils::Vec3{ velocity.GetX(), velocity.GetY(), velocity.GetZ() };
+        
+        CORE_ASSERT_PHYSICS_THREAD();
+        
+        return impl_->characterRegistry.ConsumeMotionObservation(handle);
     }
 
     bool JoltPhysicsWorld::TeleportCharacter(
@@ -1089,6 +1126,7 @@ namespace physics
         }
         character->SetPosition(CharacterCenterToBasePosition(
             position, character->GetRotation(), character->GetShapeOffset()));
+        impl_->characterRegistry.ResetObservedVelocity(handle);
         return true;
     }
     

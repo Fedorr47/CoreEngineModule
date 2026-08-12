@@ -65,6 +65,10 @@ export namespace rendern
         world.AddInputIntent(entity);
         world.AddCharacterCommand(entity);
         world.AddCharacterMotor(entity);
+        if (!playerControlled)
+        {
+            world.AddCharacterPhysicalSettings(entity);
+        }
         world.AddCharacterMovementState(entity,
             GameplayCharacterMovementStateComponent{
                 .grounded = true,

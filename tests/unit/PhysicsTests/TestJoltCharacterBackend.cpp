@@ -237,6 +237,62 @@ TEST_F(JoltCharacterBackendTest, DesiredHorizontalVelocityMovesOnlyOnFixedStepsA
     EXPECT_TRUE(ground->bIsWalkable);
 }
 
+TEST_F(JoltCharacterBackendTest, MotionObservationAccumulatesEveryFixedStepUntilConsumed)
+{
+    ASSERT_TRUE(world.CreateBody(FloorDescriptor()).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SimulateSteps(world, 10);
+    ASSERT_TRUE(world.ConsumeCharacterMotionObservation(character).has_value());
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 2.0f, 0.0f, 0.0f }));
+
+    const auto before = world.GetCharacterPosition(character);
+    ASSERT_TRUE(before.has_value());
+    ASSERT_EQ(world.Update(static_cast<float>(FixedDeltaSec60 * 2.0)), 2u);
+    const auto after = world.GetCharacterPosition(character);
+    const auto observation = world.ConsumeCharacterMotionObservation(character);
+    ASSERT_TRUE(after.has_value());
+    ASSERT_TRUE(observation.has_value());
+    EXPECT_EQ(observation->stepCount, 2u);
+    float accumulatedX = 0.0f;
+    for (std::uint32_t step = 0u; step < observation->stepCount; ++step)
+    {
+        accumulatedX += observation->steps[step].displacement.x;
+    }
+    EXPECT_NEAR(accumulatedX, after->x - before->x, 0.0001f);
+
+    const auto consumed = world.ConsumeCharacterMotionObservation(character);
+    ASSERT_TRUE(consumed.has_value());
+    EXPECT_EQ(consumed->stepCount, 0u);
+}
+
+TEST_F(JoltCharacterBackendTest, MultiStepObservationRetainsProgressBeforeFinalWallStop)
+{
+    ASSERT_TRUE(world.CreateBody(StaticBox(
+        { 0.0f, -0.5f, 0.0f }, { 8.0f, 0.5f, 8.0f })).IsValid());
+    ASSERT_TRUE(world.CreateBody(StaticBox(
+        { 1.0f, 2.0f, 0.0f }, { 0.25f, 2.0f, 8.0f })).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.05f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+    ASSERT_TRUE(world.ConsumeCharacterMotionObservation(character).has_value());
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 6.0f, 0.0f, 0.0f }));
+
+    ASSERT_EQ(world.Update(static_cast<float>(FixedDeltaSec60 * 4.0)), 4u);
+    const auto latestVelocity = world.GetCharacterVelocity(character);
+    const auto observation = world.ConsumeCharacterMotionObservation(character);
+    ASSERT_TRUE(latestVelocity.has_value());
+    ASSERT_TRUE(observation.has_value());
+    EXPECT_EQ(observation->stepCount, 4u);
+    EXPECT_GT(observation->steps[0].displacement.x, 0.01f);
+    EXPECT_LT(std::abs(observation->steps[observation->stepCount - 1u].displacement.x), 0.001f);
+    EXPECT_LT(std::abs(latestVelocity->x), 0.05f);
+}
+
 TEST_F(JoltCharacterBackendTest, RejectsInvalidIntentAndStaleHandles)
 {
     const auto stale = world.CreateCharacter(CharacterDescriptor());

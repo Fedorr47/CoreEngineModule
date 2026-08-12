@@ -102,7 +102,7 @@ namespace
             gameplay.BeginFrame();
 
             ASSERT_TRUE(
-                appRuntime::EnsureControlledGameplayPhysicsCharacter(
+                appRuntime::EnsureGameplayPhysicsCharacters(
                     gameplay,
                     physicsWorld,
                     levelAsset));
@@ -110,7 +110,7 @@ namespace
             gameplay.PrePhysicsUpdate(context);
 
             ASSERT_TRUE(
-                appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
+                appRuntime::SubmitGameplayPhysicsCharacterVelocities(
                     gameplay,
                     physicsWorld));
 
@@ -135,7 +135,7 @@ namespace
                 << errorMessage;
 
             ASSERT_TRUE(
-                appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
+                appRuntime::ApplyGameplayPhysicsCharacterFeedback(
                     gameplay,
                     physicsWorld));
 

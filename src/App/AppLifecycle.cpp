@@ -430,11 +430,11 @@ namespace appLifecycle
         else
         {
             if (runtimeState.gameplayRuntime && physicsState.joltPhysicsWorld &&
-                !appRuntime::DestroyControlledGameplayPhysicsCharacter(
+                !appRuntime::DestroyGameplayPhysicsCharacters(
                     *runtimeState.gameplayRuntime,
                     *physicsState.joltPhysicsWorld))
             {
-                errorMessage = "Failed to destroy the controlled gameplay physics character.";
+                errorMessage = "Failed to destroy the gameplay physics characters.";
                 return false;
             }
             
@@ -790,13 +790,13 @@ namespace appLifecycle
         
         if (runtimeState.gameplayRuntime && physicsState.joltPhysicsWorld)
         {
-            const bool bDestroyed = appRuntime::DestroyControlledGameplayPhysicsCharacter(
+            const bool bDestroyed = appRuntime::DestroyGameplayPhysicsCharacters(
                 *runtimeState.gameplayRuntime,
                 *physicsState.joltPhysicsWorld);
             assert(bDestroyed && "Gameplay physics characters must be released before shutdown.");
             if (!bDestroyed)
             {
-                std::cerr << "[Physics] Failed to release the controlled character during shutdown.\n";
+                std::cerr << "[Physics] Failed to release the gameplay characters during shutdown.\n";
             }
         }
         

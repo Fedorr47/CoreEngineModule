@@ -49,6 +49,7 @@ namespace physics
         [[nodiscard]] bool IsCharacterValid(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] std::optional<mathUtils::Vec3> GetCharacterPosition(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] std::optional<mathUtils::Vec3> GetCharacterVelocity(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<CharacterMotionObservation> ConsumeCharacterMotionObservation(PhysicsCharacterHandle handle) noexcept;
         [[nodiscard]] bool TeleportCharacter(PhysicsCharacterHandle handle, const mathUtils::Vec3& position);
         [[nodiscard]] bool SetCharacterDesiredVelocity(PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity);
         [[nodiscard]] std::optional<CharacterGroundState> GetCharacterGroundState(PhysicsCharacterHandle handle) const noexcept;
