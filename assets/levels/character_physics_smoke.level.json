@@ -1,0 +1,371 @@
+{
+  "name": "CharacterPhysicsSmoke",
+  "meshes": {
+    "cube": {
+      "path": "models/cube.obj",
+      "debugName": "CharacterPhysicsSmokeCube"
+    }
+  },
+  "models": {},
+  "skinnedMeshes": {
+    "character": {
+      "path": "models/Character.fbx",
+      "flipUVs": true,
+      "debugName": "CharacterPhysicsSmokeCharacter"
+    }
+  },
+  "animations": {},
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "player": {
+      "baseColor": [
+        0.25,
+        0.65,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.7,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "floor": {
+      "baseColor": [
+        0.38,
+        0.42,
+        0.46,
+        1.0
+      ],
+      "roughness": 0.95,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "wall": {
+      "baseColor": [
+        0.85,
+        0.18,
+        0.14,
+        1.0
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "lowStep": {
+      "baseColor": [
+        0.2,
+        0.75,
+        0.32,
+        1.0
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "highStep": {
+      "baseColor": [
+        0.95,
+        0.55,
+        0.12,
+        1.0
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "lowerFloor": {
+      "baseColor": [
+        0.25,
+        0.3,
+        0.38,
+        1.0
+      ],
+      "roughness": 0.95,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    }
+  },
+  "camera": {
+    "position": [
+      10.0,
+      8.0,
+      -12.0
+    ],
+    "target": [
+      0.0,
+      1.0,
+      5.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "fovYDeg": 60.0,
+    "nearZ": 0.1,
+    "farZ": 150.0
+  },
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.4,
+        -1.0,
+        0.25
+      ],
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "intensity": 3.0
+    }
+  ],
+  "particleEmitters": [],
+  "skybox": null,
+  "nodes": [
+    {
+      "name": "CharacterPhysicsSmoke_Player",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "character",
+      "material": "player",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      }
+    },
+    {
+      "name": "CharacterPhysicsSmoke_Floor",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "floor",
+      "transform": {
+        "position": [
+          0.0,
+          -0.5,
+          5.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          20.0,
+          1.0,
+          20.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            10.0,
+            0.5,
+            10.0
+          ]
+        },
+        "material": {
+          "friction": 0.9,
+          "restitution": 0.0
+        },
+        "surfaceId": 10
+      }
+    },
+    {
+      "name": "CharacterPhysicsSmoke_Wall",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          0.0,
+          1.5,
+          6.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          8.0,
+          3.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            4.0,
+            1.5,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.8,
+          "restitution": 0.0
+        },
+        "surfaceId": 11
+      }
+    },
+    {
+      "name": "CharacterPhysicsSmoke_StepLow",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "lowStep",
+      "transform": {
+        "position": [
+          -6.0,
+          0.125,
+          3.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.0,
+          0.25,
+          2.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.5,
+            0.125,
+            1.0
+          ]
+        },
+        "material": {
+          "friction": 0.9,
+          "restitution": 0.0
+        },
+        "surfaceId": 12
+      }
+    },
+    {
+      "name": "CharacterPhysicsSmoke_StepHigh",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "highStep",
+      "transform": {
+        "position": [
+          -6.0,
+          0.325,
+          8.5
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.0,
+          0.65,
+          2.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.5,
+            0.325,
+            1.0
+          ]
+        },
+        "material": {
+          "friction": 0.9,
+          "restitution": 0.0
+        },
+        "surfaceId": 13
+      }
+    },
+    {
+      "name": "CharacterPhysicsSmoke_LowerFloor",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "lowerFloor",
+      "transform": {
+        "position": [
+          0.0,
+          -2.5,
+          22.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          20.0,
+          1.0,
+          12.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            10.0,
+            0.5,
+            6.0
+          ]
+        },
+        "material": {
+          "friction": 0.9,
+          "restitution": 0.0
+        },
+        "surfaceId": 16
+      }
+    }
+  ]
+}

@@ -169,6 +169,54 @@ gtest_discover_tests(CoreEnginePhysicsLevelSmokeTests
 )
 #Physics smoke end
 
+# Character physics smoke start
+add_executable(CoreEngineCharacterPhysicsSmokeTests
+        "integration/CharacterPhysicsSmoke/TestCharacterPhysicsSmoke.cpp"
+)
+
+target_link_libraries(CoreEngineCharacterPhysicsSmokeTests
+        PRIVATE
+        CoreEngineModuleLib
+        GTest::gtest_main
+)
+
+target_compile_features(CoreEngineCharacterPhysicsSmokeTests PRIVATE cxx_std_23)
+core_enable_import_std(CoreEngineCharacterPhysicsSmokeTests)
+
+target_include_directories(CoreEngineCharacterPhysicsSmokeTests
+        PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+if(TARGET core_test_sanitizers)
+  target_link_libraries(CoreEngineCharacterPhysicsSmokeTests PRIVATE core_test_sanitizers)
+endif()
+
+add_custom_command(TARGET CoreEngineCharacterPhysicsSmokeTests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:CoreEngineCharacterPhysicsSmokeTests>/assets"
+)
+
+if(WIN32)
+  add_custom_command(TARGET CoreEngineCharacterPhysicsSmokeTests POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_RUNTIME_DLLS:CoreEngineCharacterPhysicsSmokeTests>
+          $<TARGET_FILE_DIR:CoreEngineCharacterPhysicsSmokeTests>
+          COMMAND_EXPAND_LISTS
+  )
+endif()
+
+gtest_discover_tests(CoreEngineCharacterPhysicsSmokeTests
+        DISCOVERY_MODE PRE_TEST
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:CoreEngineCharacterPhysicsSmokeTests>"
+        PROPERTIES
+        LABELS "physics;character;smoke;integration"
+        TIMEOUT 30
+)
+# Character physics smoke end
+
 if(WIN32 AND CORE_RENDER_BACKEND STREQUAL "DX12")
   add_executable(CoreEngineModuleDx12SmokeTests
           "integration/Dx12Smoke/TestDx12BackendSmoke.cpp"
