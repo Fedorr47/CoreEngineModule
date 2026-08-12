@@ -13,20 +13,20 @@ namespace rendern
 
 namespace appRuntime
 {
-    [[nodiscard]] bool EnsureControlledGameplayPhysicsCharacter(
+    [[nodiscard]] bool EnsureGameplayPhysicsCharacters(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld,
         const rendern::LevelAsset& levelAsset);
 
-    [[nodiscard]] bool SubmitControlledGameplayPhysicsCharacterVelocity(
+    [[nodiscard]] bool SubmitGameplayPhysicsCharacterVelocities(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld);
 
-    [[nodiscard]] bool ApplyControlledGameplayPhysicsCharacterFeedback(
+    [[nodiscard]] bool ApplyGameplayPhysicsCharacterFeedback(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld);
 
-    [[nodiscard]] bool DestroyControlledGameplayPhysicsCharacter(
+    [[nodiscard]] bool DestroyGameplayPhysicsCharacters(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld);
 }

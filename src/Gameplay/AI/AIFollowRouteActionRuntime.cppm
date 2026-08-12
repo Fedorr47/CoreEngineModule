@@ -38,6 +38,7 @@ export namespace rendern
         
         [[nodiscard]] AIActionRuntimeResult Start(const AIActionRuntimeContext& context) override
         {
+            physicallyBlocked_ = false;
             if (!ValidateContextAndAgent_(context) || !route_.IsValid())
             {
                 StopMovementIfAccessible_(context.agentEntity);
@@ -64,11 +65,13 @@ export namespace rendern
                 StopMovementIfAccessible_(context.agentEntity);
                 CancelActiveTraversal_();
                 follower_.Reset();
+                physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Failed;
             }
             
             if (activeTraversal_)
             {
+                physicallyBlocked_ = false;
                 ClearMovementIntentIfAccessible_(context.agentEntity);
                 const GameplayTraversalLinkHandle completedTraversal = activeTraversal_->context.traversalLink;
                 const GameplayTraversalExecutionResult result = activeTraversal_->executor->Tick(activeTraversal_->context, deltaSeconds);
@@ -82,6 +85,7 @@ export namespace rendern
                     || !follower_.CompleteTraversal(completedTraversal))
                 {
                     StopMovementIfAccessible_(context.agentEntity);
+                    physicallyBlocked_ = false;
                     return AIActionRuntimeResult::Failed;
                 }
             }
@@ -89,11 +93,17 @@ export namespace rendern
             return AdvanceFollower_(context.agentEntity);
         }
         
+        [[nodiscard]] bool IsPhysicallyBlocked() const noexcept
+        {
+            return physicallyBlocked_;
+        }
+        
         void Cancel(const AIActionRuntimeContext& context) noexcept override
         {
             CancelActiveTraversal_();
             StopMovementIfAccessible_(context.agentEntity);
             follower_.Reset();
+            physicallyBlocked_ = false;
         }
         
     private:
@@ -111,6 +121,9 @@ export namespace rendern
         [[nodiscard]] AIActionRuntimeResult AdvanceFollower_(const EntityHandle entity)
         {
             const GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+            const GameplayCharacterMovementStateComponent* movementState =
+                world_.TryGetCharacterMovementState(entity);
+            physicallyBlocked_ = movementState->physicallyBlocked;
             const GameplayRouteFollowerOutput output = follower_.Tick(transform->position);
             switch (output.status)
             {
@@ -121,11 +134,13 @@ export namespace rendern
                 return StartTraversal_(entity, output.requiredTraversalLink);
             case GameplayRouteFollowerStatus::Succeeded:
                 StopMovementIfAccessible_(entity);
+                physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Succeeded;
             case GameplayRouteFollowerStatus::InvalidRoute:
             case GameplayRouteFollowerStatus::NotStarted:
             default:
                 StopMovementIfAccessible_(entity);
+                physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Failed;
             }
         }
@@ -258,6 +273,7 @@ export namespace rendern
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         GameplayRoute route_{};
         GameplayArrivalSteeringSettings steeringSettings_{};
+        bool physicallyBlocked_{ false };
         GameplayRouteFollower follower_{};
         std::optional<ActiveTraversalState> activeTraversal_{};
     };

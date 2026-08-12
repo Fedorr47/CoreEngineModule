@@ -67,3 +67,22 @@ TEST(AIFollowRouteActionRuntime, TickUpdatesBodyFacingWithoutModifyingCameraFaci
     EXPECT_FLOAT_EQ(movementState->cameraFacingYawDegrees, 137.0f);
     EXPECT_FALSE(world.HasFollowCamera(agent));
 }
+
+TEST(AIFollowRouteActionRuntime, ExposesPhysicalBlockedFeedbackWithoutAddingRoutePolicy)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateMovingAgent(world);
+    world.TryGetCharacterMovementState(agent)->physicallyBlocked = true;
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
+    AIFollowRouteActionRuntime runtime{
+        world, traversalRegistry, traversalExecutorRegistry, MakeRoute(2.0f)};
+
+    ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_EQ(runtime.Tick(MakeContext(agent), 1.0f / 60.0f), AIActionRuntimeResult::Running);
+    EXPECT_TRUE(runtime.IsPhysicallyBlocked());
+    runtime.Cancel(MakeContext(agent));
+    EXPECT_FALSE(runtime.IsPhysicallyBlocked());
+    EXPECT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Failed);
+    EXPECT_FALSE(runtime.IsPhysicallyBlocked());
+}

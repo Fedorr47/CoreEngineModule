@@ -219,11 +219,11 @@ static rendern::GameplayUpdateContext UpdateGameplayBeforePhysics(AppState& app,
         bool bIsControlledCharacterReady = true;
         if (gameplayCtx.mode == rendern::GameplayRuntimeMode::Game && physicsWorld != nullptr)
         {
-            bIsControlledCharacterReady = appRuntime::EnsureControlledGameplayPhysicsCharacter(
+            bIsControlledCharacterReady = appRuntime::EnsureGameplayPhysicsCharacters(
                 *gameplayRuntime, *physicsWorld, *app.contentState.levelAsset);
             if (!bIsControlledCharacterReady)
             {
-                std::cerr << "[Physics] Failed to create the controlled character.\n";
+                std::cerr << "[Physics] Failed to create the gameplay characters.\n";
             }
         }
         app.runtimeState.gameplayRuntime->PrePhysicsUpdate(gameplayCtx);
@@ -231,11 +231,11 @@ static rendern::GameplayUpdateContext UpdateGameplayBeforePhysics(AppState& app,
             physicsWorld != nullptr && bIsControlledCharacterReady)
         {
             const bool bSubmitted =
-                appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
+                appRuntime::SubmitGameplayPhysicsCharacterVelocities(
                     *gameplayRuntime, *physicsWorld);
             if (!bSubmitted)
             {
-                std::cerr << "[Physics] Failed to submit controlled character velocity.\n";
+                std::cerr << "[Physics] Failed to submit gameplay character velocities.\n";
             }
         }
     }
@@ -250,10 +250,10 @@ static void UpdateGameplayAfterPhysicsAndAnimation(
     {
         auto* physicsWorld = app.physicsState.joltPhysicsWorld.get();
         if (gameplayCtx.mode == rendern::GameplayRuntimeMode::Game && physicsWorld != nullptr &&
-            !appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
+            !appRuntime::ApplyGameplayPhysicsCharacterFeedback(
                 *app.runtimeState.gameplayRuntime, *physicsWorld))
         {
-            std::cerr << "[Physics] Failed to apply controlled character feedback.\n";
+            std::cerr << "[Physics] Failed to apply gameplay character feedback.\n";
         }
         app.runtimeState.gameplayRuntime->PostPhysicsUpdate(gameplayCtx);
     }

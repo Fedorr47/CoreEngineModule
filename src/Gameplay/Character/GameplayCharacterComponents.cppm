@@ -46,11 +46,29 @@ export namespace rendern
         mathUtils::Vec3 visualRootOffset{};
     };
     
+    // Gameplay character dimensions shared by physics and future navigation integration.
+    struct GameplayCharacterPhysicalSettingsComponent
+    {
+        float radius{ 0.3f };
+        float cylinderHeight{ 1.0f };
+        float maximumSlopeAngleDegrees{ 45.0f };
+        float maximumStepHeight{ 0.25f };
+        float mass{ 70.0f };
+
+        [[nodiscard]] constexpr float GetTotalHeight() const noexcept
+        {
+            return cylinderHeight + 2.0f * radius;
+        }
+    };
+    
     struct GameplayCharacterMovementStateComponent
     {
         bool grounded{ true };
         bool jumping{ false };
         bool falling{ false };
+        // AI feedback derived from desired versus observed fixed-step movement.
+        bool physicallyBlocked{ false };
+        float physicalBlockedSeconds{ 0.0f };
         GameplayJumpPhase jumpPhase{ GameplayJumpPhase::None };
         bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };

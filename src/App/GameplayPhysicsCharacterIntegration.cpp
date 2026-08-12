@@ -3,6 +3,8 @@
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 
+#include <cmath>
+
 import core;
 
 namespace
@@ -22,7 +24,7 @@ namespace
     constexpr float PlayerMass = 80.0f;
 }
 
-bool appRuntime::EnsureControlledGameplayPhysicsCharacter(
+bool appRuntime::EnsureGameplayPhysicsCharacters(
     rendern::GameplayRuntime& gameplayRuntime,
     physics::JoltPhysicsWorld& physicsWorld,
     const rendern::LevelAsset& levelAsset)
@@ -31,61 +33,90 @@ bool appRuntime::EnsureControlledGameplayPhysicsCharacter(
     CORE_ASSERT_PHYSICS_THREAD();
 
     rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
-    const rendern::EntityHandle controlledEntity = gameplayRuntime.GetControlledEntity();
-    if (controlledEntity == rendern::kNullEntity || !world.IsEntityValid(controlledEntity))
+    for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
     {
-        return true;
-    }
-
-    const rendern::GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(controlledEntity);
-    const bool bHasInvalidNodeOwner = nodeLink != nullptr &&
-        (nodeLink->nodeIndex < 0 ||
-            static_cast<std::size_t>(nodeLink->nodeIndex) >= levelAsset.nodes.size() ||
-            !levelAsset.nodes[static_cast<std::size_t>(nodeLink->nodeIndex)].alive);
-    if (bHasInvalidNodeOwner)
-    {
-        return DestroyControlledGameplayPhysicsCharacter(gameplayRuntime, physicsWorld);
-    }
-
-    if (const rendern::GameplayPhysicsCharacterComponent* binding =
-            world.TryGetPhysicsCharacter(controlledEntity))
-    {
-        if (physicsWorld.IsCharacterValid(binding->character))
+        if (!world.IsEntityValid(entity) ||
+             (!world.HasPlayerControlled(entity) && !world.HasAI(entity)))
         {
-            return true;
+            continue;
         }
-        world.RemovePhysicsCharacter(controlledEntity);
-    }
 
-    const rendern::GameplayTransformComponent* transform = world.TryGetTransform(controlledEntity);
-    const rendern::GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(controlledEntity);
-    if (transform == nullptr || motor == nullptr)
-    {
-        return false;
-    }
+        const rendern::GameplayNodeLinkComponent* nodeLink = world.TryGetNodeLink(entity);
+        const bool bHasInvalidNodeOwner = nodeLink != nullptr &&
+            (nodeLink->nodeIndex < 0 ||
+                static_cast<std::size_t>(nodeLink->nodeIndex) >= levelAsset.nodes.size() ||
+                !levelAsset.nodes[static_cast<std::size_t>(nodeLink->nodeIndex)].alive);
+        if (bHasInvalidNodeOwner)
+        {
+            if (const auto* binding = world.TryGetPhysicsCharacter(entity))
+            {
+                if (physicsWorld.IsCharacterValid(binding->character) &&
+                    !physicsWorld.DestroyCharacter(binding->character))
+                {
+                    return false;
+                }
+                world.RemovePhysicsCharacter(entity);
+            }
+            continue;
+        }
 
-    const physics::PhysicsCharacterDescriptor descriptor{
-        .collider = PlayerCharacterCollider,
-        .position = transform->position - PlayerVisualRootOffset,
-        .maximumSlopeAngleDegrees = PlayerMaximumSlopeAngleDegrees,
-        .maximumStepHeight = PlayerMaximumStepHeight,
-        .mass = PlayerMass,
-        .maximumSpeed = motor->maxRunSpeed
-    };
-    const physics::PhysicsCharacterHandle character = physicsWorld.CreateCharacter(descriptor);
-    if (!character.IsValid())
-    {
-        return false;
-    }
+        if (const auto* binding = world.TryGetPhysicsCharacter(entity))
+        {
+            if (physicsWorld.IsCharacterValid(binding->character))
+            {
+                continue;
+            }
+            world.RemovePhysicsCharacter(entity);
+        }
+        
+        const auto* transform = world.TryGetTransform(entity);
+        const auto* motor = world.TryGetCharacterMotor(entity);
+        if (transform == nullptr || motor == nullptr)
+        {
+            return false;
+        }
 
-    world.AddPhysicsCharacter(controlledEntity, rendern::GameplayPhysicsCharacterComponent{
-        .character = character,
-        .visualRootOffset = PlayerVisualRootOffset
-    });
+        const bool bIsPlayer = world.HasPlayerControlled(entity);
+        const rendern::GameplayCharacterPhysicalSettingsComponent* characterSettings =
+            world.TryGetCharacterPhysicalSettings(entity);
+        if (!bIsPlayer && characterSettings == nullptr)
+        {
+            return false;
+        }
+        const physics::CharacterColliderDescriptor collider = bIsPlayer
+            ? PlayerCharacterCollider
+            : physics::CharacterColliderDescriptor{
+                .radius = characterSettings->radius,
+                .cylinderHeight = characterSettings->cylinderHeight
+            };
+        const mathUtils::Vec3 visualRootOffset = bIsPlayer
+            ? PlayerVisualRootOffset
+            : mathUtils::Vec3{ 0.0f, -characterSettings->GetTotalHeight() * 0.5f, 0.0f };
+        const physics::PhysicsCharacterDescriptor descriptor{
+            .collider = collider,
+            .position = transform->position - visualRootOffset,
+            .maximumSlopeAngleDegrees = bIsPlayer
+                ? PlayerMaximumSlopeAngleDegrees : characterSettings->maximumSlopeAngleDegrees,
+            .maximumStepHeight = bIsPlayer
+                ? PlayerMaximumStepHeight : characterSettings->maximumStepHeight,
+            .mass = bIsPlayer ? PlayerMass : characterSettings->mass,
+            .maximumSpeed = motor->maxRunSpeed
+        };
+        const physics::PhysicsCharacterHandle character = physicsWorld.CreateCharacter(descriptor);
+        if (!character.IsValid())
+        {
+            return false;
+        }
+        world.AddPhysicsCharacter(entity, rendern::GameplayPhysicsCharacterComponent{
+            .character = character,
+            .visualRootOffset = visualRootOffset
+        });
+    }
+    
     return true;
 }
 
-bool appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
+bool appRuntime::SubmitGameplayPhysicsCharacterVelocities(
     rendern::GameplayRuntime& gameplayRuntime,
     physics::JoltPhysicsWorld& physicsWorld)
 {
@@ -93,80 +124,109 @@ bool appRuntime::SubmitControlledGameplayPhysicsCharacterVelocity(
     CORE_ASSERT_PHYSICS_THREAD();
 
     rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
-    const rendern::EntityHandle controlledEntity = gameplayRuntime.GetControlledEntity();
-    const bool bHasControlledEntity = controlledEntity != rendern::kNullEntity &&
-        world.IsEntityValid(controlledEntity);
-    if (!bHasControlledEntity)
+    for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
     {
-        return true;
+        const auto* binding = world.TryGetPhysicsCharacter(entity);
+        const auto* motor = world.TryGetCharacterMotor(entity);
+        if (binding == nullptr)
+        {
+            continue;
+        }
+        if (motor == nullptr)
+        {
+            return false;
+        }
+        if (!physicsWorld.IsCharacterValid(binding->character))
+        {
+            world.RemovePhysicsCharacter(entity);
+            continue;
+        }
+        if (!physicsWorld.SetCharacterDesiredVelocity(binding->character, motor->desiredVelocity))
+        {
+            return false;
+        }
     }
-
-    const rendern::GameplayPhysicsCharacterComponent* binding =
-        world.TryGetPhysicsCharacter(controlledEntity);
-    const rendern::GameplayCharacterMotorComponent* motor =
-        world.TryGetCharacterMotor(controlledEntity);
-    if (binding == nullptr || motor == nullptr)
-    {
-        return false;
-    }
-    if (!physicsWorld.IsCharacterValid(binding->character))
-    {
-        world.RemovePhysicsCharacter(controlledEntity);
-        return true;
-    }
-    return physicsWorld.SetCharacterDesiredVelocity(binding->character, motor->desiredVelocity);
-}
-
-bool appRuntime::ApplyControlledGameplayPhysicsCharacterFeedback(
-    rendern::GameplayRuntime& gameplayRuntime,
-    physics::JoltPhysicsWorld& physicsWorld)
-{
-    CORE_ASSERT_RUNTIME_THREAD();
-    CORE_ASSERT_PHYSICS_THREAD();
-
-    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
-    const rendern::EntityHandle controlledEntity = gameplayRuntime.GetControlledEntity();
-    const bool bHasControlledEntity = controlledEntity != rendern::kNullEntity &&
-        world.IsEntityValid(controlledEntity);
-    if (!bHasControlledEntity)
-    {
-        return true;
-    }
-
-    rendern::GameplayPhysicsCharacterComponent* binding =
-        world.TryGetPhysicsCharacter(controlledEntity);
-    rendern::GameplayTransformComponent* transform = world.TryGetTransform(controlledEntity);
-    rendern::GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(controlledEntity);
-    rendern::GameplayCharacterMovementStateComponent* movementState =
-        world.TryGetCharacterMovementState(controlledEntity);
-    if (binding == nullptr || transform == nullptr || motor == nullptr || movementState == nullptr)
-    {
-        return false;
-    }
-    if (!physicsWorld.IsCharacterValid(binding->character))
-    {
-        world.RemovePhysicsCharacter(controlledEntity);
-        return true;
-    }
-
-    const auto position = physicsWorld.GetCharacterPosition(binding->character);
-    const auto velocity = physicsWorld.GetCharacterVelocity(binding->character);
-    const auto ground = physicsWorld.GetCharacterGroundState(binding->character);
-    if (!position.has_value() || !velocity.has_value() || !ground.has_value())
-    {
-        return false;
-    }
-
-    transform->position = *position + binding->visualRootOffset;
-    motor->velocity = *velocity;
-    // Grounded means usable walkable support; steep support remains distinct.
-    movementState->grounded = ground->bIsWalkable;
-    movementState->falling = !ground->bIsSupported && velocity->y < 0.0f;
-    movementState->jumping = movementState->jumpPhase == rendern::GameplayJumpPhase::Airborne;
+    
     return true;
 }
 
-bool appRuntime::DestroyControlledGameplayPhysicsCharacter(
+bool appRuntime::ApplyGameplayPhysicsCharacterFeedback(
+    rendern::GameplayRuntime& gameplayRuntime,
+    physics::JoltPhysicsWorld& physicsWorld)
+{
+    CORE_ASSERT_RUNTIME_THREAD();
+    CORE_ASSERT_PHYSICS_THREAD();
+    
+    constexpr float kBlockedIntentSpeed = 0.1f;
+    constexpr float kBlockedProgressRatio = 0.1f;
+    constexpr float kBlockedPersistenceSeconds = 0.25f;
+    constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+    
+    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
+
+    for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
+    {
+        auto* binding = world.TryGetPhysicsCharacter(entity);
+        if (binding == nullptr)
+        {
+            continue;
+        }
+        auto* transform = world.TryGetTransform(entity);
+        auto* motor = world.TryGetCharacterMotor(entity);
+        auto* movementState = world.TryGetCharacterMovementState(entity);
+        if (transform == nullptr || motor == nullptr || movementState == nullptr)
+        {
+            return false;
+        }
+        if (!physicsWorld.IsCharacterValid(binding->character))
+        {
+            world.RemovePhysicsCharacter(entity);
+            continue;
+        }
+
+        const auto position = physicsWorld.GetCharacterPosition(binding->character);
+        const auto velocity = physicsWorld.GetCharacterVelocity(binding->character);
+        const auto ground = physicsWorld.GetCharacterGroundState(binding->character);
+        if (!position || !velocity || !ground)
+        {
+            return false;
+        }
+        const auto motionObservation =
+            physicsWorld.ConsumeCharacterMotionObservation(binding->character);
+        if (!motionObservation)
+        {
+            return false;
+        }
+        
+        transform->position = *position + binding->visualRootOffset;
+        motor->velocity = *velocity;
+        movementState->grounded = ground->bIsWalkable;
+        movementState->falling = !ground->bIsSupported && velocity->y < 0.0f;
+        movementState->jumping = movementState->jumpPhase == rendern::GameplayJumpPhase::Airborne;
+
+        const float desiredPlanarSpeed = std::hypot(motor->desiredVelocity.x, motor->desiredVelocity.z);
+        for (std::uint32_t stepIndex = 0u;
+            stepIndex < motionObservation->stepCount; ++stepIndex)
+        {
+            const physics::CharacterMotionStepObservation& step =
+                motionObservation->steps[stepIndex];
+            const float actualPlanarSpeed = std::hypot(
+                step.displacement.x, step.displacement.z) / kFixedDeltaSeconds;
+            const bool bInsufficientProgress = step.bIsSupported &&
+                desiredPlanarSpeed > kBlockedIntentSpeed &&
+                actualPlanarSpeed < desiredPlanarSpeed * kBlockedProgressRatio;
+            movementState->physicalBlockedSeconds = bInsufficientProgress
+                ? movementState->physicalBlockedSeconds + kFixedDeltaSeconds
+                : 0.0f;
+        }
+        movementState->physicallyBlocked =
+            movementState->physicalBlockedSeconds >= kBlockedPersistenceSeconds;
+    }
+    
+    return true;
+}
+
+bool appRuntime::DestroyGameplayPhysicsCharacters(
     rendern::GameplayRuntime& gameplayRuntime,
     physics::JoltPhysicsWorld& physicsWorld)
 {
@@ -174,26 +234,20 @@ bool appRuntime::DestroyControlledGameplayPhysicsCharacter(
     CORE_ASSERT_PHYSICS_THREAD();
 
     rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
-    const rendern::EntityHandle controlledEntity = gameplayRuntime.GetControlledEntity();
-    const bool bHasControlledEntity = controlledEntity != rendern::kNullEntity &&
-        world.IsEntityValid(controlledEntity);
-    if (!bHasControlledEntity)
+    for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
     {
-        return true;
+        const auto* binding = world.TryGetPhysicsCharacter(entity);
+        if (binding == nullptr)
+        {
+            continue;
+        }
+        const physics::PhysicsCharacterHandle character = binding->character;
+        if (physicsWorld.IsCharacterValid(character) && !physicsWorld.DestroyCharacter(character))
+        {
+            return false;
+        }
+        world.RemovePhysicsCharacter(entity);
     }
 
-    const rendern::GameplayPhysicsCharacterComponent* binding =
-        world.TryGetPhysicsCharacter(controlledEntity);
-    if (binding == nullptr)
-    {
-        return true;
-    }
-
-    const physics::PhysicsCharacterHandle character = binding->character;
-    if (physicsWorld.IsCharacterValid(character) && !physicsWorld.DestroyCharacter(character))
-    {
-        return false;
-    }
-    world.RemovePhysicsCharacter(controlledEntity);
     return true;
 }
