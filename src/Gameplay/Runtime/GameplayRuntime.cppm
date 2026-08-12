@@ -72,7 +72,8 @@ export namespace rendern
         void UnbindIntentSource(const EntityHandle entity);
 
         void BeginFrame();
-        void PreAnimationUpdate(const GameplayUpdateContext& ctx);
+        void PrePhysicsUpdate(const GameplayUpdateContext& ctx);
+        void PostPhysicsUpdate(const GameplayUpdateContext& ctx);
         void PostAnimationUpdate(const GameplayUpdateContext& ctx);
         void SetSkipDuplicatePostAnimationSyncEnabled( bool enabled) noexcept;
         
@@ -138,6 +139,7 @@ export namespace rendern
                                 const std::vector<GameplayGraphTaskDesc>& tasks);
         void BeginActionState_(EntityHandle entity, GameplayGraphInstance& graph);
         void ResetSimulationState_();
+        void RemoveDeadNodeBoundEntities_(const GameplayUpdateContext& ctx);
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
         void RegisterBuiltInTraversalExecutors_();
         // Profiling zone start

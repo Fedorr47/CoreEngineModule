@@ -619,6 +619,7 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"
         "${SRC_DIR}/App/AppBootstrap.cpp"
+        "${SRC_DIR}/App/GameplayPhysicsCharacterIntegration.cpp"
         "${SRC_DIR}/App/AppLifecycle.cpp"
 )
 

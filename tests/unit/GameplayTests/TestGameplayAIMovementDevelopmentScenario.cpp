@@ -74,7 +74,8 @@ namespace
     void EnterGameMode(GameplayRuntime& runtime, const GameplayUpdateContext& gameContext)
     {
         runtime.BeginFrame();
-        runtime.PreAnimationUpdate(gameContext);
+        runtime.PrePhysicsUpdate(gameContext);
+        runtime.PostPhysicsUpdate(gameContext);
     }
 
     [[nodiscard]] int FindNodeIndexByName(const LevelAsset& levelAsset, const std::string_view nodeName) noexcept
@@ -137,7 +138,8 @@ namespace
         for (int frameIndex = 0; frameIndex < maxFrameCount && status == AIActionExecutionStatus::Running; ++frameIndex)
         {
             runtime.BeginFrame();
-            runtime.PreAnimationUpdate(gameContext);
+            runtime.PrePhysicsUpdate(gameContext);
+            runtime.PostPhysicsUpdate(gameContext);
 
             status = GetGameplayAIMovementDevelopmentScenarioStatus(runtime, levelAsset);
         }

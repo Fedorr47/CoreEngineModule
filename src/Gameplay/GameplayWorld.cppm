@@ -117,6 +117,13 @@ export namespace rendern
         [[nodiscard]] const GameplayCharacterMotorComponent* TryGetCharacterMotor(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasCharacterMotor(EntityHandle entity) const noexcept;
         void RemoveCharacterMotor(EntityHandle entity);
+        
+        void AddPhysicsCharacter(EntityHandle entity, const GameplayPhysicsCharacterComponent& value);
+        void SetPhysicsCharacter(EntityHandle entity, const GameplayPhysicsCharacterComponent& value);
+        [[nodiscard]] GameplayPhysicsCharacterComponent* TryGetPhysicsCharacter(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayPhysicsCharacterComponent* TryGetPhysicsCharacter(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasPhysicsCharacter(EntityHandle entity) const noexcept;
+        void RemovePhysicsCharacter(EntityHandle entity);
 
         void AddCharacterMovementState(EntityHandle entity, const GameplayCharacterMovementStateComponent& value = {});
         void SetCharacterMovementState(EntityHandle entity, const GameplayCharacterMovementStateComponent& value);

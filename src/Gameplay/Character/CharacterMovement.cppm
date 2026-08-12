@@ -108,6 +108,8 @@ export namespace rendern
             GameplayCharacterMotorComponent* motor = access.motor;
             GameplayCharacterMovementStateComponent*  movementState = access.movementState;
             GameplayActionComponent* action = access.action;
+            const bool bUsesPhysicsTranslation =
+                world.HasPhysicsCharacter(entity) || world.HasPlayerControlled(entity);
             
             if (transform == nullptr || motor == nullptr || command == nullptr)
             {
@@ -148,14 +150,20 @@ export namespace rendern
                 const float airDeceleration =
                     std::max(motor->airDeceleration, 0.0f) * dt;
 
-                motor->velocity = MoveVelocityTowards_(
-                    motor->velocity,
+                const mathUtils::Vec3 currentVelocity = bUsesPhysicsTranslation
+                     ? motor->desiredVelocity
+                     : motor->velocity;
+                motor->desiredVelocity = MoveVelocityTowards_(
+                    currentVelocity,
                     mathUtils::Vec3(0.0f, 0.0f, 0.0f),
                     airDeceleration);
             }
             else
             {
-                const float currentSpeedSq = mathUtils::Dot(motor->velocity, motor->velocity);
+                const mathUtils::Vec3 currentVelocity = bUsesPhysicsTranslation
+                    ? motor->desiredVelocity
+                    : motor->velocity;
+                const float currentSpeedSq = mathUtils::Dot(currentVelocity, currentVelocity);
                 const float desiredSpeedSq = mathUtils::Dot(targetVelocity, targetVelocity);
 
                 const float rate =
@@ -165,13 +173,17 @@ export namespace rendern
 
                 const float maxDelta = std::max(rate, 0.0f) * dt;
 
-                motor->velocity = MoveVelocityTowards_(
-                    motor->velocity,
+                motor->desiredVelocity = MoveVelocityTowards_(
+                     currentVelocity,
                     targetVelocity,
                     maxDelta);
             }
 
-            transform->position = transform->position + motor->velocity * dt;
+            if (!bUsesPhysicsTranslation)
+            {
+                motor->velocity = motor->desiredVelocity;
+                transform->position = transform->position + motor->velocity * dt;
+            }
 
             if (movementState != nullptr)
             {
@@ -238,9 +250,12 @@ export namespace rendern
                 transform->rotationDegrees.y = movementState->desiredFacingYawDegrees;
                 movementState->facingYawDegrees = transform->rotationDegrees.y;
 
-                movementState->jumping = bIsAirborne;
-                movementState->grounded = !bIsAirborne;
-                movementState->falling = false;
+                if (!bUsesPhysicsTranslation)
+                {
+                    movementState->jumping = bIsAirborne;
+                    movementState->grounded = !bIsAirborne;
+                    movementState->falling = false;
+                }
             }
         }
     }
@@ -263,15 +278,16 @@ export namespace rendern
                 continue;
             }
 
-            const float planarSpeedSq = mathUtils::Dot(motor->velocity, motor->velocity);
+            const mathUtils::Vec3 planarVelocity(motor->velocity.x, 0.0f, motor->velocity.z);
+            const float planarSpeedSq = mathUtils::Dot(planarVelocity, planarVelocity);
             const float planarSpeed = std::sqrt(planarSpeedSq);
             const bool isMoving = planarSpeedSq > mathUtils::kMoveEpsilonSq;
             const float yawRadians = mathUtils::DegToRad(transform->rotationDegrees.y);
             const mathUtils::Vec3 actorForward(std::sin(yawRadians), 0.0f, std::cos(yawRadians));
             const mathUtils::Vec3 actorRight(-actorForward.z, 0.0f, actorForward.x);
 
-            locomotion->forwardSpeed = mathUtils::Dot(motor->velocity, actorForward);
-            locomotion->rightSpeed = mathUtils::Dot(motor->velocity, actorRight);
+            locomotion->forwardSpeed = mathUtils::Dot(planarVelocity, actorForward);
+            locomotion->rightSpeed = mathUtils::Dot(planarVelocity, actorRight);
             locomotion->planarSpeed = planarSpeed;
             locomotion->isMoving = isMoving;
             locomotion->isRunning = isMoving && command->wantsRun;

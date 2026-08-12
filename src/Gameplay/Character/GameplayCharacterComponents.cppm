@@ -5,6 +5,7 @@ module;
 export module core:gameplay_character_components;
 
 import :math_utils;
+export import :physics_types;
 
 export namespace rendern
 {
@@ -28,6 +29,7 @@ export namespace rendern
     struct GameplayCharacterMotorComponent
     {
         mathUtils::Vec3 velocity{ 0.0f, 0.0f, 0.0f };
+        mathUtils::Vec3 desiredVelocity{ 0.0f, 0.0f, 0.0f };
         mathUtils::Vec3 desiredMoveWorld{ 0.0f, 0.0f, 0.0f };
         float maxWalkSpeed{ 2.0f };
         float maxRunSpeed{ 4.5f };
@@ -37,6 +39,13 @@ export namespace rendern
         float airDeceleration{ 2.5f };
     };
 
+    struct GameplayPhysicsCharacterComponent
+    {
+        physics::PhysicsCharacterHandle character{};
+        // Added to the capsule center to obtain the gameplay/model root position.
+        mathUtils::Vec3 visualRootOffset{};
+    };
+    
     struct GameplayCharacterMovementStateComponent
     {
         bool grounded{ true };
