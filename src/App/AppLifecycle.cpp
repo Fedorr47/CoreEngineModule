@@ -2,6 +2,7 @@
 #include "Physics/Jolt/JoltRuntime.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "Physics/LevelPhysicsRuntime.h"
+#include "GameplayPhysicsCharacterIntegration.h"
 
 import core;
 import std;
@@ -428,15 +429,23 @@ namespace appLifecycle
         }
         else
         {
+            if (runtimeState.gameplayRuntime && physicsState.joltPhysicsWorld &&
+                !appRuntime::DestroyControlledGameplayPhysicsCharacter(
+                    *runtimeState.gameplayRuntime,
+                    *physicsState.joltPhysicsWorld))
+            {
+                errorMessage = "Failed to destroy the controlled gameplay physics character.";
+                return false;
+            }
+            
             const bool leftGame = physicsState.levelPhysicsRuntime->LeaveGame(
                 *app.contentState.levelAsset,
                 *runtimeState.levelInstance,
                 runtimeState.scene,
                 errorMessage);
-            if (!leftGame)
-            {
-                return false;
-            }
+            // LeaveGame commits teardown before its final synchronization can fail.
+            runtimeState.gameplayMode = rendern::GameplayRuntimeMode::Editor;
+            return leftGame;
         }
         runtimeState.gameplayMode = mode;
         return true;
@@ -662,10 +671,11 @@ namespace appLifecycle
         const auto editorEnd = Clock::now();
 
         const auto gameplayStart = Clock::now();
-        UpdateGameplayAndAnimation(app, deltaSeconds);
-        const auto gameplayEnd = Clock::now();
-        
+
+        const rendern::GameplayUpdateContext gameplayCtx = UpdateGameplayBeforePhysics(app, deltaSeconds);
         UpdatePhysics(app, deltaSeconds);
+        UpdateGameplayAfterPhysicsAndAnimation(app, gameplayCtx, deltaSeconds);
+        const auto gameplayEnd = Clock::now();
         
         const auto imguiStart = Clock::now();
         const void* imguiDrawData = appUi::BuildImGuiFrameIfEnabled(
@@ -777,6 +787,18 @@ namespace appLifecycle
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
         auto& physicsState      = app.physicsState;
+        
+        if (runtimeState.gameplayRuntime && physicsState.joltPhysicsWorld)
+        {
+            const bool bDestroyed = appRuntime::DestroyControlledGameplayPhysicsCharacter(
+                *runtimeState.gameplayRuntime,
+                *physicsState.joltPhysicsWorld);
+            assert(bDestroyed && "Gameplay physics characters must be released before shutdown.");
+            if (!bDestroyed)
+            {
+                std::cerr << "[Physics] Failed to release the controlled character during shutdown.\n";
+            }
+        }
         
         if (physicsState.levelPhysicsRuntime && physicsState.levelPhysicsRuntime->IsActive())
         {

@@ -201,7 +201,8 @@ TEST(ThreadAffinitySmoke, InlineModeGuardsAllowGameplayAndRendererEntryPoints)
     context.scene = &scene;
 
     runtime.BeginFrame();
-    runtime.PreAnimationUpdate(context);
+    runtime.PrePhysicsUpdate(context);
+    runtime.PostPhysicsUpdate(context);
     runtime.PostAnimationUpdate(context);
 
     FakeRHIDevice device{};

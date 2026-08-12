@@ -290,6 +290,75 @@ TEST(
         0.001f);
 }
 
+TEST(GameplayCharacterMovement, PhysicsBackedPlayerProducesDesiredVelocityWithoutDirectTranslation)
+{
+    GameplayWorld world{};
+    const EntityHandle player = CreateCommandCharacter(
+        world,
+        true,
+        GameplayInputIntentComponent{},
+        GameplayCharacterMovementStateComponent{});
+    GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(player);
+    GameplayTransformComponent* transform = world.TryGetTransform(player);
+    ASSERT_NE(command, nullptr);
+    ASSERT_NE(transform, nullptr);
+    command->moveWorld = {1.0f, 0.0f, 0.0f};
+    command->moveMagnitude = 1.0f;
+    const mathUtils::Vec3 initialPosition = transform->position;
+    world.AddPhysicsCharacter(player, GameplayPhysicsCharacterComponent{});
+
+    UpdateGameplayCharacterMovement(world, std::vector<EntityHandle>{player}, 0.25f);
+
+    const GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(player);
+    ASSERT_NE(motor, nullptr);
+    EXPECT_GT(motor->desiredVelocity.x, 0.0f);
+    EXPECT_FLOAT_EQ(motor->velocity.x, 0.0f);
+    EXPECT_EQ(world.TryGetTransform(player)->position, initialPosition);
+}
+
+TEST(GameplayCharacterMovement, ControlledPlayerDoesNotFallbackWhenPhysicsBindingIsMissing)
+{
+    GameplayWorld world{};
+    const EntityHandle player = CreateCommandCharacter(
+        world,
+        true,
+        GameplayInputIntentComponent{},
+        GameplayCharacterMovementStateComponent{});
+    GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(player);
+    ASSERT_NE(command, nullptr);
+    command->moveWorld = {1.0f, 0.0f, 0.0f};
+    command->moveMagnitude = 1.0f;
+    const mathUtils::Vec3 initialPosition = world.TryGetTransform(player)->position;
+
+    UpdateGameplayCharacterMovement(world, std::vector<EntityHandle>{player}, 0.25f);
+
+    EXPECT_GT(world.TryGetCharacterMotor(player)->desiredVelocity.x, 0.0f);
+    EXPECT_EQ(world.TryGetTransform(player)->position, initialPosition);
+}
+
+TEST(GameplayCharacterMovement, LegacyNonPhysicsCharacterStillIntegratesTransform)
+{
+    GameplayWorld world{};
+    const EntityHandle npc = CreateCommandCharacter(
+        world,
+        false,
+        GameplayInputIntentComponent{},
+        GameplayCharacterMovementStateComponent{});
+    GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(npc);
+    ASSERT_NE(command, nullptr);
+    command->moveWorld = {1.0f, 0.0f, 0.0f};
+    command->moveMagnitude = 1.0f;
+
+    UpdateGameplayCharacterMovement(world, std::vector<EntityHandle>{npc}, 0.25f);
+
+    const GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(npc);
+    const GameplayTransformComponent* transform = world.TryGetTransform(npc);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(transform, nullptr);
+    EXPECT_GT(motor->velocity.x, 0.0f);
+    EXPECT_GT(transform->position.x, 0.0f);
+}
+
 // Protects node-bound ownership so only explicitly player-controlled entities
 // receive player markers and follow-camera components during spawning.
 TEST(

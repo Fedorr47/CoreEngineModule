@@ -47,7 +47,8 @@ namespace
     {
         runtime.BeginFrame();
         const GameplayUpdateContext context = MakeGameplayUpdateContext(mode, levelAsset, levelInstance, scene);
-        runtime.PreAnimationUpdate(context);
+        runtime.PrePhysicsUpdate(context);
+        runtime.PostPhysicsUpdate(context);
         runtime.PostAnimationUpdate(context);
     }
     
@@ -302,7 +303,8 @@ TEST(GameplayRuntime, CleansStaleObjectReservationsDuringGameUpdate)
         levelAsset,
         levelInstance,
         scene);
-    runtime.PreAnimationUpdate(context);
+    runtime.PrePhysicsUpdate(context);
+    runtime.PostPhysicsUpdate(context);
 
     EXPECT_FALSE(runtime.IsGameplayObjectReserved(object));
     EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(object), kNullEntity);

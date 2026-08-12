@@ -114,10 +114,11 @@
             }
         }
 
-        void GameplayRuntime::PreAnimationUpdate(const GameplayUpdateContext& ctx)
+        void GameplayRuntime::PrePhysicsUpdate(const GameplayUpdateContext& ctx)
         {
             CORE_ASSERT_RUNTIME_THREAD();
 
+            RemoveDeadNodeBoundEntities_(ctx);
             EnsureBootstrapEntity_(ctx);
 
             if (ctx.mode != lastMode_)
@@ -141,6 +142,16 @@
             UpdateGameplayInteractionRequests(world_, nodeBoundEntities_);
             ExecuteGameplayGraphs_(ctx);
             UpdateGameplayCharacterMovement(world_, nodeBoundEntities_, ctx.deltaSeconds);
+        }
+
+        void GameplayRuntime::PostPhysicsUpdate(const GameplayUpdateContext& ctx)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            if (ctx.mode != GameplayRuntimeMode::Game)
+            {
+                return;
+            }
+            
             UpdateGameplayCharacterLocomotion(world_, nodeBoundEntities_);
             SyncGameplayTransformsToRuntime(world_, nodeBoundEntities_, ctx);
             UpdateFollowCamera_(ctx, false);
@@ -402,24 +413,7 @@
             
             if (!ctx.levelAsset->nodes[static_cast<std::size_t>(nodeIndex)].alive)
             {
-                for (auto it = nodeBoundEntities_.begin(); it != nodeBoundEntities_.end(); )
-                {
-                    const EntityHandle entity = *it;
-                    const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(entity);
-                    if (link != nullptr && link->nodeIndex == nodeIndex)
-                    {
-                        world_.DestroyEntity(entity);
-                        graphInstances_.erase(entity);
-                        UnbindIntentSource(entity);
-                        it = nodeBoundEntities_.erase(it);
-                        if (controlledEntity_ == entity)
-                        {
-                            controlledEntity_ = kNullEntity;
-                        }
-                        continue;
-                    }
-                    ++it;
-                }
+                RemoveDeadNodeBoundEntities_(ctx);
                 return kNullEntity;
             }
             

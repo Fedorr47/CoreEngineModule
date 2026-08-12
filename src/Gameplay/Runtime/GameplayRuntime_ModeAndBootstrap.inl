@@ -15,6 +15,7 @@
                 if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
                 {
                     motor->velocity = {};
+                    motor->desiredVelocity = {};
                     motor->desiredMoveWorld = {};
                 }
 
@@ -50,6 +51,38 @@
                 {
                     ClearGameplayGraphFrameState(it->second);
                     SyncActionStateToGraphParameters_(entity, it->second);
+                }
+            }
+        }
+
+        void GameplayRuntime::RemoveDeadNodeBoundEntities_(const GameplayUpdateContext& ctx)
+        {
+            if (ctx.levelAsset == nullptr)
+            {
+                return;
+            }
+
+            for (auto it = nodeBoundEntities_.begin(); it != nodeBoundEntities_.end(); )
+            {
+                const EntityHandle entity = *it;
+                const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(entity);
+                const bool bHasValidNodeIndex = link != nullptr && link->nodeIndex >= 0 &&
+                    static_cast<std::size_t>(link->nodeIndex) < ctx.levelAsset->nodes.size();
+                const bool bIsNodeAlive = bHasValidNodeIndex &&
+                    ctx.levelAsset->nodes[static_cast<std::size_t>(link->nodeIndex)].alive;
+                if (bIsNodeAlive)
+                {
+                    ++it;
+                    continue;
+                }
+
+                world_.DestroyEntity(entity);
+                graphInstances_.erase(entity);
+                UnbindIntentSource(entity);
+                it = nodeBoundEntities_.erase(it);
+                if (controlledEntity_ == entity)
+                {
+                    controlledEntity_ = kNullEntity;
                 }
             }
         }
