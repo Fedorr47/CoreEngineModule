@@ -688,7 +688,8 @@ namespace appLifecycle
            *runtimeState.levelInstance,
            *contentState.assets,
            runtimeState.gameplayMode,
-           runtimeState.gameplayRuntime.get());
+           runtimeState.gameplayRuntime.get(),
+           app.physicsState.joltPhysicsWorld.get());
         const auto imguiEnd = Clock::now();
 
         const auto mainRenderStart = Clock::now();

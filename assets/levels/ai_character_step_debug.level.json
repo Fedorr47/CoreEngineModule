@@ -1,0 +1,72 @@
+{
+  "name": "AICharacterStepDebug",
+  "meshes": {
+    "cube": { "path": "models/cube.obj", "debugName": "AI Step Debug Cube" }
+  },
+  "models": {},
+  "skinnedMeshes": {
+    "character": { "path": "models/Character.fbx", "flipUVs": true, "debugName": "AI Step Debug NPC" }
+  },
+  "animations": {},
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "npc": { "baseColor": [0.2, 0.65, 1.0, 1.0], "roughness": 0.7, "flags": ["useShadow", "skinning"], "textures": {} },
+    "floor": { "baseColor": [0.25, 0.28, 0.32, 1.0], "roughness": 0.95, "flags": ["useShadow"], "textures": {} },
+    "platform": { "baseColor": [0.2, 0.7, 0.3, 1.0], "roughness": 0.85, "flags": ["useShadow"], "textures": {} },
+    "wall": { "baseColor": [0.85, 0.15, 0.12, 1.0], "roughness": 0.8, "flags": ["useShadow"], "textures": {} },
+    "target": { "baseColor": [0.95, 0.8, 0.15, 1.0], "roughness": 0.7, "flags": ["useShadow"], "textures": {} }
+  },
+  "camera": {
+    "position": [9.0, 6.0, -5.0], "target": [0.0, 0.8, 6.0], "up": [0.0, 1.0, 0.0],
+    "fovYDeg": 55.0, "nearZ": 0.1, "farZ": 100.0
+  },
+  "lights": [
+    { "type": "directional", "direction": [-0.4, -1.0, 0.25], "color": [1.0, 1.0, 1.0], "intensity": 3.0 }
+  ],
+  "particleEmitters": [],
+  "skybox": null,
+  "nodes": [
+    {
+      "name": "AICharacterStepDebug_Player",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "character",
+      "material": "npc",
+      "transform": {
+        "position": [-2.0, 0.0, 0.0],
+        "rotationDegrees": [0.0, 0.0, 0.0],
+        "scale": [0.01, 0.01, 0.01]
+      }
+    },
+    {
+      "name": "NPC_Step_Start", "parent": -1, "visible": true, "alive": true,
+      "skinnedMesh": "character", "material": "npc",
+      "transform": { "position": [0.0, 0.0, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.01, 0.01, 0.01] }
+    },
+    {
+      "name": "StepDebug_LowerFloor", "parent": -1, "visible": true, "alive": true,
+      "mesh": "cube", "material": "floor",
+      "transform": { "position": [0.0, -0.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [6.0, 1.0, 4.0] },
+      "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.0, 0.5, 2.0] }, "material": { "friction": 0.9, "restitution": 0.0 }, "surfaceId": 40 }
+    },
+    {
+      "name": "StepDebug_RaisedPlatform_015m", "parent": -1, "visible": true, "alive": true,
+      "mesh": "cube", "material": "platform",
+      "transform": { "position": [0.0, 0.075, 6.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [6.0, 0.15, 9.0] },
+      "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.0, 0.075, 4.5] }, "material": { "friction": 0.9, "restitution": 0.0 }, "surfaceId": 41 }
+    },
+    {
+      "name": "StepDebug_BlockingWall", "parent": -1, "visible": true, "alive": true,
+      "mesh": "cube", "material": "wall",
+      "transform": { "position": [0.0, 1.65, 10.75], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [6.0, 3.0, 0.5] },
+      "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.0, 1.5, 0.25] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 42 }
+    },
+    {
+      "name": "RouteTarget", "parent": -1, "visible": true, "alive": true,
+      "mesh": "cube", "material": "target",
+      "transform": { "position": [0.0, 0.65, 13.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.25, 1.0, 0.25] }
+    }
+  ]
+}

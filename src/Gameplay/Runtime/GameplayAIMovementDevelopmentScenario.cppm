@@ -31,6 +31,14 @@ namespace rendern
         inline constexpr std::string_view kDevelopmentRoutePointPrefix{
             "AI_Move_Point_"
         };
+        
+        inline constexpr std::string_view kStepDebugAgentNodeName{
+            "NPC_Step_Start"
+        };
+
+        inline constexpr std::string_view kStepDebugTargetNodeName{
+            "RouteTarget"
+        };
 
         struct GameplayAIMovementDevelopmentRouteNode
         {
@@ -296,6 +304,7 @@ namespace rendern
             if (GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(agentEntity))
             {
                 motor->velocity = {};
+                motor->desiredVelocity = {};
                 motor->desiredMoveWorld = {};
             }
 
@@ -304,6 +313,8 @@ namespace rendern
                 movementState->grounded = true;
                 movementState->jumping = false;
                 movementState->falling = false;
+                movementState->physicallyBlocked = false;
+                movementState->physicalBlockedSeconds = 0.0f;
                 movementState->jumpPhase = GameplayJumpPhase::None;
                 movementState->turningInPlace = false;
 
@@ -311,6 +322,111 @@ namespace rendern
                 movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
                 movementState->jumpLockedVelocity = {};
             }
+        }
+    }
+    
+     export [[nodiscard]] bool IsGameplayAIStepDebugScenario(
+        const LevelAsset& levelAsset) noexcept
+    {
+        return FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugAgentNodeName).has_value() &&
+            FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugTargetNodeName).has_value();
+    }
+
+    export [[nodiscard]] AIActionExecutionStatus StartGameplayAIStepDebugRoute(
+        GameplayRuntime& runtime,
+        const GameplayUpdateContext& context)
+    {
+        if (context.levelAsset == nullptr || context.levelInstance == nullptr || context.scene == nullptr ||
+            context.mode != GameplayRuntimeMode::Game ||
+            runtime.GetCurrentMode() != GameplayRuntimeMode::Game ||
+            !runtime.IsCurrentLevelContext(context))
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        const auto agentNodeIndex = FindGameplayAIMovementDevelopmentNodeIndex_(
+            *context.levelAsset, kStepDebugAgentNodeName);
+        const auto targetNodeIndex = FindGameplayAIMovementDevelopmentNodeIndex_(
+            *context.levelAsset, kStepDebugTargetNodeName);
+        if (!agentNodeIndex || !targetNodeIndex)
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+
+        EntityHandle agentEntity = FindGameplayAIMovementDevelopmentAgentEntity_(runtime, *agentNodeIndex);
+        if (agentEntity == kNullEntity)
+        {
+            agentEntity = runtime.SpawnNodeBoundEntity(context, *agentNodeIndex, false);
+        }
+
+        GameplayWorld& world = runtime.GetWorld();
+        const GameplayTransformComponent* transform = world.TryGetTransform(agentEntity);
+        if (transform == nullptr)
+        {
+            return AIActionExecutionStatus::Failed;
+        }
+        if (!world.HasAI(agentEntity))
+        {
+            world.AddAI(agentEntity);
+        }
+
+        runtime.CancelAIAction(agentEntity);
+        GameplayRoute route{
+            .points = {
+                GameplayRoutePoint{ .worldPosition = transform->position },
+                GameplayRoutePoint{ .worldPosition = context.levelAsset->nodes[static_cast<std::size_t>(*targetNodeIndex)].transform.position }
+            },
+            .segmentAnnotations = { GameplayRouteSegmentAnnotation{} }
+        };
+        GameplayArrivalSteeringSettings steering{};
+        steering.acceptanceRadius = 0.2f;
+        steering.slowingRadius = 0.75f;
+        steering.wantsRun = false;
+        return runtime.StartAIFollowRoute(agentEntity, std::move(route), steering);
+    }
+
+    export [[nodiscard]] EntityHandle ResetGameplayAIStepDebugNPC(
+        GameplayRuntime& runtime,
+        const LevelAsset& levelAsset) noexcept
+    {
+        if (!runtime.IsCurrentLevelAsset(levelAsset))
+        {
+            return kNullEntity;
+        }
+        const auto agentNodeIndex = FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugAgentNodeName);
+        if (!agentNodeIndex)
+        {
+            return kNullEntity;
+        }
+        const EntityHandle agentEntity = FindGameplayAIMovementDevelopmentAgentEntity_(runtime, *agentNodeIndex);
+        if (agentEntity == kNullEntity)
+        {
+            return kNullEntity;
+        }
+        runtime.CancelAIAction(agentEntity);
+        ResetGameplayAIMovementDevelopmentAgentForRestart_(
+            runtime.GetWorld(), agentEntity,
+            levelAsset.nodes[static_cast<std::size_t>(*agentNodeIndex)].transform.position);
+        return agentEntity;
+    }
+
+    export void CancelGameplayAIStepDebugRoute(
+        GameplayRuntime& runtime,
+        const LevelAsset& levelAsset) noexcept
+    {
+        if (!runtime.IsCurrentLevelAsset(levelAsset))
+        {
+            return;
+        }
+        const auto agentNodeIndex = FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugAgentNodeName);
+        if (!agentNodeIndex)
+        {
+            return;
+        }
+        const EntityHandle entity = FindGameplayAIMovementDevelopmentAgentEntity_(runtime, *agentNodeIndex);
+        if (entity != kNullEntity)
+        {
+            runtime.CancelAIAction(entity);
         }
     }
 }

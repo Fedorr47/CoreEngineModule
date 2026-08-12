@@ -10,6 +10,7 @@ import std;
 #endif
 
 #include "DebugUiHost.h"
+#include "GameplayPhysicsCharacterIntegration.h"
 
 #if defined(CORE_USE_DX12)
 #include <imgui.h>
@@ -77,7 +78,8 @@ namespace appUi
             rendern::GameplayRuntime& gameplayRuntime,
             rendern::LevelAsset& level,
             rendern::LevelInstance& levelInstance,
-            rendern::Scene& scene)
+            rendern::Scene& scene,
+            physics::JoltPhysicsWorld* physicsWorld)
     {
         ImGui::SeparatorText("AI Movement");
 
@@ -87,6 +89,43 @@ namespace appUi
         const bool bIsGameMode =
             currentMode ==
             rendern::GameplayRuntimeMode::Game;
+        
+        if (rendern::IsGameplayAIStepDebugScenario(level))
+        {
+            ImGui::TextUnformatted("AI Physics Step-Up Debug");
+            ImGui::BeginDisabled(!bIsGameMode);
+            if (ImGui::Button("Start Route"))
+            {
+                rendern::GameplayUpdateContext context{};
+                context.mode = currentMode;
+                context.levelAsset = &level;
+                context.levelInstance = &levelInstance;
+                context.scene = &scene;
+                (void)rendern::StartGameplayAIStepDebugRoute(gameplayRuntime, context);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset NPC"))
+            {
+                const rendern::EntityHandle entity =
+                    rendern::ResetGameplayAIStepDebugNPC(gameplayRuntime, level);
+                if (physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        gameplayRuntime, *physicsWorld, entity);
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Stop Route"))
+            {
+                rendern::CancelGameplayAIStepDebugRoute(gameplayRuntime, level);
+            }
+            ImGui::EndDisabled();
+            if (!bIsGameMode)
+            {
+                ImGui::TextDisabled("Enter Game mode to control the route.");
+            }
+            return;
+        }
 
         ImGui::Text(
             "Actual runtime mode: %s",
@@ -153,7 +192,8 @@ namespace appUi
         rendern::LevelInstance& levelInstance,
         AssetManager& assets,
         rendern::GameplayRuntimeMode& runtimeMode,
-        rendern::GameplayRuntime* gameplayRuntime)
+        rendern::GameplayRuntime* gameplayRuntime,
+        physics::JoltPhysicsWorld* physicsWorld)
     {
         if (!shell.imguiInitialized || !shell.showDebugWindow || !shell.debugWindow || !shell.debugWindow->hwnd)
         {
@@ -196,7 +236,8 @@ namespace appUi
                 *gameplayRuntime,
                 levelAsset,
                 levelInstance,
-                scene);
+                scene,
+                physicsWorld);
         }
 
         ImGui::End();
@@ -288,7 +329,8 @@ namespace appUi
         rendern::LevelInstance&,
         AssetManager&,
         rendern::GameplayRuntimeMode&,
-        rendern::GameplayRuntime*)
+        rendern::GameplayRuntime*,
+        physics::JoltPhysicsWorld*)
     {
         return nullptr;
     }

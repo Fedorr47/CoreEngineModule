@@ -25,6 +25,11 @@ namespace appRuntime
     [[nodiscard]] bool ApplyGameplayPhysicsCharacterFeedback(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld);
+    
+    [[nodiscard]] bool TeleportGameplayPhysicsCharacterToGameplayTransform(
+        rendern::GameplayRuntime& gameplayRuntime,
+        physics::JoltPhysicsWorld& physicsWorld,
+        rendern::EntityHandle entity);
 
     [[nodiscard]] bool DestroyGameplayPhysicsCharacters(
         rendern::GameplayRuntime& gameplayRuntime,

@@ -1,11 +1,11 @@
-#include "GameplayPhysicsCharacterIntegration.h"
-
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 
 #include <cmath>
 
 import core;
+
+#include "GameplayPhysicsCharacterIntegration.h"
 
 namespace
 {
@@ -250,4 +250,25 @@ bool appRuntime::DestroyGameplayPhysicsCharacters(
     }
 
     return true;
+}
+
+bool appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+    rendern::GameplayRuntime& gameplayRuntime,
+    physics::JoltPhysicsWorld& physicsWorld,
+    const rendern::EntityHandle entity)
+{
+    CORE_ASSERT_RUNTIME_THREAD();
+    CORE_ASSERT_PHYSICS_THREAD();
+
+    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
+    const auto* transform = world.TryGetTransform(entity);
+    const auto* binding = world.TryGetPhysicsCharacter(entity);
+    if (transform == nullptr || binding == nullptr ||
+        !physicsWorld.IsCharacterValid(binding->character))
+    {
+        return false;
+    }
+    return physicsWorld.TeleportCharacter(
+        binding->character,
+        transform->position - binding->visualRootOffset);
 }
