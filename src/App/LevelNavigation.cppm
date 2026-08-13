@@ -7,6 +7,7 @@ export module core:level_navigation;
 
 import :level;
 import :navigation;
+import :gameplay_character_components;
 import :math_utils;
 import std;
 
@@ -25,6 +26,17 @@ export namespace app::navigationRuntime
 		navigation::Geometry geometry;
 		std::size_t sourceMeshCount{};
 	};
+	
+	[[nodiscard]] constexpr navigation::AgentSettings BuildAgentSettings(
+		const rendern::GameplayCharacterPhysicalSettingsComponent& settings) noexcept
+	{
+		return {
+			.radius = settings.radius,
+			.height = settings.GetTotalHeight(),
+			.maximumStepHeight = settings.maximumStepHeight,
+			.maximumSlopeAngleDegrees = settings.maximumSlopeAngleDegrees
+		};
+	}
 
 	[[nodiscard]] float LinearDeterminant(const mathUtils::Mat4& matrix) noexcept
 	{

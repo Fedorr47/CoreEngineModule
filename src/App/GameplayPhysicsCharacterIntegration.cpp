@@ -83,25 +83,21 @@ bool appRuntime::EnsureGameplayPhysicsCharacters(
         {
             return false;
         }
-        const physics::CharacterColliderDescriptor collider = bIsPlayer
-            ? PlayerCharacterCollider
-            : physics::CharacterColliderDescriptor{
-                .radius = characterSettings->radius,
-                .cylinderHeight = characterSettings->cylinderHeight
-            };
+       
         const mathUtils::Vec3 visualRootOffset = bIsPlayer
             ? PlayerVisualRootOffset
             : mathUtils::Vec3{ 0.0f, -characterSettings->GetTotalHeight() * 0.5f, 0.0f };
-        const physics::PhysicsCharacterDescriptor descriptor{
-            .collider = collider,
-            .position = transform->position - visualRootOffset,
-            .maximumSlopeAngleDegrees = bIsPlayer
-                ? PlayerMaximumSlopeAngleDegrees : characterSettings->maximumSlopeAngleDegrees,
-            .maximumStepHeight = bIsPlayer
-                ? PlayerMaximumStepHeight : characterSettings->maximumStepHeight,
-            .mass = bIsPlayer ? PlayerMass : characterSettings->mass,
-            .maximumSpeed = motor->maxRunSpeed
-        };
+        const physics::PhysicsCharacterDescriptor descriptor = bIsPlayer
+            ? physics::PhysicsCharacterDescriptor{
+                .collider = PlayerCharacterCollider,
+                .position = transform->position - visualRootOffset,
+                .maximumSlopeAngleDegrees = PlayerMaximumSlopeAngleDegrees,
+                .maximumStepHeight = PlayerMaximumStepHeight,
+                .mass = PlayerMass,
+                .maximumSpeed = motor->maxRunSpeed
+            }
+        : characterSettings->BuildPhysicsCharacterDescriptor(
+            transform->position - visualRootOffset, motor->maxRunSpeed);
         const physics::PhysicsCharacterHandle character = physicsWorld.CreateCharacter(descriptor);
         if (!character.IsValid())
         {

@@ -18,7 +18,7 @@ namespace physics
 
 namespace navigation
 {
-    class World; 
+    class ProfileRegistry;
     struct BuildSettings; 
     struct DebugGeometry;
 }
@@ -111,7 +111,7 @@ namespace appLifecycle
         std::unique_ptr<rendern::LevelInstance> levelInstance;
         std::unique_ptr<rendern::GameplayRuntime> gameplayRuntime;
         std::unique_ptr<rendern::CameraController> cameraController;
-        std::unique_ptr<navigation::World> navigationWorld;
+        std::unique_ptr<navigation::ProfileRegistry> navigationProfiles;
         navigation::BuildSettings navigationBuildSettings{};
         navigation::DebugGeometry navigationDebugGeometry{};
         NavigationState navigationState{ NavigationState::Pending };

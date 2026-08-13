@@ -128,15 +128,7 @@ namespace navigation
 
 		bool AreBuildSettingsValid(const BuildSettings& settings)
 		{
-			return std::isfinite(settings.agent.radius) &&
-				settings.agent.radius > 0.0f &&
-				std::isfinite(settings.agent.height) &&
-				settings.agent.height > 0.0f &&
-				std::isfinite(settings.agent.maximumStepHeight) &&
-				settings.agent.maximumStepHeight >= 0.0f &&
-				std::isfinite(settings.agent.maximumSlopeAngleDegrees) &&
-				settings.agent.maximumSlopeAngleDegrees >= 0.0f &&
-				settings.agent.maximumSlopeAngleDegrees < 90.0f &&
+			return settings.agent.IsValid() &&
 				std::isfinite(settings.cellSize) &&
 				settings.cellSize > 0.0f &&
 				std::isfinite(settings.cellHeight) &&
@@ -155,6 +147,27 @@ namespace navigation
 				settings.detailSampleDistance >= 0.0f &&
 				std::isfinite(settings.detailSampleMaxError) &&
 				settings.detailSampleMaxError >= 0.0f;
+		}
+	}
+	
+	bool AgentSettings::IsValid() const noexcept
+	{
+		return std::isfinite(radius) && radius > 0.0f &&
+			std::isfinite(height) && height > 0.0f &&
+			std::isfinite(maximumStepHeight) && maximumStepHeight >= 0.0f &&
+			maximumStepHeight < height &&
+			std::isfinite(maximumSlopeAngleDegrees) &&
+			maximumSlopeAngleDegrees >= 0.0f && maximumSlopeAngleDegrees < 90.0f;
+	}
+
+	namespace
+	{
+		[[nodiscard]] bool AreAgentSettingsEqual(
+			const AgentSettings& left, const AgentSettings& right) noexcept
+		{
+			return left.radius == right.radius && left.height == right.height &&
+				left.maximumStepHeight == right.maximumStepHeight &&
+				left.maximumSlopeAngleDegrees == right.maximumSlopeAngleDegrees;
 		}
 	}
 
@@ -605,5 +618,82 @@ namespace navigation
 				straightPath[coordinateIndex + 2]);
 		}
 		return result;
+	}
+	
+	struct ProfileRegistry::Impl
+	{
+		struct Profile
+		{
+			AgentSettings agent{};
+			std::unique_ptr<World> world;
+		};
+
+		Geometry geometry;
+		BuildSettings baseSettings{};
+		std::vector<Profile> profiles;
+		bool initialized{ false };
+	};
+
+	ProfileRegistry::ProfileRegistry() : impl_(std::make_unique<Impl>()) {}
+	ProfileRegistry::~ProfileRegistry() = default;
+	ProfileRegistry::ProfileRegistry(ProfileRegistry&&) noexcept = default;
+	ProfileRegistry& ProfileRegistry::operator=(ProfileRegistry&&) noexcept = default;
+
+	ProfileResolution ProfileRegistry::Initialize(const Geometry& geometry, const BuildSettings& settings)
+	{
+		Reset();
+		impl_->geometry = geometry;
+		impl_->baseSettings = settings;
+		impl_->initialized = true;
+		const ProfileResolution resolution = ResolveProfile(settings.agent);
+		if (resolution.status != BuildStatus::Succeeded)
+		{
+			Reset();
+		}
+		return resolution;
+	}
+
+	ProfileResolution ProfileRegistry::ResolveProfile(const AgentSettings& agent)
+	{
+		if (!impl_->initialized || !agent.IsValid())
+		{
+			return { BuildStatus::InvalidSettings, {} };
+		}
+		for (std::uint32_t index = 0; index < impl_->profiles.size(); ++index)
+		{
+			if (AreAgentSettingsEqual(impl_->profiles[index].agent, agent))
+			{
+				return { BuildStatus::Succeeded, { index } };
+			}
+		}
+
+		BuildSettings settings = impl_->baseSettings;
+		settings.agent = agent;
+		auto world = std::make_unique<World>();
+		const BuildStatus status = world->Build(impl_->geometry, settings);
+		if (status != BuildStatus::Succeeded ||
+			impl_->profiles.size() >= std::numeric_limits<std::uint32_t>::max())
+		{
+			return { status == BuildStatus::Succeeded ? BuildStatus::BuildFailed : status, {} };
+		}
+		const auto index = static_cast<std::uint32_t>(impl_->profiles.size());
+		impl_->profiles.push_back({ agent, std::move(world) });
+		return { BuildStatus::Succeeded, { index } };
+	}
+
+	const World* ProfileRegistry::TryGetWorld(const ProfileHandle profile) const noexcept
+	{
+		return profile.IsValid() && profile.value < impl_->profiles.size()
+			? impl_->profiles[profile.value].world.get() : nullptr;
+	}
+
+	std::size_t ProfileRegistry::GetProfileCount() const noexcept { return impl_->profiles.size(); }
+
+	void ProfileRegistry::Reset() noexcept
+	{
+		impl_->profiles.clear();
+		impl_->geometry = {};
+		impl_->baseSettings = {};
+		impl_->initialized = false;
 	}
 }

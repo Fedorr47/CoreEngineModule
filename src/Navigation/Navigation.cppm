@@ -1,6 +1,8 @@
 ﻿module;
 
 #include <cstdint>
+#include <cstddef>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -23,6 +25,8 @@ export namespace navigation
 		float height{ 1.8f };
 		float maximumStepHeight{ 0.4f };
 		float maximumSlopeAngleDegrees{ 45.0f };
+		
+		[[nodiscard]] bool IsValid() const noexcept;
 	};
 
 	struct BuildSettings
@@ -115,6 +119,46 @@ export namespace navigation
 			const mathUtils::Vec3& searchExtents) const;
 		[[nodiscard]] PathResult FindPath(const PathRequest&) const;
 		[[nodiscard]] DebugGeometry BuildDebugGeometry() const;
+
+	private:
+		struct Impl;
+		std::unique_ptr<Impl> impl_;
+	};
+	
+	// Handles are valid only while the owning registry retains its current contents.
+	struct ProfileHandle
+	{
+		std::uint32_t value{ std::numeric_limits<std::uint32_t>::max() };
+
+		[[nodiscard]] constexpr bool IsValid() const noexcept
+		{
+			return value != std::numeric_limits<std::uint32_t>::max();
+		}
+		[[nodiscard]] constexpr bool operator==(const ProfileHandle&) const noexcept = default;
+	};
+
+	struct ProfileResolution
+	{
+		BuildStatus status{ BuildStatus::BuildFailed };
+		ProfileHandle profile{};
+	};
+
+	// Owns the shared source geometry and one Recast bake per distinct agent configuration.
+	class ProfileRegistry final
+	{
+	public:
+		ProfileRegistry();
+		~ProfileRegistry();
+		ProfileRegistry(ProfileRegistry&&) noexcept;
+		ProfileRegistry& operator=(ProfileRegistry&&) noexcept;
+		ProfileRegistry(const ProfileRegistry&) = delete;
+		ProfileRegistry& operator=(const ProfileRegistry&) = delete;
+
+		[[nodiscard]] ProfileResolution Initialize(const Geometry&, const BuildSettings& = {});
+		[[nodiscard]] ProfileResolution ResolveProfile(const AgentSettings&);
+		[[nodiscard]] const World* TryGetWorld(ProfileHandle) const noexcept;
+		[[nodiscard]] std::size_t GetProfileCount() const noexcept;
+		void Reset() noexcept;
 
 	private:
 		struct Impl;
