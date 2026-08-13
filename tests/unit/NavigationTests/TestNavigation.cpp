@@ -1,0 +1,247 @@
+﻿#include <gtest/gtest.h>
+
+#include <cmath>
+#include <cstdint>
+#include <limits>
+#include <utility>
+
+import core;
+
+namespace
+{
+	navigation::Geometry MakePlane(const float minimumX = 0.0f, const float maximumX = 10.0f)
+	{
+		return {
+			{
+				{ minimumX, 0.0f, 0.0f },
+				{ maximumX, 0.0f, 0.0f },
+				{ maximumX, 0.0f, 10.0f },
+				{ minimumX, 0.0f, 10.0f }
+			},
+			{ 0, 2, 1, 0, 3, 2 }
+		};
+	}
+
+	void AddHorizontalQuad(
+		navigation::Geometry& geometry,
+		const float minimumX,
+		const float maximumX,
+		const float minimumZ,
+		const float maximumZ)
+	{
+		const auto firstVertex = static_cast<std::uint32_t>(geometry.vertices.size());
+		geometry.vertices.push_back({ minimumX, 0.0f, minimumZ });
+		geometry.vertices.push_back({ maximumX, 0.0f, minimumZ });
+		geometry.vertices.push_back({ maximumX, 0.0f, maximumZ });
+		geometry.vertices.push_back({ minimumX, 0.0f, maximumZ });
+		geometry.indices.insert(
+			geometry.indices.end(),
+			{
+				firstVertex,
+				firstVertex + 2,
+				firstVertex + 1,
+				firstVertex,
+				firstVertex + 3,
+				firstVertex + 2
+			});
+	}
+}
+
+TEST(Navigation, FlatPlaneBuildsAndFindsPath)
+{
+	navigation::World world;
+	ASSERT_EQ(world.Build(MakePlane()), navigation::BuildStatus::Succeeded);
+	EXPECT_TRUE(world.IsInitialized());
+
+	const navigation::ProjectionResult projection = world.ProjectPoint(
+		{ 2.0f, 1.0f, 2.0f },
+		{ 1.0f, 2.0f, 1.0f });
+	ASSERT_EQ(projection.status, navigation::QueryStatus::Succeeded);
+
+	const navigation::PathResult path = world.FindPath({
+		{ 2.0f, 0.0f, 2.0f },
+		{ 8.0f, 0.0f, 8.0f },
+		{ 1.0f, 2.0f, 1.0f }
+	});
+	ASSERT_EQ(path.status, navigation::QueryStatus::Succeeded);
+	ASSERT_GE(path.points.size(), 2u);
+	EXPECT_NEAR(path.points.front().x, 2.0f, 0.25f);
+	EXPECT_NEAR(path.points.back().z, 8.0f, 0.25f);
+}
+
+TEST(Navigation, DisconnectedRegionsReturnNoPath)
+{
+	navigation::Geometry geometry = MakePlane();
+	const navigation::Geometry secondIsland = MakePlane(20.0f, 30.0f);
+	const auto firstSecondIslandVertex = static_cast<std::uint32_t>(geometry.vertices.size());
+	geometry.vertices.insert(
+		geometry.vertices.end(),
+		secondIsland.vertices.begin(),
+		secondIsland.vertices.end());
+	for (const std::uint32_t index : secondIsland.indices)
+	{
+		geometry.indices.push_back(firstSecondIslandVertex + index);
+	}
+
+	navigation::World world;
+	ASSERT_EQ(world.Build(geometry), navigation::BuildStatus::Succeeded);
+	EXPECT_EQ(
+		world.FindPath({
+			{ 2.0f, 0.0f, 2.0f },
+			{ 22.0f, 0.0f, 2.0f },
+			{ 1.0f, 2.0f, 1.0f }
+		}).status,
+		navigation::QueryStatus::NoPath);
+}
+
+TEST(Navigation, ObstacleProducesDetourPath)
+{
+	// Four floor strips form a connected ring around the absent central square.
+	navigation::Geometry geometry;
+	AddHorizontalQuad(geometry, 0.0f, 4.0f, 0.0f, 10.0f);
+	AddHorizontalQuad(geometry, 6.0f, 10.0f, 0.0f, 10.0f);
+	AddHorizontalQuad(geometry, 4.0f, 6.0f, 0.0f, 4.0f);
+	AddHorizontalQuad(geometry, 4.0f, 6.0f, 6.0f, 10.0f);
+
+	navigation::BuildSettings settings;
+	settings.agent.radius = 0.2f;
+	settings.regionMinSize = 0.0f;
+	settings.regionMergeSize = 0.0f;
+
+	navigation::World world;
+	ASSERT_EQ(world.Build(geometry, settings), navigation::BuildStatus::Succeeded);
+	const navigation::PathResult path = world.FindPath({
+		{ 2.0f, 0.0f, 5.0f },
+		{ 8.0f, 0.0f, 5.0f },
+		{ 1.0f, 2.0f, 1.0f }
+	});
+
+	ASSERT_EQ(path.status, navigation::QueryStatus::Succeeded);
+	ASSERT_GT(path.points.size(), 2u);
+
+	bool leavesDirectCorridor = false;
+	for (const mathUtils::Vec3& point : path.points)
+	{
+		if (point.z < 4.5f || point.z > 5.5f)
+		{
+			leavesDirectCorridor = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(leavesDirectCorridor);
+}
+
+TEST(Navigation, InvalidGeometryAndSettingsAreRejectedAndClearState)
+{
+	navigation::World world;
+	ASSERT_EQ(world.Build(MakePlane()), navigation::BuildStatus::Succeeded);
+	EXPECT_EQ(world.Build({}), navigation::BuildStatus::InvalidGeometry);
+	EXPECT_FALSE(world.IsInitialized());
+
+	navigation::Geometry geometry = MakePlane();
+	geometry.indices.push_back(0);
+	EXPECT_EQ(world.Build(geometry), navigation::BuildStatus::InvalidGeometry);
+
+	geometry = MakePlane();
+	geometry.indices[0] = 99;
+	EXPECT_EQ(world.Build(geometry), navigation::BuildStatus::InvalidGeometry);
+
+	geometry = MakePlane();
+	geometry.vertices[0].x = std::numeric_limits<float>::infinity();
+	EXPECT_EQ(world.Build(geometry), navigation::BuildStatus::InvalidGeometry);
+
+	navigation::BuildSettings settings;
+	settings.cellSize = 0.0f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.cellHeight = 0.0f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.agent.radius = 0.0f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.agent.height = 0.0f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.agent.maximumStepHeight = -0.1f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.agent.maximumSlopeAngleDegrees = 90.0f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.edgeMaxError = std::numeric_limits<float>::infinity();
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+
+	settings = {};
+	settings.agent.height = static_cast<float>(std::numeric_limits<int>::max());
+	settings.cellHeight = 0.5f;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+	EXPECT_FALSE(world.IsInitialized());
+}
+
+TEST(Navigation, ResetAndRebuildReplaceState)
+{
+	navigation::World world;
+	ASSERT_EQ(world.Build(MakePlane()), navigation::BuildStatus::Succeeded);
+
+	world.Reset();
+	world.Reset();
+	EXPECT_FALSE(world.IsInitialized());
+
+	ASSERT_EQ(world.Build(MakePlane(20.0f, 30.0f)), navigation::BuildStatus::Succeeded);
+	EXPECT_EQ(
+		world.ProjectPoint({ 2.0f, 0.0f, 2.0f }, { 1.0f, 2.0f, 1.0f }).status,
+		navigation::QueryStatus::StartNotOnNavMesh);
+	EXPECT_EQ(
+		world.ProjectPoint({ 22.0f, 0.0f, 2.0f }, { 1.0f, 2.0f, 1.0f }).status,
+		navigation::QueryStatus::Succeeded);
+}
+
+TEST(Navigation, MovedFromWorldCanBeResetAndRebuilt)
+{
+	navigation::World source;
+	ASSERT_EQ(source.Build(MakePlane()), navigation::BuildStatus::Succeeded);
+
+	navigation::World destination(std::move(source));
+	EXPECT_TRUE(destination.IsInitialized());
+
+	source.Reset();
+	EXPECT_FALSE(source.IsInitialized());
+	EXPECT_EQ(source.Build(MakePlane(20.0f, 30.0f)), navigation::BuildStatus::Succeeded);
+	EXPECT_TRUE(source.IsInitialized());
+}
+
+TEST(Navigation, SlopeLimitAffectsWalkability)
+{
+	navigation::Geometry geometry{
+		{
+			{ 0.0f, 0.0f, 0.0f },
+			{ 10.0f, 0.0f, 0.0f },
+			{ 10.0f, 2.0f, 10.0f },
+			{ 0.0f, 2.0f, 10.0f },
+			{ 20.0f, 0.0f, 0.0f },
+			{ 30.0f, 0.0f, 0.0f },
+			{ 30.0f, 20.0f, 10.0f },
+			{ 20.0f, 20.0f, 10.0f }
+		},
+		{ 0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6 }
+	};
+
+	navigation::BuildSettings settings;
+	settings.agent.maximumSlopeAngleDegrees = 30.0f;
+
+	navigation::World world;
+	ASSERT_EQ(world.Build(geometry, settings), navigation::BuildStatus::Succeeded);
+	EXPECT_EQ(
+		world.ProjectPoint({ 5.0f, 1.0f, 5.0f }, { 2.0f, 3.0f, 2.0f }).status,
+		navigation::QueryStatus::Succeeded);
+	EXPECT_EQ(
+		world.ProjectPoint({ 25.0f, 10.0f, 5.0f }, { 2.0f, 3.0f, 2.0f }).status,
+		navigation::QueryStatus::StartNotOnNavMesh);
+}
