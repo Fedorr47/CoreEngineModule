@@ -11,7 +11,6 @@ import std;
 
 #include "DebugUiHost.h"
 #include "Development/AppDevelopmentScenarioRuntime.h"
-#include "GameplayPhysicsCharacterIntegration.h"
 
 #if defined(CORE_USE_DX12)
 #include <imgui.h>

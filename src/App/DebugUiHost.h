@@ -2,11 +2,6 @@
 
 #include "Win32AppShell.h"
 
-namespace physics
-{
-    class JoltPhysicsWorld;
-}
-
 namespace appDevelopment
 {
     class AppDevelopmentScenarioRuntime;
