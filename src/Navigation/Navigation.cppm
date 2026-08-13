@@ -76,6 +76,24 @@ export namespace navigation
 		QueryStatus status{ QueryStatus::NotInitialized };
 		std::vector<mathUtils::Vec3> points;
 	};
+	
+	struct DebugLine
+	{
+		mathUtils::Vec3 start{};
+		mathUtils::Vec3 end{};
+		std::uint32_t rgba{};
+	};
+
+	struct DebugGeometry
+	{
+		std::vector<DebugLine> lines;
+	};
+
+	// Appends a line strip for a supplied path; Navigation does not retain debug paths.
+	void AppendPathDebugGeometry(
+		const PathResult& path,
+		DebugGeometry& geometry,
+		std::uint32_t rgba = 0xff00ffffu);
 
 	class World final
 	{
@@ -96,6 +114,7 @@ export namespace navigation
 			const mathUtils::Vec3&,
 			const mathUtils::Vec3& searchExtents) const;
 		[[nodiscard]] PathResult FindPath(const PathRequest&) const;
+		[[nodiscard]] DebugGeometry BuildDebugGeometry() const;
 
 	private:
 		struct Impl;

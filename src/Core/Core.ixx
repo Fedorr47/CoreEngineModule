@@ -23,6 +23,8 @@ export import :jolt_body_registry;
 export import :geometry;
 export import :jolt_character_registry;
 export import :navigation;
+export import :navigation_debug_draw;
+export import :level_navigation;
 export import :EnTTHelpers;
 export import :gameplay;
 export import :gameplay_interaction_point;

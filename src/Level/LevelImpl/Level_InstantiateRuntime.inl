@@ -177,15 +177,26 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 	inst.RecomputeWorld_(asset);
 	inst.transformsDirty_ = false;
 
+	inst.staticMeshSources_.reserve(asset.nodes.size());
 	for (std::size_t i = 0; i < asset.nodes.size(); ++i)
 	{
 		const LevelNode& n = asset.nodes[i];
-		if (!n.alive)
+		const LevelNode& node = asset.nodes[i];
+		if (!IsStaticNavigationGeometry(node) || node.mesh.empty() || !node.skinnedMesh.empty())
 		{
 			continue;
 		}
 
-		if (!n.visible)
+		const auto meshIt = meshHandles.find(node.mesh);
+		if (meshIt != meshHandles.end())
+		{
+			inst.staticMeshSources_.push_back(LevelStaticMeshSource{ meshIt->second, inst.world_[i], static_cast<int>(i) });
+		}
+	}
+	for (std::size_t i = 0; i < asset.nodes.size(); ++i)
+	{
+		const LevelNode& n = asset.nodes[i];
+		if (!n.alive)
 		{
 			continue;
 		}
@@ -196,6 +207,10 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 
 		if (!n.skinnedMesh.empty())
 		{
+			if (!n.visible)
+			{
+				continue;
+			}
 			const int skinnedDrawIndex = inst.MakeSkinnedDrawForNode_(asset, scene, static_cast<int>(i), n);
 			inst.nodeToSkinnedDraw_[i] = skinnedDrawIndex;
 			continue;
@@ -203,6 +218,7 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 
 		if (!n.model.empty())
 		{
+			const bool includeInNavigation = IsStaticNavigationGeometry(n);
 			auto modelIt = asset.models.find(n.model);
 			if (modelIt == asset.models.end())
 			{
@@ -224,6 +240,15 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 				const std::string resourceKey =
 					LevelInstance::MakeLevelResourceKey_(asset, "model-submesh", modelSubmeshId);
 				MeshHandle meshHandle = assets.LoadMeshAsync(resourceKey, std::move(properties));
+				if (includeInNavigation)
+				{
+					inst.staticMeshSources_.push_back(LevelStaticMeshSource{
+						meshHandle, inst.world_[i], static_cast<int>(i) });
+				}
+				if (!n.visible)
+				{
+					continue;
+				}
 
 				std::string materialId = n.material;
 				if (auto itOv = n.materialOverrides.find(sub.submeshIndex); itOv != n.materialOverrides.end())
@@ -251,6 +276,10 @@ LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable
 				inst.nodeToDraws_[i].push_back(drawIndex);
 			}
 			inst.nodeToDraw_[i] = inst.nodeToDraws_[i].empty() ? -1 : inst.nodeToDraws_[i].front();
+			continue;
+		}
+		if (!n.visible)
+		{
 			continue;
 		}
 

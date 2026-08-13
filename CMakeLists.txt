@@ -472,6 +472,8 @@ set(COMMON_MODULES
         Physics/Jolt/JoltCharacterRegistry.cppm
 
         Navigation/Navigation.cppm
+        App/NavigationDebugDraw.cppm
+        App/LevelNavigation.cppm
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm
@@ -661,6 +663,7 @@ target_link_libraries(CoreEngineModuleLib
         Jolt::Jolt
         Recast
         Detour
+        DebugUtils
 )
 
 # GL-only deps (link AFTER CoreEngineModuleLib exists)

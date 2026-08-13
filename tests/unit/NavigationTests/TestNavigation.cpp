@@ -69,6 +69,134 @@ TEST(Navigation, FlatPlaneBuildsAndFindsPath)
 	EXPECT_NEAR(path.points.back().z, 8.0f, 0.25f);
 }
 
+TEST(Navigation, UninitializedWorldHasNoDebugGeometry)
+{
+	navigation::World world;
+	EXPECT_TRUE(world.BuildDebugGeometry().lines.empty());
+}
+
+TEST(Navigation, LevelMeshConversionTransformsAndRebasesGeometry)
+{
+	auto firstCpu = std::make_shared<rendern::MeshCPU>();
+	firstCpu->vertices = {
+		{ 0, 0, 0 }, { 0, 0, 1 }, { 1, 0, 0 }
+	};
+	firstCpu->indices = { 0, 1, 2 };
+	auto secondCpu = std::make_shared<rendern::MeshCPU>(*firstCpu);
+	auto first = std::make_shared<rendern::MeshResource>();
+	auto second = std::make_shared<rendern::MeshResource>();
+	first->SetCpuGeometry(firstCpu);
+	second->SetCpuGeometry(secondCpu);
+	first->SetLoadState(ResourceState::Loaded);
+	second->SetLoadState(ResourceState::Loaded);
+
+	const std::vector<rendern::LevelStaticMeshSource> sources = {
+		{ first, mathUtils::Mat4(1.0f), 0 },
+		{ second, mathUtils::Translate(mathUtils::Mat4(1.0f), { 5.0f, 2.0f, -1.0f }), 1 }
+	};
+	const auto result = app::navigationRuntime::BuildNavigationGeometry(sources);
+	ASSERT_EQ(result.status, app::navigationRuntime::GeometryStatus::Ready);
+	ASSERT_EQ(result.geometry.vertices.size(), 6u);
+	EXPECT_EQ(result.geometry.indices, (std::vector<std::uint32_t>{ 0, 1, 2, 3, 4, 5 }));
+	EXPECT_FLOAT_EQ(result.geometry.vertices[3].x, 5.0f);
+	EXPECT_FLOAT_EQ(result.geometry.vertices[3].y, 2.0f);
+	EXPECT_FLOAT_EQ(result.geometry.vertices[3].z, -1.0f);
+}
+
+TEST(Navigation, LevelMeshConversionWaitsWithoutPublishingPartialGeometry)
+{
+	auto cpu = std::make_shared<rendern::MeshCPU>();
+	cpu->vertices = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 0, 1 } };
+	cpu->indices = { 0, 1, 2 };
+	auto ready = std::make_shared<rendern::MeshResource>();
+	ready->SetCpuGeometry(cpu);
+	ready->SetLoadState(ResourceState::Loaded);
+	auto loading = std::make_shared<rendern::MeshResource>();
+	loading->SetLoadState(ResourceState::Loading);
+	const std::vector<rendern::LevelStaticMeshSource> sources = {
+		{ ready, mathUtils::Mat4(1.0f), 0 },
+		{ loading, mathUtils::Mat4(1.0f), 1 }
+	};
+	const auto result = app::navigationRuntime::BuildNavigationGeometry(sources);
+	EXPECT_EQ(result.status, app::navigationRuntime::GeometryStatus::WaitingForMeshes);
+	EXPECT_TRUE(result.geometry.vertices.empty());
+	EXPECT_TRUE(result.geometry.indices.empty());
+}
+
+TEST(Navigation, LevelMeshConversionCorrectsOnlyMirroredWinding)
+{
+	auto cpu = std::make_shared<rendern::MeshCPU>();
+	cpu->vertices = { { 0, 0, 0 }, { 0, 0, 1 }, { 1, 0, 0 } };
+	cpu->indices = { 0, 1, 2 };
+	auto mesh = std::make_shared<rendern::MeshResource>();
+	mesh->SetCpuGeometry(cpu);
+	mesh->SetLoadState(ResourceState::Loaded);
+
+	mathUtils::Mat4 positive = mathUtils::Translate(mathUtils::Mat4(1.0f), { 2.0f, 3.0f, 4.0f });
+	positive = mathUtils::Rotate(positive, mathUtils::DegToRad(30.0f), { 0.0f, 1.0f, 0.0f });
+	positive = mathUtils::Scale(positive, { 2.0f, 1.0f, 3.0f });
+	const auto positiveResult = app::navigationRuntime::BuildNavigationGeometry(
+		std::vector<rendern::LevelStaticMeshSource>{ { mesh, positive, 0 } });
+	ASSERT_EQ(positiveResult.status, app::navigationRuntime::GeometryStatus::Ready);
+	EXPECT_EQ(positiveResult.geometry.indices, (std::vector<std::uint32_t>{ 0, 1, 2 }));
+
+	const mathUtils::Mat4 mirrored = mathUtils::Scale(mathUtils::Mat4(1.0f), { -1.0f, 1.0f, 1.0f });
+	const auto mirroredResult = app::navigationRuntime::BuildNavigationGeometry(
+		std::vector<rendern::LevelStaticMeshSource>{ { mesh, mirrored, 0 } });
+	ASSERT_EQ(mirroredResult.status, app::navigationRuntime::GeometryStatus::Ready);
+	EXPECT_EQ(mirroredResult.geometry.indices, (std::vector<std::uint32_t>{ 0, 2, 1 }));
+	const auto& vertices = mirroredResult.geometry.vertices;
+	const mathUtils::Vec3 normal = mathUtils::Cross(
+		vertices[mirroredResult.geometry.indices[1]] - vertices[mirroredResult.geometry.indices[0]],
+		vertices[mirroredResult.geometry.indices[2]] - vertices[mirroredResult.geometry.indices[0]]);
+	EXPECT_GT(normal.y, 0.0f);
+}
+
+TEST(Navigation, FailedOrInconsistentMeshIsInvalidGeometry)
+{
+	auto failed = std::make_shared<rendern::MeshResource>();
+	failed->SetLoadState(ResourceState::Failed);
+	auto inconsistent = std::make_shared<rendern::MeshResource>();
+	inconsistent->SetLoadState(ResourceState::Loaded);
+
+	for (const auto& mesh : { failed, inconsistent })
+	{
+		const auto result = app::navigationRuntime::BuildNavigationGeometry(
+			std::vector<rendern::LevelStaticMeshSource>{ { mesh, mathUtils::Mat4(1.0f), 0 } });
+		EXPECT_EQ(result.status, app::navigationRuntime::GeometryStatus::InvalidGeometry);
+		EXPECT_TRUE(result.geometry.vertices.empty());
+	}
+}
+
+TEST(Navigation, BuiltNavMeshProducesDebugLinesAndResetClearsThem)
+{
+	navigation::World world;
+	ASSERT_EQ(world.Build(MakePlane()), navigation::BuildStatus::Succeeded);
+	EXPECT_FALSE(world.BuildDebugGeometry().lines.empty());
+
+	world.Reset();
+	EXPECT_TRUE(world.BuildDebugGeometry().lines.empty());
+}
+
+TEST(Navigation, PathDebugGeometryIsALineStrip)
+{
+	navigation::PathResult path;
+	path.points = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
+	navigation::DebugGeometry geometry;
+	navigation::AppendPathDebugGeometry(path, geometry, 0x12345678u);
+
+	ASSERT_EQ(geometry.lines.size(), 2u);
+	EXPECT_FLOAT_EQ(geometry.lines[0].start.x, path.points[0].x);
+	EXPECT_FLOAT_EQ(geometry.lines[0].start.y, path.points[0].y);
+	EXPECT_FLOAT_EQ(geometry.lines[0].start.z, path.points[0].z);
+	EXPECT_FLOAT_EQ(geometry.lines[0].end.x, path.points[1].x);
+	EXPECT_FLOAT_EQ(geometry.lines[0].end.y, path.points[1].y);
+	EXPECT_FLOAT_EQ(geometry.lines[0].end.z, path.points[1].z);
+	EXPECT_EQ(geometry.lines[0].rgba, 0x12345678u);
+	EXPECT_FLOAT_EQ(geometry.lines[1].start.x, path.points[1].x);
+	EXPECT_FLOAT_EQ(geometry.lines[1].end.x, path.points[2].x);
+}
+
 TEST(Navigation, DisconnectedRegionsReturnNoPath)
 {
 	navigation::Geometry geometry = MakePlane();

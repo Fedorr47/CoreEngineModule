@@ -22,6 +22,13 @@ import :EnTTHelpers;
 
 export namespace rendern
 {
+	struct ExternalDebugLine
+	{
+		mathUtils::Vec3 start{};
+		mathUtils::Vec3 end{};
+		std::uint32_t rgba{};
+	};
+	
 	// High-level transform used by the CPU side.
 	// Convention: rotationDegrees is applied as Z * Y * X after translation.
 	struct Transform
@@ -443,6 +450,7 @@ export namespace rendern
 		DebugRay debugPickRay{};
 		GameplayMovementDebugState gameplayMovementDebug{};
 		AnimationRuntimeDebugState animationRuntimeDebug{};
+		std::vector<ExternalDebugLine> externalDebugLines{};
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };

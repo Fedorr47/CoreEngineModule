@@ -3,6 +3,8 @@
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
 #include <DetourNavMeshQuery.h>
+#include <DebugDraw.h>
+#include <DetourDebugDraw.h>
 #include <Recast.h>
 
 #include <cmath>
@@ -20,6 +22,90 @@ namespace navigation
 {
 	namespace
 	{
+		class DebugGeometryAdapter final : public duDebugDraw
+		{
+		public:
+			explicit DebugGeometryAdapter(DebugGeometry& geometry) : geometry_(geometry) {}
+
+			void depthMask(bool) override {}
+			void texture(bool) override {}
+
+			void begin(duDebugDrawPrimitives primitive, float = 1.0f) override
+			{
+				primitive_ = primitive;
+				vertices_.clear();
+			}
+
+			void vertex(const float* position, unsigned int color) override
+			{
+				vertices_.push_back({ { position[0], position[1], position[2] }, color });
+			}
+
+			void vertex(float x, float y, float z, unsigned int color) override
+			{
+				vertices_.push_back({ { x, y, z }, color });
+			}
+
+			void vertex(const float* position, unsigned int color, const float*) override
+			{
+				vertex(position, color);
+			}
+
+			void vertex(float x, float y, float z, unsigned int color, float, float) override
+			{
+				vertex(x, y, z, color);
+			}
+
+			void end() override
+			{
+				switch (primitive_)
+				{
+				case DU_DRAW_LINES:
+					for (std::size_t i = 0; i + 1 < vertices_.size(); i += 2)
+					{
+						AddLine(i, i + 1);
+					}
+					break;
+				case DU_DRAW_TRIS:
+					for (std::size_t i = 0; i + 2 < vertices_.size(); i += 3)
+					{
+						AddLine(i, i + 1);
+						AddLine(i + 1, i + 2);
+						AddLine(i + 2, i);
+					}
+					break;
+				case DU_DRAW_QUADS:
+					for (std::size_t i = 0; i + 3 < vertices_.size(); i += 4)
+					{
+						AddLine(i, i + 1);
+						AddLine(i + 1, i + 2);
+						AddLine(i + 2, i + 3);
+						AddLine(i + 3, i);
+					}
+					break;
+				case DU_DRAW_POINTS:
+					break;
+				}
+				vertices_.clear();
+			}
+
+		private:
+			struct Vertex
+			{
+				mathUtils::Vec3 position{};
+				unsigned int color{};
+			};
+
+			void AddLine(std::size_t start, std::size_t end)
+			{
+				geometry_.lines.push_back({ vertices_[start].position, vertices_[end].position, vertices_[start].color });
+			}
+
+			DebugGeometry& geometry_;
+			duDebugDrawPrimitives primitive_{ DU_DRAW_LINES };
+			std::vector<Vertex> vertices_;
+		};
+		
 		template<class T, void(*Free)(T*)>
 		struct RecastDeleter
 		{
@@ -101,6 +187,27 @@ namespace navigation
 	bool World::IsInitialized() const noexcept
 	{
 		return impl_ != nullptr && impl_->mesh != nullptr && impl_->query != nullptr;
+	}
+	
+	DebugGeometry World::BuildDebugGeometry() const
+	{
+		DebugGeometry geometry;
+		if (!IsInitialized())
+		{
+			return geometry;
+		}
+
+		DebugGeometryAdapter adapter(geometry);
+		duDebugDrawNavMesh(&adapter, *impl_->mesh, 0);
+		return geometry;
+	}
+
+	void AppendPathDebugGeometry(const PathResult& path, DebugGeometry& geometry, std::uint32_t rgba)
+	{
+		for (std::size_t i = 1; i < path.points.size(); ++i)
+		{
+			geometry.lines.push_back({ path.points[i - 1], path.points[i], rgba });
+		}
 	}
 
 	BuildStatus World::Build(const Geometry& geometry, const BuildSettings& settings)

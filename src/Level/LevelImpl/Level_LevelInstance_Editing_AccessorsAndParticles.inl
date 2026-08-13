@@ -98,6 +98,11 @@ const LevelWorld& GetLevelWorld() const noexcept
 	return ecs_;
 }
 
+[[nodiscard]] const std::vector<LevelStaticMeshSource>& GetStaticMeshSources() const noexcept
+{
+	return staticMeshSources_;
+}
+
 EntityHandle GetNodeEntity(int nodeIndex) const noexcept
 {
 	return GetEntityForNode_(nodeIndex);

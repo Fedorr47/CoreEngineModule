@@ -139,6 +139,7 @@ export namespace rendern
 
 		bool drawLightGizmos{ false };
 		bool debugDrawDepthTest{ true };
+		bool drawNavigationMesh{ false };
 		bool drawGameplayMovementDebug{ false };
 		bool drawGameplayMovementDebugOnlyControlled{ false };
 		bool drawGameplayMovementDebugLabels{ false };

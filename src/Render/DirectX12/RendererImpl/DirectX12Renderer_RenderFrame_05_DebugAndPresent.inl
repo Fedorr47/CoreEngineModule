@@ -1,6 +1,10 @@
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
+for (const ExternalDebugLine& line : frameView.GetScene().externalDebugLines)
+{
+	debugList.AddLine(line.start, line.end, line.rgba);
+}
 const AnimationRuntimeOverlaySnapshot& animationRuntimeOverlaySnapshot = frameView.GetAnimationRuntimeOverlaySnapshot();
 
 const auto animOverlayStart = std::chrono::steady_clock::now();

@@ -64,6 +64,14 @@ export namespace jsonUtils
 
         [[nodiscard]] JsonValue Parse()
         {
+            if (text_.size() >= 3
+                && static_cast<unsigned char>(text_[0]) == 0xEF
+                && static_cast<unsigned char>(text_[1]) == 0xBB
+                && static_cast<unsigned char>(text_[2]) == 0xBF)
+            {
+                pos_ = 3;
+            }
+            
             SkipWs();
             JsonValue out = ParseValue();
             SkipWs();
