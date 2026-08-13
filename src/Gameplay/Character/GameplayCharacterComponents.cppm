@@ -46,7 +46,7 @@ export namespace rendern
         mathUtils::Vec3 visualRootOffset{};
     };
     
-    // Gameplay character dimensions shared by physics and future navigation integration.
+    // Gameplay-owned physical settings consumed by subsystem integration boundaries.
     struct GameplayCharacterPhysicalSettingsComponent
     {
         float radius{ 0.3f };
@@ -58,6 +58,20 @@ export namespace rendern
         [[nodiscard]] constexpr float GetTotalHeight() const noexcept
         {
             return cylinderHeight + 2.0f * radius;
+        }
+        
+        [[nodiscard]] constexpr physics::PhysicsCharacterDescriptor BuildPhysicsCharacterDescriptor(
+            const mathUtils::Vec3 position,
+            const float maximumSpeed) const noexcept
+        {
+            return {
+                .collider = { .radius = radius, .cylinderHeight = cylinderHeight },
+                .position = position,
+                .maximumSlopeAngleDegrees = maximumSlopeAngleDegrees,
+                .maximumStepHeight = maximumStepHeight,
+                .mass = mass,
+                .maximumSpeed = maximumSpeed
+            };
         }
     };
     

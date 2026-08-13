@@ -159,6 +159,30 @@ namespace
     };
 }
 
+TEST(GameplayCharacterPhysicalSettings, DerivesSynchronizedPhysicsAndNavigationDimensions)
+{
+    constexpr rendern::GameplayCharacterPhysicalSettingsComponent settings{
+        .radius = 0.47f,
+        .cylinderHeight = 1.13f,
+        .maximumSlopeAngleDegrees = 37.0f,
+        .maximumStepHeight = 0.29f,
+        .mass = 63.0f
+    };
+    constexpr physics::PhysicsCharacterDescriptor physicsDescriptor =
+        settings.BuildPhysicsCharacterDescriptor({ 1.0f, 2.0f, 3.0f }, 5.5f);
+    constexpr navigation::AgentSettings navigationSettings =
+        app::navigationRuntime::BuildAgentSettings(settings);
+
+    EXPECT_FLOAT_EQ(physicsDescriptor.collider.radius, navigationSettings.radius);
+    EXPECT_FLOAT_EQ(physicsDescriptor.collider.GetTotalHeight(), navigationSettings.height);
+    EXPECT_FLOAT_EQ(navigationSettings.height, 1.13f + 2.0f * 0.47f);
+    EXPECT_FLOAT_EQ(physicsDescriptor.maximumStepHeight, navigationSettings.maximumStepHeight);
+    EXPECT_FLOAT_EQ(
+        physicsDescriptor.maximumSlopeAngleDegrees, navigationSettings.maximumSlopeAngleDegrees);
+    EXPECT_TRUE(physicsDescriptor.IsValid());
+    EXPECT_TRUE(navigationSettings.IsValid());
+}
+
 TEST_F(GameplayPhysicsCharacterIntegrationTest, ForwardMovementFeedsBackActualStateAndPreservesVisualOffset)
 {
     ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());

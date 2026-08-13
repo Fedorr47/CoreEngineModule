@@ -299,6 +299,10 @@ TEST(Navigation, InvalidGeometryAndSettingsAreRejectedAndClearState)
 	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
 
 	settings = {};
+	settings.agent.maximumStepHeight = settings.agent.height;
+	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
+	
+	settings = {};
 	settings.agent.maximumSlopeAngleDegrees = 90.0f;
 	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
 
@@ -311,6 +315,51 @@ TEST(Navigation, InvalidGeometryAndSettingsAreRejectedAndClearState)
 	settings.cellHeight = 0.5f;
 	EXPECT_EQ(world.Build(MakePlane(), settings), navigation::BuildStatus::InvalidSettings);
 	EXPECT_FALSE(world.IsInitialized());
+}
+
+TEST(Navigation, ProfileRegistryReusesCompatibleBakeAndSeparatesNarrowPassageAgents)
+{
+	// Two rooms are connected only by a 1.2 m wide floor strip. Recast erosion removes
+	// that strip from the large-agent bake while preserving it for the small agent.
+	navigation::Geometry geometry;
+	AddHorizontalQuad(geometry, 0.0f, 4.0f, 0.0f, 6.0f);
+	AddHorizontalQuad(geometry, 4.0f, 8.0f, 2.4f, 3.6f);
+	AddHorizontalQuad(geometry, 8.0f, 12.0f, 0.0f, 6.0f);
+
+	navigation::BuildSettings smallSettings;
+	smallSettings.agent = { .radius = 0.2f, .height = 1.2f, .maximumStepHeight = 0.2f,
+		.maximumSlopeAngleDegrees = 40.0f };
+	smallSettings.cellSize = 0.1f;
+	smallSettings.regionMinSize = 0.0f;
+	smallSettings.regionMergeSize = 0.0f;
+	navigation::BuildSettings largeSettings = smallSettings;
+	largeSettings.agent.radius = 0.7f;
+	largeSettings.agent.height = 2.2f;
+
+	navigation::ProfileRegistry profiles;
+	const navigation::ProfileResolution smallProfile = profiles.Initialize(geometry, smallSettings);
+	ASSERT_EQ(smallProfile.status, navigation::BuildStatus::Succeeded);
+	const navigation::ProfileResolution reusedSmallProfile =
+		profiles.ResolveProfile(smallSettings.agent);
+	ASSERT_EQ(reusedSmallProfile.status, navigation::BuildStatus::Succeeded);
+	EXPECT_EQ(reusedSmallProfile.profile, smallProfile.profile);
+	EXPECT_EQ(profiles.GetProfileCount(), 1u);
+
+	const navigation::ProfileResolution largeProfile = profiles.ResolveProfile(largeSettings.agent);
+	ASSERT_EQ(largeProfile.status, navigation::BuildStatus::Succeeded);
+	EXPECT_NE(largeProfile.profile, smallProfile.profile);
+	EXPECT_EQ(profiles.GetProfileCount(), 2u);
+	const navigation::PathRequest request{
+		.start = { 2.0f, 0.0f, 3.0f },
+		.goal = { 10.0f, 0.0f, 3.0f },
+		.searchExtents = { 1.0f, 2.0f, 1.0f }
+	};
+	ASSERT_NE(profiles.TryGetWorld(smallProfile.profile), nullptr);
+	ASSERT_NE(profiles.TryGetWorld(largeProfile.profile), nullptr);
+	EXPECT_EQ(profiles.TryGetWorld(smallProfile.profile)->FindPath(request).status,
+		navigation::QueryStatus::Succeeded);
+	EXPECT_EQ(profiles.TryGetWorld(largeProfile.profile)->FindPath(request).status,
+		navigation::QueryStatus::NoPath);
 }
 
 TEST(Navigation, ResetAndRebuildReplaceState)

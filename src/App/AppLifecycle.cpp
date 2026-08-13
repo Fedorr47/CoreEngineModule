@@ -273,12 +273,42 @@ namespace appLifecycle
 			}
 			else if (geometry.status == app::navigationRuntime::GeometryStatus::Ready)
 			{
-				auto world = std::make_unique<navigation::World>();
-				const navigation::BuildStatus status = world->Build(geometry.geometry, runtime.navigationBuildSettings);
+			    auto profiles = std::make_unique<navigation::ProfileRegistry>();
+			    const navigation::ProfileResolution defaultProfile =
+                    profiles->Initialize(geometry.geometry, runtime.navigationBuildSettings);
+			    navigation::BuildStatus status = defaultProfile.status;
+			    if (status == navigation::BuildStatus::Succeeded && runtime.gameplayRuntime)
+			    {
+			        const rendern::GameplayWorld& gameplayWorld = runtime.gameplayRuntime->GetWorld();
+			        for (const rendern::EntityHandle entity : runtime.gameplayRuntime->GetNodeBoundEntities())
+			        {
+			            const auto* physicalSettings = gameplayWorld.TryGetCharacterPhysicalSettings(entity);
+			            if (physicalSettings == nullptr)
+			            {
+			                continue;
+			            }
+			            const navigation::AgentSettings agentSettings = 
+			                app::navigationRuntime::BuildAgentSettings(*physicalSettings);
+			            status = profiles->ResolveProfile(agentSettings).status;
+			            if (status != navigation::BuildStatus::Succeeded)
+			            {
+			                std::cerr << "[Navigation] Agent profile build failed: entity=" << entity
+                                << ", radius=" << agentSettings.radius
+                                << ", height=" << agentSettings.height
+                                << ", maximumStepHeight=" << agentSettings.maximumStepHeight
+                                << ", maximumSlopeAngleDegrees="
+                                << agentSettings.maximumSlopeAngleDegrees
+                                << ", status=" << static_cast<int>(status) << ".\n";
+			                break;
+			            }
+			        }
+			    }
+			    
 				if (status == navigation::BuildStatus::Succeeded)
 				{
-					runtime.navigationWorld = std::move(world);
-					runtime.navigationDebugGeometry = runtime.navigationWorld->BuildDebugGeometry();
+				    const navigation::World* defaultWorld = profiles->TryGetWorld(defaultProfile.profile);
+				    runtime.navigationDebugGeometry = defaultWorld->BuildDebugGeometry();
+				    runtime.navigationProfiles = std::move(profiles);
 					runtime.navigationState = AppRuntimeState::NavigationState::Ready;
 					std::cerr << "[Navigation] Build succeeded: " << geometry.sourceMeshCount
 						<< " meshes, " << geometry.geometry.vertices.size() << " vertices, "
@@ -302,7 +332,7 @@ namespace appLifecycle
 		runtime.scene.externalDebugLines.clear();
 		if (app.graphicsState.rendererSettings.drawNavigationMesh
 			&& runtime.navigationState == AppRuntimeState::NavigationState::Ready
-			&& runtime.navigationWorld)
+			&& runtime.navigationProfiles)
 		{
 			app::debugDraw::SetNavigationGeometry(runtime.navigationDebugGeometry, runtime.scene);
 		}
@@ -604,7 +634,7 @@ namespace appLifecycle
             }
 
             runtimeState.scene = std::move(candidateScene);
-            runtimeState.navigationWorld.reset();
+            runtimeState.navigationProfiles.reset();
             runtimeState.navigationDebugGeometry = {};
             runtimeState.navigationState = AppRuntimeState::NavigationState::Pending;
             runtimeState.navigationWaitingLogged = false;
@@ -886,7 +916,7 @@ namespace appLifecycle
             runtimeState.gameplayRuntime->Shutdown();
         }
         runtimeState.gameplayRuntime.reset();
-        runtimeState.navigationWorld.reset();
+        runtimeState.navigationProfiles.reset();
         runtimeState.navigationDebugGeometry = {};
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();
