@@ -112,6 +112,7 @@ export namespace rendern
         [[nodiscard]] bool HasGameplayTraversalExecutor(
             GameplayTraversalTypeId typeId) const noexcept;
         void CancelAIAction(EntityHandle agentEntity);
+        void ClearAIAction(EntityHandle agentEntity);
         [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] bool TryReserveGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity);
         [[nodiscard]] bool ReleaseGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity) noexcept;

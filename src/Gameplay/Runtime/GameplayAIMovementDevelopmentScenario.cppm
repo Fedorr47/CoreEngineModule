@@ -284,7 +284,8 @@ namespace rendern
         void ResetGameplayAIMovementDevelopmentAgentForRestart_(
             GameplayWorld& world,
             const EntityHandle agentEntity,
-            const mathUtils::Vec3& routeStartPosition) noexcept
+            const mathUtils::Vec3& routeStartPosition,
+            const auto& agentCanonicalTransform) noexcept
         {
             if (!world.IsEntityValid(agentEntity))
             {
@@ -294,6 +295,13 @@ namespace rendern
             if (GameplayTransformComponent* transform = world.TryGetTransform(agentEntity))
             {
                 transform->position = routeStartPosition;
+                transform->rotationDegrees = agentCanonicalTransform.rotationDegrees;
+                transform->scale = agentCanonicalTransform.scale;
+            }
+
+            if (GameplayInputIntentComponent* intent = world.TryGetInputIntent(agentEntity))
+            {
+                *intent = {};
             }
 
             if (GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agentEntity))
@@ -318,9 +326,16 @@ namespace rendern
                 movementState->jumpPhase = GameplayJumpPhase::None;
                 movementState->turningInPlace = false;
 
-                movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->facingYawDegrees = agentCanonicalTransform.rotationDegrees.y;
+                movementState->desiredFacingYawDegrees = agentCanonicalTransform.rotationDegrees.y;
+                movementState->previousFacingYawDegrees = agentCanonicalTransform.rotationDegrees.y;
+                movementState->cameraFacingYawDegrees = agentCanonicalTransform.rotationDegrees.y;
                 movementState->jumpLockedVelocity = {};
+            }
+            
+            if (GameplayLocomotionComponent* locomotion = world.TryGetLocomotion(agentEntity))
+            {
+                *locomotion = {};
             }
         }
     }
@@ -410,10 +425,11 @@ namespace rendern
         {
             return kNullEntity;
         }
-        runtime.CancelAIAction(agentEntity);
+        runtime.ClearAIAction(agentEntity);
         ResetGameplayAIMovementDevelopmentAgentForRestart_(
             runtime.GetWorld(), agentEntity,
-            levelAsset.nodes[static_cast<std::size_t>(*agentNodeIndex)].transform.position);
+            levelAsset.nodes[static_cast<std::size_t>(*agentNodeIndex)].transform.position,
+            levelAsset.nodes[static_cast<std::size_t>(*agentNodeIndex)].transform);
         return agentEntity;
     }
 
@@ -534,15 +550,18 @@ export namespace rendern
         }
 
         const int routeStartNodeIndex = scenarioNodes->routeNodeIndices.front();
-        const mathUtils::Vec3 routeStartPosition =
+        const auto& routeStartPosition =
             context.levelAsset->nodes[static_cast<std::size_t>(routeStartNodeIndex)].transform.position;
+        const auto& agentCanonicalTransform =
+            context.levelAsset->nodes[static_cast<std::size_t>(scenarioNodes->agentNodeIndex)].transform;
 
         runtime.CancelAIAction(agentEntity);
 
         ResetGameplayAIMovementDevelopmentAgentForRestart_(
             world,
             agentEntity,
-            routeStartPosition);
+            routeStartPosition,
+            agentCanonicalTransform);
 
         GameplayArrivalSteeringSettings steering{};
         steering.acceptanceRadius = 0.2f;
@@ -586,6 +605,33 @@ export namespace rendern
         }
 
         runtime.CancelAIAction(agentEntity);
+    }
+    
+    [[nodiscard]] EntityHandle ResetGameplayAIMovementDevelopmentScenario(
+        GameplayRuntime& runtime,
+        const LevelAsset& levelAsset) noexcept
+    {
+        if (!runtime.IsCurrentLevelAsset(levelAsset))
+        {
+            return kNullEntity;
+        }
+        const auto scenarioNodes = ResolveGameplayAIMovementDevelopmentScenarioNodes_(levelAsset);
+        if (!scenarioNodes.has_value())
+        {
+            return kNullEntity;
+        }
+        const EntityHandle agentEntity = FindGameplayAIMovementDevelopmentAgentEntity_(
+            runtime, scenarioNodes->agentNodeIndex);
+        if (agentEntity == kNullEntity)
+        {
+            return kNullEntity;
+        }
+        runtime.ClearAIAction(agentEntity);
+        ResetGameplayAIMovementDevelopmentAgentForRestart_(
+            runtime.GetWorld(), agentEntity,
+            levelAsset.nodes[static_cast<std::size_t>(scenarioNodes->routeNodeIndices.front())].transform.position,
+            levelAsset.nodes[static_cast<std::size_t>(scenarioNodes->agentNodeIndex)].transform);
+        return agentEntity;
     }
 
     [[nodiscard]] AIActionExecutionStatus

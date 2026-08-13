@@ -388,6 +388,12 @@
             aiSystem_.CancelAction(agentEntity);
         }
 
+        void GameplayRuntime::ClearAIAction(const EntityHandle agentEntity)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            aiSystem_.ClearAction(agentEntity);
+        }
+
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::GetAIActionStatus(
             const EntityHandle agentEntity) const noexcept
         {

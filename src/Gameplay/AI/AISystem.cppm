@@ -83,6 +83,12 @@ export namespace rendern
             }
         }
         
+        void ClearAction(const EntityHandle agentEntity) noexcept
+        {
+            CancelAction(agentEntity);
+            tasksByEntity_.erase(agentEntity);
+        }
+        
         void Reset() noexcept
         {
             for (auto& taskEntry : tasksByEntity_)

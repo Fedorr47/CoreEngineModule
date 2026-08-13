@@ -123,6 +123,13 @@ namespace appDevelopment
         case ScenarioKind::AIMovement:
             if (command == ScenarioCommand::Start)
             {
+                const rendern::EntityHandle entity = rendern::ResetGameplayAIMovementDevelopmentScenario(
+                    context.gameplayRuntime, context.level);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
                 (void)rendern::StartGameplayAIMovementDevelopmentScenario(
                     context.gameplayRuntime, MakeGameplayContext(context));
             }
@@ -130,6 +137,16 @@ namespace appDevelopment
             {
                 rendern::CancelGameplayAIMovementDevelopmentScenario(
                     context.gameplayRuntime, context.level);
+            }
+            else if (command == ScenarioCommand::Reset)
+            {
+                const rendern::EntityHandle entity = rendern::ResetGameplayAIMovementDevelopmentScenario(
+                    context.gameplayRuntime, context.level);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
             }
             break;
 
@@ -162,6 +179,20 @@ namespace appDevelopment
                 impl_->agentSizeScenario.Start(
                     context.gameplayRuntime, *context.navigationProfiles, context.level);
             }
+            else if (command == ScenarioCommand::Reset)
+            {
+                const auto result = impl_->agentSizeScenario.ResetToInitialState(
+                    context.gameplayRuntime, context.level);
+                if (context.physicsWorld != nullptr)
+                {
+                    if (result.smallEntity != rendern::kNullEntity)
+                        (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                            context.gameplayRuntime, *context.physicsWorld, result.smallEntity);
+                    if (result.largeEntity != rendern::kNullEntity)
+                        (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                            context.gameplayRuntime, *context.physicsWorld, result.largeEntity);
+                }
+            }
             break;
 
         default:
@@ -191,6 +222,8 @@ namespace appDevelopment
             view.stopLabel = "Cancel AI Route";
             view.canStart = true;
             view.canStop = true;
+            view.canReset = true;
+            view.resetLabel = "Reset Route";
             view.statuses[0] = {
                 "Route status",
                 ToText(rendern::GetGameplayAIMovementDevelopmentScenarioStatus(
@@ -213,8 +246,10 @@ namespace appDevelopment
             view.title = "CR-445 Navigation Agent Size";
             view.description = "Identical 1.2 m openings; radii 0.2 m and 0.7 m.";
             view.startLabel = "Start Route";
-            view.canStart = true;
-            view.commandsEnabled = gameMode && context.navigationProfiles != nullptr;
+            view.resetLabel = "Reset Scenario";
+            view.canStart = context.navigationProfiles != nullptr;
+            view.canReset = true;
+            view.commandsEnabled = gameMode;
             view.statuses[0] = {"Small NPC", ToText(impl_->agentSizeScenario.GetSmallStatus())};
             view.statuses[1] = {"Large NPC", ToText(impl_->agentSizeScenario.GetLargeStatus())};
             view.statusCount = 2;

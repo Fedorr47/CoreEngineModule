@@ -38,6 +38,22 @@ namespace app::navigationRuntime
         }
         return -1;
     }
+    
+    [[nodiscard]] bool TryGetScenarioNodeTransform(
+        const rendern::LevelAsset& level,
+        const std::string_view nodeName,
+        rendern::Transform& outTransform) noexcept
+    {
+        const int nodeIndex = FindAgentSizeScenarioNode(level, nodeName);
+        if (nodeIndex < 0)
+        {
+            return false;
+        }
+
+        outTransform = level.nodes[static_cast<std::size_t>(nodeIndex)].transform;
+
+        return true;
+    }
 
     [[nodiscard]] rendern::EntityHandle EnsureScenarioAgent(
         rendern::GameplayRuntime& runtime,
@@ -154,6 +170,79 @@ namespace app::navigationRuntime
             break;
         }
     }
+    
+    [[nodiscard]] rendern::EntityHandle ResetScenarioAgent(
+    rendern::GameplayRuntime& runtime,
+    const rendern::EntityHandle entity,
+    const rendern::Transform& canonical) noexcept
+    {
+        rendern::GameplayWorld& world = runtime.GetWorld();
+
+        if (!world.IsEntityValid(entity))
+        {
+            return rendern::kNullEntity;
+        }
+
+        auto* transform = world.TryGetTransform(entity);
+        if (transform == nullptr)
+        {
+            return rendern::kNullEntity;
+        }
+
+        runtime.ClearAIAction(entity);
+
+        transform->position = canonical.position;
+        transform->rotationDegrees = canonical.rotationDegrees;
+        transform->scale = canonical.scale;
+
+        if (auto* intent = world.TryGetInputIntent(entity))
+        {
+            *intent = {};
+        }
+
+        if (auto* command = world.TryGetCharacterCommand(entity))
+        {
+            rendern::ApplyGameplayMovementIntent({}, *command);
+        }
+
+        if (auto* motor = world.TryGetCharacterMotor(entity))
+        {
+            motor->velocity = {};
+            motor->desiredVelocity = {};
+            motor->desiredMoveWorld = {};
+        }
+
+        if (auto* state = world.TryGetCharacterMovementState(entity))
+        {
+            state->grounded = true;
+            state->jumping = false;
+            state->falling = false;
+            state->physicallyBlocked = false;
+            state->physicalBlockedSeconds = 0.0f;
+            state->jumpPhase = rendern::GameplayJumpPhase::None;
+            state->turningInPlace = false;
+
+            state->facingYawDegrees = canonical.rotationDegrees.y;
+            state->desiredFacingYawDegrees = canonical.rotationDegrees.y;
+            state->previousFacingYawDegrees = canonical.rotationDegrees.y;
+            state->cameraFacingYawDegrees = canonical.rotationDegrees.y;
+
+            state->jumpLockedVelocity = {};
+        }
+
+        if (auto* locomotion = world.TryGetLocomotion(entity))
+        {
+            *locomotion = {};
+        }
+
+        return entity;
+    }
+
+    export struct AgentSizeScenarioResetResult
+    {
+        rendern::EntityHandle smallEntity{rendern::kNullEntity};
+        rendern::EntityHandle largeEntity{rendern::kNullEntity};
+    };
 
     export class NavigationAgentSizeDevelopmentScenario
     {
@@ -162,6 +251,12 @@ namespace app::navigationRuntime
         {
             smallEntity_ = rendern::kNullEntity;
             largeEntity_ = rendern::kNullEntity;
+
+            smallInitialTransform_ = {};
+            largeInitialTransform_ = {};
+            hasSmallInitialTransform_ = false;
+            hasLargeInitialTransform_ = false;
+
             ResetExecutionState();
         }
         void ResetExecutionState() noexcept
@@ -171,15 +266,61 @@ namespace app::navigationRuntime
         }
         void Prepare(rendern::GameplayRuntime& runtime, const rendern::GameplayUpdateContext& context)
         {
-            if (context.levelAsset == nullptr || !IsAgentSizeScenario(*context.levelAsset)) return;
-            smallEntity_ = EnsureScenarioAgent(runtime, context, kSmallAgentNodeName, 0.2f);
-            largeEntity_ = EnsureScenarioAgent(runtime, context, kLargeAgentNodeName, 0.7f);
+            if (context.levelAsset == nullptr || !IsAgentSizeScenario(*context.levelAsset))
+            {
+                return;
+            }
+            hasSmallInitialTransform_ = TryGetScenarioNodeTransform(
+                *context.levelAsset,kSmallAgentNodeName,smallInitialTransform_);
+
+            hasLargeInitialTransform_ = TryGetScenarioNodeTransform(
+                *context.levelAsset, kLargeAgentNodeName, largeInitialTransform_);
+
+            smallEntity_ = EnsureScenarioAgent(runtime, context, kSmallAgentNodeName,0.2f);
+
+            largeEntity_ = EnsureScenarioAgent(runtime, context,kLargeAgentNodeName, 0.7f);
         }
         void Start(rendern::GameplayRuntime& runtime, navigation::ProfileRegistry& profiles,
             const rendern::LevelAsset& level)
         {
             smallStatus_ = StartScenarioAgent(runtime, profiles, level, smallEntity_, kSmallTargetNodeName);
             largeStatus_ = StartScenarioAgent(runtime, profiles, level, largeEntity_, kLargeTargetNodeName);
+        }
+        [[nodiscard]] AgentSizeScenarioResetResult ResetToInitialState(
+            rendern::GameplayRuntime& runtime, const rendern::LevelAsset& level) noexcept
+        {
+            if (!IsAgentSizeScenario(level) || !runtime.IsCurrentLevelAsset(level))
+            {
+                return {};
+            }
+
+            const rendern::EntityHandle resetSmall =
+                hasSmallInitialTransform_
+                    ? ResetScenarioAgent(
+                        runtime,
+                        smallEntity_,
+                        smallInitialTransform_)
+                    : rendern::kNullEntity;
+
+            const rendern::EntityHandle resetLarge =
+                hasLargeInitialTransform_
+                    ? ResetScenarioAgent(
+                        runtime,
+                        largeEntity_,
+                        largeInitialTransform_)
+                    : rendern::kNullEntity;
+
+            smallStatus_ =
+                resetSmall != rendern::kNullEntity
+                    ? AgentSizeScenarioStatus::NotStarted
+                    : AgentSizeScenarioStatus::Failed;
+
+            largeStatus_ =
+                resetLarge != rendern::kNullEntity
+                    ? AgentSizeScenarioStatus::NotStarted
+                    : AgentSizeScenarioStatus::Failed;
+
+            return {.smallEntity = resetSmall, .largeEntity = resetLarge};
         }
         void Update(const rendern::GameplayRuntime& runtime) noexcept
         {
@@ -188,9 +329,17 @@ namespace app::navigationRuntime
         }
         [[nodiscard]] AgentSizeScenarioStatus GetSmallStatus() const noexcept { return smallStatus_; }
         [[nodiscard]] AgentSizeScenarioStatus GetLargeStatus() const noexcept { return largeStatus_; }
+        
+        
     private:
         rendern::EntityHandle smallEntity_{rendern::kNullEntity};
         rendern::EntityHandle largeEntity_{rendern::kNullEntity};
+        
+        rendern::Transform smallInitialTransform_{};
+        rendern::Transform largeInitialTransform_{};
+        bool hasSmallInitialTransform_{false};
+        bool hasLargeInitialTransform_{false};
+
         AgentSizeScenarioStatus smallStatus_{AgentSizeScenarioStatus::NotStarted};
         AgentSizeScenarioStatus largeStatus_{AgentSizeScenarioStatus::NotStarted};
     };
