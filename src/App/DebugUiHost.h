@@ -7,6 +7,12 @@ namespace physics
     class JoltPhysicsWorld;
 }
 
+namespace appDevelopment
+{
+    class AppDevelopmentScenarioRuntime;
+    struct ScenarioContext;
+}
+
 namespace appUi
 {
     void InitializeImGui(appWin32::AppShellContext& shell, HWND hwnd, rhi::IRHIDevice& device, rhi::Format backbufferFormat, int backbufferCount);
@@ -23,7 +29,8 @@ namespace appUi
         AssetManager& assets,
         rendern::GameplayRuntimeMode& runtimeMode,
         rendern::GameplayRuntime* gameplayRuntime,
-        physics::JoltPhysicsWorld* physicsWorld);
+        appDevelopment::AppDevelopmentScenarioRuntime* developmentScenarioRuntime,
+        appDevelopment::ScenarioContext* developmentScenarioContext);
 
     rendern::InputCapture GetInputCaptureForImGui(const appWin32::AppShellContext& shell);
     void RenderImGuiToSwapChainIfEnabled(appWin32::AppShellContext& shell, rhi::IRHIDevice& device, rhi::IRHISwapChain& swapChain, const void* imguiDrawData);

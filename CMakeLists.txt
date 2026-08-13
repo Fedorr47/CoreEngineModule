@@ -474,6 +474,7 @@ set(COMMON_MODULES
         Navigation/Navigation.cppm
         App/NavigationDebugDraw.cppm
         App/LevelNavigation.cppm
+        App/NavigationAgentSizeDevelopmentScenario.cppm
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm
@@ -647,6 +648,9 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/Navigation/Recast/Navigation.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
+
+        "${SRC_DIR}/App/Development/AppDevelopmentScenarioRuntime.cpp"
+        
         "${SRC_DIR}/App/AppArguments.cpp"
         "${SRC_DIR}/App/AppBootstrap.cpp"
         "${SRC_DIR}/App/GameplayPhysicsCharacterIntegration.cpp"

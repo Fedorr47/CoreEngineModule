@@ -331,6 +331,13 @@ namespace rendern
         return FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugAgentNodeName).has_value() &&
             FindGameplayAIMovementDevelopmentNodeIndex_(levelAsset, kStepDebugTargetNodeName).has_value();
     }
+    
+    export [[nodiscard]] bool IsGameplayAIMovementDevelopmentScenario(
+        const LevelAsset& levelAsset)
+    {
+        return ResolveGameplayAIMovementDevelopmentScenarioNodes_(levelAsset).has_value();
+    }
+
 
     export [[nodiscard]] AIActionExecutionStatus StartGameplayAIStepDebugRoute(
         GameplayRuntime& runtime,

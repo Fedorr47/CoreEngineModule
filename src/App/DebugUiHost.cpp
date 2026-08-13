@@ -10,6 +10,7 @@ import std;
 #endif
 
 #include "DebugUiHost.h"
+#include "Development/AppDevelopmentScenarioRuntime.h"
 #include "GameplayPhysicsCharacterIntegration.h"
 
 #if defined(CORE_USE_DX12)
@@ -51,135 +52,55 @@ namespace appUi
         shell.imguiInitialized = false;
     }
     
-    [[nodiscard]] const char* ToAIActionExecutionStatusText(
-            const rendern::AIActionExecutionStatus status) noexcept
+    void DrawDevelopmentScenarioControls(
+        appDevelopment::AppDevelopmentScenarioRuntime& runtime,
+        appDevelopment::ScenarioContext& context)
     {
-        switch (status)
+        const appDevelopment::ScenarioView view = runtime.GetView(context);
+        if (!view.active)
         {
-        case rendern::AIActionExecutionStatus::Running:
-            return "Running";
-
-        case rendern::AIActionExecutionStatus::Succeeded:
-            return "Succeeded";
-
-        case rendern::AIActionExecutionStatus::Failed:
-            return "Failed";
-
-        case rendern::AIActionExecutionStatus::Cancelled:
-            return "Cancelled";
-
-        case rendern::AIActionExecutionStatus::NotStarted:
-        default:
-            return "NotStarted";
-        }
-    }
-    
-    void DrawGameplayAIMovementDevelopmentControls(
-            rendern::GameplayRuntime& gameplayRuntime,
-            rendern::LevelAsset& level,
-            rendern::LevelInstance& levelInstance,
-            rendern::Scene& scene,
-            physics::JoltPhysicsWorld* physicsWorld)
-    {
-        ImGui::SeparatorText("AI Movement");
-
-        const rendern::GameplayRuntimeMode currentMode =
-            gameplayRuntime.GetCurrentMode();
-
-        const bool bIsGameMode =
-            currentMode ==
-            rendern::GameplayRuntimeMode::Game;
-        
-        if (rendern::IsGameplayAIStepDebugScenario(level))
-        {
-            ImGui::TextUnformatted("AI Physics Step-Up Debug");
-            ImGui::BeginDisabled(!bIsGameMode);
-            if (ImGui::Button("Start Route"))
-            {
-                rendern::GameplayUpdateContext context{};
-                context.mode = currentMode;
-                context.levelAsset = &level;
-                context.levelInstance = &levelInstance;
-                context.scene = &scene;
-                (void)rendern::StartGameplayAIStepDebugRoute(gameplayRuntime, context);
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Reset NPC"))
-            {
-                const rendern::EntityHandle entity =
-                    rendern::ResetGameplayAIStepDebugNPC(gameplayRuntime, level);
-                if (physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        gameplayRuntime, *physicsWorld, entity);
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Stop Route"))
-            {
-                rendern::CancelGameplayAIStepDebugRoute(gameplayRuntime, level);
-            }
-            ImGui::EndDisabled();
-            if (!bIsGameMode)
-            {
-                ImGui::TextDisabled("Enter Game mode to control the route.");
-            }
             return;
         }
-
-        ImGui::Text(
-            "Actual runtime mode: %s",
-            bIsGameMode
-                ? "Game"
-                : "Editor");
-
-        const rendern::AIActionExecutionStatus actionStatus =
-            rendern::
-                GetGameplayAIMovementDevelopmentScenarioStatus(
-                    gameplayRuntime,
-                    level);
-
-        ImGui::Text(
-            "Route status: %s",
-            ToAIActionExecutionStatusText(actionStatus));
-
-        ImGui::BeginDisabled(!bIsGameMode);
-
-        if (ImGui::Button("Start / Restart AI Route"))
+    
+        ImGui::SeparatorText("Development Scenario");
+        ImGui::TextUnformatted(view.title);
+        if (view.description[0] != '\0')
         {
-            rendern::GameplayUpdateContext context{};
-            context.mode = currentMode;
-            context.levelAsset = &level;
-            context.levelInstance = &levelInstance;
-            context.scene = &scene;
-
-            (void)rendern::
-                StartGameplayAIMovementDevelopmentScenario(
-                    gameplayRuntime,
-                    context);
+            ImGui::TextUnformatted(view.description);
         }
 
-        ImGui::SameLine();
-
-        if (ImGui::Button("Cancel AI Route"))
+        for (std::size_t index = 0; index < view.statusCount; ++index)
         {
-            rendern::
-                CancelGameplayAIMovementDevelopmentScenario(
-                    gameplayRuntime,
-                    level);
+            ImGui::Text(
+            "%s: %s",
+                view.statuses[index].label,
+                view.statuses[index].value);
         }
 
+        ImGui::BeginDisabled(!view.commandsEnabled);
+        if (view.canStart && ImGui::Button(view.startLabel))
+        {
+            runtime.Execute(appDevelopment::ScenarioCommand::Start, context);
+        }
+        if (view.canReset)
+        {
+            if (view.canStart) ImGui::SameLine();
+            if (ImGui::Button(view.resetLabel))
+                runtime.Execute(appDevelopment::ScenarioCommand::Reset, context);
+        }
+        if (view.canStop)
+        {
+            if (view.canStart || view.canReset) ImGui::SameLine();
+            if (ImGui::Button(view.stopLabel))
+                runtime.Execute(appDevelopment::ScenarioCommand::Stop, context);
+        }
+        
         ImGui::EndDisabled();
 
-        if (!bIsGameMode)
+        if (!view.commandsEnabled && context.gameplayMode != rendern::GameplayRuntimeMode::Game)
         {
-            ImGui::TextDisabled(
-                "Enter Game mode to control the route.");
+            ImGui::TextDisabled("Enter Game mode to control the scenario.");
         }
-
-        ImGui::TextUnformatted(
-            "Scenario nodes: AI_Move_Agent and at least two "
-            "AI_Move_Point_<number> nodes.");
     }
 
     const void* BuildImGuiFrameIfEnabled(
@@ -193,7 +114,8 @@ namespace appUi
         AssetManager& assets,
         rendern::GameplayRuntimeMode& runtimeMode,
         rendern::GameplayRuntime* gameplayRuntime,
-        physics::JoltPhysicsWorld* physicsWorld)
+        appDevelopment::AppDevelopmentScenarioRuntime* developmentScenarioRuntime,
+        appDevelopment::ScenarioContext* developmentScenarioContext)
     {
         if (!shell.imguiInitialized || !shell.showDebugWindow || !shell.debugWindow || !shell.debugWindow->hwnd)
         {
@@ -230,14 +152,10 @@ namespace appUi
             shell.requestedGameplayModeToggle = true;
         }
 
-        if (gameplayRuntime != nullptr)
+        if (developmentScenarioRuntime != nullptr && developmentScenarioContext != nullptr)
         {
-            DrawGameplayAIMovementDevelopmentControls(
-                *gameplayRuntime,
-                levelAsset,
-                levelInstance,
-                scene,
-                physicsWorld);
+            DrawDevelopmentScenarioControls(
+                *developmentScenarioRuntime, *developmentScenarioContext);
         }
 
         ImGui::End();
@@ -330,7 +248,8 @@ namespace appUi
         AssetManager&,
         rendern::GameplayRuntimeMode&,
         rendern::GameplayRuntime*,
-        physics::JoltPhysicsWorld*)
+        appDevelopment::AppDevelopmentScenarioRuntime*,
+        appDevelopment::ScenarioContext*)
     {
         return nullptr;
     }

@@ -8,6 +8,7 @@
 #include "EditorViewportInteraction.h"
 #include "AppRuntimeHelpers.h"
 #include "AppBootstrap.h"
+#include "Development/AppDevelopmentScenarioRuntime.h"
 
 namespace physics
 {
@@ -174,6 +175,7 @@ namespace appLifecycle
         AppContentState     contentState{};
         AppPhysicsState     physicsState{};
         AppRuntimeState     runtimeState{};
+        appDevelopment::AppDevelopmentScenarioRuntime developmentScenarioRuntime{};
         AppFrameState       frameState{};
         bool initialized = false;
         

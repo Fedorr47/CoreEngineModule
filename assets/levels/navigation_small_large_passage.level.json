@@ -1,0 +1,32 @@
+{
+  "name": "NavigationSmallLargePassage",
+  "meshes": { "cube": { "path": "models/cube.obj", "debugName": "CR-445 Passage Geometry" } },
+  "models": {},
+  "skinnedMeshes": { "character": { "path": "models/Character.fbx", "flipUVs": true, "debugName": "CR-445 NPC" } },
+  "animations": {}, "animationControllers": {}, "textures": {},
+  "materials": {
+    "observer": { "baseColor": [0.08, 0.1, 0.12, 1.0], "roughness": 0.9, "flags": ["useShadow", "skinning"], "textures": {} },
+    "smallNpc": { "baseColor": [0.1, 0.75, 0.25, 1.0], "roughness": 0.7, "flags": ["useShadow", "skinning"], "textures": {} },
+    "largeNpc": { "baseColor": [0.9, 0.25, 0.12, 1.0], "roughness": 0.7, "flags": ["useShadow", "skinning"], "textures": {} },
+    "floor": { "baseColor": [0.22, 0.26, 0.31, 1.0], "roughness": 0.95, "flags": ["useShadow"], "textures": {} },
+    "wall": { "baseColor": [0.65, 0.68, 0.72, 1.0], "roughness": 0.85, "flags": ["useShadow"], "textures": {} },
+    "smallTarget": { "baseColor": [0.1, 0.9, 0.35, 1.0], "roughness": 0.6, "flags": ["useShadow"], "textures": {} },
+    "largeTarget": { "baseColor": [1.0, 0.35, 0.12, 1.0], "roughness": 0.6, "flags": ["useShadow"], "textures": {} }
+  },
+  "camera": { "position": [15.0, 17.0, -16.0], "target": [0.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "fovYDeg": 52.0, "nearZ": 0.1, "farZ": 120.0 },
+  "lights": [{ "type": "directional", "direction": [-0.35, -1.0, 0.25], "color": [1.0, 1.0, 1.0], "intensity": 3.0 }],
+  "particleEmitters": [], "skybox": null,
+  "nodes": [
+    { "name": "ScenarioObserver_Player", "parent": -1, "visible": true, "alive": true, "skinnedMesh": "character", "material": "observer", "transform": { "position": [0.0, 0.0, -7.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.005, 0.005, 0.005] } },
+    { "name": "SMALL NPC", "parent": -1, "visible": true, "alive": true, "skinnedMesh": "character", "material": "smallNpc", "transform": { "position": [-4.0, 0.0, -5.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.01, 0.01, 0.01] } },
+    { "name": "LARGE NPC", "parent": -1, "visible": true, "alive": true, "skinnedMesh": "character", "material": "largeNpc", "transform": { "position": [4.0, 0.0, -5.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.015, 0.015, 0.015] } },
+    { "name": "Floor", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "floor", "transform": { "position": [0.0, -0.25, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [24.0, 0.5, 18.0] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [12.0, 0.25, 9.0] }, "material": { "friction": 0.9, "restitution": 0.0 }, "surfaceId": 50 } },
+    { "name": "Wall_Left", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "wall", "transform": { "position": [-8.15, 1.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [7.1, 3.0, 0.6] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.55, 1.5, 0.3] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 51 } },
+    { "name": "Wall_Middle", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "wall", "transform": { "position": [0.0, 1.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [6.8, 3.0, 0.6] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.4, 1.5, 0.3] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 52 } },
+    { "name": "Wall_Right", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "wall", "transform": { "position": [8.15, 1.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [7.1, 3.0, 0.6] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [3.55, 1.5, 0.3] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 53 } },
+    { "name": "Boundary_Left", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "wall", "transform": { "position": [-11.75, 1.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.5, 3.0, 18.0] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [0.25, 1.5, 9.0] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 54 } },
+    { "name": "Boundary_Right", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "wall", "transform": { "position": [11.75, 1.5, 0.0], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.5, 3.0, 18.0] }, "physicsBody": { "motionType": "static", "shape": { "type": "box", "halfExtents": [0.25, 1.5, 9.0] }, "material": { "friction": 0.8, "restitution": 0.0 }, "surfaceId": 55 } },
+    { "name": "SMALL TARGET", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "smallTarget", "transform": { "position": [-4.0, 0.15, 5.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.35, 0.3, 0.35] } },
+    { "name": "LARGE TARGET", "parent": -1, "visible": true, "alive": true, "mesh": "cube", "material": "largeTarget", "transform": { "position": [4.0, 0.15, 5.5], "rotationDegrees": [0.0, 0.0, 0.0], "scale": [0.35, 0.3, 0.35] } }
+  ]
+}

@@ -473,6 +473,11 @@ namespace appLifecycle
         runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
         runtimeState.gameplayRuntime->Initialize(
             *contentState.levelAsset, *runtimeState.levelInstance, runtimeState.scene);
+        appDevelopment::ScenarioContext developmentContext{
+            *runtimeState.gameplayRuntime, *contentState.levelAsset,
+            *runtimeState.levelInstance, runtimeState.scene, runtimeState.gameplayMode,
+            physicsState.joltPhysicsWorld.get(), runtimeState.navigationProfiles.get()};
+        app.developmentScenarioRuntime.OnLevelLoaded(developmentContext);
 
         runtimeState.cameraController = std::make_unique<rendern::CameraController>();
         runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
@@ -651,6 +656,11 @@ namespace appLifecycle
                 *contentState.levelAsset,
                 *runtimeState.levelInstance,
                 runtimeState.scene);
+            appDevelopment::ScenarioContext developmentContext{
+                *runtimeState.gameplayRuntime, *contentState.levelAsset,
+                *runtimeState.levelInstance, runtimeState.scene, runtimeState.gameplayMode,
+                app.physicsState.joltPhysicsWorld.get(), runtimeState.navigationProfiles.get()};
+            app.developmentScenarioRuntime.OnLevelLoaded(developmentContext);
 
             runtimeState.cameraController->ResetFromCamera(runtimeState.scene.camera);
             
@@ -744,6 +754,11 @@ namespace appLifecycle
             runtimeState.scene, 
             app.config.uploadBudget);
         UpdateNavigationRuntime(app);
+        appDevelopment::ScenarioContext developmentContext{
+            *runtimeState.gameplayRuntime, *contentState.levelAsset,
+            *runtimeState.levelInstance, runtimeState.scene, runtimeState.gameplayMode,
+            app.physicsState.joltPhysicsWorld.get(), runtimeState.navigationProfiles.get()};
+        app.developmentScenarioRuntime.Update(developmentContext);
         const auto streamingEnd = Clock::now();
         
         const auto timingStart = Clock::now();
@@ -777,7 +792,8 @@ namespace appLifecycle
            *contentState.assets,
            runtimeState.gameplayMode,
            runtimeState.gameplayRuntime.get(),
-           app.physicsState.joltPhysicsWorld.get());
+           &app.developmentScenarioRuntime,
+           &developmentContext);
         const auto imguiEnd = Clock::now();
 
         const auto mainRenderStart = Clock::now();
@@ -864,6 +880,7 @@ namespace appLifecycle
 
     void ShutdownApp(AppState& app)
     {
+        app.developmentScenarioRuntime.Reset();
         CORE_ASSERT_MAIN_THREAD();
 
         if (!app.initialized)
