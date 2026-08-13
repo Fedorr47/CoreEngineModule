@@ -8,13 +8,21 @@ option(ENABLE_IMPORT_STD "Enable CMake experimental support for `import std;`" O
 
 if(ENABLE_IMPORT_STD)
   set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
-          "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
+          "f35a9ac6-8463-4d38-8eec-5d6008153e7d")
 endif()
 
 # Modules dyn-deps (needed for correct build order with Ninja/MSVC)
 set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP 1)
 
 project(CoreEngineModule LANGUAGES C CXX)
+
+message(STATUS "CMake version     = ${CMAKE_VERSION}")
+message(STATUS "Generator         = ${CMAKE_GENERATOR}")
+message(STATUS "CXX compiler      = ${CMAKE_CXX_COMPILER}")
+message(STATUS "CXX compiler ID   = ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "CXX compiler ver  = ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "MSVC toolset      = ${MSVC_TOOLSET_VERSION}")
+message(STATUS "IMPORT_STD        = ${CMAKE_CXX_COMPILER_IMPORT_STD}")
 
 include(FetchContent)
 
@@ -191,6 +199,23 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(JoltPhysics)
+
+
+# Pin the upstream release and disable its demo, tests, and examples.
+set(RECASTNAVIGATION_DEMO OFF CACHE BOOL "" FORCE)
+set(RECASTNAVIGATION_TESTS OFF CACHE BOOL "" FORCE)
+set(RECASTNAVIGATION_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(RecastNavigation
+        GIT_REPOSITORY https://github.com/recastnavigation/recastnavigation.git
+        GIT_TAG        v1.6.0
+        GIT_SHALLOW    TRUE)
+
+block()
+  # RecastNavigation v1.6.0 declares CMake 3.1.
+  # CMake 4.x no longer supports policy compatibility below 3.5.
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  FetchContent_MakeAvailable(RecastNavigation)
+endblock()
 
 if(TARGET Jolt AND NOT TARGET Jolt::Jolt)
   add_library(Jolt::Jolt ALIAS Jolt)
@@ -446,6 +471,10 @@ set(COMMON_MODULES
         Physics/Jolt/JoltBodyRegistry.cppm
         Physics/Jolt/JoltCharacterRegistry.cppm
 
+        Navigation/Navigation.cppm
+        App/NavigationDebugDraw.cppm
+        App/LevelNavigation.cppm
+
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm
         Core/IO/FileUtils.cppm
@@ -615,6 +644,7 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/Physics/Jolt/JoltCollisionLayers.cpp"
         "${SRC_DIR}/Physics/Jolt/JoltPhysicsWorld.cpp"
         "${SRC_DIR}/Physics/LevelPhysicsRuntime.cpp"
+        "${SRC_DIR}/Navigation/Recast/Navigation.cpp"
         "${SRC_DIR}/App/Win32AppShell.cpp"
         "${SRC_DIR}/App/DebugUiHost.cpp"
         "${SRC_DIR}/App/AppArguments.cpp"
@@ -631,6 +661,9 @@ target_link_libraries(CoreEngineModuleLib
 
         PRIVATE
         Jolt::Jolt
+        Recast
+        Detour
+        DebugUtils
 )
 
 # GL-only deps (link AFTER CoreEngineModuleLib exists)

@@ -68,6 +68,10 @@ TEST_F(MeshStorageTest, LoadAsyncSuccessfulMeshTransitionsToLoaded)
 	EXPECT_EQ(uploader.uploadedCpu.front().indices.size(), 3u);
 	EXPECT_NE(mesh->GetResource().vertexBuffer.id, 0u);
 	EXPECT_NE(mesh->GetResource().indexBuffer.id, 0u);
+	const auto cpu = mesh->GetCpuGeometry();
+	ASSERT_TRUE(cpu);
+	EXPECT_EQ(cpu->vertices.size(), uploader.uploadedCpu.front().vertices.size());
+	EXPECT_EQ(cpu->indices, uploader.uploadedCpu.front().indices);
 }
 
 TEST_F(MeshStorageTest, DecodeFailureTransitionsToFailedWithoutUpload)
@@ -83,6 +87,7 @@ TEST_F(MeshStorageTest, DecodeFailureTransitionsToFailedWithoutUpload)
 	EXPECT_EQ(loader.callCount, 1u);
 	EXPECT_EQ(uploader.uploadCount, 0u);
 	EXPECT_TRUE(uploader.destroyedMeshes.empty());
+	EXPECT_FALSE(mesh->GetCpuGeometry());
 }
 
 TEST_F(MeshStorageTest, UploadFailureTransitionsToFailedAndDoesNotLeak)
@@ -99,6 +104,7 @@ TEST_F(MeshStorageTest, UploadFailureTransitionsToFailedAndDoesNotLeak)
 	EXPECT_EQ(mesh->GetResource().vertexBuffer.id, 0u);
 	EXPECT_EQ(mesh->GetResource().indexBuffer.id, 0u);
 	EXPECT_TRUE(uploader.destroyedMeshes.empty());
+	EXPECT_FALSE(mesh->GetCpuGeometry());
 }
 
 TEST_F(MeshStorageTest, RetryAfterFailureRestartsAndLoadsSuccessfully)
@@ -109,16 +115,39 @@ TEST_F(MeshStorageTest, RetryAfterFailureRestartsAndLoadsSuccessfully)
 	ASSERT_TRUE(first);
 	DrainAsyncPipeline();
 	EXPECT_EQ(manager.GetState<rendern::MeshResource>("mesh_retry"), ResourceState::Failed);
+	first->SetCpuGeometry(std::make_shared<rendern::MeshCPU>());
 
 	loader.succeed = true;
 	auto second = manager.LoadAsync<rendern::MeshResource>("mesh_retry", io, MakeProperties());
 	ASSERT_TRUE(second);
 	EXPECT_EQ(first.get(), second.get());
 	EXPECT_EQ(manager.GetState<rendern::MeshResource>("mesh_retry"), ResourceState::Loading);
+	EXPECT_FALSE(second->GetCpuGeometry());
 
 	DrainAsyncPipeline();
 	EXPECT_EQ(manager.GetState<rendern::MeshResource>("mesh_retry"), ResourceState::Loaded);
 	EXPECT_EQ(uploader.uploadCount, 1u);
+	EXPECT_TRUE(second->GetCpuGeometry());
+}
+
+TEST_F(MeshStorageTest, StaleUploadCannotPublishCpuGeometryToReplacementGeneration)
+{
+	auto io = MakeIO();
+	auto old = manager.LoadAsync<rendern::MeshResource>("mesh_generation", io, MakeProperties());
+	jobSystem.Drain();
+	manager.ProcessUploads<rendern::MeshResource>(io, 64, 64);
+	ASSERT_EQ(renderQueue.jobs.size(), 1u);
+
+	manager.Clear<rendern::MeshResource>();
+	auto replacement = manager.LoadAsync<rendern::MeshResource>("mesh_generation", io, MakeProperties());
+	ASSERT_NE(old.get(), replacement.get());
+	renderQueue.Drain();
+	EXPECT_EQ(manager.GetState<rendern::MeshResource>("mesh_generation"), ResourceState::Loading);
+	EXPECT_FALSE(replacement->GetCpuGeometry());
+
+	DrainAsyncPipeline();
+	EXPECT_EQ(manager.GetState<rendern::MeshResource>("mesh_generation"), ResourceState::Loaded);
+	EXPECT_TRUE(replacement->GetCpuGeometry());
 }
 
 TEST_F(MeshStorageTest, DuplicateInFlightRequestReusesSingleLoadOperation)

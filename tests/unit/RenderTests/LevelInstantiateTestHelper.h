@@ -30,6 +30,11 @@ namespace rendern::test
         {
             return InstantiateLevel(scene_, assets_, bindless_, level, mathUtils::Mat4(1.0f));
         }
+        
+        [[nodiscard]] const Scene& GetScene() const noexcept
+        {
+            return scene_;
+        }
 
         [[nodiscard]] std::string InstantiateAndCaptureRuntimeError(const LevelAsset& level)
         {

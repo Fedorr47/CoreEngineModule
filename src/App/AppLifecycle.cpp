@@ -255,6 +255,58 @@ namespace appLifecycle
             runtimeState.scene.animationRuntimeDebug.samples.push_back(std::move(sample));
         }
     }
+    
+    static void UpdateNavigationRuntime(AppState& app)
+	{
+		auto& runtime = app.runtimeState;
+		if (runtime.navigationState == AppRuntimeState::NavigationState::Pending)
+		{
+			const app::navigationRuntime::GeometryResult geometry =
+				app::navigationRuntime::BuildLevelNavigationGeometry(*runtime.levelInstance);
+			if (geometry.status == app::navigationRuntime::GeometryStatus::WaitingForMeshes)
+			{
+				if (!runtime.navigationWaitingLogged)
+				{
+					std::cerr << "[Navigation] Waiting for mesh CPU geometry.\n";
+					runtime.navigationWaitingLogged = true;
+				}
+			}
+			else if (geometry.status == app::navigationRuntime::GeometryStatus::Ready)
+			{
+				auto world = std::make_unique<navigation::World>();
+				const navigation::BuildStatus status = world->Build(geometry.geometry, runtime.navigationBuildSettings);
+				if (status == navigation::BuildStatus::Succeeded)
+				{
+					runtime.navigationWorld = std::move(world);
+					runtime.navigationDebugGeometry = runtime.navigationWorld->BuildDebugGeometry();
+					runtime.navigationState = AppRuntimeState::NavigationState::Ready;
+					std::cerr << "[Navigation] Build succeeded: " << geometry.sourceMeshCount
+						<< " meshes, " << geometry.geometry.vertices.size() << " vertices, "
+						<< geometry.geometry.indices.size() / 3 << " triangles.\n";
+				}
+				else
+				{
+					runtime.navigationState = AppRuntimeState::NavigationState::Failed;
+					runtime.navigationDebugGeometry = {};
+					std::cerr << "[Navigation] Build failed with status " << static_cast<int>(status) << ".\n";
+				}
+			}
+			else
+			{
+				runtime.navigationState = AppRuntimeState::NavigationState::Failed;
+				runtime.navigationDebugGeometry = {};
+				std::cerr << "[Navigation] Build failed: invalid static mesh geometry.\n";
+			}
+		}
+
+		runtime.scene.externalDebugLines.clear();
+		if (app.graphicsState.rendererSettings.drawNavigationMesh
+			&& runtime.navigationState == AppRuntimeState::NavigationState::Ready
+			&& runtime.navigationWorld)
+		{
+			app::debugDraw::SetNavigationGeometry(runtime.navigationDebugGeometry, runtime.scene);
+		}
+	}
 
     void InitializeApp(AppState& app, int argc, char** argv)
     {
@@ -386,6 +438,7 @@ namespace appLifecycle
             *graphicState.bindless,
             *contentState.levelAsset,
             mathUtils::Mat4(1.0f)));
+        runtimeState.navigationState = AppRuntimeState::NavigationState::Pending;
 
         runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
         runtimeState.gameplayRuntime->Initialize(
@@ -551,6 +604,10 @@ namespace appLifecycle
             }
 
             runtimeState.scene = std::move(candidateScene);
+            runtimeState.navigationWorld.reset();
+            runtimeState.navigationDebugGeometry = {};
+            runtimeState.navigationState = AppRuntimeState::NavigationState::Pending;
+            runtimeState.navigationWaitingLogged = false;
             contentState.levelAsset = std::move(candidateLevel);
             runtimeState.levelInstance = std::move(candidateLevelInstance);
             
@@ -656,6 +713,7 @@ namespace appLifecycle
             *graphicState.bindless, 
             runtimeState.scene, 
             app.config.uploadBudget);
+        UpdateNavigationRuntime(app);
         const auto streamingEnd = Clock::now();
         
         const auto timingStart = Clock::now();
@@ -828,6 +886,8 @@ namespace appLifecycle
             runtimeState.gameplayRuntime->Shutdown();
         }
         runtimeState.gameplayRuntime.reset();
+        runtimeState.navigationWorld.reset();
+        runtimeState.navigationDebugGeometry = {};
         runtimeState.levelInstance.reset();
         runtimeState.cameraController.reset();
         physicsState.Shutdown();

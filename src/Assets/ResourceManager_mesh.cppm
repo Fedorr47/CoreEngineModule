@@ -16,6 +16,7 @@ module;
 #include <functional>
 #include <algorithm>
 #include <cctype>
+#include <atomic>
 
 export module core:resource_manager_mesh;
 
@@ -76,8 +77,12 @@ export namespace rendern
 		const Properties& GetProperties() const noexcept { return properties_; }
 		const MeshRHI& GetResource() const noexcept { return resource_; }
 		const MeshBounds& GetBounds() const noexcept { return bounds_; }
+		[[nodiscard]] std::shared_ptr<const MeshCPU> GetCpuGeometry() const noexcept { return cpuGeometry_; }
+		[[nodiscard]] ResourceState GetLoadState() const noexcept { return loadState_.load(std::memory_order_acquire); }
 
 		void SetBounds(const MeshBounds& b) noexcept { bounds_ = b; }
+		void SetCpuGeometry(std::shared_ptr<const MeshCPU> geometry) noexcept { cpuGeometry_ = std::move(geometry); }
+		void SetLoadState(ResourceState state) noexcept { loadState_.store(state, std::memory_order_release); }
 
 		template <typename PropertiesType>
 			requires std::same_as<std::remove_cvref_t<PropertiesType>, Properties>
@@ -98,6 +103,8 @@ export namespace rendern
 		MeshRHI resource_{};
 		Properties properties_{};
 		MeshBounds bounds_{};
+		std::shared_ptr<const MeshCPU> cpuGeometry_{};
+		std::atomic<ResourceState> loadState_{ ResourceState::Unloaded };
 	};
 
 	export struct MeshIO
@@ -214,9 +221,11 @@ public:
 
 				// Restart failed load.
 				existing.state = ResourceState::Loading;
+				handle->SetLoadState(ResourceState::Loading);
 				existing.error.clear();
 				existing.pendingCpu.reset();
-				++existing.generation;
+				handle->SetCpuGeometry({});
+				existing.generation = nextGeneration_++;
 				generation = existing.generation;
 				handle->SetProperties(std::forward<PropertiesType>(properties));
 			}
@@ -225,7 +234,8 @@ public:
 				MeshEntry entry{};
 				entry.meshHandle = std::make_shared<Resource>(std::forward<PropertiesType>(properties));
 				entry.state = ResourceState::Loading;
-				entry.generation = 1;
+				entry.meshHandle->SetLoadState(ResourceState::Loading);
+				entry.generation = nextGeneration_++;
 				handle = entry.meshHandle;
 				generation = entry.generation;
 				entries_.emplace(stableKey, std::move(entry));
@@ -298,6 +308,7 @@ public:
 				if (!cpuOpt)
 				{
 					entry.state = ResourceState::Failed;
+					entry.meshHandle->SetLoadState(ResourceState::Failed);
 					entry.error = std::move(error);
 					return;
 				}
@@ -360,6 +371,8 @@ public:
 		std::scoped_lock lock(mutex_);
 		for (auto& [id, entry] : entries_)
 		{
+			entry.meshHandle->SetCpuGeometry({});
+			entry.meshHandle->SetLoadState(ResourceState::Unloaded);
 			if (entry.state == ResourceState::Loaded)
 			{
 				MeshRHI old = entry.meshHandle->ReplaceResource(MeshRHI{});
@@ -526,6 +539,7 @@ public:
 						if (it != entries_.end() && it->second.generation == generation)
 						{
 							it->second.state = ResourceState::Failed;
+							it->second.meshHandle->SetLoadState(ResourceState::Failed);
 							it->second.error = e.what();
 						}
 						return;
@@ -537,6 +551,7 @@ public:
 						if (it != entries_.end() && it->second.generation == generation)
 						{
 							it->second.state = ResourceState::Failed;
+							it->second.meshHandle->SetLoadState(ResourceState::Failed);
 							it->second.error = "Unknown GPU upload error";
 						}
 						return;
@@ -560,6 +575,7 @@ public:
 
 					MeshEntry& entry = it->second;
 					entry.meshHandle->SetBounds(bounds);
+					entry.meshHandle->SetCpuGeometry(cpuPtr);
 					MeshRHI old = entry.meshHandle->ReplaceResource(std::move(gpu));
 					if (old.vertexBuffer.id != 0 || old.indexBuffer.id != 0)
 					{
@@ -573,6 +589,7 @@ public:
 						}
 					}
 					entry.state = ResourceState::Loaded;
+					entry.meshHandle->SetLoadState(ResourceState::Loaded);
 					entry.error.clear();
 				});
 
@@ -594,4 +611,5 @@ private:
 	std::unordered_map<Id, MeshEntry> entries_;
 	std::deque<MeshUploadTicket> uploadQueue_;
 	std::deque<MeshRHI> destroyQueue_;
+	std::uint64_t nextGeneration_{ 1 };
 };

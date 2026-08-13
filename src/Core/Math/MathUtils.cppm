@@ -777,4 +777,17 @@ export namespace mathUtils
 			lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w,
 			lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z));
 	}
+	
+	bool TryConvertToInt(const float value, int& result)
+	{
+		if (!std::isfinite(value) ||
+			static_cast<double>(value) < static_cast<double>(std::numeric_limits<int>::lowest()) ||
+			static_cast<double>(value) > static_cast<double>(std::numeric_limits<int>::max()))
+		{
+			return false;
+		}
+
+		result = static_cast<int>(value);
+		return true;
+	}
 }

@@ -16,6 +16,13 @@ namespace physics
     class LevelPhysicsRuntime;
 }
 
+namespace navigation
+{
+    class World; 
+    struct BuildSettings; 
+    struct DebugGeometry;
+}
+
 namespace appLifecycle
 {
     constexpr std::string_view DefaultStartupLevelName = "levels/demo.level.with_fsm_test.locomotion.phaseB.json";
@@ -94,10 +101,21 @@ namespace appLifecycle
     
     struct AppRuntimeState
     {
+        enum class NavigationState
+        {
+            Pending, 
+            Ready, 
+            Failed
+        };
         rendern::Scene scene{};
         std::unique_ptr<rendern::LevelInstance> levelInstance;
         std::unique_ptr<rendern::GameplayRuntime> gameplayRuntime;
         std::unique_ptr<rendern::CameraController> cameraController;
+        std::unique_ptr<navigation::World> navigationWorld;
+        navigation::BuildSettings navigationBuildSettings{};
+        navigation::DebugGeometry navigationDebugGeometry{};
+        NavigationState navigationState{ NavigationState::Pending };
+        bool navigationWaitingLogged{ false };
         appEditor::EditorViewportInteraction editorViewportInteraction{};
         rendern::GameplayRuntimeMode gameplayMode{ rendern::GameplayRuntimeMode::Editor };
     };

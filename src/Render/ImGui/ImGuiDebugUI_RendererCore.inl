@@ -374,6 +374,7 @@ namespace rendern::ui
             ApplyDebugDrawSettingsViewModel(rs, scene, editedDebugDrawSettings);
         }
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
+        ImGui::Checkbox("Navigation Mesh", &rs.drawNavigationMesh);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
         ImGui::Checkbox("Log CPU frame timings", &rs.logCpuFrameTimings);
         ImGui::Checkbox("VSync", &rs.enableVSync);

@@ -97,6 +97,20 @@ struct LevelNode
 	std::optional<LevelPhysicsBodyDef> physicsBody;
 };
 
+[[nodiscard]] bool IsStaticNavigationGeometry(const LevelNode& node) noexcept
+{
+	if (!node.alive)
+	{
+		return false;
+	}
+	if (node.physicsBody.has_value()
+		&& node.physicsBody->motionType != physics::PhysicsMotionType::Static)
+	{
+		return false;
+	}
+	return true;
+}
+
 struct LevelAsset
 {
 	std::string name;
@@ -119,6 +133,13 @@ struct LevelAsset
 	std::optional<std::string> skyboxTexture; // textureId
 
 	std::vector<LevelNode> nodes;
+};
+
+struct LevelStaticMeshSource
+{
+	MeshHandle mesh;
+	mathUtils::Mat4 world{ 1.0f };
+	int nodeIndex{ -1 };
 };
 
 // -----------------------------
