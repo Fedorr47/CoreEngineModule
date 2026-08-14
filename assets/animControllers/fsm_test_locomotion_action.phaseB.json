@@ -151,9 +151,19 @@
         "attack"
       ]
     },
-    "Jump": {
+    "JumpIdle": {
       "clip": "",
       "clipSourceAssetId": "jump",
+      "loop": false,
+      "playRate": 1.0,
+      "tags": [
+        "airborne",
+        "jump"
+      ]
+    },
+    "JumpMoving": {
+      "clip": "",
+      "clipSourceAssetId": "running_jump",
       "loop": false,
       "playRate": 1.0,
       "tags": [
@@ -213,7 +223,7 @@
     },
     {
       "from": "Idle",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -237,7 +247,7 @@
     },
     {
       "from": "IdleRelaxed",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -261,7 +271,7 @@
     },
     {
       "from": "LocomotionWalk",
-      "to": "Jump",
+      "to": "JumpMoving",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -285,7 +295,7 @@
     },
     {
       "from": "LocomotionRun",
-      "to": "Jump",
+      "to": "JumpMoving",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -309,7 +319,7 @@
     },
     {
       "from": "TurnLeftStart",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -333,7 +343,7 @@
     },
     {
       "from": "TurnLeft90",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -357,7 +367,7 @@
     },
     {
       "from": "TurnRightStart",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -381,7 +391,7 @@
     },
     {
       "from": "TurnRight90",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
@@ -731,7 +741,7 @@
       ]
     },
     {
-      "from": "Jump",
+      "from": "JumpIdle",
       "to": "LocomotionRun",
       "blendDuration": 0.1,
       "conditions": [
@@ -751,7 +761,27 @@
       "priority": 20
     },
     {
-      "from": "Jump",
+      "from": "JumpMoving",
+      "to": "LocomotionRun",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "true"
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ],
+      "priority": 20
+    },
+    {
+      "from": "JumpIdle",
       "to": "LocomotionWalk",
       "blendDuration": 0.1,
       "conditions": [
@@ -771,7 +801,42 @@
       "priority": 10
     },
     {
-      "from": "Jump",
+      "from": "JumpMoving",
+      "to": "LocomotionWalk",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "true"
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ],
+      "priority": 10
+    },
+    {
+      "from": "JumpIdle",
+      "to": "IdleRelaxed",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "false"
+        }
+      ]
+    },
+    {
+      "from": "JumpMoving",
       "to": "IdleRelaxed",
       "blendDuration": 0.1,
       "conditions": [

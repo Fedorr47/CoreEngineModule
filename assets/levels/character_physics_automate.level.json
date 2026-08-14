@@ -30,6 +30,11 @@
       "flipUVs": true,
       "debugName": "jump"
     },
+    "running_jump": {
+      "path": "animations/Running Jump.fbx",
+      "flipUVs": true,
+      "debugName": "Running Jump"
+    },
     "left_strafe": {
       "path": "animations/left strafe.fbx",
       "flipUVs": true,
