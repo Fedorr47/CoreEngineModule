@@ -53,7 +53,26 @@
         "time": 0.9
       }
     ],
-    "Jump": [
+    "JumpIdle": [
+      {
+        "id": "JumpBegin",
+        "time": 0.0,
+        "fireOnEnter": true
+      },
+      {
+        "id": "JumpTakeoff",
+        "time": 0.2
+      },
+      {
+        "id": "JumpLand",
+        "time": 0.72
+      },
+      {
+        "id": "JumpEnd",
+        "time": 0.92
+      }
+    ],
+    "JumpMoving": [
       {
         "id": "JumpBegin",
         "time": 0.0,

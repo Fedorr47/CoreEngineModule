@@ -21,6 +21,10 @@
       "type": "bool",
       "default": false
     },
+    "IsJumping": {
+      "type": "bool",
+      "default": false
+    },
     "ActionBusy": {
       "type": "bool",
       "default": false
@@ -147,9 +151,19 @@
         "attack"
       ]
     },
-    "Jump": {
+    "JumpIdle": {
       "clip": "",
       "clipSourceAssetId": "jump",
+      "loop": false,
+      "playRate": 1.0,
+      "tags": [
+        "airborne",
+        "jump"
+      ]
+    },
+    "JumpMoving": {
+      "clip": "",
+      "clipSourceAssetId": "running_jump",
       "loop": false,
       "playRate": 1.0,
       "tags": [
@@ -209,12 +223,12 @@
     },
     {
       "from": "Idle",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -233,12 +247,12 @@
     },
     {
       "from": "IdleRelaxed",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -257,12 +271,12 @@
     },
     {
       "from": "LocomotionWalk",
-      "to": "Jump",
+      "to": "JumpMoving",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -281,12 +295,12 @@
     },
     {
       "from": "LocomotionRun",
-      "to": "Jump",
+      "to": "JumpMoving",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -305,12 +319,12 @@
     },
     {
       "from": "TurnLeftStart",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -329,12 +343,12 @@
     },
     {
       "from": "TurnLeft90",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -353,12 +367,12 @@
     },
     {
       "from": "TurnRightStart",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -377,12 +391,12 @@
     },
     {
       "from": "TurnRight90",
-      "to": "Jump",
+      "to": "JumpIdle",
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -727,12 +741,12 @@
       ]
     },
     {
-      "from": "Jump",
+      "from": "JumpIdle",
       "to": "LocomotionRun",
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
           "op": "false"
         },
         {
@@ -747,12 +761,32 @@
       "priority": 20
     },
     {
-      "from": "Jump",
+      "from": "JumpMoving",
+      "to": "LocomotionRun",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "true"
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "true"
+        }
+      ],
+      "priority": 20
+    },
+    {
+      "from": "JumpIdle",
       "to": "LocomotionWalk",
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
           "op": "false"
         },
         {
@@ -767,12 +801,47 @@
       "priority": 10
     },
     {
-      "from": "Jump",
+      "from": "JumpMoving",
+      "to": "LocomotionWalk",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "true"
+        },
+        {
+          "parameter": "IsRunning",
+          "op": "false"
+        }
+      ],
+      "priority": 10
+    },
+    {
+      "from": "JumpIdle",
       "to": "IdleRelaxed",
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
+          "op": "false"
+        },
+        {
+          "parameter": "IsMoving",
+          "op": "false"
+        }
+      ]
+    },
+    {
+      "from": "JumpMoving",
+      "to": "IdleRelaxed",
+      "blendDuration": 0.1,
+      "conditions": [
+        {
+          "parameter": "IsJumping",
           "op": "false"
         },
         {

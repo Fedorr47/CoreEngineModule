@@ -116,9 +116,14 @@ export namespace rendern
                 continue;
             }
 
-            const bool jumpRequested = action != nullptr &&
-                (action->current == GameplayActionKind::Jump ||
-                    GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump);
+            const bool hasPendingJumpRequest = action != nullptr &&
+                GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump;
+            if (movementState != nullptr && !hasPendingJumpRequest)
+            {
+                movementState->jumpRequestConsumed = false;
+            }
+            const bool jumpRequested = hasPendingJumpRequest &&
+                movementState != nullptr && !movementState->jumpRequestConsumed;
 
             float speedScale = 1.0f;
             if (command->moveInputY < -0.1f)
@@ -135,9 +140,10 @@ export namespace rendern
                 movementState->jumpPhase == GameplayJumpPhase::None)
             {
                 // Capture the actual planar momentum at jump preparation start.
-                // Ground movement continues until the explicit takeoff notify.
+                // Ground movement continues until the explicit physical attempt.
                 movementState->jumpLockedVelocity = motor->velocity;
                 movementState->jumpPhase = GameplayJumpPhase::Preparing;
+                movementState->jumpRequestConsumed = true;
             }
 
             const bool bIsAirborne = movementState != nullptr &&

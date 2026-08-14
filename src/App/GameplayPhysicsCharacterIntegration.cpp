@@ -124,6 +124,8 @@ bool appRuntime::SubmitGameplayPhysicsCharacterVelocities(
     {
         const auto* binding = world.TryGetPhysicsCharacter(entity);
         const auto* motor = world.TryGetCharacterMotor(entity);
+        auto* movementState = world.TryGetCharacterMovementState(entity);
+        auto* action = world.TryGetAction(entity);
         if (binding == nullptr)
         {
             continue;
@@ -140,6 +142,37 @@ bool appRuntime::SubmitGameplayPhysicsCharacterVelocities(
         if (!physicsWorld.SetCharacterDesiredVelocity(binding->character, motor->desiredVelocity))
         {
             return false;
+        }
+        if (movementState != nullptr &&
+            movementState->jumpPhase == rendern::GameplayJumpPhase::Preparing)
+        {
+            const bool accepted = physicsWorld.RequestCharacterJump(
+                binding->character, motor->jumpVerticalSpeed);
+            movementState->jumpAirbornePhysicallyObserved = false;
+            if (accepted)
+            {
+                movementState->jumpPhase = rendern::GameplayJumpPhase::Airborne;
+                movementState->grounded = false;
+                movementState->jumping = true;
+            }
+            else
+            {
+                movementState->jumpPhase = rendern::GameplayJumpPhase::None;
+                movementState->jumpLockedVelocity = {};
+                movementState->jumping = false;
+                if (action != nullptr &&
+                    rendern::GetGameplayRequestedActionKind(*action) ==
+                        rendern::GameplayActionKind::Jump)
+                {
+                    rendern::ClearGameplayActionRequest(action->pending);
+                    action->pendingDispatched = false;
+                }
+                if (action != nullptr &&
+                    action->current == rendern::GameplayActionKind::Jump)
+                {
+                    rendern::FinishGameplayActionState(*action);
+                }
+            }
         }
     }
     
@@ -199,6 +232,20 @@ bool appRuntime::ApplyGameplayPhysicsCharacterFeedback(
         movementState->grounded = ground->bIsWalkable;
         movementState->falling = !ground->bIsSupported && velocity->y < 0.0f;
         movementState->jumping = movementState->jumpPhase == rendern::GameplayJumpPhase::Airborne;
+        if (movementState->jumpPhase == rendern::GameplayJumpPhase::Airborne &&
+            !ground->bIsSupported)
+        {
+            movementState->jumpAirbornePhysicallyObserved = true;
+        }
+        if (ground->bIsSupported &&
+            movementState->jumpPhase == rendern::GameplayJumpPhase::Airborne &&
+            movementState->jumpAirbornePhysicallyObserved)
+        {
+            movementState->jumpPhase = rendern::GameplayJumpPhase::None;
+            movementState->jumpAirbornePhysicallyObserved = false;
+            movementState->jumpLockedVelocity = {};
+            movementState->jumping = false;
+        }
 
         const float desiredPlanarSpeed = std::hypot(motor->desiredVelocity.x, motor->desiredVelocity.z);
         for (std::uint32_t stepIndex = 0u;

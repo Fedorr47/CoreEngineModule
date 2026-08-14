@@ -95,6 +95,42 @@ namespace
                     intent.moveY = moveY;
                 });
         }
+        
+        void SetMoveAndJumpIntent(const float moveY, const bool requestJump)
+        {
+            gameplayRuntime.BindIntentSource(
+                player,
+                [moveY, requestJump](rendern::EntityHandle,
+                    const rendern::GameplayUpdateContext&,
+                    rendern::GameplayWorld&,
+                    rendern::GameplayInputIntentComponent& intent,
+                    rendern::GameplayActionComponent*)
+                {
+                    intent.moveY = moveY;
+                    if (requestJump)
+                    {
+                        rendern::AddGameplayActionIntent(
+                            intent.actionIntentMask, rendern::GameplayActionKind::Jump);
+                    }
+                });
+        }
+
+        std::uint32_t StepFrameAndReturnPhysicsSteps(const float frameSeconds)
+        {
+            rendern::GameplayUpdateContext frameContext = gameContext;
+            frameContext.deltaSeconds = frameSeconds;
+            gameplayRuntime.BeginFrame();
+            EXPECT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
+                gameplayRuntime, physicsWorld, levelAsset));
+            gameplayRuntime.PrePhysicsUpdate(frameContext);
+            EXPECT_TRUE(appRuntime::SubmitGameplayPhysicsCharacterVelocities(
+                gameplayRuntime, physicsWorld));
+            const std::uint32_t physicsSteps = physicsWorld.Update(frameSeconds);
+            EXPECT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
+                gameplayRuntime, physicsWorld));
+            gameplayRuntime.PostPhysicsUpdate(frameContext);
+            return physicsSteps;
+        }
 
         rendern::EntityHandle SpawnNPC()
         {
@@ -131,15 +167,6 @@ namespace
 
         void StepFrame(const float frameSeconds = StepSeconds)
         {
-            // Mirrors the app's CR-443 gameplay/physics phase order.
-            rendern::GameplayUpdateContext frameContext = gameContext;
-            frameContext.deltaSeconds = frameSeconds;
-            gameplayRuntime.BeginFrame();
-            ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
-                gameplayRuntime, physicsWorld, levelAsset));
-            gameplayRuntime.PrePhysicsUpdate(frameContext);
-            ASSERT_TRUE(appRuntime::SubmitGameplayPhysicsCharacterVelocities(
-                gameplayRuntime, physicsWorld));
             [[maybe_unused]] const std::uint32_t physicsSteps = physicsWorld.Update(frameSeconds);
             ASSERT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
                 gameplayRuntime, physicsWorld));
@@ -211,6 +238,149 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ForwardMovementFeedsBackActualSt
     ASSERT_NE(followCamera, nullptr);
     EXPECT_NEAR(scene.camera.target.z, transform->position.z + followCamera->focusOffset.z, 0.001f);
 }
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, RunningJumpPreservesPlanarMovementThroughProductionPath)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    SetMoveIntent(1.0f);
+    for (int frame = 0; frame < 60; ++frame)
+    {
+        StepFrame();
+    }
+
+    auto& world = gameplayRuntime.GetWorld();
+    const float planarVelocityBefore = world.TryGetCharacterMotor(player)->velocity.z;
+    ASSERT_GT(planarVelocityBefore, 1.0f);
+
+    SetMoveAndJumpIntent(1.0f, true);
+    StepFrame();
+    SetMoveIntent(1.0f);
+
+    const auto* motor = world.TryGetCharacterMotor(player);
+    const auto* movement = world.TryGetCharacterMovementState(player);
+    ASSERT_NE(motor, nullptr);
+    ASSERT_NE(movement, nullptr);
+    EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::Airborne);
+    EXPECT_TRUE(movement->jumping);
+    EXPECT_GT(motor->velocity.y, 4.0f);
+    EXPECT_NEAR(motor->velocity.z, planarVelocityBefore, 0.05f);
+    EXPECT_GT(std::hypot(motor->velocity.x, motor->velocity.z), 1.0f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, AirborneStateSurvivesRenderFrameWithoutFixedStep)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        StepFrame();
+    }
+
+    SetMoveAndJumpIntent(0.0f, true);
+    ASSERT_EQ(StepFrameAndReturnPhysicsSteps(1.0f / 120.0f), 0u);
+    SetMoveIntent(0.0f);
+
+    auto& world = gameplayRuntime.GetWorld();
+    const auto* movement = world.TryGetCharacterMovementState(player);
+    ASSERT_NE(movement, nullptr);
+    EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::Airborne);
+    EXPECT_TRUE(movement->jumping);
+    EXPECT_FALSE(movement->jumpAirbornePhysicallyObserved);
+
+    ASSERT_EQ(StepFrameAndReturnPhysicsSteps(1.0f / 120.0f), 1u);
+    movement = world.TryGetCharacterMovementState(player);
+    ASSERT_NE(movement, nullptr);
+    EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::Airborne);
+    EXPECT_GT(world.TryGetCharacterMotor(player)->velocity.y, 4.0f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, RejectedJumpAttemptIsConsumedWithoutRetry)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        StepFrame();
+    }
+
+    auto& world = gameplayRuntime.GetWorld();
+    world.TryGetCharacterMotor(player)->jumpVerticalSpeed = 0.0f;
+    SetMoveAndJumpIntent(0.0f, true);
+    StepFrame();
+    SetMoveIntent(0.0f);
+
+    const auto* movement = world.TryGetCharacterMovementState(player);
+    const auto* action = world.TryGetAction(player);
+    ASSERT_NE(movement, nullptr);
+    ASSERT_NE(action, nullptr);
+    EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::None);
+    EXPECT_FALSE(movement->jumping);
+    EXPECT_EQ(movement->jumpLockedVelocity, mathUtils::Vec3{});
+    EXPECT_EQ(rendern::GetGameplayRequestedActionKind(*action),
+        rendern::GameplayActionKind::None);
+    EXPECT_TRUE(movement->jumpRequestConsumed);
+
+    for (int frame = 0; frame < 10; ++frame)
+    {
+        StepFrame();
+        movement = world.TryGetCharacterMovementState(player);
+        ASSERT_NE(movement, nullptr);
+        EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::None);
+        EXPECT_LE(world.TryGetCharacterMotor(player)->velocity.y, 0.1f);
+    }
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, PhysicalLandingClearsJumpState)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        StepFrame();
+    }
+
+    SetMoveAndJumpIntent(0.0f, true);
+    StepFrame();
+    SetMoveIntent(0.0f);
+
+    auto& world = gameplayRuntime.GetWorld();
+    bool observedPhysicalAirborne = false;
+    for (int frame = 0; frame < 240; ++frame)
+    {
+        StepFrame();
+        const auto* movement = world.TryGetCharacterMovementState(player);
+        ASSERT_NE(movement, nullptr);
+        observedPhysicalAirborne = observedPhysicalAirborne ||
+            movement->jumpAirbornePhysicallyObserved;
+        if (observedPhysicalAirborne &&
+            movement->jumpPhase == rendern::GameplayJumpPhase::None)
+        {
+            break;
+        }
+    }
+
+    const auto* movement = world.TryGetCharacterMovementState(player);
+    ASSERT_NE(movement, nullptr);
+    EXPECT_TRUE(observedPhysicalAirborne);
+    EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::None);
+    EXPECT_FALSE(movement->jumping);
+    EXPECT_TRUE(movement->grounded);
+
+    const auto* action = world.TryGetAction(player);
+    ASSERT_NE(action, nullptr);
+    ASSERT_EQ(rendern::GetGameplayRequestedActionKind(*action),
+        rendern::GameplayActionKind::Jump);
+    ASSERT_FALSE(action->pendingDispatched);
+    ASSERT_TRUE(movement->jumpRequestConsumed);
+    for (int frame = 0; frame < 10; ++frame)
+    {
+        StepFrame();
+        movement = world.TryGetCharacterMovementState(player);
+        ASSERT_NE(movement, nullptr);
+        EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::None);
+        EXPECT_FALSE(movement->jumping);
+        EXPECT_TRUE(movement->jumpRequestConsumed);
+        EXPECT_LE(world.TryGetCharacterMotor(player)->velocity.y, 0.1f);
+    }
+}
+
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, CreationConvertsVisualRootToCapsuleCenterExplicitly)
 {

@@ -324,6 +324,8 @@ namespace rendern
                 movementState->physicallyBlocked = false;
                 movementState->physicalBlockedSeconds = 0.0f;
                 movementState->jumpPhase = GameplayJumpPhase::None;
+                movementState->jumpRequestConsumed = false;
+                movementState->jumpAirbornePhysicallyObserved = false;
                 movementState->turningInPlace = false;
 
                 movementState->facingYawDegrees = agentCanonicalTransform.rotationDegrees.y;

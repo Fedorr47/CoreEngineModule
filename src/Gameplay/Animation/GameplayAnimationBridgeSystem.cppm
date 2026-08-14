@@ -95,6 +95,8 @@ export namespace rendern
         {
             const GameplayAnimationLinkComponent* animLink = world.TryGetAnimationLink(entity);
             const GameplayLocomotionComponent* locomotion = world.TryGetLocomotion(entity);
+            const GameplayCharacterMovementStateComponent* movementState =
+                world.TryGetCharacterMovementState(entity);
             GameplayActionComponent* action = world.TryGetAction(entity);
             if (animLink == nullptr || animLink->skinnedDrawIndex < 0)
             {
@@ -110,6 +112,11 @@ export namespace rendern
             if (locomotion != nullptr)
             {
                 WriteGameplayLocomotionAnimationParameters(skinnedItem->controller, *locomotion);
+            }
+            
+            if (movementState != nullptr)
+            {
+                WriteGameplayMovementAnimationParameters(skinnedItem->controller, *movementState);
             }
 
             if (action != nullptr)
