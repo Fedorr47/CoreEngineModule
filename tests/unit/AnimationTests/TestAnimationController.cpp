@@ -4,6 +4,8 @@
 #include <fstream>
 #include <filesystem>
 #include <initializer_list>
+#include <cmath>
+#include <unordered_map>
 
 #include "TestSupport/TestFixtureLoader.h"
 #include "TestSupport/TestTempPath.h"
@@ -310,6 +312,138 @@ TEST(AnimationController, SemanticProfileAndNodeBindingSurviveLevelRoundTrip)
 	const AnimationClipRef& binding = reloaded.animationProfiles.at("TestProfile").motions.at("Test.CustomMotion");
 	EXPECT_EQ(binding.sourceAssetId, "test_external_source");
 	EXPECT_EQ(binding.clipName, "TestClip");
+}
+
+TEST(AnimationController, ExternalAnimationProfileRoundTripAndSafeValidation)
+{
+	test::ScopedTempPath tempPath{ test::MakeUniqueTempPath("external_animation_profile") };
+	const std::filesystem::path path = tempPath.Path() / "test.animationprofile.json";
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "source_A", "ClipA" });
+
+	SaveAnimationProfileAssetToJson(path.string(), profile);
+	const AnimationProfileAsset loaded = LoadAnimationProfileAssetFromJson(path.string(), "TestProfile");
+	ASSERT_TRUE(loaded.motions.contains("Test.CustomMotion"));
+	EXPECT_EQ(loaded.motions.at("Test.CustomMotion").sourceAssetId, "source_A");
+	EXPECT_EQ(loaded.motions.at("Test.CustomMotion").clipName, "ClipA");
+
+	{
+		std::ofstream original(path, std::ios::binary | std::ios::trunc);
+		ASSERT_TRUE(original.is_open());
+		original << "ORIGINAL_CONTENT";
+	}
+	profile.motions.at("Test.CustomMotion").sourceAssetId.clear();
+	EXPECT_THROW(SaveAnimationProfileAssetToJson(path.string(), profile), std::runtime_error);
+	std::ifstream preserved(path, std::ios::binary);
+	ASSERT_TRUE(preserved.is_open());
+	std::string content;
+	preserved >> content;
+	EXPECT_EQ(content, "ORIGINAL_CONTENT");
+}
+
+TEST(AnimationWorkspace, RequiredMotionIdsAreUniqueAndExcludeLegacyStates)
+{
+	AnimationControllerAsset controller{};
+	controller.states = {
+		AnimationStateDesc{ .name = "StateA", .motionId = MotionId{ "Test.MotionA" } },
+		AnimationStateDesc{ .name = "StateB", .motionId = MotionId{ "Test.MotionB" } },
+		AnimationStateDesc{ .name = "StateC", .motionId = MotionId{ "Test.MotionA" } },
+		AnimationStateDesc{ .name = "LegacyState", .clipName = "ClipA", .clipSourceAssetId = "source_A" }
+	};
+	EXPECT_EQ(CollectAnimationWorkspaceRequiredMotionIds(controller),
+		(std::vector<std::string>{ "Test.MotionA", "Test.MotionB" }));
+}
+
+TEST(AnimationWorkspace, AuthoredBindingRemainsSeparateFromBoundRuntimeUntilRebind)
+{
+	AnimationControllerAsset controller{ .id = "Controller", .defaultState = "Semantic" };
+	controller.states.push_back(AnimationStateDesc{ .name = "Semantic", .motionId = MotionId{ "Test.CustomMotion" } });
+	AnimationProfileAsset profile{ .id = "Profile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "source_A", "ClipA" });
+	const std::vector<AnimationClip> clips{ AnimationClip{ .name = "ClipA" }, AnimationClip{ .name = "ClipB" } };
+	const std::vector<std::string> sources{ "source_A", "source_B" };
+	AnimationControllerRuntime runtime{};
+	runtime.resolvedStateClipIndices = { 0 };
+
+	profile.motions.at("Test.CustomMotion") = AnimationClipRef{ "source_B", "ClipB" };
+	auto resolution = BuildAnimationWorkspaceStateResolution(
+		controller, controller.states[0], &profile, &runtime, clips, sources);
+	EXPECT_EQ(resolution.authoredSourceAssetId, "source_B");
+	EXPECT_EQ(resolution.authoredClipName, "ClipB");
+	EXPECT_EQ(resolution.boundClipIndex, 0);
+	EXPECT_EQ(resolution.boundClipName, "ClipA");
+	EXPECT_TRUE(resolution.reloadRequired);
+
+	runtime.resolvedStateClipIndices = { 1 };
+	resolution = BuildAnimationWorkspaceStateResolution(
+		controller, controller.states[0], &profile, &runtime, clips, sources);
+	EXPECT_EQ(resolution.boundClipName, "ClipB");
+	EXPECT_FALSE(resolution.reloadRequired);
+}
+
+TEST(AnimationWorkspace, LegacyResolutionDoesNotRequireProfile)
+{
+	AnimationControllerAsset controller{ .id = "Controller", .defaultState = "Legacy" };
+	controller.states.push_back(AnimationStateDesc{ .name = "Legacy", .clipName = "ClipA", .clipSourceAssetId = "source_A" });
+	AnimationControllerRuntime runtime{};
+	runtime.resolvedStateClipIndices = { 0 };
+	const auto resolution = BuildAnimationWorkspaceStateResolution(controller, controller.states[0], nullptr, &runtime,
+		std::vector<AnimationClip>{ AnimationClip{ .name = "ClipA" } }, std::vector<std::string>{ "source_A" });
+	EXPECT_EQ(resolution.contentMode, AnimationWorkspaceContentMode::LegacyDirect);
+	EXPECT_EQ(resolution.boundClipIndex, 0);
+	EXPECT_EQ(resolution.boundClipName, "ClipA");
+}
+
+TEST(AnimationWorkspace, MappingStatusesAreNonThrowingAndSourceAware)
+{
+	AnimationProfileAsset profile{ .id = "Profile" };
+	const std::vector<std::string> registered{ "source_A", "source_B" };
+	const std::vector<AnimationClip> clips{ AnimationClip{ .name = "ClipA" } };
+	const std::vector<std::string> sources{ "source_A" };
+	EXPECT_EQ(EvaluateAnimationWorkspaceMappingStatus(&profile, "Test.Missing", registered, clips, sources), AnimationWorkspaceMappingStatus::MissingMapping);
+	profile.motions["Test.Motion"] = AnimationClipRef{ "missing", "ClipA" };
+	EXPECT_EQ(EvaluateAnimationWorkspaceMappingStatus(&profile, "Test.Motion", registered, clips, sources), AnimationWorkspaceMappingStatus::MissingSource);
+	profile.motions["Test.Motion"] = AnimationClipRef{ "source_A", "MissingClip" };
+	EXPECT_EQ(EvaluateAnimationWorkspaceMappingStatus(&profile, "Test.Motion", registered, clips, sources), AnimationWorkspaceMappingStatus::MissingExplicitClip);
+	profile.motions["Test.Motion"] = AnimationClipRef{ "source_B", "ClipB" };
+	EXPECT_EQ(EvaluateAnimationWorkspaceMappingStatus(&profile, "Test.Motion", registered, clips, sources), AnimationWorkspaceMappingStatus::SourceNotLoaded);
+	profile.motions["Test.Motion"] = AnimationClipRef{ "source_A", "ClipA" };
+	EXPECT_EQ(EvaluateAnimationWorkspaceMappingStatus(&profile, "Test.Motion", registered, clips, sources), AnimationWorkspaceMappingStatus::Ok);
+}
+
+TEST(AnimationWorkspace, ProfileEditorStateAndRootTrajectoryAreDeterministic)
+{
+	std::unordered_map<std::string, AnimationProfileEditorState> states;
+	states["human"].dirty = true;
+	states["robot"].dirty = true;
+	states["human"].dirty = false;
+	EXPECT_FALSE(states["human"].dirty);
+	EXPECT_TRUE(states["robot"].dirty);
+
+	AnimationClip clip{ .name = "Synthetic", .durationTicks = 10.0f, .ticksPerSecond = 1.0f };
+	BoneAnimationChannel root{ .boneName = "ExplicitRoot" };
+	root.translationKeys = {
+		TranslationKey{ 0.0f, mathUtils::Vec3(0.0f, 0.0f, 0.0f) },
+		TranslationKey{ 1.0f, mathUtils::Vec3(0.2f, 0.1f, 0.4f) },
+		TranslationKey{ 9.0f, mathUtils::Vec3(1.8f, 0.9f, 3.6f) },
+		TranslationKey{ 10.0f, mathUtils::Vec3(2.0f, 1.0f, 4.0f) }
+	};
+	clip.channels.push_back(std::move(root));
+	const auto trajectory = BuildAnimationRootTrajectoryDiagnostics(clip, "ExplicitRoot", 3);
+	ASSERT_TRUE(trajectory.available);
+	EXPECT_FLOAT_EQ(trajectory.first.x, 0.0f);
+	EXPECT_FLOAT_EQ(trajectory.last.x, 2.0f);
+	EXPECT_FLOAT_EQ(trajectory.last.y, 1.0f);
+	EXPECT_FLOAT_EQ(trajectory.last.z, 4.0f);
+	EXPECT_FLOAT_EQ(trajectory.delta.x, 2.0f);
+	EXPECT_FLOAT_EQ(trajectory.delta.y, 1.0f);
+	EXPECT_FLOAT_EQ(trajectory.delta.z, 4.0f);
+	EXPECT_FLOAT_EQ(trajectory.horizontalDisplacement, std::sqrt(20.0f));
+	EXPECT_FLOAT_EQ(trajectory.verticalDisplacement, 1.0f);
+	ASSERT_EQ(trajectory.sampledPoints.size(), 3u);
+	EXPECT_FLOAT_EQ(trajectory.sampledPoints[1].x, 1.0f);
+	EXPECT_FLOAT_EQ(trajectory.sampledPoints[1].y, 0.5f);
+	EXPECT_FLOAT_EQ(trajectory.sampledPoints[1].z, 2.0f);
 }
 
 TEST(AnimationController, ProfileBindingShapeAndMixedStateSerializationAreValidated)

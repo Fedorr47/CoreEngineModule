@@ -9,6 +9,7 @@ module;
 #include <utility>
 #include <array>
 #include <optional>
+#include <cstdint>
 #include <string_view>
 
 #if defined(CORE_USE_DX12)
@@ -32,6 +33,7 @@ import :assimp_scene_loader;
 import :animator;
 import :animation_clip;
 import :animation_controller;
+import :animation_workspace;
 import :editor_commands;
 import :editor_selection_service;
 import :gameplay_runtime;

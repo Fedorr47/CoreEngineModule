@@ -582,6 +582,7 @@ set(COMMON_MODULES
 
         Animation/Runtime/Animator.cppm
         Animation/Runtime/AnimationController.cppm
+        Animation/Tooling/AnimationWorkspace.cppm
 
         Render/Model/ObjLoader.cppm
         Render/Model/AssimpLoader.cppm

@@ -69,6 +69,8 @@ export namespace rendern
 	[[nodiscard]] LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath);
 	[[nodiscard]] LevelInstance InstantiateLevel(Scene& scene, AssetManager& assets, BindlessTable& bindless, const LevelAsset& asset, const mathUtils::Mat4& root);
 	void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAsset& level);
+	[[nodiscard]] AnimationProfileAsset LoadAnimationProfileAssetFromJson(std::string_view path, std::string_view id);
+	void SaveAnimationProfileAssetToJson(std::string_view path, const AnimationProfileAsset& profile);
 }
 
 namespace rendern
@@ -91,5 +93,6 @@ namespace rendern
 #include "LevelImpl/Level_SaveJson_SceneSections.inl"
 
 #include "LevelImpl/Level_SaveJson.inl"
+#include "../Animation/Serialization/AnimationProfileJson.inl"
 }
 

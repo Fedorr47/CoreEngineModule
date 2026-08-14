@@ -1,544 +1,76 @@
 {
   "name": "CharacterPhysicsAutomate",
   "meshes": {
-    "cube": {
-      "path": "models/cube.obj",
-      "debugName": "CharacterPhysicsAutomateCube"
-    }
+    "cube": {"path": "models/cube.obj", "debugName": "CharacterPhysicsAutomateCube"}
   },
   "models": {},
   "skinnedMeshes": {
-    "models_Character_fbx": {
-      "path": "models/Character.fbx",
-      "flipUVs": true,
-      "debugName": "CharacterPhysicsAutomateCharacter"
-    }
+    "models_Character_fbx": {"path": "models/Character.fbx", "flipUVs": true, "debugName": "CharacterPhysicsAutomateCharacter"}
   },
   "animations": {
-    "breathing_idle": {
-      "path": "animations/Breathing Idle.fbx",
-      "flipUVs": true,
-      "debugName": "Breathing Idle"
-    },
-    "idle": {
-      "path": "animations/idle.fbx",
-      "flipUVs": true,
-      "debugName": "idle"
-    },
-    "jump": {
-      "path": "animations/jump.fbx",
-      "flipUVs": true,
-      "debugName": "jump"
-    },
-    "running_jump": {
-      "path": "animations/Running Jump.fbx",
-      "flipUVs": true,
-      "debugName": "Running Jump"
-    },
-    "left_strafe": {
-      "path": "animations/left strafe.fbx",
-      "flipUVs": true,
-      "debugName": "left strafe"
-    },
-    "left_strafe_walking": {
-      "path": "animations/left strafe walking.fbx",
-      "flipUVs": true,
-      "debugName": "left strafe walking"
-    },
-    "left_turn": {
-      "path": "animations/left turn.fbx",
-      "flipUVs": true,
-      "debugName": "left turn"
-    },
-    "left_turn_90": {
-      "path": "animations/left turn 90.fbx",
-      "flipUVs": true,
-      "debugName": "left turn 90"
-    },
-    "right_strafe": {
-      "path": "animations/right strafe.fbx",
-      "flipUVs": true,
-      "debugName": "right strafe"
-    },
-    "right_strafe_walking": {
-      "path": "animations/right strafe walking.fbx",
-      "flipUVs": true,
-      "debugName": "right strafe walking"
-    },
-    "right_turn": {
-      "path": "animations/right turn.fbx",
-      "flipUVs": true,
-      "debugName": "right turn"
-    },
-    "right_turn_90": {
-      "path": "animations/right turn 90.fbx",
-      "flipUVs": true,
-      "debugName": "right turn 90"
-    },
-    "running": {
-      "path": "animations/running.fbx",
-      "flipUVs": true,
-      "debugName": "running"
-    },
-    "running_backward": {
-      "path": "animations/Running Backward.fbx",
-      "flipUVs": true,
-      "debugName": "Running Backward"
-    },
-    "swing_dancing": {
-      "path": "animations/Swing Dancing.fbx",
-      "flipUVs": true,
-      "debugName": "Swing Dancing"
-    },
-    "walking": {
-      "path": "animations/walking.fbx",
-      "flipUVs": true,
-      "debugName": "walking"
-    },
-    "walking_backward": {
-      "path": "animations/Walking Backwards.fbx",
-      "flipUVs": true,
-      "debugName": "Walking Backwards"
-    }
-  },
-  "animationControllerAssets": {
-    "fsm_test_locomotion_action": {
-      "path": "animControllers/fsm_test_locomotion_action.phaseB.json"
-    }
+    "breathing_idle": {"path": "animations/Breathing Idle.fbx", "flipUVs": true, "debugName": "Breathing Idle"},
+    "idle": {"path": "animations/idle.fbx", "flipUVs": true, "debugName": "idle"},
+    "jump": {"path": "animations/jump.fbx", "flipUVs": true, "debugName": "jump"},
+    "left_strafe": {"path": "animations/left strafe.fbx", "flipUVs": true, "debugName": "left strafe"},
+    "left_strafe_walking": {"path": "animations/left strafe walking.fbx", "flipUVs": true, "debugName": "left strafe walking"},
+    "left_turn": {"path": "animations/left turn.fbx", "flipUVs": true, "debugName": "left turn"},
+    "left_turn_90": {"path": "animations/left turn 90.fbx", "flipUVs": true, "debugName": "left turn 90"},
+    "right_strafe": {"path": "animations/right strafe.fbx", "flipUVs": true, "debugName": "right strafe"},
+    "right_strafe_walking": {"path": "animations/right strafe walking.fbx", "flipUVs": true, "debugName": "right strafe walking"},
+    "right_turn": {"path": "animations/right turn.fbx", "flipUVs": true, "debugName": "right turn"},
+    "right_turn_90": {"path": "animations/right turn 90.fbx", "flipUVs": true, "debugName": "right turn 90"},
+    "running": {"path": "animations/running.fbx", "flipUVs": true, "debugName": "running"},
+    "running_backward": {"path": "animations/Running Backward.fbx", "flipUVs": true, "debugName": "Running Backward"},
+    "running_jump": {"path": "animations/Running Jump.fbx", "flipUVs": true, "debugName": "Running Jump"},
+    "swing_dancing": {"path": "animations/Swing Dancing.fbx", "flipUVs": true, "debugName": "Swing Dancing"},
+    "walking": {"path": "animations/walking.fbx", "flipUVs": true, "debugName": "walking"},
+    "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"}
   },
   "animationProfileAssets": {
-    "human": {
-      "path": "animProfiles/human.animationprofile.json"
-    }
+    "human": {"path": "animProfiles/human.animationprofile.json"}
   },
-  "animationControllers": {},
+  "animationProfiles": {},
+  "animationControllerAssets": {
+    "fsm_test_locomotion_action": {"path": "animControllers/fsm_test_locomotion_action.phaseB.json"}
+  },
+  "animationControllers": {
+  },
   "textures": {
-    "models_Character_fbx__mat_0__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_0__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    },
-    "models_Character_fbx__mat_1__albedo": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_1__emissive": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png",
-      "srgb": true,
-      "mips": true,
-      "flipY": false
-    },
-    "models_Character_fbx__mat_1__normal": {
-      "kind": "tex2d",
-      "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png",
-      "srgb": false,
-      "mips": true,
-      "flipY": false,
-      "normalMap": true
-    }
+    "models_Character_fbx__mat_0__albedo": {"kind": "tex2d", "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_1.png", "srgb": true, "mips": true, "flipY": false},
+    "models_Character_fbx__mat_0__normal": {"kind": "tex2d", "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_2.png", "srgb": false, "mips": true, "flipY": false, "normalMap": true},
+    "models_Character_fbx__mat_1__albedo": {"kind": "tex2d", "path": "imported/Character_08fcf92156ada0e1/Character_albedo_embedded_6.png", "srgb": true, "mips": true, "flipY": false},
+    "models_Character_fbx__mat_1__emissive": {"kind": "tex2d", "path": "imported/Character_08fcf92156ada0e1/Character_emissive_embedded_4.png", "srgb": true, "mips": true, "flipY": false},
+    "models_Character_fbx__mat_1__normal": {"kind": "tex2d", "path": "imported/Character_08fcf92156ada0e1/Character_normal_embedded_7.png", "srgb": false, "mips": true, "flipY": false, "normalMap": true}
   },
   "materials": {
-    "models_Character_fbx__mat_0": {
-      "baseColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "shininess": 64.0,
-      "specStrength": 0.5,
-      "shadowBias": 0.0,
-      "metallic": 0.0,
-      "roughness": 0.75,
-      "ao": 1.0,
-      "emissiveStrength": 1.0,
-      "heightScale": 0.0,
-      "flags": [
-        "useTex",
-        "useShadow",
-        "skinning"
-      ],
-      "textures": {
-        "albedo": "models_Character_fbx__mat_0__albedo",
-        "normal": "models_Character_fbx__mat_0__normal"
-      }
-    },
-    "models_Character_fbx__mat_1": {
-      "baseColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "shininess": 64.0,
-      "specStrength": 0.5,
-      "shadowBias": 0.0,
-      "metallic": 0.0,
-      "roughness": 0.75,
-      "ao": 1.0,
-      "emissiveStrength": 1.0,
-      "heightScale": 0.0,
-      "flags": [
-        "useTex",
-        "useShadow",
-        "skinning"
-      ],
-      "textures": {
-        "albedo": "models_Character_fbx__mat_1__albedo",
-        "emissive": "models_Character_fbx__mat_1__emissive",
-        "normal": "models_Character_fbx__mat_1__normal"
-      }
-    },
-    "floor": {
-      "baseColor": [
-        0.38,
-        0.42,
-        0.46,
-        1.0
-      ],
-      "roughness": 0.95,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {}
-    },
-    "wall": {
-      "baseColor": [
-        0.85,
-        0.18,
-        0.14,
-        1.0
-      ],
-      "roughness": 0.8,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {}
-    },
-    "lowStep": {
-      "baseColor": [
-        0.2,
-        0.75,
-        0.32,
-        1.0
-      ],
-      "roughness": 0.8,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {}
-    },
-    "highStep": {
-      "baseColor": [
-        0.95,
-        0.55,
-        0.12,
-        1.0
-      ],
-      "roughness": 0.8,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {}
-    },
-    "lowerFloor": {
-      "baseColor": [
-        0.25,
-        0.3,
-        0.38,
-        1.0
-      ],
-      "roughness": 0.95,
-      "flags": [
-        "useShadow"
-      ],
-      "textures": {}
-    }
+    "floor": {"baseColor": [0.380000,0.420000,0.460000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.950000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}},
+    "highStep": {"baseColor": [0.950000,0.550000,0.120000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}},
+    "lowStep": {"baseColor": [0.200000,0.750000,0.320000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}},
+    "lowerFloor": {"baseColor": [0.250000,0.300000,0.380000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.950000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}},
+    "models_Character_fbx__mat_0": {"baseColor": [1.000000,1.000000,1.000000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.750000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useTex", "useShadow", "skinning"], "textures": {
+      "albedo": "models_Character_fbx__mat_0__albedo",
+      "normal": "models_Character_fbx__mat_0__normal"
+    }},
+    "models_Character_fbx__mat_1": {"baseColor": [1.000000,1.000000,1.000000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.750000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useTex", "useShadow", "skinning"], "textures": {
+      "albedo": "models_Character_fbx__mat_1__albedo",
+      "emissive": "models_Character_fbx__mat_1__emissive",
+      "normal": "models_Character_fbx__mat_1__normal"
+    }},
+    "wall": {"baseColor": [0.850000,0.180000,0.140000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}}
   },
-  "camera": {
-    "position": [
-      10.0,
-      8.0,
-      -12.0
-    ],
-    "target": [
-      0.0,
-      1.0,
-      5.0
-    ],
-    "up": [
-      0.0,
-      1.0,
-      0.0
-    ],
-    "fovYDeg": 60.0,
-    "nearZ": 0.1,
-    "farZ": 150.0
-  },
+  "camera": {"position": [25.265638,8.000000,6.544721], "target": [24.351297,7.623472,6.693747], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.100000, "farZ": 150.000000},
   "lights": [
-    {
-      "type": "directional",
-      "direction": [
-        -0.4,
-        -1.0,
-        0.25
-      ],
-      "color": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "intensity": 3.0
-    }
+    {"type": "directional", "position": [0.000000,0.000000,0.000000], "direction": [-0.361773,-0.904431,0.226108], "color": [1.000000,1.000000,1.000000], "intensity": 3.000000, "range": 10.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.120000, "attQuadratic": 0.040000}
   ],
   "particleEmitters": [],
   "skybox": null,
   "nodes": [
-    {
-      "name": "CharacterPhysicsAutomate_Player",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "skinnedMesh": "models_Character_fbx",
-      "material": "models_Character_fbx__mat_0",
-      "transform": {
-        "position": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          0.01,
-          0.01,
-          0.01
-        ]
-      },
-      "animationController": "fsm_test_locomotion_action",
-      "animationProfile": "human"
-    },
-    {
-      "name": "CharacterPhysicsAutomate_Floor",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "mesh": "cube",
-      "material": "floor",
-      "transform": {
-        "position": [
-          0.0,
-          -0.5,
-          5.0
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          20.0,
-          1.0,
-          20.0
-        ]
-      },
-      "physicsBody": {
-        "motionType": "static",
-        "shape": {
-          "type": "box",
-          "halfExtents": [
-            10.0,
-            0.5,
-            10.0
-          ]
-        },
-        "material": {
-          "friction": 0.9,
-          "restitution": 0.0
-        },
-        "surfaceId": 10
-      }
-    },
-    {
-      "name": "CharacterPhysicsAutomate_Wall",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "mesh": "cube",
-      "material": "wall",
-      "transform": {
-        "position": [
-          0.0,
-          1.5,
-          6.0
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          8.0,
-          3.0,
-          0.5
-        ]
-      },
-      "physicsBody": {
-        "motionType": "static",
-        "shape": {
-          "type": "box",
-          "halfExtents": [
-            4.0,
-            1.5,
-            0.25
-          ]
-        },
-        "material": {
-          "friction": 0.8,
-          "restitution": 0.0
-        },
-        "surfaceId": 11
-      }
-    },
-    {
-      "name": "CharacterPhysicsAutomate_StepLow",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "mesh": "cube",
-      "material": "lowStep",
-      "transform": {
-        "position": [
-          -6.0,
-          0.125,
-          3.0
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          3.0,
-          0.25,
-          2.0
-        ]
-      },
-      "physicsBody": {
-        "motionType": "static",
-        "shape": {
-          "type": "box",
-          "halfExtents": [
-            1.5,
-            0.125,
-            1.0
-          ]
-        },
-        "material": {
-          "friction": 0.9,
-          "restitution": 0.0
-        },
-        "surfaceId": 12
-      }
-    },
-    {
-      "name": "CharacterPhysicsAutomate_StepHigh",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "mesh": "cube",
-      "material": "highStep",
-      "transform": {
-        "position": [
-          -6.0,
-          0.325,
-          8.5
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          3.0,
-          0.65,
-          2.0
-        ]
-      },
-      "physicsBody": {
-        "motionType": "static",
-        "shape": {
-          "type": "box",
-          "halfExtents": [
-            1.5,
-            0.325,
-            1.0
-          ]
-        },
-        "material": {
-          "friction": 0.9,
-          "restitution": 0.0
-        },
-        "surfaceId": 13
-      }
-    },
-    {
-      "name": "CharacterPhysicsAutomate_LowerFloor",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "mesh": "cube",
-      "material": "lowerFloor",
-      "transform": {
-        "position": [
-          0.0,
-          -2.5,
-          22.0
-        ],
-        "rotationDegrees": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          20.0,
-          1.0,
-          12.0
-        ]
-      },
-      "physicsBody": {
-        "motionType": "static",
-        "shape": {
-          "type": "box",
-          "halfExtents": [
-            10.0,
-            0.5,
-            6.0
-          ]
-        },
-        "material": {
-          "friction": 0.9,
-          "restitution": 0.0
-        },
-        "surfaceId": 16
-      }
-    }
+    {"name": "CharacterPhysicsAutomate_Player", "parent": -1, "visible": true, "skinnedMesh": "models_Character_fbx", "material": "models_Character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "animationProfile": "human", "transform": {"position": [0.000000,0.000000,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [0.010000,0.010000,0.010000]}},
+    {"name": "CharacterPhysicsAutomate_Floor", "parent": -1, "visible": true, "mesh": "cube", "material": "floor", "transform": {"position": [0.000000,-0.500000,5.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [20.000000,1.000000,20.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [10.000000,0.500000,10.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 10}},
+    {"name": "CharacterPhysicsAutomate_Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "wall", "transform": {"position": [0.000000,1.500000,6.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [8.000000,3.000000,0.500000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [4.000000,1.500000,0.250000]}, "material": {"friction": 0.800000, "restitution": 0.000000}, "surfaceId": 11}},
+    {"name": "CharacterPhysicsAutomate_StepLow", "parent": -1, "visible": true, "mesh": "cube", "material": "lowStep", "transform": {"position": [-6.000000,0.125000,3.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [3.000000,0.250000,2.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [1.500000,0.125000,1.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 12}},
+    {"name": "CharacterPhysicsAutomate_StepHigh", "parent": -1, "visible": true, "mesh": "cube", "material": "highStep", "transform": {"position": [-6.000000,0.325000,8.500000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [3.000000,0.650000,2.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [1.500000,0.325000,1.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 13}},
+    {"name": "CharacterPhysicsAutomate_LowerFloor", "parent": -1, "visible": true, "mesh": "cube", "material": "lowerFloor", "transform": {"position": [0.000000,-2.500000,22.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [20.000000,1.000000,12.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [10.000000,0.500000,6.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 16}},
+    {"name": "CharacterPhysicsAutomate_Floor_Jump", "parent": -1, "visible": true, "mesh": "cube", "material": "floor", "transform": {"position": [12.785353,-1.911788,12.440800], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [20.000000,1.000000,20.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [10.000000,0.500000,10.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 10}}
   ]
 }

@@ -416,6 +416,13 @@
 
         DrawAnimationRuntimeTargetSection(animationRuntimeViewModel);
         DrawAnimationRuntimeLiveStateSection(animationRuntimeViewModel);
+        if (ctx.controllerAsset != nullptr)
+        {
+            if (const auto* currentState = rendern::FindAnimationControllerState(*ctx.controllerAsset, runtime.currentStateName))
+            {
+                DrawWorkspaceResolution(level, ctx, *currentState, uiState);
+            }
+        }
 
         ImGui::SeparatorText("Active Clips");
         DrawAnimationRuntimeWeightedClips(animationRuntimeViewModel.activeClips);

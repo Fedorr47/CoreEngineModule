@@ -86,5 +86,10 @@
             ImGui::EndTabBar();
         }
 
+        if (const auto* selected = rendern::FindAnimationControllerState(*ctx.controllerAsset, uiState.animationGraphSelectedStateName))
+        {
+            DrawWorkspaceResolution(level, ctx, *selected, uiState);
+        }
+        
         ImGui::End();
     }

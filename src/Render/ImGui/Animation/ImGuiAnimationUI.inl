@@ -1,6 +1,7 @@
 namespace rendern::ui::animation_ui_detail
 {
 #include "ImGuiAnimationGraphShared.inl"
+#include "ImGuiAnimationWorkspace.inl"
 #include "ImGuiAnimationRuntimeViewModel.inl"
 #include "ImGuiAnimationGraphBlend.inl"
 #include "ImGuiAnimationGraphDetails.inl"
@@ -26,7 +27,10 @@ namespace rendern::ui
     {
         auto& uiState = animation_ui_detail::GetState();
         rendern::EditorSelectionService& selection = GetEditorSelectionService();
+        animation_ui_detail::DrawAnimationSourcesWindow(level, levelInst, scene, uiState);
+        animation_ui_detail::DrawAnimationProfileWindow(level, levelInst, scene, uiState);
         animation_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, uiState);
+        animation_ui_detail::DrawAnimationClipInspectorWindow(level, levelInst, scene, uiState);
         animation_ui_detail::DrawAnimationRuntimeWindow(level, levelInst, scene, uiState, selection, gameplayRuntime);
     }
 }

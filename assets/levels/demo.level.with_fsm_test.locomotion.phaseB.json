@@ -34,10 +34,16 @@
     "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"}
   },
   "animationControllerAssets": {
-    "fsm_test_locomotion_action": {"path": "animControllers/fsm_test_locomotion_action.phaseB.json"}
+    "fsm_test_locomotion_action": {
+      "path": "animControllers/fsm_test_locomotion_action.phaseB.json"
+    }
   },
-  "animationControllers": {
+  "animationProfileAssets": {
+    "human": {
+      "path": "animProfiles/human.animationprofile.json"
+    }
   },
+  "animationControllers": {},
   "textures": {
     "Ship_AO": {"kind": "tex2d", "path": "textures/Intergalactic Spaceship Ao_Blender.jpg", "srgb": false, "mips": true, "flipY": false},
     "Ship_Albedo": {"kind": "tex2d", "path": "textures/Intergalactic Spaceship_color_4.jpg", "srgb": true, "mips": true, "flipY": false},
@@ -134,7 +140,13 @@
     {"name": "Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [4.461316,0.399407,4.775187], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,2.096679,3.320850]}},
     {"name": "PlanarMirror", "parent": -1, "visible": true, "mesh": "quad", "material": "planar_mirror", "transform": {"position": [3.892979,0.555758,2.770382], "rotationDegrees": [0.000000,-90.000000,0.000000], "scale": [2.139083,0.730530,3.000000]}},
     {"name": "Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "cube", "transform": {"position": [4.469924,0.410678,1.450027], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,2.096679,3.320850]}},
-    {"name": "models_character_fbx", "parent": -1, "visible": true, "skinnedMesh": "models_character_fbx", "material": "models_character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "transform": {"position": [0.615717,-0.593905,2.143460], "rotationDegrees": [0.000000,102.427376,0.000000], "scale": [0.010000,0.010000,0.010000]}},
+    {"name": "models_character_fbx", "parent": -1, "visible": true, "skinnedMesh": "models_character_fbx", "material": "models_character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", 
+      "transform": {
+        "position": [0.615717,-0.593905,2.143460], 
+        "rotationDegrees": [0.000000,102.427376,0.000000], 
+        "scale": [0.010000,0.010000,0.010000]},
+        "animationProfile": "human"
+    },
     {"name": "Ground1", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [2.000000,-0.608832,0.000000], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground2", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [4.000000,-0.608832,0.000000], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground2", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [4.000000,-0.608832,1.993981], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
@@ -146,7 +158,15 @@
     {"name": "Ground2", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [4.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground1", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [2.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "Ground", "parent": -1, "visible": true, "mesh": "quad", "material": "ground", "transform": {"position": [0.000000,-0.608832,6.001891], "rotationDegrees": [-90.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
-    {"name": "AI_Move_Agent", "parent": -1, "visible": true, "skinnedMesh": "models_character_fbx", "material": "models_character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "transform": {"position": [-2.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,90.000000,0.000000], "scale": [0.010000,0.010000,0.010000]}},
+    {"name": "AI_Move_Agent", "parent": -1, "visible": true, "skinnedMesh": "models_character_fbx", "material": "models_character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", 
+      "transform": 
+      {
+        "position": [-2.000000,-0.593905,0.000000], 
+        "rotationDegrees": [0.000000,90.000000,0.000000], 
+        "scale": [0.010000,0.010000,0.010000]
+      },
+      "animationProfile": "human"
+    },
     {"name": "AI_Move_Point_000", "parent": -1, "visible": false, "transform": {"position": [-2.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "AI_Move_Point_001", "parent": -1, "visible": false, "transform": {"position": [0.000000,-0.593905,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}},
     {"name": "AI_Move_Point_002", "parent": -1, "visible": false, "transform": {"position": [2.000000,-0.593905,1.500000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [1.000000,1.000000,1.000000]}}
