@@ -517,6 +517,7 @@ set(COMMON_MODULES
         Gameplay/Traversal/GameplayTraversalExecutor.cppm
         Gameplay/Traversal/GameplayTraversalExecutorRegistry.cppm
         Gameplay/Traversal/DoorTraversalExecutor.cppm
+        Gameplay/Traversal/JumpTraversalExecutor.cppm
         Gameplay/AI/AIFollowRouteActionRuntime.cppm
         Gameplay/AI/AIFollowRouteAction.cppm
         Gameplay/AI/AIMoveToAction.cppm

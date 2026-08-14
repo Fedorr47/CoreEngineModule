@@ -28,6 +28,7 @@
                     movementState->physicalBlockedSeconds = 0.0f;
                     movementState->jumpPhase = GameplayJumpPhase::None;
                     movementState->jumpRequestConsumed = false;
+                    movementState->jumpRequestResult = GameplayJumpRequestResult::None;
                     movementState->jumpAirbornePhysicallyObserved = false;
                     movementState->turningInPlace = false;
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
@@ -108,29 +109,15 @@
             {
                 aiSystem_.Reset();
                 objectReservationSystem_.Reset();
-                // Runtime-registered traversal services belong to one simulation session.
+                // External traversal services belong to one simulation session.
                 traversalLinkRegistry_.Reset();
-                traversalExecutorRegistry_.Reset();
+                traversalExecutorRegistry_.ResetExternalRegistrations();
                 ResetSimulationState_();
                 if (ctx.scene != nullptr && ctx.levelInstance != nullptr)
                 {
                     PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
                 }
             }
-            else if (ctx.mode == GameplayRuntimeMode::Game)
-            {
-                RegisterBuiltInTraversalExecutors_();
-            }
-        }
-
-        void GameplayRuntime::RegisterBuiltInTraversalExecutors_()
-        {
-            if (traversalExecutorRegistry_.Contains(kDoorTraversalTypeId))
-            {
-                return;
-            }
-            const bool bRegistered = traversalExecutorRegistry_.Register(kDoorTraversalTypeId, doorTraversalExecutor_);
-            assert(bRegistered && "Built-in Door traversal executor must register exactly once.");
         }
 
         void GameplayRuntime::EnsureBootstrapEntity_(const GameplayUpdateContext& ctx)
@@ -152,4 +139,3 @@
 
             SpawnNodeBoundEntity(ctx, bootstrapNodeIndex, true);
         }
-

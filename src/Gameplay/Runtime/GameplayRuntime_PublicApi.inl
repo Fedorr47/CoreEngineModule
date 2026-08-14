@@ -23,7 +23,7 @@
             LogSyncInstrumentationSample_();
             aiSystem_.Reset();
             traversalLinkRegistry_.Reset();
-            traversalExecutorRegistry_.Reset();
+            traversalExecutorRegistry_.ResetExternalRegistrations();
             objectReservationSystem_.Reset();
             
             world_.Clear();
@@ -357,10 +357,6 @@
             IGameplayTraversalExecutor& executor)
         {
             CORE_ASSERT_RUNTIME_THREAD();
-            if (typeId == kDoorTraversalTypeId)
-            {
-                return false;
-            }
             return traversalExecutorRegistry_.Register(typeId, executor);
         }
 
@@ -368,10 +364,6 @@
         const GameplayTraversalTypeId typeId) noexcept
         {
             CORE_ASSERT_RUNTIME_THREAD();
-            if (typeId == kDoorTraversalTypeId)
-            {
-                return false;
-            }
             return traversalExecutorRegistry_.Remove(typeId);
         }
 

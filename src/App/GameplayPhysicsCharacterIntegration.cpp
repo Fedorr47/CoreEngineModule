@@ -148,6 +148,9 @@ bool appRuntime::SubmitGameplayPhysicsCharacterVelocities(
         {
             const bool accepted = physicsWorld.RequestCharacterJump(
                 binding->character, motor->jumpVerticalSpeed);
+            movementState->jumpRequestResult = accepted
+                ? rendern::GameplayJumpRequestResult::Accepted
+                : rendern::GameplayJumpRequestResult::Rejected;
             movementState->jumpAirbornePhysicallyObserved = false;
             if (accepted)
             {

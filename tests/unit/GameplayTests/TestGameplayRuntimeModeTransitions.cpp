@@ -310,8 +310,8 @@ TEST(GameplayRuntime, CleansStaleObjectReservationsDuringGameUpdate)
     EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(object), kNullEntity);
 }
 
-// Protects built-in traversal availability so every Game-mode session restores the stable Door executor registration.
-TEST(GameplayRuntime, RegistersBuiltInDoorTraversalExecutorAcrossModeTransitions)
+// Protects runtime-lifetime built-in registration across Editor/Game transitions.
+TEST(GameplayRuntime, RegistersBuiltInTraversalExecutorsAcrossModeTransitions)
 {
     InlineThreadOwnerRolesGuard guard{};
     GameplayRuntime runtime{};
@@ -320,29 +320,41 @@ TEST(GameplayRuntime, RegistersBuiltInDoorTraversalExecutorAcrossModeTransitions
     Scene scene{};
     runtime.Initialize(levelAsset, levelInstance, scene);
 
-    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
     StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
     EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
     StepFrame(runtime, GameplayRuntimeMode::Editor, levelAsset, levelInstance, scene);
-    EXPECT_FALSE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
     StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
     EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
 }
 
-// Protects built-in ownership so public APIs cannot replace or remove the runtime Door executor.
-TEST(GameplayRuntime, RejectsPublicDoorTraversalExecutorMutation)
+// Protects built-in ownership so public APIs cannot replace or remove runtime executors.
+TEST(GameplayRuntime, RejectsPublicBuiltInTraversalExecutorMutation)
 {
     InlineThreadOwnerRolesGuard guard{};
     GameplayRuntime runtime{};
     GameplayUnsupportedTraversalExecutor executor{};
-    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kDoorTraversalTypeId, executor));
 
     LevelAsset levelAsset = MakeMinimalLevelAsset();
     LevelInstance levelInstance{};
     Scene scene{};
     runtime.Initialize(levelAsset, levelInstance, scene);
+    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kDoorTraversalTypeId, executor));
+    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kJumpTraversalTypeId, executor));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
     StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
     ASSERT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    ASSERT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
+    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kDoorTraversalTypeId, executor));
+    EXPECT_FALSE(runtime.RegisterGameplayTraversalExecutor(kJumpTraversalTypeId, executor));
     EXPECT_FALSE(runtime.RemoveGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_FALSE(runtime.RemoveGameplayTraversalExecutor(kJumpTraversalTypeId));
     EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kDoorTraversalTypeId));
+    EXPECT_TRUE(runtime.HasGameplayTraversalExecutor(kJumpTraversalTypeId));
 }

@@ -45,6 +45,7 @@ TEST(GameplayTraversalExecutorRegistry, RejectsInvalidTypeId)
     GameplayTraversalExecutorRegistry registry{};
     RegistryFakeTraversalExecutor executor{};
     EXPECT_FALSE(registry.Register(GameplayTraversalTypeId{}, executor));
+    EXPECT_FALSE(registry.RegisterRuntimeOwned(GameplayTraversalTypeId{}, executor));
     EXPECT_EQ(registry.Find(GameplayTraversalTypeId{}), nullptr);
 }
 
@@ -79,7 +80,34 @@ TEST(GameplayTraversalExecutorRegistry, RemoveDeletesRegistration)
     EXPECT_EQ(executor.startCallCount, 1);
 }
 
-// Protects session cleanup by removing every non-owning executor registration.
+// Protects registration-derived ownership so runtime-owned services cannot be removed.
+TEST(GameplayTraversalExecutorRegistry, RuntimeOwnedRegistrationCannotBeRemovedOrReplaced)
+{
+    constexpr GameplayTraversalTypeId kRuntimeType{42u};
+    GameplayTraversalExecutorRegistry registry{};
+    RegistryFakeTraversalExecutor runtimeExecutor{};
+    RegistryFakeTraversalExecutor replacement{};
+    ASSERT_TRUE(registry.RegisterRuntimeOwned(kRuntimeType, runtimeExecutor));
+    EXPECT_FALSE(registry.Register(kRuntimeType, replacement));
+    EXPECT_FALSE(registry.Remove(kRuntimeType));
+    EXPECT_EQ(registry.Find(kRuntimeType), &runtimeExecutor);
+}
+
+TEST(GameplayTraversalExecutorRegistry, ExternalResetPreservesRuntimeOwnedRegistration)
+{
+    constexpr GameplayTraversalTypeId kRuntimeType{42u};
+    constexpr GameplayTraversalTypeId kExternalType{43u};
+    GameplayTraversalExecutorRegistry registry{};
+    RegistryFakeTraversalExecutor runtimeExecutor{};
+    RegistryFakeTraversalExecutor externalExecutor{};
+    ASSERT_TRUE(registry.RegisterRuntimeOwned(kRuntimeType, runtimeExecutor));
+    ASSERT_TRUE(registry.Register(kExternalType, externalExecutor));
+    registry.ResetExternalRegistrations();
+    EXPECT_EQ(registry.Find(kRuntimeType), &runtimeExecutor);
+    EXPECT_FALSE(registry.Contains(kExternalType));
+}
+
+// Protects session cleanup by removing active executor registrations.
 TEST(GameplayTraversalExecutorRegistry, ResetClearsRegistrations)
 {
     GameplayTraversalExecutorRegistry registry{};
@@ -87,7 +115,7 @@ TEST(GameplayTraversalExecutorRegistry, ResetClearsRegistrations)
     RegistryFakeTraversalExecutor jumpExecutor{};
     ASSERT_TRUE(registry.Register(kDoorTraversalTypeId, doorExecutor));
     ASSERT_TRUE(registry.Register(kJumpTraversalTypeId, jumpExecutor));
-    registry.Reset();
+    registry.ResetExternalRegistrations();
     EXPECT_FALSE(registry.Contains(kDoorTraversalTypeId));
     EXPECT_FALSE(registry.Contains(kJumpTraversalTypeId));
 }
