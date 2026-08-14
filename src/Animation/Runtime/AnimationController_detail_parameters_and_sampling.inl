@@ -475,6 +475,7 @@
 			for (std::size_t i = 0; i < runtime.stateMachineAsset->states.size(); ++i)
 			{
 				const AnimationStateDesc& state = runtime.stateMachineAsset->states[i];
+				ValidateAnimationStateContentMode(*runtime.stateMachineAsset, state);
 				if (!state.blend2D.empty())
 				{
 					auto& resolvedBlend = runtime.resolvedStateBlend2DClipIndices[i];
@@ -497,8 +498,33 @@
 				}
 				else
 				{
-					runtime.resolvedStateClipIndices[i] =
-						ResolveClipIndexForState(runtime, runtime.stateMachineAsset->states[i]);
+					const AnimationClipRef binding = ResolveAnimationStateContentBinding(
+						*runtime.stateMachineAsset, state, runtime.animationProfile);
+					AnimationStateDesc concreteState = state;
+					concreteState.clipSourceAssetId = binding.sourceAssetId;
+					concreteState.clipName = binding.clipName;
+					if (!state.motionId.empty())
+					{
+						const bool sourceLoaded = runtime.clipSourceAssetIds != nullptr &&
+							std::find(runtime.clipSourceAssetIds->begin(), runtime.clipSourceAssetIds->end(),
+								concreteState.clipSourceAssetId) != runtime.clipSourceAssetIds->end();
+						if (!sourceLoaded)
+						{
+							throw std::runtime_error("Animation profile '" + runtime.animationProfile->id + "': motion '" +
+								state.motionId.value + "' references unknown animation source asset '" +
+								concreteState.clipSourceAssetId + "'.");
+						}
+					}
+					const int resolved = ResolveClipIndexForState(runtime, concreteState);
+					const bool explicitClipMismatch = !state.motionId.empty() && !concreteState.clipName.empty() &&
+						(resolved < 0 || (*runtime.clips)[static_cast<std::size_t>(resolved)].name != concreteState.clipName);
+					if (!state.motionId.empty() && (resolved < 0 || explicitClipMismatch))
+					{
+						throw std::runtime_error("Animation profile '" + runtime.animationProfile->id + "': motion '" +
+							state.motionId.value + "' references missing clip '" + concreteState.clipName +
+							"' in animation source '" + concreteState.clipSourceAssetId + "'.");
+					}
+					runtime.resolvedStateClipIndices[i] = resolved;
 				}
 			}
 		}

@@ -178,13 +178,46 @@ std::shared_ptr<SkinnedAssetBundle> GetOrLoadBaseSkinnedAssetBundle_(const Level
 		if (auto controllerIt = asset.animationControllers.find(node.animationController);
 			controllerIt != asset.animationControllers.end())
 		{
+			const AnimationProfileAsset* profile = nullptr;
+			if (!node.animationProfile.empty())
+			{
+				auto profileIt = asset.animationProfiles.find(node.animationProfile);
+				if (profileIt == asset.animationProfiles.end())
+				{
+					throw std::runtime_error("Level JSON: node '" + node.name +
+						"' references unknown animation profile '" + node.animationProfile + "'.");
+				}
+				profile = &profileIt->second;
+			}
 			for (const AnimationStateDesc& state : controllerIt->second.states)
 			{
-				appendUnique(state.clipSourceAssetId);
-					for (const AnimationBlend2DPoint& point : state.blend2D)
+				ValidateAnimationStateContentMode(controllerIt->second, state);
+				if (!state.motionId.empty() && profile == nullptr)
+				{
+					throw std::runtime_error("Animation controller '" + controllerIt->second.id +
+						"': state '" + state.name + "' requires motion '" + state.motionId.value +
+						"', but node '" + node.name + "' has no animation profile.");
+				}
+				const AnimationClipRef binding = ResolveAnimationStateContentBinding(
+					controllerIt->second, state, profile);
+				if (!state.motionId.empty())
+				{
+					if (!asset.animations.contains(binding.sourceAssetId))
 					{
-						appendUnique(point.clipSourceAssetId);
+						throw std::runtime_error("Animation profile '" + profile->id + "': motion '" +
+							state.motionId.value + "' references unknown animation source asset '" +
+							binding.sourceAssetId + "'.");
 					}
+					appendUnique(binding.sourceAssetId);
+				}
+				else
+				{
+					appendUnique(binding.sourceAssetId);
+				}
+				for (const AnimationBlend2DPoint& point : state.blend2D)
+				{
+					appendUnique(point.clipSourceAssetId);
+				}
 			}
 		}
 	}
@@ -371,6 +404,7 @@ int MakeSkinnedDrawForNode_(const LevelAsset& asset, Scene& scene, int nodeIndex
 				stored.asset->clips,
 				stored.asset->clipSourceAssetIds,
 				controllerIt->second,
+				node.animationProfile.empty() ? nullptr : &asset.animationProfiles.at(node.animationProfile),
 				node.animationAutoplay,
 				!node.animationAutoplay,
 				stored.debugForceBindPose);

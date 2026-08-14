@@ -87,6 +87,7 @@ struct LevelNode
 	std::string material;    // default materialId
 	std::string animation;   // animation asset id
 	std::string animationController; // controller asset id
+	std::string animationProfile; // semantic content binding asset id
 	std::string animationClip;
 	bool animationInPlace{ true };
 	std::string animationRootMotionBone;
@@ -124,6 +125,8 @@ struct LevelAsset
 	std::unordered_map<std::string, LevelAnimationDef> animations;
 	std::unordered_map<std::string, AnimationControllerAsset> animationControllers;
 	std::unordered_map<std::string, std::string> animationControllerAssetPaths;
+	std::unordered_map<std::string, AnimationProfileAsset> animationProfiles;
+	std::unordered_map<std::string, std::string> animationProfileAssetPaths;
 	std::unordered_map<std::string, LevelTextureDef> textures;
 	std::unordered_map<std::string, LevelMaterialDef> materials;
 

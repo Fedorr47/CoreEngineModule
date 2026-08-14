@@ -1,0 +1,12 @@
+{
+  "motions": {
+    "Jump.Idle": {
+      "sourceAssetId": "jump",
+      "clip": ""
+    },
+    "Jump.Moving": {
+      "sourceAssetId": "running_jump",
+      "clip": ""
+    }
+  }
+}

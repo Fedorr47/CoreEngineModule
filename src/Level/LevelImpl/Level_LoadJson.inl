@@ -19,6 +19,7 @@ LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath)
 	ParseModelSection_(out, jsonObject);
 	ParseTextureSection_(out, jsonObject);
 	ParseAnimationSection_(out, jsonObject);
+	ParseAnimationProfileAssetSection_(out, jsonObject);
 	ParseExternalAnimationControllerAssetSection_(out, jsonObject);
 	ParseAnimationControllerSection_(out, jsonObject);
 	ParseSkinnedMeshSection_(out, jsonObject);

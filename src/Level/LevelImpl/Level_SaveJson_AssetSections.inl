@@ -154,6 +154,41 @@ inline void WriteAnimationControllerAssetsSection_(std::ostringstream& ss, const
 
 }
 
+inline void WriteAnimationProfilesSection_(std::ostringstream& ss, const LevelAsset& level)
+{
+	ss << "  \"animationProfileAssets\": {";
+	const auto assetKeys = SortedStringKeys(level.animationProfileAssetPaths);
+	for (std::size_t i = 0; i < assetKeys.size(); ++i)
+	{
+		if (i == 0) ss << "\n"; else ss << ",\n";
+		ss << "    "; WriteJsonEscaped(ss, assetKeys[i]); ss << ": {\"path\": ";
+		WriteJsonEscaped(ss, level.animationProfileAssetPaths.at(assetKeys[i])); ss << "}";
+	}
+	if (!assetKeys.empty()) ss << "\n  ";
+	ss << "},\n  \"animationProfiles\": {";
+	bool firstProfile = true;
+	for (const std::string& id : SortedStringKeys(level.animationProfiles))
+	{
+		if (level.animationProfileAssetPaths.contains(id)) continue;
+		if (firstProfile) ss << "\n"; else ss << ",\n";
+		firstProfile = false;
+		ss << "    "; WriteJsonEscaped(ss, id); ss << ": {\"motions\": {";
+		bool firstMotion = true;
+		for (const std::string& motion : SortedStringKeys(level.animationProfiles.at(id).motions))
+		{
+			if (firstMotion) ss << "\n"; else ss << ",\n";
+			firstMotion = false;
+			ss << "      "; WriteJsonEscaped(ss, motion); ss << ": {\"sourceAssetId\": ";
+			const AnimationClipRef& ref = level.animationProfiles.at(id).motions.at(motion);
+			WriteJsonEscaped(ss, ref.sourceAssetId); ss << ", \"clip\": "; WriteJsonEscaped(ss, ref.clipName); ss << "}";
+		}
+		if (!firstMotion) ss << "\n    ";
+		ss << "}}";
+	}
+	if (!firstProfile) ss << "\n  ";
+	ss << "},\n";
+}
+
 inline void WriteAnimationControllersSection_(std::ostringstream& ss, const LevelAsset& level)
 {
 	// animationControllers
@@ -208,11 +243,17 @@ inline void WriteAnimationControllersSection_(std::ostringstream& ss, const Leve
 			for (std::size_t sIndex = 0; sIndex < controller.states.size(); ++sIndex)
 			{
 				const AnimationStateDesc& state = controller.states[sIndex];
+				ValidateAnimationStateContentMode(controller, state);
 				if (sIndex == 0) ss << "\n"; else ss << ",\n";
 				ss << "      ";
 				WriteJsonEscaped(ss, state.name);
 				ss << ": {";
-				if (!state.blend1D.empty())
+				if (!state.motionId.empty())
+				{
+					ss << "\"motion\": ";
+					WriteJsonEscaped(ss, state.motionId.value);
+				}
+				else if (!state.blend1D.empty())
 				{
 					ss << "\"blend1D\": {\"parameter\": ";
 					WriteJsonEscaped(ss, state.blendParameter);

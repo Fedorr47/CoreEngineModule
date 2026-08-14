@@ -4,6 +4,7 @@ module;
 #include <concepts>
 #include <cmath>
 #include <cstdint>
+#include <stdexcept>
 #include <type_traits>
 #include <cstddef>
 #include <cctype>
@@ -44,7 +45,26 @@ export namespace rendern
 	{
 		std::unordered_map<std::string, AnimationParameterValue> values;
 	};
+	
+	struct MotionId
+	{
+		std::string value;
+		[[nodiscard]] bool empty() const noexcept { return value.empty(); }
+		friend bool operator==(const MotionId&, const MotionId&) = default;
+	};
 
+	struct AnimationClipRef
+	{
+		std::string sourceAssetId;
+		std::string clipName;
+	};
+
+	struct AnimationProfileAsset
+	{
+		std::string id;
+		std::unordered_map<std::string, AnimationClipRef> motions;
+	};
+	
 	enum class AnimationConditionOp : std::uint8_t
 	{
 		IfTrue = 0,
@@ -88,6 +108,7 @@ export namespace rendern
 	struct AnimationStateDesc
 	{
 		std::string name;
+		MotionId motionId;
 		std::string clipName;
 		std::string clipSourceAssetId;
 		std::string blendParameter;
@@ -136,6 +157,54 @@ export namespace rendern
 		std::vector<AnimationTransitionDesc> transitions;
 		std::vector<AnimationEventBindingDesc> eventBindings;
 	};
+	
+	inline void ValidateAnimationStateContentMode(
+		const AnimationControllerAsset& controller,
+		const AnimationStateDesc& state)
+	{
+		if (state.motionId.empty())
+		{
+			return;
+		}
+		const auto unsupportedBlend = [&](std::string_view blendKind)
+		{
+			throw std::runtime_error("Animation controller '" + controller.id + "': state '" + state.name +
+				"' uses semantic motion '" + state.motionId.value + "' together with " + std::string(blendKind) +
+				", but semantic blend states are not supported.");
+		};
+		if (!state.blend2D.empty()) unsupportedBlend("Blend2D");
+		if (!state.blend1D.empty()) unsupportedBlend("Blend1D");
+		if (!state.clipName.empty() || !state.clipSourceAssetId.empty())
+		{
+			throw std::runtime_error("Animation controller '" + controller.id + "': state '" + state.name +
+				"' must not define both semantic motion '" + state.motionId.value + "' and a direct clip reference.");
+		}
+	}
+
+	[[nodiscard]] inline AnimationClipRef ResolveAnimationStateContentBinding(
+		const AnimationControllerAsset& controller,
+		const AnimationStateDesc& state,
+		const AnimationProfileAsset* profile)
+	{
+		ValidateAnimationStateContentMode(controller, state);
+		if (state.motionId.empty())
+		{
+			return { state.clipSourceAssetId, state.clipName };
+		}
+		if (profile == nullptr)
+		{
+			throw std::runtime_error("Animation controller '" + controller.id + "': state '" + state.name +
+				"' requires motion '" + state.motionId.value + "', but no animation profile is bound.");
+		}
+		const auto binding = profile->motions.find(state.motionId.value);
+		if (binding == profile->motions.end())
+		{
+			throw std::runtime_error("Animation controller '" + controller.id + "': state '" + state.name +
+				"' requires motion '" + state.motionId.value + "', but animation profile '" + profile->id +
+				"' does not define it.");
+		}
+		return binding->second;
+	}
 
 	enum class AnimationRootMotionMode : std::uint8_t
 	{
@@ -171,6 +240,7 @@ export namespace rendern
 		std::string currentStateName;
 		std::string requestedStateName;
 		const AnimationControllerAsset* stateMachineAsset{ nullptr };
+		const AnimationProfileAsset* animationProfile{ nullptr };
 		int currentStateIndex{ -1 };
 		std::vector<int> resolvedStateClipIndices;
 		std::vector<std::vector<int>> resolvedStateBlend1DClipIndices;

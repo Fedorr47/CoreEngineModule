@@ -57,6 +57,33 @@ TEST(LevelInstantiate, RejectsUnknownMaterialReference)
 	harness.ExpectInstantiateThrowsWithFragments(level, { "unknown materialId", "missingMaterial" });
 }
 
+TEST(LevelInstantiate, SemanticMotionSourceIsImportedBeforeControllerBinding)
+{
+	test::LevelInstantiateHarness harness{};
+	LevelAsset level{};
+	level.skinnedMeshes.emplace("character", LevelSkinnedMeshDef{
+		.path = "models/Character.fbx", .debugName = "SemanticSourceCharacter" });
+	level.animations.emplace("test_external_source", LevelAnimationDef{
+		.path = "animations/idle.fbx", .debugName = "SemanticExternalSource" });
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	level.animationControllers.emplace(controller.id, controller);
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_external_source", "" });
+	level.animationProfiles.emplace(profile.id, profile);
+	level.nodes.push_back(LevelNode{ .name = "SemanticCharacter", .skinnedMesh = "character",
+		.animationController = "TestController", .animationProfile = "TestProfile" });
+
+	[[maybe_unused]] const LevelInstance instance = harness.Instantiate(level);
+	ASSERT_EQ(harness.GetScene().skinnedDrawItems.size(), 1u);
+	const SkinnedDrawItem& draw = harness.GetScene().skinnedDrawItems.front();
+	ASSERT_EQ(draw.asset->externalAnimationSources.size(), 1u);
+	EXPECT_EQ(draw.asset->externalAnimationSources.front().assetId, "test_external_source");
+	ASSERT_EQ(draw.controller.resolvedStateClipIndices.size(), 1u);
+	EXPECT_GE(draw.controller.resolvedStateClipIndices.front(), 0);
+}
+
 namespace
 {
 	LevelPhysicsBodyDef BodyWithMotion(const physics::PhysicsMotionType motionType)

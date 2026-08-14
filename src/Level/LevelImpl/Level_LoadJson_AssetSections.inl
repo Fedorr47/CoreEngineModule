@@ -203,6 +203,31 @@ inline void ParseAnimationControllerSection_(LevelAsset& out, const JsonObject& 
 
 }
 
+inline void ParseAnimationProfileAssetSection_(LevelAsset& out, const JsonObject& jsonObject)
+{
+	if (auto* assetsValue = TryGet(jsonObject, "animationProfileAssets"))
+	{
+		for (const auto& [id, value] : assetsValue->AsObject())
+		{
+			const std::string path = GetStringOpt(value.AsObject(), "path");
+			if (path.empty())
+			{
+				throw std::runtime_error("Level JSON: animationProfileAssets." + id + ".path is required");
+			}
+			out.animationProfileAssetPaths[id] = path;
+			out.animationProfiles.insert_or_assign(id, LoadExternalAnimationProfileAssetFromJson_(path, id));
+		}
+	}
+	if (auto* profilesValue = TryGet(jsonObject, "animationProfiles"))
+	{
+		for (const auto& [id, value] : profilesValue->AsObject())
+		{
+			out.animationProfiles.insert_or_assign(id,
+				ParseAnimationProfileAssetObject_(value.AsObject(), id, "Level JSON: animationProfiles." + id));
+		}
+	}
+}
+
 inline void ParseSkinnedMeshSection_(LevelAsset& out, const JsonObject& jsonObject)
 {
 	// --- skinnedMeshes ---

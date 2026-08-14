@@ -160,6 +160,7 @@
 		runtime.clips = &clips;
 		runtime.clipSourceAssetIds = nullptr;
 		runtime.stateMachineAsset = nullptr;
+		runtime.animationProfile = nullptr;
 		runtime.currentStateIndex = -1;
 		runtime.resolvedStateClipIndices.clear();
 		runtime.resolvedStateBlend1DClipIndices.clear();
@@ -183,6 +184,7 @@
 		const std::vector<AnimationClip>& clips,
 		const std::vector<std::string>& clipSourceAssetIds,
 		const AnimationControllerAsset& asset,
+		const AnimationProfileAsset* animationProfile,
 		bool autoplay,
 		bool paused,
 		bool forceBindPose)
@@ -193,6 +195,7 @@
 		runtime.clips = &clips;
 		runtime.clipSourceAssetIds = &clipSourceAssetIds;
 		runtime.stateMachineAsset = &asset;
+		runtime.animationProfile = animationProfile;
 		runtime.controllerAssetId = asset.id;
 		runtime.autoplay = autoplay;
 		runtime.paused = paused;
@@ -215,6 +218,20 @@
 		{
 			detail::ApplyRuntimeState(runtime, runtime.currentStateIndex, false);
 		}
+	}
+
+	inline void BindAnimationControllerStateMachine(
+		AnimationControllerRuntime& runtime,
+		const Skeleton& skeleton,
+		const std::vector<AnimationClip>& clips,
+		const std::vector<std::string>& clipSourceAssetIds,
+		const AnimationControllerAsset& asset,
+		bool autoplay,
+		bool paused,
+		bool forceBindPose)
+	{
+		BindAnimationControllerStateMachine(runtime, skeleton, clips, clipSourceAssetIds, asset, nullptr,
+			autoplay, paused, forceBindPose);
 	}
 
 	inline void RefreshAnimationControllerRuntimeBindings(

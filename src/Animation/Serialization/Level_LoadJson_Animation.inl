@@ -21,6 +21,61 @@
 	throw std::runtime_error("Level JSON: animation controller condition op is invalid");
 }
 
+[[nodiscard]] AnimationProfileAsset ParseAnimationProfileAssetObject_(
+	const JsonObject& object,
+	const std::string& id,
+	const std::string& contextPrefix)
+{
+	if (id.empty())
+	{
+		throw std::runtime_error(contextPrefix + ": profile id must not be empty");
+	}
+	AnimationProfileAsset profile;
+	profile.id = id;
+	const JsonValue* motionsValue = TryGet(object, "motions");
+	if (motionsValue == nullptr || !motionsValue->IsObject())
+	{
+		throw std::runtime_error(contextPrefix + ".motions must be object");
+	}
+	// JsonObject is already normalized by JsonParser, so duplicate keys cannot be observed here.
+	for (const auto& [motion, bindingValue] : motionsValue->AsObject())
+	{
+		if (motion.empty())
+		{
+			throw std::runtime_error(contextPrefix + ".motions contains an empty motion id");
+		}
+		if (!bindingValue.IsObject())
+		{
+			throw std::runtime_error(contextPrefix + ".motions." + motion + " must be object");
+		}
+		const JsonObject& bindingObject = bindingValue.AsObject();
+		AnimationClipRef binding;
+		binding.sourceAssetId = GetStringOpt(bindingObject, "sourceAssetId");
+		binding.clipName = GetStringOpt(bindingObject, "clip");
+		if (binding.sourceAssetId.empty())
+		{
+			throw std::runtime_error(contextPrefix + ".motions." + motion + ".sourceAssetId is required");
+		}
+		profile.motions.emplace(motion, std::move(binding));
+	}
+	return profile;
+}
+
+[[nodiscard]] AnimationProfileAsset LoadExternalAnimationProfileAssetFromJson_(
+	std::string_view assetPath,
+	const std::string& id)
+{
+	const std::filesystem::path absPath = corefs::ResolveAsset(std::filesystem::path(std::string(assetPath)));
+	const std::string text = FILE_UTILS::ReadAllText(absPath);
+	JsonParser parser(text);
+	JsonValue root = parser.Parse();
+	if (!root.IsObject())
+	{
+		throw std::runtime_error("Animation profile JSON: root must be object");
+	}
+	return ParseAnimationProfileAssetObject_(root.AsObject(), id, "Animation profile JSON: " + std::string(assetPath));
+}
+
 [[nodiscard]] std::vector<AnimationNotifyDesc> ParseAnimationNotifyArray_(
 	const JsonArray& notifiesA,
 	const std::string& contextPrefix)
@@ -211,6 +266,7 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 			const JsonObject& sd = stateV.AsObject();
 			AnimationStateDesc stateDesc;
 			stateDesc.name = stateName;
+			stateDesc.motionId.value = GetStringOpt(sd, "motion");
 			stateDesc.clipName = GetStringOpt(sd, "clip");
 			stateDesc.clipSourceAssetId = GetStringOpt(sd, "clipSourceAssetId");
 			stateDesc.looping = GetBoolOpt(sd, "loop", true);
@@ -343,9 +399,12 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 				}
 				stateDesc.notifies = ParseAnimationNotifyArray_(notifiesV->AsArray(), contextPrefix + ".states." + stateName + ".notifies[]");
 			}
-			if (stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() && stateDesc.blend1D.empty() && stateDesc.blend2D.empty())
+			ValidateAnimationStateContentMode(def, stateDesc);
+			if (stateDesc.motionId.empty() && stateDesc.clipName.empty() && stateDesc.clipSourceAssetId.empty() &&
+				stateDesc.blend1D.empty() && stateDesc.blend2D.empty())
 			{
-				throw std::runtime_error(contextPrefix + ".states." + stateName + " must define clip, clipSourceAssetId, blend1D, or blend2D");
+				throw std::runtime_error(contextPrefix + ".states." + stateName +
+					" must define motion, clip, clipSourceAssetId, blend1D, or blend2D");
 			}
 			def.states.push_back(std::move(stateDesc));
 		}

@@ -200,6 +200,11 @@ inline void WriteNodesSection_(std::ostringstream& ss, const LevelAsset& level, 
 			ss << ", \"animationController\": ";
 			WriteJsonEscaped(ss, n.animationController);
 		}
+		if (!n.animationProfile.empty())
+		{
+			ss << ", \"animationProfile\": ";
+			WriteJsonEscaped(ss, n.animationProfile);
+		}
 		if (!n.animationClip.empty())
 		{
 			ss << ", \"animationClip\": ";

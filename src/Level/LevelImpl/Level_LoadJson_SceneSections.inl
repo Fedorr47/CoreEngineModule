@@ -226,6 +226,12 @@ inline void ParseNodeSection_(LevelAsset& out, const JsonObject& jsonObject)
 			n.material = GetStringOpt(nd, "material");
 			n.animation = GetStringOpt(nd, "animation");
 			n.animationController = GetStringOpt(nd, "animationController");
+			n.animationProfile = GetStringOpt(nd, "animationProfile");
+			if (!n.animationProfile.empty() && !out.animationProfiles.contains(n.animationProfile))
+			{
+				throw std::runtime_error("Level JSON: node '" + n.name +
+					"' references unknown animation profile '" + n.animationProfile + "'.");
+			}
 			n.animationClip = GetStringOpt(nd, "animationClip");
 			n.animationInPlace = GetBoolOpt(nd, "animationInPlace", true);
 			n.animationRootMotionBone = GetStringOpt(nd, "animationRootMotionBone");

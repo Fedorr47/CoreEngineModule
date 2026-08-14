@@ -5,14 +5,7 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	const AliveNodeRemap_ remap = BuildAliveNodeRemap_(level);
 
 	const fs::path absPath = corefs::ResolveAsset(fs::path(std::string(levelRelativeOrAbsPath)));
-	fs::create_directories(absPath.parent_path());
-
-	std::ofstream file(absPath, std::ios::binary | std::ios::trunc);
-	if (!file)
-	{
-		throw std::runtime_error("Level JSON: failed to open for write: " + absPath.string());
-	}
-
+	
 	std::ostringstream ss;
 	ss.setf(std::ios::fixed);
 	ss << std::setprecision(6);
@@ -26,6 +19,7 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	WriteModelsSection_(ss, level);
 	WriteSkinnedMeshesSection_(ss, level);
 	WriteAnimationsSection_(ss, level);
+	WriteAnimationProfilesSection_(ss, level);
 	WriteAnimationControllerAssetsSection_(ss, level);
 	WriteAnimationControllersSection_(ss, level);
 	WriteTexturesSection_(ss, level);
@@ -39,6 +33,14 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	ss << "}\n";
 
 	const std::string outText = ss.str();
+	
+	fs::create_directories(absPath.parent_path());
+	std::ofstream file(absPath, std::ios::binary | std::ios::trunc);
+	if (!file)
+	{
+		throw std::runtime_error("Level JSON: failed to open for write: " + absPath.string());
+	}
+
 	file.write(outText.data(), static_cast<std::streamsize>(outText.size()));
 	file.flush();
 	if (!file)

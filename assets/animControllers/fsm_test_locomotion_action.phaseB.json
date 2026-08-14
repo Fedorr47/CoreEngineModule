@@ -152,8 +152,7 @@
       ]
     },
     "JumpIdle": {
-      "clip": "",
-      "clipSourceAssetId": "jump",
+      "motion": "Jump.Idle",
       "loop": false,
       "playRate": 1.0,
       "tags": [
@@ -162,8 +161,7 @@
       ]
     },
     "JumpMoving": {
-      "clip": "",
-      "clipSourceAssetId": "running_jump",
+      "motion": "Jump.Moving",
       "loop": false,
       "playRate": 1.0,
       "tags": [

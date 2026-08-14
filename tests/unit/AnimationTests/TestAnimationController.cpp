@@ -3,8 +3,10 @@
 #include <vector>
 #include <fstream>
 #include <filesystem>
+#include <initializer_list>
 
 #include "TestSupport/TestFixtureLoader.h"
+#include "TestSupport/TestTempPath.h"
 #include "AnimationTestHelpers.h"
 
 import core;
@@ -52,6 +54,25 @@ namespace
 				<< "missing fragment: '" << fragment << "'\nactual: '" << ex.what() << "'";
 		}
 	}
+	
+	template<typename Fn>
+	void ExpectRuntimeErrorFragments(Fn&& fn, std::initializer_list<std::string_view> fragments)
+	{
+		try
+		{
+			fn();
+			FAIL() << "Expected std::runtime_error";
+		}
+		catch (const std::runtime_error& error)
+		{
+			const std::string message = error.what();
+			for (const std::string_view fragment : fragments)
+			{
+				EXPECT_NE(message.find(fragment), std::string::npos)
+					<< "missing fragment: '" << fragment << "' in error: " << message;
+			}
+		}
+	}
 }
 
 TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
@@ -84,6 +105,245 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 	// Full reset is used when rebinding/reinitializing controller parameters.
 	ResetAnimationParameters(store);
 	EXPECT_TRUE(store.values.empty());
+}
+
+TEST(AnimationController, ArbitrarySemanticMotionResolvesToConcreteClipAtBindTime)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(2);
+	clips[0].name = "OtherClip";
+	clips[1].name = "TestClip";
+	const std::vector<std::string> sourceIds{ "other_source", "test_source" };
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_source", "TestClip" });
+	AnimationControllerRuntime runtime{};
+
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, controller, &profile, true, false, false);
+
+	ASSERT_EQ(runtime.resolvedStateClipIndices.size(), 1u);
+	EXPECT_EQ(runtime.resolvedStateClipIndices[0], 1);
+	EXPECT_EQ(runtime.currentStateName, "SemanticState");
+}
+
+TEST(AnimationController, SemanticBindingReportsMissingMotionAndAmbiguousReferences)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(1);
+	clips[0].name = "TestClip";
+	const std::vector<std::string> sourceIds{ "test_source" };
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	AnimationControllerRuntime runtime{};
+	AnimationControllerAsset missing{ .id = "TestController", .defaultState = "SemanticState" };
+	missing.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.MissingMotion" } });
+	ExpectRuntimeErrorFragments([&]
+		{
+			BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, missing, &profile, true, false, false);
+		}, { "TestController", "SemanticState", "Test.MissingMotion", "TestProfile" });
+
+	AnimationControllerAsset ambiguous{ .id = "TestController", .defaultState = "SemanticState" };
+	ambiguous.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" }, .clipName = "TestClip" });
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_source", "TestClip" });
+	ExpectRuntimeErrorFragments([&]
+		{
+			BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, ambiguous, &profile, true, false, false);
+		}, { "TestController", "SemanticState", "Test.CustomMotion", "direct clip" });
+}
+
+TEST(AnimationController, SemanticBindingRequiresProfileWithActionableDiagnostic)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(1);
+	clips[0].name = "TestClip";
+	const std::vector<std::string> sourceIds{ "test_source" };
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	AnimationControllerRuntime runtime{};
+	ExpectRuntimeErrorFragments([&]
+		{
+			BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, controller, nullptr, true, false, false);
+		}, { "TestController", "SemanticState", "Test.CustomMotion", "no animation profile" });
+}
+
+TEST(AnimationController, SemanticBindingRejectsMissingExplicitClipInSelectedSource)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(1);
+	clips[0].name = "AvailableClip";
+	const std::vector<std::string> sourceIds{ "test_source" };
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_source", "MissingClip" });
+	AnimationControllerRuntime runtime{};
+	ExpectRuntimeErrorFragments([&]
+		{
+			BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, controller, &profile, true, false, false);
+		}, { "TestProfile", "Test.CustomMotion", "MissingClip", "test_source" });
+}
+
+TEST(AnimationController, SemanticBindingRejectsMissingSource)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(1);
+	clips[0].name = "TestClip";
+	const std::vector<std::string> sourceIds{ "available_source" };
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "missing_source", "TestClip" });
+	AnimationControllerRuntime runtime{};
+	ExpectRuntimeErrorFragments([&]
+		{
+			BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, controller, &profile, true, false, false);
+		}, { "TestProfile", "Test.CustomMotion", "missing_source" });
+}
+
+TEST(AnimationController, SemanticBindingRejectsUnsupportedBlendStates)
+{
+	Skeleton skeleton{};
+	std::vector<AnimationClip> clips(1);
+	clips[0].name = "TestClip";
+	const std::vector<std::string> sourceIds{ "test_source" };
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_source", "TestClip" });
+
+	for (const bool useBlend2D : { false, true })
+	{
+		AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+		AnimationStateDesc state{ .name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } };
+		if (useBlend2D)
+		{
+			state.blend2D.push_back(AnimationBlend2DPoint{ .clipName = "TestClip" });
+		}
+		else
+		{
+			state.blend1D.push_back(AnimationBlend1DPoint{ .clipName = "TestClip" });
+		}
+		controller.states.push_back(std::move(state));
+		AnimationControllerRuntime runtime{};
+		ExpectRuntimeErrorFragments([&]
+			{
+				BindAnimationControllerStateMachine(runtime, skeleton, clips, sourceIds, controller, &profile, true, false, false);
+			}, { "TestController", "SemanticState", "Test.CustomMotion", useBlend2D ? "Blend2D" : "Blend1D",
+				"not supported" });
+	}
+}
+
+TEST(AnimationController, SemanticAndDirectBindingsHaveEquivalentFsmBehavior)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("IdleClip"),
+		animationTest::MakeMinimalSingleBoneClip("MoveClip") };
+	const std::vector<std::string> sourceIds{ "test_source", "test_source" };
+	auto makeController = [](bool semantic)
+		{
+			AnimationControllerAsset controller{ .id = semantic ? "SemanticController" : "DirectController",
+				.defaultState = "Idle" };
+			controller.parameters.push_back(AnimationParameterDesc{ .name = "moving",
+				.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Bool, .boolValue = false } });
+			controller.states.push_back(semantic
+				? AnimationStateDesc{ .name = "Idle", .motionId = MotionId{ "Test.Idle" }, .looping = true, .playRate = 0.8f }
+				: AnimationStateDesc{ .name = "Idle", .clipName = "IdleClip", .clipSourceAssetId = "test_source", .looping = true, .playRate = 0.8f });
+			controller.states.push_back(semantic
+				? AnimationStateDesc{ .name = "Move", .motionId = MotionId{ "Test.Move" }, .looping = false, .playRate = 1.25f }
+				: AnimationStateDesc{ .name = "Move", .clipName = "MoveClip", .clipSourceAssetId = "test_source", .looping = false, .playRate = 1.25f });
+			controller.transitions.push_back(AnimationTransitionDesc{ .fromState = "Idle", .toState = "Move",
+				.blendDurationSeconds = 0.0f, .priority = 7,
+				.conditions = { AnimationConditionDesc{ .parameter = "moving", .op = AnimationConditionOp::IfTrue } } });
+			return controller;
+		};
+	AnimationControllerAsset direct = makeController(false);
+	AnimationControllerAsset semantic = makeController(true);
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.Idle", AnimationClipRef{ "test_source", "IdleClip" });
+	profile.motions.emplace("Test.Move", AnimationClipRef{ "test_source", "MoveClip" });
+	AnimationControllerRuntime directRuntime{};
+	AnimationControllerRuntime semanticRuntime{};
+	BindAnimationControllerStateMachine(directRuntime, skeleton, clips, sourceIds, direct, true, false, false);
+	BindAnimationControllerStateMachine(semanticRuntime, skeleton, clips, sourceIds, semantic, &profile, true, false, false);
+	EXPECT_EQ(directRuntime.currentStateName, semanticRuntime.currentStateName);
+
+	SetAnimationParameter(directRuntime.parameters, "moving", true);
+	SetAnimationParameter(semanticRuntime.parameters, "moving", true);
+	AnimatorState directAnimator{};
+	AnimatorState semanticAnimator{};
+	UpdateAnimationControllerRuntime(directRuntime, directAnimator, 0.016f);
+	UpdateAnimationControllerRuntime(semanticRuntime, semanticAnimator, 0.016f);
+	EXPECT_EQ(directRuntime.currentStateName, "Move");
+	EXPECT_EQ(directRuntime.currentStateName, semanticRuntime.currentStateName);
+	EXPECT_EQ(directRuntime.looping, semanticRuntime.looping);
+	EXPECT_FLOAT_EQ(directRuntime.playRate, semanticRuntime.playRate);
+	EXPECT_EQ(directRuntime.debugLastTransitionSelection, semanticRuntime.debugLastTransitionSelection);
+}
+
+TEST(AnimationController, SemanticProfileAndNodeBindingSurviveLevelRoundTrip)
+{
+	test::ScopedTempPath tempPath{ test::MakeUniqueTempPath("semantic_animation_round_trip") };
+	const std::filesystem::path path = tempPath.Path() / "semantic.level.json";
+	LevelAsset source{};
+	source.name = "SemanticRoundTrip";
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{
+		.name = "SemanticState", .motionId = MotionId{ "Test.CustomMotion" } });
+	source.animationControllers.emplace(controller.id, controller);
+	AnimationProfileAsset profile{ .id = "TestProfile" };
+	profile.motions.emplace("Test.CustomMotion", AnimationClipRef{ "test_external_source", "TestClip" });
+	source.animationProfiles.emplace(profile.id, profile);
+	source.nodes.push_back(LevelNode{ .name = "Character", .animationController = "TestController",
+		.animationProfile = "TestProfile" });
+
+	SaveLevelAssetToJson(path.string(), source);
+	const LevelAsset reloaded = LoadLevelAssetFromJson(path.string());
+	ASSERT_TRUE(reloaded.animationControllers.contains("TestController"));
+	ASSERT_TRUE(reloaded.animationProfiles.contains("TestProfile"));
+	ASSERT_EQ(reloaded.nodes.size(), 1u);
+	EXPECT_EQ(reloaded.animationControllers.at("TestController").states[0].motionId.value, "Test.CustomMotion");
+	EXPECT_EQ(reloaded.nodes[0].animationProfile, "TestProfile");
+	const AnimationClipRef& binding = reloaded.animationProfiles.at("TestProfile").motions.at("Test.CustomMotion");
+	EXPECT_EQ(binding.sourceAssetId, "test_external_source");
+	EXPECT_EQ(binding.clipName, "TestClip");
+}
+
+TEST(AnimationController, ProfileBindingShapeAndMixedStateSerializationAreValidated)
+{
+	const std::filesystem::path assetRoot = corefs::FindAssetRoot();
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/profile_binding_shape.animationprofile.json",
+		R"json({"motions":{"Test.CustomMotion":"test_source"}})json");
+	WriteTestAssetFile(assetRoot, "tests/animation_validation/profile_binding_shape.level.json",
+		R"json({"animationProfileAssets":{"TestProfile":{"path":"tests/animation_validation/profile_binding_shape.animationprofile.json"}}})json");
+	ExpectLoadLevelThrowsWithMessageFragment("tests/animation_validation/profile_binding_shape.level.json",
+		"Animation profile JSON: tests/animation_validation/profile_binding_shape.animationprofile.json.motions.Test.CustomMotion must be object");
+
+	test::ScopedTempPath tempPath{ test::MakeUniqueTempPath("semantic_animation_invalid_save") };
+	LevelAsset invalid{};
+	AnimationControllerAsset controller{ .id = "TestController", .defaultState = "SemanticState" };
+	controller.states.push_back(AnimationStateDesc{ .name = "SemanticState",
+		.motionId = MotionId{ "Test.CustomMotion" }, .blend1D = { AnimationBlend1DPoint{ .clipName = "TestClip" } } });
+	invalid.animationControllers.emplace(controller.id, controller);
+	const std::filesystem::path invalidPath = tempPath.Path() / "invalid.level.json";
+	std::filesystem::create_directories(invalidPath.parent_path());
+	{
+		std::ofstream original(invalidPath, std::ios::binary | std::ios::trunc);
+		ASSERT_TRUE(original.is_open());
+		original << "ORIGINAL_CONTENT";
+	}
+	ExpectRuntimeErrorFragments([&]
+		{
+			SaveLevelAssetToJson(invalidPath.string(), invalid);
+		}, { "TestController", "SemanticState", "Test.CustomMotion", "Blend1D" });
+	std::ifstream preservedInput(invalidPath, std::ios::binary);
+	ASSERT_TRUE(preservedInput.is_open());
+	std::string preservedContent;
+	preservedInput >> preservedContent;
+	EXPECT_EQ(preservedContent, "ORIGINAL_CONTENT");
 }
 
 TEST(AnimationController, StateLookupAndTagsWork)
