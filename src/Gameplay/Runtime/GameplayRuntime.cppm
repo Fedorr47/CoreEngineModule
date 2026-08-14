@@ -42,6 +42,7 @@ import :gameplay_animation_bridge;
 import :gameplay_animation_bridge_system;
 import :thread_affinity;
 import :door_traversal_executor;
+import :jump_traversal_executor;
 
 namespace ProfileUtils
 {
@@ -60,7 +61,15 @@ export namespace rendern
     class GameplayRuntime
     {
     public:
-        GameplayRuntime() = default;
+        GameplayRuntime()
+        {
+            const bool bRegisteredDoor = traversalExecutorRegistry_.RegisterRuntimeOwned(
+                DoorTraversalExecutor::kTypeId, doorTraversalExecutor_);
+            const bool bRegisteredJump = traversalExecutorRegistry_.RegisterRuntimeOwned(
+                JumpTraversalExecutor::kTypeId, jumpTraversalExecutor_);
+            assert(bRegisteredDoor && bRegisteredJump &&
+                "Built-in traversal executors must register exactly once.");
+        }
 
         void Initialize(LevelAsset& levelAsset, LevelInstance& levelInstance, Scene& scene);
         void Shutdown();
@@ -142,7 +151,6 @@ export namespace rendern
         void ResetSimulationState_();
         void RemoveDeadNodeBoundEntities_(const GameplayUpdateContext& ctx);
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
-        void RegisterBuiltInTraversalExecutors_();
         // Profiling zone start
         void EnsureBootstrapEntity_(const GameplayUpdateContext& ctx);
         void RecordSyncInstrumentationSample_(
@@ -173,6 +181,7 @@ export namespace rendern
         GameplayUnsupportedTraversalExecutor unsupportedTraversalExecutor_{};
         GameplayObjectReservationSystem objectReservationSystem_{};
         DoorTraversalExecutor doorTraversalExecutor_{world_, objectReservationSystem_};
+        JumpTraversalExecutor jumpTraversalExecutor_{world_, traversalLinkRegistry_};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
         GameplayFollowCameraController followCameraController_{};

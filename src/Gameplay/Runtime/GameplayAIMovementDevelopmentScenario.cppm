@@ -325,6 +325,7 @@ namespace rendern
                 movementState->physicalBlockedSeconds = 0.0f;
                 movementState->jumpPhase = GameplayJumpPhase::None;
                 movementState->jumpRequestConsumed = false;
+                movementState->jumpRequestResult = GameplayJumpRequestResult::None;
                 movementState->jumpAirbornePhysicallyObserved = false;
                 movementState->turningInPlace = false;
 

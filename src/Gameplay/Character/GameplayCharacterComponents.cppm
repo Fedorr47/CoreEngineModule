@@ -15,6 +15,14 @@ export namespace rendern
         Preparing,
         Airborne
     };
+
+    enum class GameplayJumpRequestResult : std::uint8_t
+    {
+        None,
+        Pending,
+        Accepted,
+        Rejected
+    };
     
     struct GameplayCharacterCommandComponent
     {
@@ -86,6 +94,7 @@ export namespace rendern
         float physicalBlockedSeconds{ 0.0f };
         GameplayJumpPhase jumpPhase{ GameplayJumpPhase::None };
         bool jumpRequestConsumed{ false };
+        GameplayJumpRequestResult jumpRequestResult{ GameplayJumpRequestResult::None };
         bool jumpAirbornePhysicallyObserved{ false };
         bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };

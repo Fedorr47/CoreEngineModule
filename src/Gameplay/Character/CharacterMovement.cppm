@@ -144,6 +144,7 @@ export namespace rendern
                 movementState->jumpLockedVelocity = motor->velocity;
                 movementState->jumpPhase = GameplayJumpPhase::Preparing;
                 movementState->jumpRequestConsumed = true;
+                movementState->jumpRequestResult = GameplayJumpRequestResult::Pending;
             }
 
             const bool bIsAirborne = movementState != nullptr &&
