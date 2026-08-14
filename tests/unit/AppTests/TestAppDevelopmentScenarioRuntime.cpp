@@ -54,6 +54,9 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     rendern::LevelAsset movement{};
     AddNode(movement, "AI_Move_Agent"); AddNode(movement, "AI_Move_Point_0"); AddNode(movement, "AI_Move_Point_1");
     EXPECT_EQ(detect(movement).first, appDevelopment::ScenarioKind::AIMovement);
+    const auto movementView = detect(movement).second;
+    EXPECT_TRUE(movementView.canReset);
+    EXPECT_STREQ(movementView.resetLabel, "Reset Route");
 
     rendern::LevelAsset step{};
     AddNode(step, "NPC_Step_Start"); AddNode(step, "RouteTarget");
@@ -68,6 +71,9 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     rendern::LevelAsset agentSize{}; agentSize.name = "NavigationSmallLargePassage";
     AddNode(agentSize, "SMALL NPC"); AddNode(agentSize, "LARGE NPC");
     EXPECT_EQ(detect(agentSize).first, appDevelopment::ScenarioKind::NavigationAgentSize);
+    const auto agentSizeView = detect(agentSize).second;
+    EXPECT_TRUE(agentSizeView.canReset);
+    EXPECT_STREQ(agentSizeView.resetLabel, "Reset Scenario");
 
     rendern::LevelAsset none{};
     EXPECT_EQ(detect(none).first, appDevelopment::ScenarioKind::None);
@@ -136,8 +142,56 @@ TEST(AppDevelopmentScenarioRuntime, AdaptsAIMovementStartStopAndAuthoritativeSta
     runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameplayContext); runtime.PostPhysicsUpdate(gameplayContext);
 
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
-    ASSERT_EQ(development.GetView(context).statuses[0].value, "Running");
+    ASSERT_STREQ(development.GetView(context).statuses[0].value, "Running");
+    auto* transform = runtime.GetWorld().TryGetTransform(runtime.GetNodeBoundEntities().back());
+    ASSERT_NE(transform, nullptr);
+    transform->position = {6.0f, 0.0f, 0.0f};
     development.Execute(appDevelopment::ScenarioCommand::Stop, context);
-    EXPECT_EQ(development.GetView(context).statuses[0].value, "Cancelled");
+    EXPECT_STREQ(development.GetView(context).statuses[0].value, "Cancelled");
+    EXPECT_FLOAT_EQ(transform->position.x, 6.0f);
+    development.Execute(appDevelopment::ScenarioCommand::Reset, context);
+    EXPECT_STREQ(development.GetView(context).statuses[0].value, "NotStarted");
+    EXPECT_FLOAT_EQ(transform->position.x, -1.0f);
+    runtime.Shutdown();
+}
+
+TEST(AppDevelopmentScenarioRuntime, AgentSizeResetRestoresLevelTransformsAndPhysicalSettings)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{}; level.name = "NavigationSmallLargePassage";
+    AddNode(level, "SMALL NPC"); level.nodes.back().transform.position = {-4.0f, 0.0f, 1.0f};
+    AddNode(level, "LARGE NPC"); level.nodes.back().transform.position = {-4.0f, 0.0f, -1.0f};
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    auto context = MakeContext(runtime, level, instance, scene);
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    rendern::EntityHandle small{rendern::kNullEntity};
+    rendern::EntityHandle large{rendern::kNullEntity};
+    for (const auto entity : runtime.GetNodeBoundEntities())
+    {
+        const auto* link = runtime.GetWorld().TryGetNodeLink(entity);
+        if (link && link->nodeIndex == 0) small = entity;
+        if (link && link->nodeIndex == 1) large = entity;
+    }
+    ASSERT_NE(small, rendern::kNullEntity); ASSERT_NE(large, rendern::kNullEntity);
+    runtime.GetWorld().TryGetTransform(small)->position = {10.0f, 0.0f, 0.0f};
+    runtime.GetWorld().TryGetTransform(large)->position = {20.0f, 0.0f, 0.0f};
+    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
+    const auto gameViewWithoutNavigation = development.GetView(context);
+    EXPECT_TRUE(gameViewWithoutNavigation.commandsEnabled);
+    EXPECT_FALSE(gameViewWithoutNavigation.canStart);
+    EXPECT_TRUE(gameViewWithoutNavigation.canReset);
+    rendern::GameplayUpdateContext gameContext{.mode = context.gameplayMode, .levelAsset = &level,
+        .levelInstance = &instance, .scene = &scene};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameContext); runtime.PostPhysicsUpdate(gameContext);
+    development.Execute(appDevelopment::ScenarioCommand::Reset, context);
+    EXPECT_EQ(runtime.GetWorld().TryGetTransform(small)->position, level.nodes[0].transform.position);
+    EXPECT_EQ(runtime.GetWorld().TryGetTransform(large)->position, level.nodes[1].transform.position);
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetCharacterPhysicalSettings(small)->radius, 0.2f);
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetCharacterPhysicalSettings(large)->radius, 0.7f);
+    const auto view = development.GetView(context);
+    EXPECT_STREQ(view.statuses[0].value, "NotStarted");
+    EXPECT_STREQ(view.statuses[1].value, "NotStarted");
     runtime.Shutdown();
 }

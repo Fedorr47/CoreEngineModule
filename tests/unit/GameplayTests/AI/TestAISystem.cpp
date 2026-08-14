@@ -198,6 +198,26 @@ TEST(AISystem, StartActionStoresAndStartsValidTask)
     EXPECT_TRUE(aiSystem.HasActiveAction(agent));
 }
 
+TEST(AISystem, CancelPreservesCancelledTaskWhileClearReturnsNotStarted)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    FakeActionRuntimeState cancelledState{};
+    ASSERT_EQ(aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(cancelledState)),
+        AIActionExecutionStatus::Running);
+    aiSystem.CancelAction(agent);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Cancelled);
+
+    FakeActionRuntimeState clearedState{};
+    ASSERT_EQ(aiSystem.StartAction(world, MakeActionContext(agent), MakeFakeRuntime(clearedState)),
+        AIActionExecutionStatus::Running);
+    aiSystem.ClearAction(agent);
+    EXPECT_TRUE(clearedState.bCancelCalled);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::NotStarted);
+}
+
 // Protects replacement semantics at the generic task-owner layer rather than
 // inside specialized action starters.
 TEST(AISystem, StartActionReplacesExistingRunningTaskForSameAgent)

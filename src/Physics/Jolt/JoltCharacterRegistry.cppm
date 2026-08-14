@@ -25,6 +25,7 @@ export namespace physics::jolt
         [[nodiscard]] bool ReleaseHandle(PhysicsCharacterHandle handle);
         [[nodiscard]] bool IsValid(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] bool SetDesiredVelocity(PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity) noexcept;
+        [[nodiscard]] bool RequestJump(PhysicsCharacterHandle handle, float verticalSpeed) noexcept;
         [[nodiscard]] std::optional<mathUtils::Vec3> GetObservedVelocity(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] std::optional<CharacterMotionObservation> ConsumeMotionObservation(
             PhysicsCharacterHandle handle) noexcept;
@@ -178,6 +179,33 @@ bool physics::jolt::JoltCharacterRegistry::SetDesiredVelocity(
     slot.desiredHorizontalVelocity = {
         velocity.x * scale, 0.0f, velocity.z * scale
     };
+    return true;
+}
+
+bool physics::jolt::JoltCharacterRegistry::RequestJump(
+    const PhysicsCharacterHandle handle, const float verticalSpeed) noexcept
+{
+    JPH::CharacterVirtual* character = ResolveCharacter(handle);
+    if (character == nullptr || !std::isfinite(verticalSpeed) || verticalSpeed <= 0.0f)
+    {
+        return false;
+    }
+
+    if (character->GetGroundState() != JPH::CharacterBase::EGroundState::OnGround)
+    {
+        return false;
+    }
+
+    const JPH::Vec3 up = character->GetUp();
+    character->UpdateGroundVelocity();
+    JPH::Vec3 velocity = character->GetLinearVelocity();
+    if ((velocity - character->GetGroundVelocity()).Dot(up) > 0.0f)
+    {
+        return false;
+    }
+
+    velocity += up * (verticalSpeed - velocity.Dot(up));
+    character->SetLinearVelocity(velocity);
     return true;
 }
 

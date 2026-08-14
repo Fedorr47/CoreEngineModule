@@ -190,8 +190,8 @@ export namespace rendern
     inline void ApplyGameplayEventToGameplayState(
         GameplayAnimationNotifyStateComponent& notifyState,
         GameplayActionComponent* action,
-        GameplayCharacterMovementStateComponent* movementState,
-        GameplayCharacterMotorComponent* motor,
+        GameplayCharacterMovementStateComponent*,
+        GameplayCharacterMotorComponent*,
         std::string_view gameplayEventId,
         const AnimationNotifyEvent& sourceEvent)
     {
@@ -215,16 +215,6 @@ export namespace rendern
         if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpTakeoff" }))
         {
             notifyState.jumpTakeoffThisFrame = true;
-            if (movementState != nullptr && movementState->jumpPhase == GameplayJumpPhase::Preparing)
-            {
-                movementState->jumpPhase = GameplayJumpPhase::Airborne;
-                movementState->grounded = false;
-                movementState->jumping = true;
-                if (motor != nullptr)
-                {
-                    motor->velocity = movementState->jumpLockedVelocity;
-                }
-            }
         }
 
         if (detail::NameMatchesAnyAlias_(
@@ -267,13 +257,6 @@ export namespace rendern
             if (action != nullptr)
             {
                 FinishGameplayActionState(*action);
-            }
-            if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpEnd", "JumpFinish" }) && movementState != nullptr)
-            {
-                movementState->jumpPhase = GameplayJumpPhase::None;
-                movementState->jumpLockedVelocity = {};
-                movementState->grounded = true;
-                movementState->jumping = false;
             }
         }
     }
@@ -395,6 +378,26 @@ export namespace rendern
             { "IsRunning", "Running", "bIsRunning" },
             locomotion.isRunning);
     }
+    
+    inline void WriteGameplayMovementAnimationParameters(
+        AnimationControllerRuntime& controller,
+        const GameplayCharacterMovementStateComponent& movementState)
+    {
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "IsGrounded", "Grounded", "bIsGrounded" },
+            movementState.grounded);
+
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "IsFalling", "Falling", "bIsFalling" },
+            movementState.falling);
+
+        detail::SetAnimationBoolParameterByAliases_(
+            controller,
+            { "IsJumping", "Jumping", "bIsJumping" },
+            movementState.jumping);
+    }
 
     inline void WriteGameplayActionAnimationParameters(
         AnimationControllerRuntime& controller,
@@ -409,7 +412,6 @@ export namespace rendern
         const bool requestJump = requestedKind == GameplayActionKind::Jump;
         const bool isAttacking = action.busy && action.current == GameplayActionKind::LightAttack;
         const bool isInteracting = action.busy && action.current == GameplayActionKind::Interact;
-        const bool isJumping = action.busy && action.current == GameplayActionKind::Jump;
 
         detail::SetAnimationBoolParameterByAliases_(
             controller,
@@ -450,11 +452,6 @@ export namespace rendern
             controller,
             { "IsInteracting", "Interacting", "bIsInteracting" },
             isInteracting);
-
-        detail::SetAnimationBoolParameterByAliases_(
-            controller,
-            { "IsJumping", "Jumping", "bIsJumping" },
-            isJumping);
 
         detail::SetAnimationNumericParameterByAliases_(
             controller,

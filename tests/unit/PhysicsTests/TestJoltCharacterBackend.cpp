@@ -526,6 +526,94 @@ TEST_F(JoltCharacterBackendTest, ZeroStepHeightStillFollowsSmallDownwardGroundCh
     EXPECT_TRUE(ground->bIsWalkable);
 }
 
+TEST_F(JoltCharacterBackendTest, JumpRequestIsGroundedOneShotAndPreservesPlanarVelocity)
+{
+    ASSERT_TRUE(world.CreateBody(FloorDescriptor()).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.0f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.SetCharacterDesiredVelocity(character, { 3.0f, 0.0f, -2.0f }));
+    SimulateSteps(world, 1);
+    const auto before = world.GetCharacterVelocity(character);
+    ASSERT_TRUE(before.has_value());
+
+    ASSERT_TRUE(world.RequestCharacterJump(character, 6.0f));
+    EXPECT_FALSE(world.RequestCharacterJump(character, 6.0f));
+    SimulateSteps(world, 1);
+    const auto takeoff = world.GetCharacterVelocity(character);
+    ASSERT_TRUE(takeoff.has_value());
+    EXPECT_NEAR(takeoff->x, before->x, 0.02f);
+    EXPECT_NEAR(takeoff->z, before->z, 0.02f);
+    EXPECT_GT(std::hypot(takeoff->x, takeoff->z), 1.0f);
+    EXPECT_GT(takeoff->y, 5.0f);
+
+    EXPECT_FALSE(world.RequestCharacterJump(character, 6.0f));
+    SimulateSteps(world, 1);
+    const auto next = world.GetCharacterVelocity(character);
+    ASSERT_TRUE(next.has_value());
+    EXPECT_LT(next->y, takeoff->y);
+}
+
+TEST_F(JoltCharacterBackendTest, NormalJumpRejectsSteepGround)
+{
+    constexpr float slopeDegrees = 60.0f;
+    ASSERT_TRUE(world.CreateBody(StaticBox(
+        { 0.0f, 0.0f, 0.0f }, { 5.0f, 0.25f, 5.0f }, slopeDegrees)).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 3.0f, 0.0f };
+    descriptor.maximumSlopeAngleDegrees = 45.0f;
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+
+    bool observedSteepGround = false;
+    for (int step = 0; step < 120 && !observedSteepGround; ++step)
+    {
+        SimulateSteps(world, 1);
+        const auto ground = world.GetCharacterGroundState(character);
+        ASSERT_TRUE(ground.has_value());
+        observedSteepGround = ground->bIsSupported && !ground->bIsWalkable;
+    }
+
+    ASSERT_TRUE(observedSteepGround);
+    EXPECT_FALSE(world.RequestCharacterJump(character, 6.0f));
+}
+
+TEST_F(JoltCharacterBackendTest, StationaryJumpDoesNotAddPlanarVelocity)
+{
+    ASSERT_TRUE(world.CreateBody(FloorDescriptor()).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.0f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+
+    ASSERT_TRUE(world.RequestCharacterJump(character, 5.0f));
+    SimulateSteps(world, 1);
+    const auto velocity = world.GetCharacterVelocity(character);
+    ASSERT_TRUE(velocity.has_value());
+    EXPECT_NEAR(velocity->x, 0.0f, 0.001f);
+    EXPECT_NEAR(velocity->z, 0.0f, 0.001f);
+    EXPECT_GT(velocity->y, 4.0f);
+}
+
+TEST_F(JoltCharacterBackendTest, JumpRequestRejectsInvalidHandleAndSpeed)
+{
+    EXPECT_FALSE(world.RequestCharacterJump(physics::InvalidPhysicsCharacterHandle, 5.0f));
+
+    ASSERT_TRUE(world.CreateBody(FloorDescriptor()).IsValid());
+    auto descriptor = CharacterDescriptor();
+    descriptor.position = { 0.0f, 1.0f, 0.0f };
+    const auto character = world.CreateCharacter(descriptor);
+    ASSERT_TRUE(character.IsValid());
+    SettleCharacter(world, character);
+    EXPECT_FALSE(world.RequestCharacterJump(character, 0.0f));
+    EXPECT_FALSE(world.RequestCharacterJump(character, -1.0f));
+    EXPECT_FALSE(world.RequestCharacterJump(character, std::numeric_limits<float>::quiet_NaN()));
+}
+
 TEST_F(JoltCharacterBackendTest, WalksOffLedgeFallsAndLandsAgain)
 {
     ASSERT_TRUE(world.CreateBody(StaticBox({ -1.0f, 1.5f, 0.0f }, { 2.0f, 0.5f, 3.0f })).IsValid());

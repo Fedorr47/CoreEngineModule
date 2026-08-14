@@ -21,6 +21,10 @@
       "type": "bool",
       "default": false
     },
+    "IsJumping": {
+      "type": "bool",
+      "default": false
+    },
     "ActionBusy": {
       "type": "bool",
       "default": false
@@ -213,8 +217,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -237,8 +241,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -261,8 +265,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -285,8 +289,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -309,8 +313,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -333,8 +337,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -357,8 +361,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -381,8 +385,8 @@
       "blendDuration": 0.08,
       "conditions": [
         {
-          "parameter": "Jump",
-          "op": "triggered"
+          "parameter": "IsJumping",
+          "op": "true"
         }
       ],
       "priority": 90
@@ -732,7 +736,7 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
           "op": "false"
         },
         {
@@ -752,7 +756,7 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
           "op": "false"
         },
         {
@@ -772,7 +776,7 @@
       "blendDuration": 0.1,
       "conditions": [
         {
-          "parameter": "ActionBusy",
+          "parameter": "IsJumping",
           "op": "false"
         },
         {

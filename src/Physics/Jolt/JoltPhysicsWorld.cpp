@@ -1140,6 +1140,17 @@ namespace physics
         CORE_ASSERT_PHYSICS_THREAD();
         return impl_->characterRegistry.SetDesiredVelocity(handle, velocity);
     }
+    
+    bool JoltPhysicsWorld::RequestCharacterJump(
+       const PhysicsCharacterHandle handle, const float verticalSpeed)
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return false;
+        }
+        CORE_ASSERT_PHYSICS_THREAD();
+        return impl_->characterRegistry.RequestJump(handle, verticalSpeed);
+    }
 
     std::optional<CharacterGroundState> JoltPhysicsWorld::GetCharacterGroundState(
         const PhysicsCharacterHandle handle) const noexcept
