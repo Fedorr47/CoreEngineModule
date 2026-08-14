@@ -27,6 +27,8 @@
                     movementState->physicallyBlocked = false;
                     movementState->physicalBlockedSeconds = 0.0f;
                     movementState->jumpPhase = GameplayJumpPhase::None;
+                    movementState->jumpRequestConsumed = false;
+                    movementState->jumpAirbornePhysicallyObserved = false;
                     movementState->turningInPlace = false;
                     movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
                     movementState->previousFacingYawDegrees = movementState->facingYawDegrees;

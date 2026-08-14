@@ -37,6 +37,7 @@ export namespace rendern
         float deceleration{ 16.0f };
         float backwardSpeedScale{ 0.72f };
         float airDeceleration{ 2.5f };
+        float jumpVerticalSpeed{ 5.5f };
     };
 
     struct GameplayPhysicsCharacterComponent
@@ -84,6 +85,8 @@ export namespace rendern
         bool physicallyBlocked{ false };
         float physicalBlockedSeconds{ 0.0f };
         GameplayJumpPhase jumpPhase{ GameplayJumpPhase::None };
+        bool jumpRequestConsumed{ false };
+        bool jumpAirbornePhysicallyObserved{ false };
         bool turningInPlace{ false };
         float facingYawDegrees{ 0.0f };
         // Character body-facing target consumed by movement and locomotion.

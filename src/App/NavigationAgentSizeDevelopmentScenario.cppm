@@ -220,6 +220,8 @@ namespace app::navigationRuntime
             state->physicallyBlocked = false;
             state->physicalBlockedSeconds = 0.0f;
             state->jumpPhase = rendern::GameplayJumpPhase::None;
+            state->jumpRequestConsumed = false;
+            state->jumpAirbornePhysicallyObserved = false;
             state->turningInPlace = false;
 
             state->facingYawDegrees = canonical.rotationDegrees.y;

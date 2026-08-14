@@ -190,8 +190,8 @@ export namespace rendern
     inline void ApplyGameplayEventToGameplayState(
         GameplayAnimationNotifyStateComponent& notifyState,
         GameplayActionComponent* action,
-        GameplayCharacterMovementStateComponent* movementState,
-        GameplayCharacterMotorComponent* motor,
+        GameplayCharacterMovementStateComponent*,
+        GameplayCharacterMotorComponent*,
         std::string_view gameplayEventId,
         const AnimationNotifyEvent& sourceEvent)
     {
@@ -215,16 +215,6 @@ export namespace rendern
         if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpTakeoff" }))
         {
             notifyState.jumpTakeoffThisFrame = true;
-            if (movementState != nullptr && movementState->jumpPhase == GameplayJumpPhase::Preparing)
-            {
-                movementState->jumpPhase = GameplayJumpPhase::Airborne;
-                movementState->grounded = false;
-                movementState->jumping = true;
-                if (motor != nullptr)
-                {
-                    motor->velocity = movementState->jumpLockedVelocity;
-                }
-            }
         }
 
         if (detail::NameMatchesAnyAlias_(
@@ -267,13 +257,6 @@ export namespace rendern
             if (action != nullptr)
             {
                 FinishGameplayActionState(*action);
-            }
-            if (detail::NameMatchesAnyAlias_(gameplayEventId, { "JumpEnd", "JumpFinish" }) && movementState != nullptr)
-            {
-                movementState->jumpPhase = GameplayJumpPhase::None;
-                movementState->jumpLockedVelocity = {};
-                movementState->grounded = true;
-                movementState->jumping = false;
             }
         }
     }

@@ -313,6 +313,46 @@ TEST(GameplayAIMovementDevelopmentScenario, RestartResetsAgentToFirstPointAndCle
     EXPECT_EQ(GetGameplayAIMovementDevelopmentScenarioStatus(runtime, levelAsset), AIActionExecutionStatus::Running);
 }
 
+TEST(GameplayAIMovementDevelopmentScenario, ResetRestoresCanonicalStateAndClearsAction)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    LevelAsset levelAsset = MakeDevelopmentScenarioLevel();
+    const int startIndex = FindNodeIndexByName(levelAsset, "AI_Move_Point_000");
+    const int agentIndex = FindNodeIndexByName(levelAsset, "AI_Move_Agent");
+    ASSERT_GE(startIndex, 0);
+    ASSERT_GE(agentIndex, 0);
+    levelAsset.nodes[static_cast<std::size_t>(startIndex)].transform.rotationDegrees.y = -70.0f;
+    levelAsset.nodes[static_cast<std::size_t>(startIndex)].transform.scale = {0.5f, 0.5f, 0.5f};
+    levelAsset.nodes[static_cast<std::size_t>(agentIndex)].transform.rotationDegrees = {5.0f, 35.0f, 10.0f};
+    levelAsset.nodes[static_cast<std::size_t>(agentIndex)].transform.scale = {1.5f, 1.5f, 1.5f};
+    LevelInstance levelInstance{}; Scene scene{}; GameplayRuntime runtime{};
+    runtime.Initialize(levelAsset, levelInstance, scene);
+    const auto context = MakeScenarioContext(levelAsset, levelInstance, scene);
+    EnterGameMode(runtime, context);
+    ASSERT_EQ(StartGameplayAIMovementDevelopmentScenario(runtime, context), AIActionExecutionStatus::Running);
+    const EntityHandle entity = FindNodeBoundEntityByNodeName(runtime, levelAsset, "AI_Move_Agent");
+    ASSERT_NE(entity, kNullEntity);
+    auto& world = runtime.GetWorld();
+    world.TryGetTransform(entity)->position = {9.0f, 8.0f, 7.0f};
+    world.TryGetCharacterMotor(entity)->velocity = {3.0f, 2.0f, 1.0f};
+    world.TryGetCharacterMotor(entity)->desiredVelocity = {1.0f, 1.0f, 1.0f};
+
+    EXPECT_EQ(ResetGameplayAIMovementDevelopmentScenario(runtime, levelAsset), entity);
+    const auto* transform = world.TryGetTransform(entity);
+    EXPECT_EQ(transform->position, levelAsset.nodes[static_cast<std::size_t>(startIndex)].transform.position);
+    EXPECT_EQ(transform->rotationDegrees, levelAsset.nodes[static_cast<std::size_t>(agentIndex)].transform.rotationDegrees);
+    EXPECT_EQ(transform->scale, levelAsset.nodes[static_cast<std::size_t>(agentIndex)].transform.scale);
+    EXPECT_EQ(world.TryGetCharacterMotor(entity)->velocity, mathUtils::Vec3{});
+    EXPECT_EQ(world.TryGetCharacterMotor(entity)->desiredVelocity, mathUtils::Vec3{});
+    const auto* movementState = world.TryGetCharacterMovementState(entity);
+    ASSERT_NE(movementState, nullptr);
+    EXPECT_FLOAT_EQ(movementState->facingYawDegrees, 35.0f);
+    EXPECT_FLOAT_EQ(movementState->desiredFacingYawDegrees, 35.0f);
+    EXPECT_FLOAT_EQ(movementState->previousFacingYawDegrees, 35.0f);
+    EXPECT_FLOAT_EQ(movementState->cameraFacingYawDegrees, 35.0f);
+    EXPECT_EQ(GetGameplayAIMovementDevelopmentScenarioStatus(runtime, levelAsset), AIActionExecutionStatus::NotStarted);
+}
+
 // Protects action lookup from route-authoring changes so losing a route point
 // after Start cannot hide or orphan the already-running agent action.
 TEST(GameplayAIMovementDevelopmentScenario, MissingRoutePointAfterStartDoesNotBlockStatusOrCancellation)
