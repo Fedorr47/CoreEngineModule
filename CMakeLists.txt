@@ -538,6 +538,7 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/Runtime/GameplayAIMovementDevelopmentScenario.cppm
+        Gameplay/Runtime/GameplayAIJumpTraversalDevelopmentScenario.cppm
 
         Timer/GameTimer.ixx
         Timer/GameTimer.cppm

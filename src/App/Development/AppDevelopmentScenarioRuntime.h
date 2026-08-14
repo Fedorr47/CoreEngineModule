@@ -26,6 +26,7 @@ namespace appDevelopment
         None,
         AIMovement,
         AIPhysicsStep,
+        AIJumpTraversal,
         NavigationAgentSize
     };
 

@@ -67,6 +67,18 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     EXPECT_TRUE(stepView.canReset);
     EXPECT_TRUE(stepView.canStop);
     EXPECT_FALSE(stepView.commandsEnabled);
+    
+    rendern::LevelAsset jump{};
+    AddNode(jump, "JumpTraversalAgent"); AddNode(jump, "JumpRouteStart");
+    AddNode(jump, "JumpTraversalEntry");
+    AddNode(jump, "JumpTakeoff"); AddNode(jump, "JumpLanding");
+    AddNode(jump, "JumpPostLanding"); AddNode(jump, "JumpRouteFinish");
+    const auto [jumpKind, jumpView] = detect(jump);
+    EXPECT_EQ(jumpKind, appDevelopment::ScenarioKind::AIJumpTraversal);
+    EXPECT_STREQ(jumpView.startLabel, "Start Route");
+    EXPECT_TRUE(jumpView.canStart);
+    EXPECT_TRUE(jumpView.canReset);
+    EXPECT_TRUE(jumpView.canStop);
 
     rendern::LevelAsset agentSize{}; agentSize.name = "NavigationSmallLargePassage";
     AddNode(agentSize, "SMALL NPC"); AddNode(agentSize, "LARGE NPC");

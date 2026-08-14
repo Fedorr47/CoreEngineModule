@@ -52,6 +52,7 @@ namespace appDevelopment
     {
         ScenarioKind kind{ScenarioKind::None};
         app::navigationRuntime::NavigationAgentSizeDevelopmentScenario agentSizeScenario{};
+        rendern::GameplayAIJumpTraversalDevelopmentScenarioState jumpTraversalScenario{};
         rendern::GameplayRuntimeMode lastMode{rendern::GameplayRuntimeMode::Editor};
     };
 
@@ -69,6 +70,7 @@ namespace appDevelopment
     {
         impl_->kind = ScenarioKind::None;
         impl_->agentSizeScenario.Reset();
+        impl_->jumpTraversalScenario.Reset();
         impl_->lastMode = rendern::GameplayRuntimeMode::Editor;
     }
 
@@ -83,6 +85,10 @@ namespace appDevelopment
         {
             impl_->kind = ScenarioKind::AIPhysicsStep;
         }
+        else if (rendern::IsGameplayAIJumpTraversalDevelopmentScenario(context.level))
+        {
+            impl_->kind = ScenarioKind::AIJumpTraversal;
+        }
         else if (rendern::IsGameplayAIMovementDevelopmentScenario(context.level))
         {
             impl_->kind = ScenarioKind::AIMovement;
@@ -92,6 +98,11 @@ namespace appDevelopment
         {
             impl_->agentSizeScenario.Prepare(
                 context.gameplayRuntime, MakeGameplayContext(context));
+        }
+        else if (impl_->kind == ScenarioKind::AIJumpTraversal)
+        {
+            rendern::PrepareGameplayAIJumpTraversalDevelopmentScenario(
+                impl_->jumpTraversalScenario, context.level);
         }
         impl_->lastMode = context.gameplayMode;
     }
@@ -172,7 +183,37 @@ namespace appDevelopment
                 }
             }
             break;
-
+            
+        case ScenarioKind::AIJumpTraversal:
+            if (command == ScenarioCommand::Start)
+            {
+                const rendern::EntityHandle entity = rendern::ResetGameplayAIJumpTraversalDevelopmentScenario(
+                    context.gameplayRuntime, context.level, impl_->jumpTraversalScenario);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
+                (void)rendern::StartGameplayAIJumpTraversalDevelopmentScenario(
+                    context.gameplayRuntime, MakeGameplayContext(context));
+            }
+            else if (command == ScenarioCommand::Stop)
+            {
+                rendern::CancelGameplayAIJumpTraversalDevelopmentScenario(
+                    context.gameplayRuntime, context.level);
+            }
+            else if (command == ScenarioCommand::Reset)
+            {
+                const rendern::EntityHandle entity = rendern::ResetGameplayAIJumpTraversalDevelopmentScenario(
+                    context.gameplayRuntime, context.level, impl_->jumpTraversalScenario);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
+            }
+            break;
+            
         case ScenarioKind::NavigationAgentSize:
             if (command == ScenarioCommand::Start && context.navigationProfiles != nullptr)
             {
@@ -240,6 +281,23 @@ namespace appDevelopment
             view.canStart = true;
             view.canReset = true;
             view.canStop = true;
+            break;
+            
+        case ScenarioKind::AIJumpTraversal:
+            view.title = "CR-447 AI Jump Traversal";
+            view.description = "Authored flat-gap Jump link through the production FollowRoute path.";
+            view.startLabel = "Start Route";
+            view.resetLabel = "Reset Scenario";
+            view.stopLabel = "Stop Route";
+            view.canStart = true;
+            view.canReset = true;
+            view.canStop = true;
+            view.statuses[0] = {
+                "Route status",
+                ToText(rendern::GetGameplayAIJumpTraversalDevelopmentScenarioStatus(
+                    context.gameplayRuntime, context.level))
+            };
+            view.statusCount = 1;
             break;
 
         case ScenarioKind::NavigationAgentSize:
