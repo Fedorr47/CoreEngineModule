@@ -1,6 +1,6 @@
 // Local read-only Animation Runtime debug UI ViewModel helpers.
-// Included only from ImGuiDebugUI_LevelInspector_AnimationGraphWindow.inl while
-// rendern::ui::level_ui_detail is open; this is not a public runtime API.
+// Included only from Animation/ImGuiAnimationUI.inl while
+// rendern::ui::animation_ui_detail is open; this is not a public runtime API.
 
     struct AnimationRuntimeClipWeightViewModel
     {

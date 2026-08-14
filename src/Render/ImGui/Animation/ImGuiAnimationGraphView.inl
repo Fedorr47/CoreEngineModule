@@ -2,7 +2,7 @@
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         if (!uiState.animationGraphWindowOpen)
         {
@@ -21,7 +21,7 @@
             return;
         }
 
-        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene, uiState);
+        AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene);
         if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
         {
             ImGui::TextDisabled("Select a skinned node to inspect its animation graph.");

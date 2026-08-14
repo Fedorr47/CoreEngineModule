@@ -43,7 +43,10 @@ export namespace rendern::ui
     // before drawing individual panels/windows.
     void BeginDebugDockSpace();
 
-    void DrawRendererDebugUI(rendern::RendererSettings& rs, rendern::Scene& scene, rendern::CameraController& camCtl);
+    void DrawRendererDebugUI(
+        rendern::RendererSettings& rs, 
+        rendern::Scene& scene, 
+        rendern::CameraController& camCtl);
     
     void ResetLevelEditorUIState();
 
@@ -51,7 +54,18 @@ export namespace rendern::ui
     // - add/remove objects (recursive delete)
     // - choose mesh/material
     // - edit transform (position/rotation/scale)
-    void DrawLevelEditorUI(rendern::LevelAsset& level, rendern::LevelInstance& levelInst, AssetManager& assets, rendern::Scene& scene, rendern::CameraController& camCtl, rendern::GameplayRuntime* gameplayRuntime = nullptr);
+    void DrawLevelEditorUI(
+        rendern::LevelAsset& level, 
+        rendern::LevelInstance& levelInst, 
+        AssetManager& assets, 
+        rendern::Scene& scene,
+        rendern::CameraController& camCtl);
+
+    void DrawAnimationDebugUI(
+        rendern::LevelAsset& level, 
+        rendern::LevelInstance& levelInst, 
+        rendern::Scene& scene, 
+        rendern::GameplayRuntime* gameplayRuntime = nullptr);
 }
 
 // Implementation is split into .inl files for readability.
@@ -66,7 +80,16 @@ export namespace rendern::ui
 #include "ImGuiDebugUI_Reflections.inl"
 #include "ImGuiDebugUI_Light.inl"
 #include "ImGuiDebugUI_RendererFacade.inl"
+#include "Animation/ImGuiAnimationUIState.inl"
+
+namespace rendern::ui
+{
+    void RequestAnimationGraphFocus(std::string_view stateName);
+    rendern::EditorSelectionService& GetEditorSelectionService();
+}
+
 #include "ImGuiDebugUI_Level.inl"
+#include "Animation/ImGuiAnimationUI.inl"
 
 namespace rendern::ui
 {
@@ -156,6 +179,13 @@ namespace rendern::ui
         rendern::RendererSettings& rs [[maybe_unused]],
         rendern::Scene& scene [[maybe_unused]],
         rendern::CameraController& camCtl [[maybe_unused]])
+    {
+    }
+
+    void DrawAnimationDebugUI(
+        rendern::LevelAsset& level [[maybe_unused]],
+        rendern::LevelInstance& levelInst [[maybe_unused]],
+        rendern::Scene& scene [[maybe_unused]],
     {
     }
     

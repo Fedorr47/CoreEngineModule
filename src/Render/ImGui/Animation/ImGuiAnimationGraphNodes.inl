@@ -17,7 +17,7 @@
     static void DrawAnimationGraphFsmCanvas(
         const rendern::AnimationControllerAsset& controllerAsset,
         const rendern::AnimationControllerRuntime& runtime,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         EnsureAnimationGraphFsmLayout(uiState, controllerAsset);
 
@@ -282,7 +282,7 @@
         const rendern::LevelAsset& level,
         const rendern::LevelNode& node,
         const rendern::AnimationControllerAsset& controllerAsset,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         EnsureAnimationGraphAssetLayout(uiState, level, node, controllerAsset);
 

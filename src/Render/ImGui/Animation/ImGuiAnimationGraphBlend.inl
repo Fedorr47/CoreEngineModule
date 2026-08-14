@@ -101,7 +101,7 @@
     static void DrawAnimationGraphBlend2DPreview(
         const rendern::AnimationStateDesc& state,
         const rendern::AnimationControllerRuntime& runtime,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         if (state.blend2D.empty())
         {
@@ -457,7 +457,7 @@
 
     static void DrawAnimationRuntimeBlend2DDisplayData(
         const AnimationRuntimeBlend2DViewModel& blend2DDisplayData,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         if (!blend2DDisplayData.available || blend2DDisplayData.samples.empty())
         {

@@ -1,9 +1,0 @@
-namespace rendern::ui::level_ui_detail
-{
-#include "ImGuiDebugUI_LevelInspector_1_AnimationGraphWindowShared.inl"
-#include "ImGuiDebugUI_LevelInspector_2_AnimationRuntimeViewModel.inl"
-#include "ImGuiDebugUI_LevelInspector_3_AnimationGraphWindowBlend.inl"
-#include "ImGuiDebugUI_LevelInspector_4_AnimationGraphWindowDetails.inl"
-#include "ImGuiDebugUI_LevelInspector_5_AnimationGraphWindowNodes.inl"
-#include "ImGuiDebugUI_LevelInspector_6_AnimationGraphWindowView.inl"
-}

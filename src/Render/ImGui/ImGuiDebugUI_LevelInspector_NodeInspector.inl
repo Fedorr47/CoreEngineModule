@@ -331,12 +331,7 @@ namespace rendern::ui::level_ui_detail
                             {
                                 if (ImGui::Button("Open Animation Graph"))
                                 {
-                                    uiState.animationGraphWindowOpen = true;
-                                    uiState.animationGraphRequestFocus = true;
-                                    if (skinnedItem->controller.stateMachineAsset != nullptr)
-                                    {
-                                        uiState.animationGraphSelectedStateName = skinnedItem->controller.currentStateName;
-                                    }
+                                    rendern::ui::RequestAnimationGraphFocus(skinnedItem->controller.currentStateName);
                                 }
                                 ImGui::SameLine();
                                 ImGui::TextDisabled("Separate graph window");

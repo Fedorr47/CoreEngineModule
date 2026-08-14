@@ -1,7 +1,7 @@
     static void DrawAnimationGraphStateInspector(
         const rendern::AnimationControllerAsset& controllerAsset,
         const rendern::AnimationControllerRuntime& runtime,
-        LevelEditorUIState& uiState)
+        AnimationUIState& uiState)
     {
         const rendern::AnimationStateDesc* selectedState = nullptr;
         if (!uiState.animationGraphSelectedStateName.empty())
@@ -312,7 +312,8 @@
         rendern::LevelAsset& level,
         rendern::LevelInstance& levelInst,
         rendern::Scene& scene,
-        LevelEditorUIState& uiState,
+        AnimationUIState& uiState,
+        rendern::EditorSelectionService& selection,
         const rendern::GameplayRuntime* gameplayRuntime)
     {
         if (!uiState.animationRuntimeWindowOpen)
@@ -339,29 +340,29 @@
         {
             if (!pinTarget)
             {
-                SetAnimationRuntimePinnedTarget(uiState, gameplayRuntime, -1);
+                SetAnimationRuntimePinnedTarget(uiState, selection, gameplayRuntime, -1);
             }
-            else if (NodeAlive(level, uiState.selectedNode))
+            else if (AnimationNodeAlive(level, scene.editorSelectedNode))
             {
-                const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(uiState.selectedNode)];
+                const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(scene.editorSelectedNode)];
                 if (!selectedNode.skinnedMesh.empty())
                 {
-                    SetAnimationRuntimePinnedTarget(uiState, gameplayRuntime, uiState.selectedNode);
+                    SetAnimationRuntimePinnedTarget(uiState, selection, gameplayRuntime, scene.editorSelectedNode);
                 }
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Use current selection") && NodeAlive(level, uiState.selectedNode))
+        if (ImGui::Button("Use current selection") && AnimationNodeAlive(level, scene.editorSelectedNode))
         {
-            const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(uiState.selectedNode)];
+            const rendern::LevelNode& selectedNode = level.nodes[static_cast<std::size_t>(scene.editorSelectedNode)];
             if (!selectedNode.skinnedMesh.empty())
             {
-                SetAnimationRuntimePinnedTarget(uiState, gameplayRuntime, uiState.selectedNode);
+                SetAnimationRuntimePinnedTarget(uiState, selection, gameplayRuntime, scene.editorSelectedNode);
             }
         }
 
         const char* previewText = "Auto target";
-        if (uiState.animationRuntimePinnedNodeIndex >= 0 && NodeAlive(level, uiState.animationRuntimePinnedNodeIndex))
+        if (uiState.animationRuntimePinnedNodeIndex >= 0 && AnimationNodeAlive(level, uiState.animationRuntimePinnedNodeIndex))
         {
             previewText = level.nodes[static_cast<std::size_t>(uiState.animationRuntimePinnedNodeIndex)].name.c_str();
         }
@@ -375,7 +376,7 @@
             const bool autoSelected = uiState.animationRuntimePinnedNodeIndex < 0;
             if (ImGui::Selectable("Auto target", autoSelected))
             {
-                SetAnimationRuntimePinnedTarget(uiState, gameplayRuntime, -1);
+                SetAnimationRuntimePinnedTarget(uiState, selection, gameplayRuntime, -1);
             }
             for (const int nodeIndex : candidates)
             {
@@ -383,13 +384,13 @@
                 const rendern::LevelNode& node = level.nodes[static_cast<std::size_t>(nodeIndex)];
                 if (ImGui::Selectable(node.name.c_str(), selected))
                 {
-                    SetAnimationRuntimePinnedTarget(uiState, gameplayRuntime, nodeIndex);
+                    SetAnimationRuntimePinnedTarget(uiState, selection, gameplayRuntime, nodeIndex);
                 }
             }
             ImGui::EndCombo();
         }
 
-        AnimationGraphContext ctx = GetAnimationRuntimeContext(level, levelInst, scene, uiState, gameplayRuntime);
+        AnimationGraphContext ctx = GetAnimationRuntimeContext(level, levelInst, scene, uiState, selection, gameplayRuntime);
         if (ctx.node == nullptr || ctx.skinnedItem == nullptr)
         {
             ImGui::TextDisabled("No runtime animation target available.");
@@ -402,13 +403,11 @@
 
         if (ImGui::Button("Select in editor"))
         {
-            uiState.selectedNode = animationRuntimeViewModel.nodeIndex;
             scene.EditorSetSelectionSingle(animationRuntimeViewModel.nodeIndex);
         }
         ImGui::SameLine();
         if (ImGui::Button("Open graph"))
         {
-            uiState.selectedNode = animationRuntimeViewModel.nodeIndex;
             scene.EditorSetSelectionSingle(animationRuntimeViewModel.nodeIndex);
             uiState.animationGraphWindowOpen = true;
             uiState.animationGraphRequestFocus = true;

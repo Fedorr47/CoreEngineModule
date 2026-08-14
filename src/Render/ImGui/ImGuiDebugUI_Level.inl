@@ -93,6 +93,12 @@ namespace rendern::ui
     void ResetLevelEditorUIState()
     {
         level_ui_detail::GetState() = level_ui_detail::LevelEditorUIState{};
+        animation_ui_detail::GetState() = animation_ui_detail::AnimationUIState{};
+    }
+
+    rendern::EditorSelectionService& GetEditorSelectionService()
+    {
+        return level_ui_detail::GetState().selection;
     }
     
     void DrawLevelEditorUI(
@@ -100,8 +106,7 @@ namespace rendern::ui
         rendern::LevelInstance& levelInst,
         AssetManager& assets,
         rendern::Scene& scene,
-        rendern::CameraController& camCtl,
-        rendern::GameplayRuntime* gameplayRuntime)
+        rendern::CameraController& camCtl)
     {
         ImGui::Begin("Level Editor");
 
@@ -192,8 +197,5 @@ namespace rendern::ui
         uiState.selectedParticleEmitter = scene.editorSelectedParticleEmitter;
 
         ImGui::End();
-
-        level_ui_detail::DrawAnimationGraphWindow(level, levelInst, scene, uiState);
-        level_ui_detail::DrawAnimationRuntimeWindow(level, levelInst, scene, uiState, gameplayRuntime);
     }
 }

@@ -158,20 +158,9 @@ namespace appUi
         }
 
         ImGui::End();
-
-        //if (runtimeMode == rendern::GameplayRuntimeMode::Editor)
-        //{
-            rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController, gameplayRuntime);
-        //}
-        /*
-        else
-        {
-            ImGui::Begin("Level Editor");
-            ImGui::TextUnformatted("Level editor interaction is disabled in Game mode.");
-            ImGui::TextUnformatted("Return to Editor mode to use gizmos, selection and viewport editing.");
-            ImGui::End();
-        }
-        */
+        
+        rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
+        rendern::ui::DrawAnimationDebugUI(levelAsset, levelInstance, scene, gameplayRuntime);
 
         ImGui::Render();
         return static_cast<const void*>(ImGui::GetDrawData());
