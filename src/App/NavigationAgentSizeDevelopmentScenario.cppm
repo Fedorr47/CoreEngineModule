@@ -221,6 +221,7 @@ namespace app::navigationRuntime
             state->physicalBlockedSeconds = 0.0f;
             state->jumpPhase = rendern::GameplayJumpPhase::None;
             state->jumpRequestConsumed = false;
+            state->jumpRequestResult = rendern::GameplayJumpRequestResult::None;
             state->jumpAirbornePhysicallyObserved = false;
             state->turningInPlace = false;
 

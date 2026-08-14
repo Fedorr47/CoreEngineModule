@@ -17,6 +17,8 @@ export namespace rendern
     class DoorTraversalExecutor final : public IGameplayTraversalExecutor
     {
     public:
+        static constexpr GameplayTraversalTypeId kTypeId{kDoorTraversalTypeId};
+
         DoorTraversalExecutor(
             GameplayWorld& world,
             GameplayObjectReservationSystem& reservationSystem,

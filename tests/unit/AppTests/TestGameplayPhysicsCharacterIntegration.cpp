@@ -261,10 +261,75 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, RunningJumpPreservesPlanarMoveme
     ASSERT_NE(motor, nullptr);
     ASSERT_NE(movement, nullptr);
     EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::Airborne);
+    EXPECT_EQ(movement->jumpRequestResult, rendern::GameplayJumpRequestResult::Accepted);
     EXPECT_TRUE(movement->jumping);
     EXPECT_GT(motor->velocity.y, 4.0f);
     EXPECT_NEAR(motor->velocity.z, planarVelocityBefore, 0.05f);
     EXPECT_GT(std::hypot(motor->velocity.x, motor->velocity.z), 1.0f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, AIJumpTraversalUsesPhysicalJumpAndResumesRoute)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+
+    // Enter Game mode, create the physical character, and register built-in traversal executors.
+    StepFrameAndReturnPhysicsSteps(StepSeconds);
+    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
+    const rendern::EntityHandle landingMarker = world.CreateEntity();
+    constexpr rendern::GameplayTraversalLinkHandle jumpLink{447u};
+    ASSERT_TRUE(gameplayRuntime.RegisterGameplayTraversalLink({
+        .handle = jumpLink,
+        .traversalTypeId = rendern::kJumpTraversalTypeId,
+        .targetEntity = landingMarker,
+        .jump = {
+            .takeoffPosition = {0.0f, 0.0f, 0.0f},
+            .landingPosition = {0.0f, 0.0f, 0.1f},
+            .verticalSpeed = 5.5f,
+            .takeoffTolerance = 0.25f,
+            .landingHorizontalTolerance = 0.6f,
+            .landingVerticalTolerance = 0.15f}}));
+    rendern::GameplayRoute route{
+        .points = {
+            {.worldPosition = {0.0f, 0.0f, 0.0f}},
+            {.worldPosition = {0.0f, 0.0f, 0.1f}},
+            {.worldPosition = {0.0f, 0.0f, 2.0f}}},
+        .segmentAnnotations = {{.traversalLink = jumpLink}, {}}};
+    ASSERT_EQ(gameplayRuntime.StartAIFollowRoute(npc, std::move(route)),
+        rendern::AIActionExecutionStatus::Running);
+
+    bool accepted = false;
+    bool physicallyAirborne = false;
+    bool landed = false;
+    bool routeResumed = false;
+    float maximumPlanarSpeed = 0.0f;
+    for (int frame = 0; frame < 300 && !routeResumed; ++frame)
+    {
+        StepFrameAndReturnPhysicsSteps(StepSeconds);
+        const auto* movement = world.TryGetCharacterMovementState(npc);
+        const auto* motor = world.TryGetCharacterMotor(npc);
+        const auto* command = world.TryGetCharacterCommand(npc);
+        ASSERT_NE(movement, nullptr);
+        ASSERT_NE(motor, nullptr);
+        ASSERT_NE(command, nullptr);
+        accepted = accepted ||
+            movement->jumpRequestResult == rendern::GameplayJumpRequestResult::Accepted;
+        physicallyAirborne = physicallyAirborne || movement->jumpAirbornePhysicallyObserved;
+        maximumPlanarSpeed = std::max(maximumPlanarSpeed,
+            std::hypot(motor->velocity.x, motor->velocity.z));
+        landed = landed || (physicallyAirborne && movement->grounded &&
+            movement->jumpPhase == rendern::GameplayJumpPhase::None);
+        routeResumed = landed && command->moveMagnitude > 0.0f &&
+            gameplayRuntime.GetAIActionStatus(npc) == rendern::AIActionExecutionStatus::Running;
+    }
+
+    EXPECT_TRUE(accepted);
+    EXPECT_TRUE(physicallyAirborne);
+    EXPECT_GT(maximumPlanarSpeed, 0.01f);
+    EXPECT_TRUE(landed);
+    EXPECT_TRUE(routeResumed);
+    EXPECT_NEAR(world.TryGetTransform(npc)->position.y, 0.0f, 0.15f);
 }
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, AirborneStateSurvivesRenderFrameWithoutFixedStep)
@@ -312,6 +377,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, RejectedJumpAttemptIsConsumedWit
     ASSERT_NE(movement, nullptr);
     ASSERT_NE(action, nullptr);
     EXPECT_EQ(movement->jumpPhase, rendern::GameplayJumpPhase::None);
+    EXPECT_EQ(movement->jumpRequestResult, rendern::GameplayJumpRequestResult::Rejected);
     EXPECT_FALSE(movement->jumping);
     EXPECT_EQ(movement->jumpLockedVelocity, mathUtils::Vec3{});
     EXPECT_EQ(rendern::GetGameplayRequestedActionKind(*action),

@@ -18,18 +18,21 @@ export namespace rendern
             const GameplayTraversalTypeId typeId,
             IGameplayTraversalExecutor& executor)
         {
-            if (!typeId.IsValid())
-            {
-                return false;
-            }
-            return executorsByType_.emplace(typeId, &executor).second;
+            return Register_(typeId, executor, true);
+        }
+
+        [[nodiscard]] bool RegisterRuntimeOwned(
+            const GameplayTraversalTypeId typeId,
+            IGameplayTraversalExecutor& executor)
+        {
+            return Register_(typeId, executor, false);
         }
 
         [[nodiscard]] IGameplayTraversalExecutor* Find(
             const GameplayTraversalTypeId typeId) const noexcept
         {
             const auto iterator = executorsByType_.find(typeId);
-            return iterator == executorsByType_.end() ? nullptr : iterator->second;
+            return iterator == executorsByType_.end() ? nullptr : iterator->second.executor;
         }
 
         [[nodiscard]] bool Contains(const GameplayTraversalTypeId typeId) const noexcept
@@ -39,18 +42,47 @@ export namespace rendern
 
         [[nodiscard]] bool Remove(const GameplayTraversalTypeId typeId) noexcept
         {
-            return executorsByType_.erase(typeId) != 0u;
+            const auto iterator = executorsByType_.find(typeId);
+            if (iterator == executorsByType_.end() || !iterator->second.removable)
+            {
+                return false;
+            }
+            executorsByType_.erase(iterator);
+            return true;
         }
 
-        void Reset() noexcept
+        void ResetExternalRegistrations() noexcept
         {
-            executorsByType_.clear();
+            std::erase_if(executorsByType_, [](const auto& entry)
+            {
+                return entry.second.removable;
+            });
         }
 
     private:
+        struct Registration
+        {
+            IGameplayTraversalExecutor* executor{nullptr};
+            bool removable{true};
+        };
+
+        [[nodiscard]] bool Register_(
+            const GameplayTraversalTypeId typeId,
+            IGameplayTraversalExecutor& executor,
+            const bool removable)
+        {
+            if (!typeId.IsValid())
+            {
+                return false;
+            }
+            return executorsByType_.emplace(typeId, Registration{
+                .executor = &executor,
+                .removable = removable}).second;
+        }
+
         std::unordered_map<
             GameplayTraversalTypeId, 
-            IGameplayTraversalExecutor*,
+            Registration,
             GameplayTraversalTypeIdHasher> executorsByType_{};
     };
 }

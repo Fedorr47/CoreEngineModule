@@ -276,7 +276,10 @@ TEST(AIFollowRouteActionRuntime, ConsecutiveSynchronousTraversalsProgressAcrossT
     ASSERT_TRUE(registry.Register({
         .handle = GameplayTraversalLinkHandle{8u},
         .traversalTypeId = kJumpTraversalTypeId,
-        .targetEntity = secondTarget}));
+        .targetEntity = secondTarget,
+        .jump = {.landingPosition = {1.0f, 0.0f, 0.0f}, .verticalSpeed = 1.0f,
+            .takeoffTolerance = 1.0f, .landingHorizontalTolerance = 1.0f,
+            .landingVerticalTolerance = 1.0f}}));
     FakeTraversalExecutor executor{};
     GameplayTraversalExecutorRegistry executorRegistry{};
     ASSERT_TRUE(executorRegistry.Register(kDoorTraversalTypeId, executor));
@@ -314,7 +317,10 @@ TEST(AIFollowRouteActionRuntime, SelectsExecutorByTraversalTypeId)
     ASSERT_TRUE(linkRegistry.Register({
         .handle = GameplayTraversalLinkHandle{7u},
         .traversalTypeId = kJumpTraversalTypeId,
-        .targetEntity = target}));
+        .targetEntity = target,
+        .jump = {.landingPosition = {1.0f, 0.0f, 0.0f}, .verticalSpeed = 1.0f,
+            .takeoffTolerance = 1.0f, .landingHorizontalTolerance = 1.0f,
+            .landingVerticalTolerance = 1.0f}}));
     FakeTraversalExecutor doorExecutor{};
     FakeTraversalExecutor jumpExecutor{};
     GameplayTraversalExecutorRegistry executorRegistry{};
