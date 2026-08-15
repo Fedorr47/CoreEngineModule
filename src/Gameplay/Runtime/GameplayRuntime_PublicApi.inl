@@ -86,6 +86,32 @@
                 });
         }
 
+        bool GameplayRuntime::ApplyKeyboardMouseBindings(const GameplayKeyboardMouseBindings& bindings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            const bool containsReservedKey = std::any_of(bindings.actions.begin(), bindings.actions.end(),
+                [](const GameplayActionKeyBinding& binding)
+                {
+                    return IsGameplayActionBindingKeyReserved(binding.key);
+                });
+            if (containsReservedKey)
+            {
+                return false;
+            }
+            keyboardMouseBindings_ = bindings;
+            if (controlledEntity_ == kNullEntity || !world_.IsEntityValid(controlledEntity_))
+            {
+                return false;
+            }
+            BindKeyboardMouseIntentSource(controlledEntity_, keyboardMouseBindings_);
+            return true;
+        }
+
+        const GameplayKeyboardMouseBindings& GameplayRuntime::GetKeyboardMouseBindings() const noexcept
+        {
+            return keyboardMouseBindings_;
+        }
+
         void GameplayRuntime::UnbindIntentSource(const EntityHandle entity)
         {
             CORE_ASSERT_RUNTIME_THREAD();
@@ -444,7 +470,7 @@
             if (playerControlled)
             {
                 controlledEntity_ = entity;
-                BindKeyboardMouseIntentSource(entity);
+                BindKeyboardMouseIntentSource(entity, keyboardMouseBindings_);
             }
             return entity;
         }

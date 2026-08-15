@@ -63,15 +63,28 @@ export namespace rendern
     {
         int key{ 0 };
     };
+    
+    struct GameplayActionKeyBinding
+    {
+        int key{ 0 };
+        GameplayActionKind action{ GameplayActionKind::None };
+    };
+
+    [[nodiscard]] constexpr bool IsGameplayActionBindingKeyReserved(const int key) noexcept
+    {
+        return key == 0x74 || key == 0x75 || key == 0x76;
+    }
 
     struct GameplayKeyboardMouseBindings
     {
         GameplayAxisKeyBinding moveX{ 'D', 'A' };
         GameplayAxisKeyBinding moveY{ 'S', 'W' };
         GameplayButtonKeyBinding run{ 0x10 };
-        GameplayButtonKeyBinding jump{ 0x20 };
-        GameplayButtonKeyBinding attack{ 0x78 };
-        GameplayButtonKeyBinding interact{ 'E' };
+        std::vector<GameplayActionKeyBinding> actions{
+                { 0x20, GameplayActionKind::Jump },
+                { 0x78, GameplayActionKind::LightAttack },
+                { 'E', GameplayActionKind::Interact }
+        };
     };
 
     using GameplayIntentSourceCallback = std::function<void(

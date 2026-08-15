@@ -49,6 +49,11 @@ export namespace rendern
         const GameplayKeyboardMouseBindings& bindings,
         GameplayInputIntentComponent& outIntent)
     {
+        if (!input.hasFocus || input.capture.captureKeyboard)
+        {
+            return;
+        }
+        
         float moveX = 0.0f;
         float moveY = 0.0f;
         ReadGameplayAxisFromKeys(input, bindings.moveX, moveX);
@@ -56,17 +61,13 @@ export namespace rendern
         [[maybe_unused]] const float moveMagnitude = NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
 
         outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
-        if (ReadGameplayPressedButton(input, bindings.jump))
+        for (const GameplayActionKeyBinding& binding : bindings.actions)
         {
-            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::Jump);
-        }
-        if (ReadGameplayPressedButton(input, bindings.attack))
-        {
-            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::LightAttack);
-        }
-        if (ReadGameplayPressedButton(input, bindings.interact))
-        {
-            AddGameplayActionIntent(outIntent.actionIntentMask, GameplayActionKind::Interact);
+            if (binding.action != GameplayActionKind::None &&
+                    binding.key != 0 && input.KeyPressed(binding.key))
+            {
+                AddGameplayActionIntent(outIntent.actionIntentMask, binding.action);
+            }
         }
     }
 

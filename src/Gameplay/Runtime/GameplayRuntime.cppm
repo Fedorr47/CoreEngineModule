@@ -79,6 +79,8 @@ export namespace rendern
             const EntityHandle entity,
             const GameplayKeyboardMouseBindings& bindings);
         void UnbindIntentSource(const EntityHandle entity);
+        [[nodiscard]] bool ApplyKeyboardMouseBindings(const GameplayKeyboardMouseBindings& bindings);
+        [[nodiscard]] const GameplayKeyboardMouseBindings& GetKeyboardMouseBindings() const noexcept;
 
         void BeginFrame();
         void PrePhysicsUpdate(const GameplayUpdateContext& ctx);
@@ -162,6 +164,7 @@ export namespace rendern
     private:
         GameplayWorld world_{};
         EntityHandle controlledEntity_{ kNullEntity };
+        GameplayKeyboardMouseBindings keyboardMouseBindings_{};
         LevelAsset* currentLevelAsset_{ nullptr };
         LevelInstance* currentLevelInstance_{ nullptr };
         Scene* currentScene_{ nullptr };

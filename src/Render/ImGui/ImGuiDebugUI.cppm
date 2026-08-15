@@ -10,7 +10,9 @@ module;
 #include <array>
 #include <optional>
 #include <cstdint>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #if defined(CORE_USE_DX12)
 #include <imgui.h>
@@ -68,6 +70,8 @@ export namespace rendern::ui
         rendern::LevelInstance& levelInst, 
         rendern::Scene& scene, 
         rendern::GameplayRuntime* gameplayRuntime = nullptr);
+    
+    void DrawInputBindingsUI(rendern::GameplayRuntime* gameplayRuntime);
 }
 
 // Implementation is split into .inl files for readability.
@@ -92,6 +96,7 @@ namespace rendern::ui
 
 #include "ImGuiDebugUI_Level.inl"
 #include "Animation/ImGuiAnimationUI.inl"
+#include "ImGuiDebugUI_InputBindings.inl"
 
 namespace rendern::ui
 {
@@ -188,6 +193,10 @@ namespace rendern::ui
         rendern::LevelAsset& level [[maybe_unused]],
         rendern::LevelInstance& levelInst [[maybe_unused]],
         rendern::Scene& scene [[maybe_unused]],
+    {
+    }
+    
+    void DrawInputBindingsUI(rendern::GameplayRuntime* gameplayRuntime [[maybe_unused]])
     {
     }
     
