@@ -146,8 +146,8 @@ namespace rendern::ui
         level_ui_detail::SyncSavePathWithSource(level, uiState);
         level_ui_detail::DrawFilePanel(level, scene, uiState);
 
-        const bool canHotkey = !ImGui::GetIO().WantTextInput;
-        const bool ctrlD = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_D);
+        const bool ctrlD = level_ui_detail::CanProcessEditorKeyboardShortcuts() &&
+            ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_D);
         if (ctrlD && scene.editorSelectedLight < 0 && scene.editorSelectedParticleEmitter < 0)
         {
             if (levelInst.DuplicateEditorNodeSelection(level, scene, assets, mathUtils::Vec3(1.0f, 0.0f, 0.0f)))

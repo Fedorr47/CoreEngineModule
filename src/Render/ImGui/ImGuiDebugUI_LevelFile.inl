@@ -34,9 +34,9 @@ namespace rendern::ui::level_ui_detail
 
         ImGui::InputText("Level path", uiState.savePathBuf, sizeof(uiState.savePathBuf));
 
-        const bool canHotkey = !ImGui::GetIO().WantTextInput;
-        const bool ctrlS = canHotkey && ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_S);
-
+        const bool ctrlS = CanProcessEditorKeyboardShortcuts() &&
+                    ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_S);
+                    
         const std::string pathStr = std::string(uiState.savePathBuf);
         bool clickedSave = ImGui::Button("Save (Ctrl+S)");
         ImGui::SameLine();

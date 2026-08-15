@@ -929,7 +929,7 @@ namespace rendern::ui::level_ui_detail
         }
         ImGui::SameLine();
         bool doDelete = ImGui::Button("Delete (recursive)");
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete))
+        if (CanProcessEditorKeyboardShortcuts() && ImGui::IsKeyPressed(ImGuiKey_Delete))
             doDelete = true;
 
         if (doDelete)

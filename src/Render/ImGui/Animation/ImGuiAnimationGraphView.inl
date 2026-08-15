@@ -100,18 +100,24 @@
 			try
 			{
 				rendern::AnimationControllerAsset loaded = rendern::LoadAnimationControllerAssetFromJson(path->second, ctx.controllerAsset->id);
-				rendern::AnimationControllerAsset& stored = level.animationControllers.at(ctx.controllerAsset->id);
-				stored = std::move(loaded);
 				const rendern::AnimationProfileAsset* profile = nullptr;
 				if (!ctx.node->animationProfile.empty()) if (const auto found = level.animationProfiles.find(ctx.node->animationProfile); found != level.animationProfiles.end()) profile = &found->second;
-				ctx.skinnedItem->controller.stateMachineAsset = nullptr;
-				rendern::BindAnimationControllerStateMachine(ctx.skinnedItem->controller, ctx.skinnedItem->asset->mesh.skeleton,
-					ctx.skinnedItem->asset->clips, ctx.skinnedItem->asset->clipSourceAssetIds, stored, profile,
+				rendern::AnimationControllerRuntime candidateRuntime;
+                	rendern::BindAnimationControllerStateMachine(candidateRuntime, ctx.skinnedItem->asset->mesh.skeleton,
+                	ctx.skinnedItem->asset->clips, ctx.skinnedItem->asset->clipSourceAssetIds, loaded, profile,
 					ctx.skinnedItem->autoplay, ctx.skinnedItem->controller.paused, ctx.skinnedItem->debugForceBindPose);
+				
+				rendern::AnimationControllerAsset& stored = level.animationControllers.at(ctx.controllerAsset->id);
+                stored = std::move(loaded);
+                candidateRuntime.stateMachineAsset = &stored;
+                ctx.skinnedItem->controller = std::move(candidateRuntime);
 				MarkControllerEditorRebound(controllerEditor, stored);
 				ctx.controllerAsset = &stored;
 			}
-			catch (const std::exception& error) { controllerEditor.message = error.what(); }
+			catch (const std::exception& error) 
+			{ 
+				controllerEditor.message = std::string("Reload / Rebind failed: ") + error.what(); 
+			}
 		}
 		ImGui::EndDisabled();
 		ImGui::SameLine();

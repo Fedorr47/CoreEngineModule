@@ -1,5 +1,10 @@
 namespace rendern::ui::level_ui_detail
 {
+    [[nodiscard]] static bool CanProcessEditorKeyboardShortcuts()
+    {
+        return !ImGui::GetIO().WantCaptureKeyboard;
+    }
+    
     enum class SceneHierarchyItemKind
     {
         None,
