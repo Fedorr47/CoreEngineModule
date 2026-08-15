@@ -21,7 +21,12 @@ export namespace rendern
         GameplayActionId(const char* text) : value(text != nullptr ? text : "") {}
 
         [[nodiscard]] bool IsValid() const noexcept { return !value.empty(); }
-        friend bool operator==(const GameplayActionId&, const GameplayActionId&) = default;
+        [[nodiscard]] friend bool operator==(
+            const GameplayActionId& lhs,
+            const GameplayActionId& rhs) noexcept
+        {
+            return lhs.value == rhs.value;
+        }
     };
 
     inline const GameplayActionId kGameplayActionJump{ "Movement.Jump" };

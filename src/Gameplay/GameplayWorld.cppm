@@ -195,7 +195,7 @@ export namespace rendern
                 continue;
             }
 
-            QueueGameplayActionRequestsFromPolicies(*action, movementState, command->actionIntents, group, definitions);
+            (void)QueueGameplayActionRequestsFromPolicies(*action, movementState, command->actionIntents, group, definitions);
         }
     }
 }
