@@ -201,7 +201,11 @@ export namespace rendern
 	void RenameAnimationControllerState(AnimationControllerAsset& controller, std::string_view oldName, std::string newName);
 	[[nodiscard]] std::vector<std::string> FindAnimationControllerStateReferences(const AnimationControllerAsset& controller, std::string_view stateName);
 	void DeleteAnimationControllerState(AnimationControllerAsset& controller, std::string_view stateName);
-	
+	[[nodiscard]] AnimationConditionDesc MakeAnimationControllerCondition(const AnimationParameterDesc& parameter);
+    void RenameAnimationControllerParameter(AnimationControllerAsset& controller, std::string_view oldName, std::string newName);
+    [[nodiscard]] std::vector<std::string> FindAnimationControllerParameterReferences(const AnimationControllerAsset& controller, std::string_view parameterName);
+    void DeleteAnimationControllerParameter(AnimationControllerAsset& controller, std::string_view parameterName);
+    	
 	inline void ValidateAnimationStateContentMode(
 		const AnimationControllerAsset& controller,
 		const AnimationStateDesc& state)

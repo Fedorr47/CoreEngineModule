@@ -137,6 +137,7 @@
         {
             if (ImGui::BeginTabItem("FSM"))
             {
+            	DrawAnimationControllerParameters(workingController, controllerEditor);
             	DrawAnimationGraphFsmCanvas(workingController, controllerEditor.effectiveTransitions, ctx.skinnedItem->controller, uiState, controllerEditor);
                 ImGui::EndTabItem();
             }

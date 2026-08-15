@@ -418,6 +418,7 @@
 		editor.persistedDiffersFromBound = false;
 		editor.stateRenameSourceName.clear();
         editor.stateNameDraft.clear();
+        editor.parameterNameDrafts.clear();
 		RebuildAnimationStateEditorContentModes(editor);
 		RebuildControllerEditorTopology(editor);
 		editor.message = "Controller reloaded and rebound.";
@@ -431,6 +432,7 @@
 		editor.reloadRequired = editor.persistedDiffersFromBound;
 		editor.stateRenameSourceName.clear();
         editor.stateNameDraft.clear();
+        editor.parameterNameDrafts.clear();
 		RebuildAnimationStateEditorContentModes(editor);
 		RebuildControllerEditorTopology(editor);
 		editor.message = "Unsaved controller changes discarded.";

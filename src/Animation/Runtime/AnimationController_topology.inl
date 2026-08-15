@@ -430,3 +430,90 @@ inline void DeleteAnimationControllerState(AnimationControllerAsset &controller,
                              std::string(stateName) + "' does not exist.");
   controller.states.erase(state);
 }
+
+inline AnimationConditionDesc MakeAnimationControllerCondition(
+    const AnimationParameterDesc &parameter) {
+  AnimationConditionDesc condition{.parameter = parameter.name,
+                                   .value = parameter.defaultValue};
+  switch (parameter.defaultValue.type) {
+  case AnimationParameterType::Bool:
+    condition.op = AnimationConditionOp::IfTrue;
+    break;
+  case AnimationParameterType::Int:
+  case AnimationParameterType::Float:
+    condition.op = AnimationConditionOp::Equal;
+    break;
+  case AnimationParameterType::Trigger:
+    condition.op = AnimationConditionOp::Triggered;
+    condition.value.triggerValue = false;
+    break;
+  }
+  return condition;
+}
+
+inline void RenameAnimationControllerParameter(
+    AnimationControllerAsset &controller, std::string_view oldName,
+    std::string newName) {
+  const std::string sourceName(oldName);
+  if (newName.empty())
+    throw std::runtime_error(
+        "Animation controller parameter rename: new name must not be empty.");
+  if (sourceName != newName &&
+      std::any_of(controller.parameters.begin(), controller.parameters.end(),
+                  [&](const auto &parameter) { return parameter.name == newName; }))
+    throw std::runtime_error("Animation controller parameter rename: parameter '" +
+                             newName + "' already exists.");
+  auto parameter =
+      std::find_if(controller.parameters.begin(), controller.parameters.end(),
+                   [&](const auto &item) { return item.name == sourceName; });
+  if (parameter == controller.parameters.end())
+    throw std::runtime_error(
+        "Animation controller parameter rename: source parameter '" +
+        sourceName + "' does not exist.");
+  parameter->name = newName;
+  const auto renameConditions = [&](auto &authored) {
+    for (AnimationConditionDesc &condition : authored.conditions)
+      if (condition.parameter == sourceName)
+        condition.parameter = newName;
+  };
+  for (AnimationTransitionDesc &transition : controller.transitions)
+    renameConditions(transition);
+  for (AnimationTransitionRuleDesc &rule : controller.transitionRules)
+    renameConditions(rule);
+}
+
+inline std::vector<std::string> FindAnimationControllerParameterReferences(
+    const AnimationControllerAsset &controller, std::string_view parameterName) {
+  std::vector<std::string> references;
+  for (const AnimationTransitionDesc &transition : controller.transitions)
+    for (const AnimationConditionDesc &condition : transition.conditions)
+      if (condition.parameter == parameterName) {
+        references.push_back("transition " + transition.fromState + " -> " +
+                             transition.toState);
+        break;
+      }
+  for (const AnimationTransitionRuleDesc &rule : controller.transitionRules)
+    for (const AnimationConditionDesc &condition : rule.conditions)
+      if (condition.parameter == parameterName) {
+        references.push_back("rule '" + rule.id + "'");
+        break;
+      }
+  return references;
+}
+
+inline void DeleteAnimationControllerParameter(
+    AnimationControllerAsset &controller, std::string_view parameterName) {
+  const std::vector<std::string> references =
+      FindAnimationControllerParameterReferences(controller, parameterName);
+  if (!references.empty())
+    throw std::runtime_error("Animation controller parameter delete: parameter '" +
+                             std::string(parameterName) +
+                             "' is referenced by " + references.front() + ".");
+  const auto parameter =
+      std::find_if(controller.parameters.begin(), controller.parameters.end(),
+                   [&](const auto &item) { return item.name == parameterName; });
+  if (parameter == controller.parameters.end())
+    throw std::runtime_error("Animation controller parameter delete: parameter '" +
+                             std::string(parameterName) + "' does not exist.");
+  controller.parameters.erase(parameter);
+}

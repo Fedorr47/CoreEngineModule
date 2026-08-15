@@ -247,6 +247,90 @@ TEST(AnimationController, StateDeletionIsBlockedByControllerReferences)
     EXPECT_EQ(controller.states.size(), 2u);
 }
 
+EST(AnimationController, ParameterRenameUpdatesOnlyExactConditionReferences)
+{
+    AnimationControllerAsset controller{ .id = "Parameters", .defaultState = "Attack", .notifyAssetPath = "Attack" };
+    controller.parameters = {
+        AnimationParameterDesc{ .name = "Attack", .defaultValue = { .type = AnimationParameterType::Trigger } },
+        AnimationParameterDesc{ .name = "Other" }
+    };
+    controller.states = { AnimationStateDesc{ .name = "Attack", .motionId = { "Attack" }, .tags = { "Attack" } } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "Attack", .toState = "Attack", .conditions = {
+        AnimationConditionDesc{ .parameter = "Attack", .op = AnimationConditionOp::Triggered, .value = { .type = AnimationParameterType::Trigger } } } } };
+    controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Attack", .from = { .allTags = { "Attack" } }, .conditions = {
+        AnimationConditionDesc{ .parameter = "Attack", .op = AnimationConditionOp::Triggered, .value = { .type = AnimationParameterType::Trigger } } } } };
+
+    RenameAnimationControllerParameter(controller, "Attack", "PunchingAttack");
+    EXPECT_EQ(controller.parameters[0].name, "PunchingAttack");
+    EXPECT_EQ(controller.transitions[0].conditions[0].parameter, "PunchingAttack");
+    EXPECT_EQ(controller.transitionRules[0].conditions[0].parameter, "PunchingAttack");
+    EXPECT_EQ(controller.defaultState, "Attack");
+    EXPECT_EQ(controller.states[0].name, "Attack");
+    EXPECT_EQ(controller.states[0].motionId.value, "Attack");
+    EXPECT_EQ(controller.states[0].tags[0], "Attack");
+    EXPECT_EQ(controller.transitionRules[0].id, "Attack");
+    EXPECT_EQ(controller.notifyAssetPath, "Attack");
+    EXPECT_THROW(RenameAnimationControllerParameter(controller, "PunchingAttack", "Other"), std::runtime_error);
+    EXPECT_THROW(RenameAnimationControllerParameter(controller, "PunchingAttack", ""), std::runtime_error);
+}
+
+TEST(AnimationController, ParameterDeletionRejectsReferencesAndRemovesUnreferencedParameters)
+{
+    AnimationControllerAsset controller;
+    controller.parameters = { AnimationParameterDesc{ .name = "Used" }, AnimationParameterDesc{ .name = "Free" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "Idle", .toState = "Run", .conditions = {
+        AnimationConditionDesc{ .parameter = "Used" } } } };
+    controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Used.Entry", .conditions = {
+        AnimationConditionDesc{ .parameter = "Used" } } } };
+    const auto references = FindAnimationControllerParameterReferences(controller, "Used");
+    ASSERT_EQ(references.size(), 2u);
+    EXPECT_NE(references[0].find("Idle -> Run"), std::string::npos);
+    EXPECT_NE(references[1].find("Used.Entry"), std::string::npos);
+    EXPECT_THROW(DeleteAnimationControllerParameter(controller, "Used"), std::runtime_error);
+    EXPECT_NO_THROW(DeleteAnimationControllerParameter(controller, "Free"));
+    ASSERT_EQ(controller.parameters.size(), 1u);
+    EXPECT_EQ(controller.parameters.front().name, "Used");
+}
+
+TEST(AnimationController, AuthoredNumericConditionsUseTypedEqualDefaults)
+{
+    const AnimationParameterDesc integer{ .name = "Count", .defaultValue = { .type = AnimationParameterType::Int, .intValue = 7 } };
+    const AnimationParameterDesc floating{ .name = "Speed", .defaultValue = { .type = AnimationParameterType::Float, .floatValue = 4.5f } };
+    const AnimationConditionDesc intCondition = MakeAnimationControllerCondition(integer);
+    const AnimationConditionDesc floatCondition = MakeAnimationControllerCondition(floating);
+    EXPECT_EQ(intCondition.op, AnimationConditionOp::Equal);
+    EXPECT_EQ(intCondition.value.type, AnimationParameterType::Int);
+    EXPECT_EQ(intCondition.value.intValue, 7);
+    EXPECT_EQ(floatCondition.op, AnimationConditionOp::Equal);
+    EXPECT_EQ(floatCondition.value.type, AnimationParameterType::Float);
+    EXPECT_FLOAT_EQ(floatCondition.value.floatValue, 4.5f);
+}
+
+TEST(AnimationController, ParameterTypesAndDefaultsRoundTrip)
+{
+    test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_parameters") };
+    const std::filesystem::path path = temp.Path() / "controller.json";
+    AnimationControllerAsset controller{ .id = "ParameterRoundTrip", .defaultState = "Idle" };
+    controller.parameters = {
+        { "Bool", { .type = AnimationParameterType::Bool, .boolValue = true } },
+        { "Int", { .type = AnimationParameterType::Int, .intValue = -12 } },
+        { "Float", { .type = AnimationParameterType::Float, .floatValue = 3.25f } },
+        { "Trigger", { .type = AnimationParameterType::Trigger } }
+    };
+    controller.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle" } };
+    SaveAnimationControllerAssetToJson(path.string(), controller);
+    const AnimationControllerAsset loaded = LoadAnimationControllerAssetFromJson(path.string(), controller.id);
+    ASSERT_EQ(loaded.parameters.size(), 4u);
+    EXPECT_EQ(loaded.parameters[0].defaultValue.type, AnimationParameterType::Bool);
+    EXPECT_TRUE(loaded.parameters[0].defaultValue.boolValue);
+    EXPECT_EQ(loaded.parameters[1].defaultValue.type, AnimationParameterType::Int);
+    EXPECT_EQ(loaded.parameters[1].defaultValue.intValue, -12);
+    EXPECT_EQ(loaded.parameters[2].defaultValue.type, AnimationParameterType::Float);
+    EXPECT_FLOAT_EQ(loaded.parameters[2].defaultValue.floatValue, 3.25f);
+    EXPECT_EQ(loaded.parameters[3].defaultValue.type, AnimationParameterType::Trigger);
+    EXPECT_FALSE(loaded.parameters[3].defaultValue.triggerValue);
+}
+
 TEST(AnimationController, ExternalControllerRulesRoundTripWithoutGeneratedEdgesAndSaveIsSafe)
 {
     test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_rules") };

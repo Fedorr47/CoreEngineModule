@@ -14,10 +14,7 @@
                 {
                     if (ImGui::Selectable(parameter.name.c_str(), condition.parameter == parameter.name))
                     {
-                        condition.parameter = parameter.name;
-                        condition.value.type = parameter.defaultValue.type;
-                        condition.op = parameter.defaultValue.type == rendern::AnimationParameterType::Trigger
-                            ? rendern::AnimationConditionOp::Triggered : rendern::AnimationConditionOp::IfTrue;
+                        condition = rendern::MakeAnimationControllerCondition(parameter);
                         changed = true;
                     }
                 }
@@ -52,15 +49,99 @@
             rendern::AnimationConditionDesc condition;
             if (!controller.parameters.empty())
             {
-                condition.parameter = controller.parameters.front().name;
-                condition.value.type = controller.parameters.front().defaultValue.type;
-                condition.op = condition.value.type == rendern::AnimationParameterType::Trigger
-                    ? rendern::AnimationConditionOp::Triggered : rendern::AnimationConditionOp::IfTrue;
+                condition = rendern::MakeAnimationControllerCondition(controller.parameters.front());
             }
             conditions.push_back(std::move(condition));
             changed = true;
         }
         return changed;
+    }
+    
+    static void DrawAnimationControllerParameters(
+        rendern::AnimationControllerAsset& controller,
+        AnimationControllerEditorState& editor)
+    {
+        if (!ImGui::CollapsingHeader("Controller Parameters", ImGuiTreeNodeFlags_DefaultOpen)) return;
+        static const char* typeNames[] = { "Bool", "Int", "Float", "Trigger" };
+        bool changed = false;
+        for (std::size_t index = 0; index < controller.parameters.size(); ++index)
+        {
+            ImGui::PushID(static_cast<int>(index));
+            rendern::AnimationParameterDesc& parameter = controller.parameters[index];
+            const std::string oldName = parameter.name;
+            std::string& nameDraft = editor.parameterNameDrafts.try_emplace(oldName, oldName).first->second;
+            if (InputTextString("Name", nameDraft, ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                const std::string requestedName = nameDraft;
+                if (requestedName != oldName)
+                {
+                    try
+                    {
+                        rendern::RenameAnimationControllerParameter(controller, oldName, requestedName);
+                        editor.parameterNameDrafts.erase(oldName);
+                        editor.parameterNameDrafts.emplace(requestedName, requestedName);
+                        changed = true;
+                    }
+                    catch (const std::exception& error) { editor.message = error.what(); }
+                }
+            }
+            int type = static_cast<int>(parameter.defaultValue.type);
+            if (ImGui::Combo("Type", &type, typeNames, IM_ARRAYSIZE(typeNames)))
+            {
+                parameter.defaultValue = {};
+                parameter.defaultValue.type = static_cast<rendern::AnimationParameterType>(type);
+                changed = true;
+            }
+            if (parameter.defaultValue.type == rendern::AnimationParameterType::Bool)
+                changed |= ImGui::Checkbox("Default", &parameter.defaultValue.boolValue);
+            else if (parameter.defaultValue.type == rendern::AnimationParameterType::Int)
+                changed |= ImGui::InputInt("Default", &parameter.defaultValue.intValue);
+            else if (parameter.defaultValue.type == rendern::AnimationParameterType::Float)
+                changed |= ImGui::InputFloat("Default", &parameter.defaultValue.floatValue);
+            if (ImGui::Button("Delete"))
+            {
+                const std::string parameterName = parameter.name;
+                try
+                {
+                    rendern::DeleteAnimationControllerParameter(controller, parameterName);
+                    editor.parameterNameDrafts.erase(parameterName);
+                    changed = true;
+                    --index;
+                }
+                catch (const std::exception& error) { editor.message = error.what(); }
+            }
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+
+        ImGui::TextUnformatted("Add Parameter");
+        InputTextString("Name##newParameter", editor.newParameterName);
+        int newType = static_cast<int>(editor.newParameterDefault.type);
+        if (ImGui::Combo("Type##newParameter", &newType, typeNames, IM_ARRAYSIZE(typeNames)))
+        {
+            editor.newParameterDefault = {};
+            editor.newParameterDefault.type = static_cast<rendern::AnimationParameterType>(newType);
+        }
+        if (editor.newParameterDefault.type == rendern::AnimationParameterType::Bool)
+            ImGui::Checkbox("Default##newParameter", &editor.newParameterDefault.boolValue);
+        else if (editor.newParameterDefault.type == rendern::AnimationParameterType::Int)
+            ImGui::InputInt("Default##newParameter", &editor.newParameterDefault.intValue);
+        else if (editor.newParameterDefault.type == rendern::AnimationParameterType::Float)
+            ImGui::InputFloat("Default##newParameter", &editor.newParameterDefault.floatValue);
+        if (ImGui::Button("Add Parameter"))
+        {
+            if (editor.newParameterName.empty()) editor.message = "Add parameter: name must not be empty.";
+            else if (std::any_of(controller.parameters.begin(), controller.parameters.end(), [&](const auto& item) { return item.name == editor.newParameterName; }))
+                editor.message = "Add parameter: parameter '" + editor.newParameterName + "' already exists.";
+            else
+            {
+                editor.newParameterDefault.triggerValue = false;
+                controller.parameters.push_back({ editor.newParameterName, editor.newParameterDefault });
+                editor.newParameterName.clear();
+                changed = true;
+            }
+        }
+        if (changed) MarkControllerEditorChanged(editor);
     }
 
     static bool DrawSelectorStringList(const char* label, std::vector<std::string>& values)

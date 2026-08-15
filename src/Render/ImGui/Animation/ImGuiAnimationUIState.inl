@@ -36,6 +36,9 @@ namespace rendern::ui::animation_ui_detail
         std::string stateRenameSourceName;
         std::string stateNameDraft;
         std::string newTag;
+        std::string newParameterName;
+        rendern::AnimationParameterValue newParameterDefault{};
+        std::unordered_map<std::string, std::string> parameterNameDrafts;
     };
     
     struct AnimationUIState
