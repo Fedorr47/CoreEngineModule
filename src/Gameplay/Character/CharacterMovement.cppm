@@ -117,7 +117,7 @@ export namespace rendern
             }
 
             const bool hasPendingJumpRequest = action != nullptr &&
-                GetGameplayRequestedActionKind(*action) == GameplayActionKind::Jump;
+                GetGameplayRequestedActionId(*action) == kGameplayActionJump;
             if (movementState != nullptr && !hasPendingJumpRequest)
             {
                 movementState->jumpRequestConsumed = false;

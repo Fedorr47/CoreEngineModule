@@ -115,7 +115,7 @@
                 ResetSimulationState_();
                 if (ctx.scene != nullptr && ctx.levelInstance != nullptr)
                 {
-                    PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
+                    PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx, actionAnimationBindings_);
                 }
             }
         }

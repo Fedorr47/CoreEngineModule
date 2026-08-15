@@ -164,14 +164,14 @@ bool appRuntime::SubmitGameplayPhysicsCharacterVelocities(
                 movementState->jumpLockedVelocity = {};
                 movementState->jumping = false;
                 if (action != nullptr &&
-                    rendern::GetGameplayRequestedActionKind(*action) ==
-                        rendern::GameplayActionKind::Jump)
+                    rendern::GetGameplayRequestedActionId(*action) ==
+                        rendern::kGameplayActionJump)
                 {
                     rendern::ClearGameplayActionRequest(action->pending);
                     action->pendingDispatched = false;
                 }
                 if (action != nullptr &&
-                    action->current == rendern::GameplayActionKind::Jump)
+                    action->current == rendern::kGameplayActionJump)
                 {
                     rendern::FinishGameplayActionState(*action);
                 }

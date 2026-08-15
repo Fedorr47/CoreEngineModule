@@ -88,8 +88,8 @@ TEST(GameplayAnimationBridge, ActionStateDoesNotOverridePhysicalJumpPresentation
 
     rendern::GameplayActionComponent action{};
     action.busy = true;
-    action.current = rendern::GameplayActionKind::Jump;
-    rendern::WriteGameplayActionAnimationParameters(controller, action);
+    action.current = rendern::kGameplayActionJump;
+    rendern::WriteGameplayActionAnimationParameters(controller, action, MakeDefaultGameplayActionAnimationBindings());
 
     ASSERT_NE(rendern::FindAnimationParameter(controller.parameters, "IsJumping"), nullptr);
     EXPECT_FALSE(rendern::FindAnimationParameter(controller.parameters, "IsJumping")->boolValue);
@@ -145,4 +145,24 @@ TEST(GameplayAnimationBridge, ProductionControllerUsesPhysicalJumpLifecycle)
     EXPECT_EQ(jumpEntryCount, 8u);
     EXPECT_EQ(jumpExitCount, 3u);
     EXPECT_TRUE(hasRunningLanding);
+}
+TEST(GameplayAnimationBridge, UsesExplicitPresentationBindingForArbitraryAction)
+{
+    rendern::AnimationControllerAsset asset{};
+    asset.parameters = { rendern::AnimationParameterDesc{
+        .name = "PunchingAttack",
+        .defaultValue = { .type = rendern::AnimationParameterType::Trigger }
+    } };
+    rendern::AnimationControllerRuntime controller{};
+    controller.stateMachineAsset = &asset;
+    rendern::GameplayActionComponent action{};
+    action.pending = { rendern::GameplayActionId{ "Combat.PunchingAttack" },
+        rendern::GameplayActionRequestSource::Combat, 10 };
+    const rendern::GameplayActionAnimationBindings bindings{
+        { rendern::GameplayActionId{ "Combat.PunchingAttack" }, "PunchingAttack" }
+    };
+    rendern::WriteGameplayActionAnimationParameters(controller, action, bindings);
+    const auto* parameter = rendern::FindAnimationParameter(controller.parameters, "PunchingAttack");
+    ASSERT_NE(parameter, nullptr);
+    EXPECT_TRUE(parameter->triggerValue);
 }

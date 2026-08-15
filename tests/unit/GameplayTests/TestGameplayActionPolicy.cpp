@@ -1,4 +1,5 @@
 ﻿#include <array>
+#include <filesystem>
 #include <gtest/gtest.h>
 
 import core;
@@ -11,10 +12,10 @@ namespace
     {
         const char* name{};
         GameplayActionPolicyGroup group{ GameplayActionPolicyGroup::None };
-        std::uint32_t intentMask{ 0u };
+        std::vector<GameplayActionId> intents{};
         bool grounded{ true };
-        GameplayActionKind expectedPending{ GameplayActionKind::None };
-        GameplayActionKind expectedBuffered{ GameplayActionKind::None };
+        GameplayActionId expectedPending{ GameplayActionId{} };
+        GameplayActionId expectedBuffered{ GameplayActionId{} };
         bool expectedQueuedAny { false };
     };
     
@@ -27,8 +28,9 @@ namespace
         queuedAny = QueueGameplayActionRequestsFromPolicies(
             actionComponent,
             &characterMovementStateComponent,
-            testPolicy.intentMask,
-            testPolicy.group);
+            testPolicy.intents,
+            testPolicy.group,
+            MakeDefaultGameplayActionDefinitions());
         
         return actionComponent;
     }
@@ -40,60 +42,55 @@ TEST(GameplayActionPolicy, PolicyTableSelectionIsDeterministic)
         {
             .name = "NoIntentMaskProducesNoRequest",
             .group = GameplayActionPolicyGroup::Combat,
-            .intentMask = 0u,
+            .intents = {},
             .grounded = true,
-            .expectedPending = GameplayActionKind::None,
-            .expectedBuffered = GameplayActionKind::None,
+            .expectedPending = GameplayActionId{},
+            .expectedBuffered = GameplayActionId{},
             .expectedQueuedAny = false
         },
         {
             .name = "SingleAttackIntentQueuesAttack",
             .group = GameplayActionPolicyGroup::Combat,
-            .intentMask = GameplayActionIntentMask(GameplayActionKind::LightAttack),
+            .intents = { kGameplayActionLightAttack },
             .grounded = true,
-            .expectedPending = GameplayActionKind::LightAttack,
-            .expectedBuffered = GameplayActionKind::None,
+            .expectedPending = kGameplayActionLightAttack,
+            .expectedBuffered = GameplayActionId{},
             .expectedQueuedAny = true
         },
         {
             .name = "JumpAndAttackSelectJumpAsHighestPriority",
             .group = GameplayActionPolicyGroup::Combat,
-            .intentMask = GameplayActionIntentMask(GameplayActionKind::Jump) |
-                GameplayActionIntentMask(GameplayActionKind::LightAttack),
+            .intents = { kGameplayActionJump, kGameplayActionLightAttack },
             .grounded = true,
-            .expectedPending = GameplayActionKind::Jump,
-            .expectedBuffered = GameplayActionKind::LightAttack,
+            .expectedPending = kGameplayActionJump,
+            .expectedBuffered = kGameplayActionLightAttack,
             .expectedQueuedAny = true
         },
         {
             .name = "InteractionGroupIgnoresCombatIntents",
             .group = GameplayActionPolicyGroup::Interaction,
-            .intentMask = GameplayActionIntentMask(GameplayActionKind::Jump) |
-                GameplayActionIntentMask(GameplayActionKind::LightAttack),
+            .intents = { kGameplayActionJump, kGameplayActionLightAttack },
             .grounded = true,
-            .expectedPending = GameplayActionKind::None,
-            .expectedBuffered = GameplayActionKind::None,
+            .expectedPending = GameplayActionId{},
+            .expectedBuffered = GameplayActionId{},
             .expectedQueuedAny = false
         },
         {
             .name = "AnyGroupChoosesCombatThenBuffersInteractionByPriority",
             .group = GameplayActionPolicyGroup::Any,
-            .intentMask = GameplayActionIntentMask(GameplayActionKind::Jump) |
-                GameplayActionIntentMask(GameplayActionKind::Interact),
+            .intents = { kGameplayActionJump, kGameplayActionInteract },
             .grounded = true,
-            .expectedPending = GameplayActionKind::Jump,
-            .expectedBuffered = GameplayActionKind::Interact,
+            .expectedPending = kGameplayActionJump,
+            .expectedBuffered = kGameplayActionInteract,
             .expectedQueuedAny = true
         },
         {
             .name = "GroundedGateBlocksAllWhenAirborne",
             .group = GameplayActionPolicyGroup::Any,
-            .intentMask = GameplayActionIntentMask(GameplayActionKind::Jump) |
-                GameplayActionIntentMask(GameplayActionKind::LightAttack) |
-                GameplayActionIntentMask(GameplayActionKind::Interact),
+            .intents = { kGameplayActionJump, kGameplayActionLightAttack, kGameplayActionInteract },
             .grounded = false,
-            .expectedPending = GameplayActionKind::None,
-            .expectedBuffered = GameplayActionKind::None,
+            .expectedPending = GameplayActionId{},
+            .expectedBuffered = GameplayActionId{},
             .expectedQueuedAny = false
         }
     } };
@@ -106,8 +103,8 @@ TEST(GameplayActionPolicy, PolicyTableSelectionIsDeterministic)
         const GameplayActionComponent action = RunPolicySelectionCase(testCase, queuedAny);
 
         EXPECT_EQ(queuedAny, testCase.expectedQueuedAny);
-        EXPECT_EQ(GetGameplayRequestedActionKind(action), testCase.expectedPending);
-        EXPECT_EQ(GetGameplayBufferedActionKind(action), testCase.expectedBuffered);
+        EXPECT_EQ(GetGameplayRequestedActionId(action), testCase.expectedPending);
+        EXPECT_EQ(GetGameplayBufferedActionId(action), testCase.expectedBuffered);
     }
 }
 
@@ -116,37 +113,37 @@ TEST(GameplayActionPolicy, LowerPriorityRequestCannotOverrideHigherPriorityPendi
     GameplayActionComponent action{};
 
     EXPECT_TRUE(QueueGameplayActionRequest(action, GameplayActionRequest{
-        .kind = GameplayActionKind::Jump,
+        .id = kGameplayActionJump,
         .source = GameplayActionRequestSource::Input,
         .priority = 200
     }));
 
     EXPECT_TRUE(QueueGameplayActionRequest(action, GameplayActionRequest{
-        .kind = GameplayActionKind::LightAttack,
+        .id = kGameplayActionLightAttack,
         .source = GameplayActionRequestSource::Input,
         .priority = 10
     }));
 
-    EXPECT_EQ(GetGameplayRequestedActionKind(action), GameplayActionKind::Jump);
-    EXPECT_EQ(GetGameplayBufferedActionKind(action), GameplayActionKind::LightAttack);
+    EXPECT_EQ(GetGameplayRequestedActionId(action), kGameplayActionJump);
+    EXPECT_EQ(GetGameplayBufferedActionId(action), kGameplayActionLightAttack);
 }
 
 TEST(GameplayActionPolicy, CommitConsumesPendingAndIsIdempotentWhenNoRequestRemains)
 {
     GameplayActionComponent action{};
     action.pending = GameplayActionRequest{
-        .kind = GameplayActionKind::Interact,
+        .id = kGameplayActionInteract,
         .source = GameplayActionRequestSource::Interaction,
         .priority = 50
     };
 
     CommitGameplayActionState(action);
-    EXPECT_EQ(action.current, GameplayActionKind::Interact);
+    EXPECT_EQ(action.current, kGameplayActionInteract);
     EXPECT_TRUE(action.busy);
     EXPECT_FALSE(HasGameplayPendingActionRequest(action));
 
     CommitGameplayActionState(action);
-    EXPECT_EQ(action.current, GameplayActionKind::Interact);
+    EXPECT_EQ(action.current, kGameplayActionInteract);
     EXPECT_TRUE(action.busy);
     EXPECT_FALSE(HasGameplayPendingActionRequest(action));
 }
@@ -154,34 +151,110 @@ TEST(GameplayActionPolicy, CommitConsumesPendingAndIsIdempotentWhenNoRequestRema
 TEST(GameplayActionPolicy, FinishPromotesBufferedThenConsumeAndResetAreSafe)
 {
     GameplayActionComponent action{};
-    action.current = GameplayActionKind::Jump;
+    action.current = kGameplayActionJump;
     action.busy = true;
     action.buffered = GameplayActionRequest{
-        .kind = GameplayActionKind::LightAttack,
+        .id = kGameplayActionLightAttack,
         .source = GameplayActionRequestSource::Combat,
         .priority = 10
     };
 
     FinishGameplayActionState(action);
     EXPECT_FALSE(action.busy);
-    EXPECT_EQ(action.current, GameplayActionKind::None);
-    EXPECT_EQ(GetGameplayRequestedActionKind(action), GameplayActionKind::LightAttack);
-    EXPECT_EQ(GetGameplayBufferedActionKind(action), GameplayActionKind::None);
+    EXPECT_EQ(action.current, GameplayActionId{});
+    EXPECT_EQ(GetGameplayRequestedActionId(action), kGameplayActionLightAttack);
+    EXPECT_EQ(GetGameplayBufferedActionId(action), GameplayActionId{});
 
     CommitGameplayActionState(action);
-    EXPECT_EQ(action.current, GameplayActionKind::LightAttack);
+    EXPECT_EQ(action.current, kGameplayActionLightAttack);
     EXPECT_FALSE(HasGameplayPendingActionRequest(action));
 
     ResetGameplayActionState(action);
-    EXPECT_EQ(action.current, GameplayActionKind::None);
+    EXPECT_EQ(action.current, GameplayActionId{});
     EXPECT_FALSE(action.busy);
     EXPECT_FALSE(HasGameplayPendingActionRequest(action));
     EXPECT_FALSE(HasGameplayBufferedActionRequest(action));
 
     EXPECT_TRUE(QueueGameplayActionRequest(action, GameplayActionRequest{
-        .kind = GameplayActionKind::Interact,
+        .id = kGameplayActionInteract,
         .source = GameplayActionRequestSource::Interaction,
         .priority = 50
     }));
-    EXPECT_EQ(GetGameplayRequestedActionKind(action), GameplayActionKind::Interact);
+    EXPECT_EQ(GetGameplayRequestedActionId(action), kGameplayActionInteract);
+}
+
+TEST(GameplayActionPolicy, ArbitraryDefinitionDrivesPolicyAndRuntimeState)
+{
+    const GameplayActionId punching{ "Combat.PunchingAttack" };
+    GameplayActionDefinitions definitions{
+        { punching, GameplayActionPolicyGroup::Combat, GameplayActionRequestSource::Combat,
+          GameplayActionExecutorKind::CombatAttack, 37,
+          GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireGrounded) }
+    };
+    const auto* policy = FindGameplayActionPolicy(definitions, GameplayActionPolicyGroup::Combat, punching);
+    ASSERT_NE(policy, nullptr);
+    EXPECT_EQ(policy->priority, 37);
+    GameplayCharacterMovementStateComponent movement{};
+    movement.grounded = true;
+    GameplayActionComponent action{};
+    EXPECT_TRUE(QueueGameplayActionRequestsFromPolicies(action, &movement, { punching }, GameplayActionPolicyGroup::Combat, definitions));
+    EXPECT_EQ(action.pending.id, punching);
+    PrimeGameplayActionState(action);
+    EXPECT_EQ(action.current, punching);
+    CommitGameplayActionState(action);
+    QueueGameplayActionRequest(action, { GameplayActionId{ "Combat.ArbitraryBuffered" }, GameplayActionRequestSource::Combat, 1 });
+    EXPECT_TRUE(HasGameplayBufferedActionRequest(action));
+}
+
+TEST(GameplayActionPolicy, CatalogAndPresentationRoundTripThroughLevelJson)
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() /
+        "core_gameplay_action_catalog_roundtrip.level.json";
+    LevelAsset source{};
+    source.name = "Gameplay action round trip";
+    source.gameplayActions = MakeDefaultGameplayActionDefinitions();
+    source.gameplayActions.push_back({ GameplayActionId{ "Combat.PunchingAttack" },
+        GameplayActionPolicyGroup::Combat, GameplayActionRequestSource::Combat,
+        GameplayActionExecutorKind::CombatAttack, 10,
+        GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireGrounded) });
+    source.gameplayActionAnimationBindings = MakeDefaultGameplayActionAnimationBindings();
+    source.gameplayActionAnimationBindings.push_back({
+        GameplayActionId{ "Combat.PunchingAttack" }, "PunchingAttack" });
+
+    SaveLevelAssetToJson(path.string(), source);
+    const LevelAsset loaded = LoadLevelAssetFromJson(path.string());
+    const auto* action = FindGameplayActionDefinition(
+        loaded.gameplayActions, GameplayActionId{ "Combat.PunchingAttack" });
+    ASSERT_NE(action, nullptr);
+    EXPECT_EQ(action->group, GameplayActionPolicyGroup::Combat);
+    EXPECT_EQ(action->source, GameplayActionRequestSource::Combat);
+    EXPECT_EQ(action->executor, GameplayActionExecutorKind::CombatAttack);
+    EXPECT_EQ(action->priority, 10);
+    EXPECT_TRUE(HasGameplayActionPolicyGate(action->gates, GameplayActionPolicyGate::RequireGrounded));
+    const auto* presentation = FindGameplayActionAnimationBinding(
+        loaded.gameplayActionAnimationBindings, action->id);
+    ASSERT_NE(presentation, nullptr);
+    EXPECT_EQ(presentation->triggerParameter, "PunchingAttack");
+    std::filesystem::remove(path);
+}
+
+TEST(GameplayActionPolicy, ValidationRejectsInvalidCatalogs)
+{
+    std::string diagnostic;
+    GameplayActionDefinitions emptyId = MakeDefaultGameplayActionDefinitions();
+    emptyId.push_back({});
+    EXPECT_FALSE(ValidateGameplayActionDefinitions(emptyId, diagnostic));
+
+    GameplayActionDefinitions duplicate = MakeDefaultGameplayActionDefinitions();
+    duplicate.push_back(duplicate.front());
+    EXPECT_FALSE(ValidateGameplayActionDefinitions(duplicate, diagnostic));
+
+    GameplayActionDefinitions contradictory = MakeDefaultGameplayActionDefinitions();
+    contradictory.front().gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireAirborne);
+    EXPECT_FALSE(ValidateGameplayActionDefinitions(contradictory, diagnostic));
+
+    GameplayActionDefinitions missingRequired = MakeDefaultGameplayActionDefinitions();
+    missingRequired.erase(missingRequired.begin());
+    EXPECT_FALSE(ValidateGameplayActionDefinitions(missingRequired, diagnostic));
+    EXPECT_NE(diagnostic.find("Movement.Jump"), std::string::npos);
 }

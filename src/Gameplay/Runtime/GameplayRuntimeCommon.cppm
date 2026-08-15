@@ -67,7 +67,7 @@ export namespace rendern
     struct GameplayActionKeyBinding
     {
         int key{ 0 };
-        GameplayActionKind action{ GameplayActionKind::None };
+        GameplayActionId action{};
     };
 
     [[nodiscard]] constexpr bool IsGameplayActionBindingKeyReserved(const int key) noexcept
@@ -81,9 +81,9 @@ export namespace rendern
         GameplayAxisKeyBinding moveY{ 'S', 'W' };
         GameplayButtonKeyBinding run{ 0x10 };
         std::vector<GameplayActionKeyBinding> actions{
-                { 0x20, GameplayActionKind::Jump },
-                { 0x78, GameplayActionKind::LightAttack },
-                { 'E', GameplayActionKind::Interact }
+                { 0x20, kGameplayActionJump },
+                { 0x78, kGameplayActionLightAttack },
+                { 'E', kGameplayActionInteract }
         };
     };
 

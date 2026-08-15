@@ -182,7 +182,8 @@ export namespace rendern
     inline void UpdateGameplayActionRequestsFromPolicies(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
-        const GameplayActionPolicyGroup group)
+        const GameplayActionPolicyGroup group,
+        const GameplayActionDefinitions& definitions)
     {
         for (const EntityHandle entity : entities)
         {
@@ -194,7 +195,7 @@ export namespace rendern
                 continue;
             }
 
-            QueueGameplayActionRequestsFromPolicies(*action, movementState, command->actionIntentMask, group);
+            QueueGameplayActionRequestsFromPolicies(*action, movementState, command->actionIntents, group, definitions);
         }
     }
 }

@@ -135,6 +135,9 @@ struct LevelAsset
 	std::vector<ParticleEmitter> particleEmitters;
 	std::optional<std::string> skyboxTexture; // textureId
 
+	GameplayActionDefinitions gameplayActions;
+	GameplayActionAnimationBindings gameplayActionAnimationBindings;
+
 	std::vector<LevelNode> nodes;
 };
 

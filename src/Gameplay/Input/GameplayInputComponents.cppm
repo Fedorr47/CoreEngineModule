@@ -1,8 +1,11 @@
 module;
 
 #include <cstdint>
+#include <vector>
 
 export module core:gameplay_input_components;
+
+import :gameplay_action_components;
 
 export namespace rendern
 {
@@ -16,6 +19,6 @@ export namespace rendern
         float moveX{ 0.0f };
         float moveY{ 0.0f };
         bool runHeld{ false };
-        std::uint32_t actionIntentMask{ 0u };
+        std::vector<GameplayActionId> actionIntents{};
     };
 }

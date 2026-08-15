@@ -54,8 +54,8 @@ TEST(JumpTraversalExecutor, ApproachesTakeoffWithoutArrivalSlowdown)
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     EXPECT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
     EXPECT_GT(fixture.world.TryGetCharacterCommand(fixture.agent)->moveMagnitude, 0.9f);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
-        GameplayActionKind::None);
+    EXPECT_EQ(GetGameplayRequestedActionId(*fixture.world.TryGetAction(fixture.agent)),
+        GameplayActionId{});
 }
 
 TEST(JumpTraversalExecutor, IssuesJumpOnlyAfterEnteringTakeoffToleranceAndOnlyOnce)
@@ -67,17 +67,17 @@ TEST(JumpTraversalExecutor, IssuesJumpOnlyAfterEnteringTakeoffToleranceAndOnlyOn
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
 
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
-        GameplayActionKind::None);
+    EXPECT_EQ(GetGameplayRequestedActionId(*fixture.world.TryGetAction(fixture.agent)),
+        GameplayActionId{});
     
     transform->position = {-0.2f, 0.0f, 0.0f};
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
     auto* action = fixture.world.TryGetAction(fixture.agent);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*action), GameplayActionKind::Jump);
+    EXPECT_EQ(GetGameplayRequestedActionId(*action), kGameplayActionJump);
     ClearGameplayActionRequest(action->pending);
 
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*action), GameplayActionKind::None);
+    EXPECT_EQ(GetGameplayRequestedActionId(*action), GameplayActionId{});
 }
 
 TEST(JumpTraversalExecutor, JumpTraversalDataRequiresExplicitValidConfiguration)
@@ -118,8 +118,8 @@ TEST(JumpTraversalExecutor, MovingTakeoffPreservesPlanarMotorVelocityIntoAirborn
     
     transform->position = {-0.2f, 0.0f, 0.0f};
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
-    ASSERT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
-        GameplayActionKind::Jump);
+    ASSERT_EQ(GetGameplayRequestedActionId(*fixture.world.TryGetAction(fixture.agent)),
+        kGameplayActionJump);
     motor->velocity = motor->desiredVelocity;
     UpdateGameplayCharacterMovement(fixture.world, {fixture.agent}, 0.1f);
     auto* movement = fixture.world.TryGetCharacterMovementState(fixture.agent);
@@ -151,8 +151,8 @@ TEST(JumpTraversalExecutor, IssuesOneRequestAndSucceedsOnlyAfterValidPhysicalLan
     JumpTraversalExecutor executor{fixture.world, fixture.links};
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
-        GameplayActionKind::Jump);
+    EXPECT_EQ(GetGameplayRequestedActionId(*fixture.world.TryGetAction(fixture.agent)),
+        kGameplayActionJump);
     EXPECT_FLOAT_EQ(fixture.world.TryGetCharacterMotor(fixture.agent)->jumpVerticalSpeed, 7.0f);
 
     fixture.world.TryGetCharacterMovementState(fixture.agent)->jumpPhase = GameplayJumpPhase::Airborne;
@@ -220,8 +220,8 @@ TEST(JumpTraversalExecutor, CancellationClearsOwnedRequestAndActiveState)
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
     executor.Cancel(fixture.context);
-    EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
-        GameplayActionKind::None);
+    EXPECT_EQ(GetGameplayRequestedActionId(*fixture.world.TryGetAction(fixture.agent)),
+        GameplayActionId{});
     EXPECT_EQ(fixture.world.TryGetCharacterMovementState(fixture.agent)->jumpRequestResult,
         GameplayJumpRequestResult::None);
     EXPECT_FLOAT_EQ(fixture.world.TryGetCharacterMotor(fixture.agent)->jumpVerticalSpeed, 5.5f);
@@ -235,14 +235,14 @@ TEST(JumpTraversalExecutor, CancellationBeforeIssuingRequestPreservesUnrelatedSc
     JumpTraversalExecutor executor{fixture.world, fixture.links};
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     ASSERT_TRUE(QueueGameplayActionRequest(*fixture.world.TryGetAction(fixture.agent), {
-        .kind = GameplayActionKind::Jump,
+        .id = kGameplayActionJump,
         .source = GameplayActionRequestSource::Script,
         .priority = 300}));
 
     executor.Cancel(fixture.context);
 
     const GameplayActionRequest& pending = fixture.world.TryGetAction(fixture.agent)->pending;
-    EXPECT_EQ(pending.kind, GameplayActionKind::Jump);
+    EXPECT_EQ(pending.id, kGameplayActionJump);
     EXPECT_EQ(pending.source, GameplayActionRequestSource::Script);
     EXPECT_EQ(pending.priority, 300);
 }

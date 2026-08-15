@@ -15,6 +15,7 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	WriteJsonEscaped(ss, level.name);
 	ss << ",\n";
 
+	WriteGameplayActionsSection_(ss, level);
 	WriteMeshesSection_(ss, level);
 	WriteModelsSection_(ss, level);
 	WriteSkinnedMeshesSection_(ss, level);

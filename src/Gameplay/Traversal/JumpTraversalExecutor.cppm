@@ -89,7 +89,7 @@ export namespace rendern
                     return Fail_(it, context.agentEntity);
                 }
                 const GameplayActionRequest request{
-                    .kind = GameplayActionKind::Jump,
+                    .id = kGameplayActionJump,
                     .source = GameplayActionRequestSource::Script,
                     .priority = 200};
                 if (!QueueGameplayActionRequest(*action, request))
@@ -263,7 +263,7 @@ export namespace rendern
                 return;
             }
             if (GameplayActionComponent* action = world_.TryGetAction(agent);
-                action != nullptr && action->pending.kind == GameplayActionKind::Jump &&
+                action != nullptr && action->pending.id == kGameplayActionJump &&
                 action->pending.source == GameplayActionRequestSource::Script)
             {
                 ClearGameplayActionRequest(action->pending);

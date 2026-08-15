@@ -525,3 +525,42 @@ inline void WriteMaterialsSection_(std::ostringstream& ss, const LevelAsset& lev
 	ss << "},\n";
 
 }
+
+inline const char* GameplayActionGroupName_(GameplayActionPolicyGroup value)
+{
+	switch (value) { case GameplayActionPolicyGroup::Input: return "Input"; case GameplayActionPolicyGroup::Combat: return "Combat"; case GameplayActionPolicyGroup::Interaction: return "Interaction"; case GameplayActionPolicyGroup::Any: return "Any"; default: return "None"; }
+}
+inline const char* GameplayActionSourceName_(GameplayActionRequestSource value)
+{
+	switch (value) { case GameplayActionRequestSource::Input: return "Input"; case GameplayActionRequestSource::Combat: return "Combat"; case GameplayActionRequestSource::Interaction: return "Interaction"; case GameplayActionRequestSource::AnimationEvent: return "AnimationEvent"; case GameplayActionRequestSource::Script: return "Script"; default: return "None"; }
+}
+inline const char* GameplayActionExecutorName_(GameplayActionExecutorKind value)
+{
+	switch (value) { case GameplayActionExecutorKind::Jump: return "Jump"; case GameplayActionExecutorKind::CombatAttack: return "CombatAttack"; case GameplayActionExecutorKind::Interact: return "Interact"; default: return "None"; }
+}
+inline void WriteGameplayActionGates_(std::ostringstream& ss, std::uint32_t gates)
+{
+	ss << "["; bool first = true;
+	auto write = [&](GameplayActionPolicyGate gate, const char* name) { if (!HasGameplayActionPolicyGate(gates, gate)) return; if (!first) ss << ", "; first = false; WriteJsonEscaped(ss, name); };
+	write(GameplayActionPolicyGate::RequireGrounded, "RequireGrounded"); write(GameplayActionPolicyGate::RequireAirborne, "RequireAirborne");
+	write(GameplayActionPolicyGate::RequireNotBusy, "RequireNotBusy"); write(GameplayActionPolicyGate::RequireBusy, "RequireBusy");
+	write(GameplayActionPolicyGate::RequireNoPending, "RequireNoPending"); write(GameplayActionPolicyGate::RequireNoBuffered, "RequireNoBuffered"); ss << "]";
+}
+inline void WriteGameplayActionsSection_(std::ostringstream& ss, const LevelAsset& level)
+{
+	ss << "  \"gameplayActions\": [";
+	for (std::size_t i = 0; i < level.gameplayActions.size(); ++i)
+	{
+		const auto& action = level.gameplayActions[i]; if (i == 0) ss << "\n"; else ss << ",\n";
+		ss << "    {\"id\": "; WriteJsonEscaped(ss, action.id.value); ss << ", \"group\": "; WriteJsonEscaped(ss, GameplayActionGroupName_(action.group));
+		ss << ", \"source\": "; WriteJsonEscaped(ss, GameplayActionSourceName_(action.source)); ss << ", \"executor\": "; WriteJsonEscaped(ss, GameplayActionExecutorName_(action.executor));
+		ss << ", \"priority\": " << action.priority << ", \"gates\": "; WriteGameplayActionGates_(ss, action.gates); ss << "}";
+	}
+	if (!level.gameplayActions.empty()) ss << "\n  "; ss << "],\n  \"gameplayActionAnimationBindings\": [";
+	for (std::size_t i = 0; i < level.gameplayActionAnimationBindings.size(); ++i)
+	{
+		const auto& binding = level.gameplayActionAnimationBindings[i]; if (i == 0) ss << "\n"; else ss << ",\n";
+		ss << "    {\"actionId\": "; WriteJsonEscaped(ss, binding.actionId.value); ss << ", \"triggerParameter\": "; WriteJsonEscaped(ss, binding.triggerParameter); ss << "}";
+	}
+	if (!level.gameplayActionAnimationBindings.empty()) ss << "\n  "; ss << "],\n";
+}
