@@ -48,6 +48,9 @@ export namespace rendern
         bool dirty{ false };
         bool reloadRequired{ false };
         std::string message;
+        std::string newMotionId;
+        std::string newSourceAssetId;
+        std::string newClipName;
     };
 
     struct AnimationRootTrajectoryDiagnostics

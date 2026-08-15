@@ -11,13 +11,16 @@
         ImGui::SameLine(); ImGui::TextUnformatted("Action");
         ImGui::SameLine(); ImGui::ColorButton("##curLegend", ImColor(100, 180, 255, 255), ImGuiColorEditFlags_NoTooltip, ImVec2(12.0f, 12.0f));
         ImGui::SameLine(); ImGui::TextUnformatted("Current");
+        ImGui::TextDisabled("Edges: gray explicit | purple W wildcard-derived | orange R rule-generated | blue active runtime");
     }
 
 
     static void DrawAnimationGraphFsmCanvas(
-        const rendern::AnimationControllerAsset& controllerAsset,
+    rendern::AnimationControllerAsset& controllerAsset,
+    const std::vector<rendern::EffectiveAnimationTransition>& effectiveTransitions,
         const rendern::AnimationControllerRuntime& runtime,
-        AnimationUIState& uiState)
+        AnimationUIState& uiState,
+        AnimationControllerEditorState& editor)
     {
         EnsureAnimationGraphFsmLayout(uiState, controllerAsset);
 
@@ -34,6 +37,34 @@
                 uiState.animationGraphFsmNodePositions.erase(key);
             }
             EnsureAnimationGraphFsmLayout(uiState, controllerAsset);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Add State"))
+        {
+            std::string name = "NewState";
+            for (int suffix = 2; rendern::FindAnimationControllerState(controllerAsset, name) != nullptr; ++suffix) name = "NewState" + std::to_string(suffix);
+            controllerAsset.states.push_back(rendern::AnimationStateDesc{ .name = name });
+            editor.stateContentModes[name] = AnimationControllerEditorState::StateContentMode::SemanticMotion;
+            if (controllerAsset.defaultState.empty()) controllerAsset.defaultState = name;
+            uiState.animationGraphSelectedStateName = name;
+            editor.selectedAuthoredTransition = -1; editor.selectedRule = -1;
+            MarkControllerEditorChanged(editor);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Add Explicit Transition") && controllerAsset.states.size() >= 2)
+        {
+            controllerAsset.transitions.push_back(rendern::AnimationTransitionDesc{ .fromState = controllerAsset.states[0].name, .toState = controllerAsset.states[1].name });
+            editor.selectedAuthoredTransition = static_cast<int>(controllerAsset.transitions.size() - 1); editor.selectedRule = -1;
+            MarkControllerEditorChanged(editor);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Add Rule") && controllerAsset.states.size() >= 2)
+        {
+            std::string id = "NewRule";
+            for (int suffix = 2; std::any_of(controllerAsset.transitionRules.begin(), controllerAsset.transitionRules.end(), [&](const auto& rule) { return rule.id == id; }); ++suffix) id = "NewRule" + std::to_string(suffix);
+            controllerAsset.transitionRules.push_back(rendern::AnimationTransitionRuleDesc{ .id = id, .from = { .states = { controllerAsset.states[0].name } }, .to = { .states = { controllerAsset.states[1].name } } });
+            editor.selectedRule = static_cast<int>(controllerAsset.transitionRules.size() - 1); editor.selectedAuthoredTransition = -1;
+            MarkControllerEditorChanged(editor);
         }
         ImGui::SameLine();
         if (ImGui::Button("Fit"))
@@ -129,15 +160,25 @@
                 return AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, uiState.animationGraphFsmNodePositions[key]);
             };
 
-        for (const rendern::AnimationTransitionDesc& transition : controllerAsset.transitions)
+        for (const rendern::EffectiveAnimationTransition& effectiveTransition : effectiveTransitions)
         {
-            const rendern::AnimationStateDesc* fromState = rendern::FindAnimationControllerState(controllerAsset, transition.fromState);
-            const rendern::AnimationStateDesc* toState = rendern::FindAnimationControllerState(controllerAsset, transition.toState);
+            const rendern::AnimationTransitionDesc& transition = effectiveTransition.transition;
+            const rendern::AnimationStateDesc* fromState =
+                rendern::FindAnimationControllerState(
+                    controllerAsset,
+                    transition.fromState);
+            const rendern::AnimationStateDesc* toState =
+                rendern::FindAnimationControllerState(
+                    controllerAsset,
+                    transition.toState);
+            
             if (fromState == nullptr || toState == nullptr)
             {
                 continue;
             }
-
+            
+            ImGui::PushID(&effectiveTransition);
+           
             const bool touchesSelection =
                 uiState.animationGraphSelectedStateName.empty() ||
                 transition.fromState == uiState.animationGraphSelectedStateName ||
@@ -151,13 +192,17 @@
             const float dx = std::max(70.0f, std::fabs(p4.x - p1.x) * 0.38f);
             const ImVec2 p2 = AddImVec2(p1, ImVec2(dx, 0.0f));
             const ImVec2 p3 = AddImVec2(p4, ImVec2(-dx, 0.0f));
-            const bool activeEdge =
+            const bool activeEdge = !editor.reloadRequired &&
                 runtime.transitionActive &&
                 runtime.transitionSourceStateName == transition.fromState &&
                 runtime.currentStateName == transition.toState;
+            const bool ruleGenerated = effectiveTransition.origin == rendern::AnimationTransitionOrigin::Rule;
+            const bool wildcardGenerated = effectiveTransition.origin == rendern::AnimationTransitionOrigin::ExplicitWildcard;
             const ImU32 edgeColor = activeEdge
                 ? IM_COL32(120, 205, 255, 255)
-                : (emphasize ? IM_COL32(155, 155, 170, 190) : IM_COL32(95, 95, 105, 80));
+                : (ruleGenerated ? IM_COL32(220, 165, 75, emphasize ? 210 : 80) :
+                    (wildcardGenerated ? IM_COL32(180, 120, 220, emphasize ? 200 : 75) :
+                        (emphasize ? IM_COL32(155, 155, 170, 190) : IM_COL32(95, 95, 105, 80))));
             drawList->AddBezierCubic(p1, p2, p3, p4, edgeColor, activeEdge ? 3.2f : (emphasize ? 2.0f : 1.2f), 0);
 
             const ImVec2 arrowTip = p4;
@@ -175,7 +220,11 @@
                 const ImVec2 labelMid = MulImVec2(AddImVec2(p1, p4), 0.5f);
                 const ImVec2 labelPos = AddImVec2(labelMid, ImVec2(-34.0f, -11.0f));
                 char labelBuf[64]{};
-                std::snprintf(labelBuf, sizeof(labelBuf), "p%d / %.2f", transition.priority, transition.blendDurationSeconds);
+                std::snprintf(labelBuf, 
+                    sizeof(labelBuf), 
+                    "%sp%d / %.2f", 
+                    ruleGenerated ? "R " : (wildcardGenerated ? "W " : ""), 
+                    transition.priority, transition.blendDurationSeconds);
                 drawList->AddRectFilled(
                     AddImVec2(labelPos, ImVec2(-4.0f, -2.0f)),
                     AddImVec2(labelPos, ImVec2(62.0f, 15.0f)),
@@ -183,6 +232,31 @@
                     4.0f);
                 drawList->AddText(ImGui::GetFont(), bodyFontSize, labelPos, IM_COL32(225, 225, 230, 230), labelBuf);
             }
+            const ImVec2 edgeHitMin = AddImVec2(MulImVec2(AddImVec2(p1, p4), 0.5f), ImVec2(-30.0f, -12.0f));
+            ImGui::SetCursorScreenPos(edgeHitMin);
+            ImGui::InvisibleButton("##edge", ImVec2(60.0f, 24.0f));
+            if (ImGui::IsItemClicked())
+            {
+                uiState.animationGraphSelectedStateName.clear();
+                if (effectiveTransition.origin == rendern::AnimationTransitionOrigin::Rule)
+                {
+                    editor.selectedRule = effectiveTransition.authoredRuleIndex < controllerAsset.transitionRules.size()
+                        ? static_cast<int>(effectiveTransition.authoredRuleIndex) : -1;
+                    editor.selectedAuthoredTransition = -1;
+                }
+                else
+                {
+                    editor.selectedAuthoredTransition = static_cast<int>(effectiveTransition.authoredTransitionIndex);
+                    editor.selectedRule = -1;
+                }
+            }
+            if (ImGui::IsItemHovered())
+            {
+                const char* origin = effectiveTransition.origin == rendern::AnimationTransitionOrigin::Rule ? "Generated by rule" :
+                    (effectiveTransition.origin == rendern::AnimationTransitionOrigin::ExplicitWildcard ? "Derived from authored wildcard" : "Explicit transition");
+                ImGui::SetTooltip("%s%s%s", origin, effectiveTransition.sourceRuleId.empty() ? "" : ": ", effectiveTransition.sourceRuleId.c_str());
+            }
+            ImGui::PopID();
         }
 
         for (const rendern::AnimationStateDesc& state : controllerAsset.states)
@@ -192,7 +266,7 @@
             const ImVec2 nodeSize = MulImVec2(nodeBaseSize, uiState.animationGraphFsmZoom);
             const ImVec2 minPos = AnimationGraphCanvasPointToScreen(canvasPos, uiState.animationGraphFsmPan, uiState.animationGraphFsmZoom, localPos);
             const ImVec2 maxPos = AddImVec2(minPos, nodeSize);
-            const bool isCurrent = runtime.currentStateName == state.name;
+            const bool isCurrent = !editor.reloadRequired && runtime.currentStateName == state.name;
             const bool isSelected = uiState.animationGraphSelectedStateName == state.name;
             const bool selectedFocus = uiState.animationGraphSelectedStateName.empty() || isSelected;
             const ImU32 bodyColor = AnimationGraphStateColor(state, isCurrent);
@@ -229,6 +303,8 @@
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
                 uiState.animationGraphSelectedStateName = state.name;
+                editor.selectedAuthoredTransition = -1;
+                editor.selectedRule = -1;
             }
             if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
             {
@@ -266,7 +342,29 @@
         {
             ImGui::Text("Current: %s", runtime.currentStateName.c_str());
         }
-        DrawAnimationGraphStateInspector(controllerAsset, runtime, uiState);
+        if (ImGui::CollapsingHeader("Authored Transitions / Rules"))
+        {
+            for (std::size_t index = 0; index < controllerAsset.transitions.size(); ++index)
+            {
+                const auto& transition = controllerAsset.transitions[index];
+                ImGui::PushID(static_cast<int>(index));
+                if (ImGui::Selectable(("Explicit: " + transition.fromState + " -> " + transition.toState).c_str(), editor.selectedAuthoredTransition == static_cast<int>(index)))
+                {
+                    editor.selectedAuthoredTransition = static_cast<int>(index); editor.selectedRule = -1; uiState.animationGraphSelectedStateName.clear();
+                }
+                ImGui::PopID();
+            }
+            for (std::size_t index = 0; index < controllerAsset.transitionRules.size(); ++index)
+            {
+                ImGui::PushID(static_cast<int>(controllerAsset.transitions.size() + index));
+                if (ImGui::Selectable(("Rule: " + controllerAsset.transitionRules[index].id).c_str(), editor.selectedRule == static_cast<int>(index)))
+                {
+                    editor.selectedRule = static_cast<int>(index); editor.selectedAuthoredTransition = -1; uiState.animationGraphSelectedStateName.clear();
+                }
+                ImGui::PopID();
+            }
+        }
+        DrawAnimationGraphStateInspector(controllerAsset, effectiveTransitions, runtime, uiState, editor);
         ImGui::EndChild();
     }
 

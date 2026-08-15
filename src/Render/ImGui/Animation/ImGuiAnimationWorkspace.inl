@@ -20,6 +20,74 @@
         return std::ranges::any_of(ctx.skinnedItem->asset->externalAnimationSources,
             [&](const auto& source) { return source.assetId == sourceId; });
     }
+    
+    [[nodiscard]] static std::vector<std::string> CollectWorkspaceSourceIds(const rendern::LevelAsset& level)
+    {
+    	std::vector<std::string> result;
+    	result.reserve(level.animations.size());
+    	for (const auto& [id, unused] : level.animations)
+    	{
+    		result.push_back(id);
+    	}
+    	std::ranges::sort(result);
+    	return result;
+    }
+    
+    static bool DrawWorkspaceSourceCombo(
+    	const char* label,
+    	const rendern::LevelAsset& level,
+    	std::string& sourceId)
+    {
+    	bool changed = false;
+    	const char* preview = sourceId.empty() ? "<Missing source>" : sourceId.c_str();
+    	if (ImGui::BeginCombo(label, preview))
+    	{
+    		for (const std::string& id : CollectWorkspaceSourceIds(level))
+    		{
+    			if (ImGui::Selectable(id.c_str(), sourceId == id) && sourceId != id)
+    			{
+    				sourceId = id;
+    				changed = true;
+    			}
+    		}
+    		ImGui::EndCombo();
+    	}
+    	return changed;
+    }
+    
+    static bool DrawWorkspaceClipCombo(
+    	const char* label,
+    	const AnimationGraphContext& ctx,
+    	std::string_view sourceId,
+    	std::string& clipName)
+    {
+    	bool changed = false;
+    	const char* preview = clipName.empty() ? "<Default / first clip>" : clipName.c_str();
+    	if (ImGui::BeginCombo(label, preview))
+    	{
+    		if (ImGui::Selectable("<Default / first clip>", clipName.empty()) && !clipName.empty())
+    		{
+    			clipName.clear();
+    			changed = true;
+    		}
+    		if (ctx.skinnedItem != nullptr && ctx.skinnedItem->asset != nullptr)
+    		{
+    			const auto& bundle = *ctx.skinnedItem->asset;
+    			for (std::size_t index = 0; index < bundle.clips.size() && index < bundle.clipSourceAssetIds.size(); ++index)
+    			{
+    				if (bundle.clipSourceAssetIds[index] != sourceId) continue;
+    				const std::string& candidate = bundle.clips[index].name;
+    				if (ImGui::Selectable(candidate.c_str(), clipName == candidate) && clipName != candidate)
+    				{
+    					clipName = candidate;
+    					changed = true;
+    				}
+    			}
+    		}
+    		ImGui::EndCombo();
+    	}
+    	return changed;
+    }
 
     static void SelectWorkspaceClip(AnimationUIState& state, std::string_view source, std::string_view clip)
     {
@@ -74,10 +142,35 @@
         if (!state.animationSourcesWindowOpen) return;
         if (!ImGui::Begin("Animation Sources", &state.animationSourcesWindowOpen)) { ImGui::End(); return; }
         const AnimationGraphContext ctx = GetAnimationGraphContext(level, levelInst, scene);
-        std::vector<std::string> ids;
-        ids.reserve(level.animations.size());
-        for (const auto& [id, unused] : level.animations) ids.push_back(id);
-        std::ranges::sort(ids);
+        ImGui::SeparatorText("Add Animation Source");
+        InputTextString("Source Id", state.newAnimationSourceId);
+        InputTextString("Path", state.newAnimationSourcePath);
+        ImGui::BeginDisabled(state.newAnimationSourceId.empty() || state.newAnimationSourcePath.empty());
+        if (ImGui::Button("Add Source"))
+        {
+        	if (level.animations.contains(state.newAnimationSourceId))
+        	{
+        		state.animationSourcesMessage = "Source id already exists.";
+        	}
+        	else if (std::ranges::any_of(level.animations, [&](const auto& entry)
+        		{ return entry.second.path == state.newAnimationSourcePath; }))
+        	{
+        		state.animationSourcesMessage = "Animation source path is already registered.";
+        	}
+        	else
+        	{
+        		const std::string addedId = state.newAnimationSourceId;
+        		level.animations.emplace(addedId, rendern::LevelAnimationDef{ .path = state.newAnimationSourcePath });
+        		SelectWorkspaceClip(state, addedId, {});
+        		state.newAnimationSourceId.clear();
+        		state.newAnimationSourcePath.clear();
+        		state.animationSourcesMessage = "Source registered. Use Level Save to persist it; reload the level/character to load its clips.";
+        	}
+        }
+        ImGui::EndDisabled();
+        if (!state.animationSourcesMessage.empty()) ImGui::TextWrapped("%s", state.animationSourcesMessage.c_str());
+        ImGui::SeparatorText("Authored Sources");
+        const std::vector<std::string> ids = CollectWorkspaceSourceIds(level);
         for (const std::string& id : ids)
         {
             const auto& source = level.animations.at(id);
@@ -145,11 +238,24 @@
                         *ctx.controllerAsset, desc, &profile, &ctx.skinnedItem->controller,
                         ctx.skinnedItem->asset->clips, ctx.skinnedItem->asset->clipSourceAssetIds).reloadRequired;
         std::vector<std::string> rows = required;
-        for (const auto& [motion, unused] : profile.motions) if (std::find(rows.begin(), rows.end(), motion) == rows.end()) rows.push_back(motion);
+        std::vector<std::string> additional;
+        for (const auto& [motion, unused] : profile.motions)
+        {
+        	if (std::find(rows.begin(), rows.end(), motion) == rows.end()) additional.push_back(motion);
+        }
+        std::ranges::sort(additional);
+        rows.insert(rows.end(), additional.begin(), additional.end());
+        ImGui::SeparatorText("Required Mappings");
+        bool additionalHeaderShown = false;
         for (const std::string& motion : rows)
         {
             ImGui::PushID(motion.c_str());
             const bool isRequired = std::find(required.begin(), required.end(), motion) != required.end();
+            if (!isRequired && !additionalHeaderShown)
+            {
+            	ImGui::SeparatorText("Additional Mappings");
+            	additionalHeaderShown = true;
+            }
             auto bindingIt = profile.motions.find(motion);
             if (bindingIt == profile.motions.end())
             {
@@ -161,24 +267,16 @@
             if (ImGui::Selectable(motion.c_str(), state.selectedMotionId == motion))
             { state.selectedMotionId = motion; SelectWorkspaceClip(state, binding.sourceAssetId, binding.clipName); }
             ImGui::SameLine(); ImGui::TextDisabled("%s", isRequired ? "Required" : "Unused by selected controller");
-            const char* sourcePreview = binding.sourceAssetId.empty() ? "<Missing source>" : binding.sourceAssetId.c_str();
-            if (ImGui::BeginCombo("Source", sourcePreview))
+            if (DrawWorkspaceSourceCombo("Source", level, binding.sourceAssetId))
             {
-                std::vector<std::string> sourceIds; for (const auto& [id, unused] : level.animations) sourceIds.push_back(id);
-                std::ranges::sort(sourceIds);
-                for (const std::string& id : sourceIds) if (ImGui::Selectable(id.c_str(), binding.sourceAssetId == id) && binding.sourceAssetId != id)
-                { binding.sourceAssetId = id; binding.clipName.clear(); profileState.dirty = true; SelectWorkspaceClip(state, id, {}); }
-                ImGui::EndCombo();
+               binding.clipName.clear();
+               profileState.dirty = true;
+               SelectWorkspaceClip(state, binding.sourceAssetId, {});
             }
-            const AnimationGraphContext selectedCtx = ctx;
-            const char* clipPreview = binding.clipName.empty() ? "<Default / first clip>" : binding.clipName.c_str();
-            if (ImGui::BeginCombo("Clip", clipPreview))
+            if (DrawWorkspaceClipCombo("Clip", ctx, binding.sourceAssetId, binding.clipName))
             {
-                if (ImGui::Selectable("<Default / first clip>", binding.clipName.empty()) && !binding.clipName.empty()) { binding.clipName.clear(); profileState.dirty = true; }
-                if (selectedCtx.skinnedItem && selectedCtx.skinnedItem->asset) for (std::size_t i = 0; i < selectedCtx.skinnedItem->asset->clips.size(); ++i)
-                    if (i < selectedCtx.skinnedItem->asset->clipSourceAssetIds.size() && selectedCtx.skinnedItem->asset->clipSourceAssetIds[i] == binding.sourceAssetId)
-                    { const auto& clip = selectedCtx.skinnedItem->asset->clips[i]; if (ImGui::Selectable(clip.name.c_str(), binding.clipName == clip.name) && binding.clipName != clip.name) { binding.clipName = clip.name; profileState.dirty = true; SelectWorkspaceClip(state, binding.sourceAssetId, binding.clipName); } }
-                ImGui::EndCombo();
+               profileState.dirty = true;
+               SelectWorkspaceClip(state, binding.sourceAssetId, binding.clipName);
             }
             const bool registered = level.animations.contains(binding.sourceAssetId);
             const auto* clip = FindWorkspaceClip(ctx, binding.sourceAssetId, binding.clipName);
@@ -187,8 +285,52 @@
             else if (!WorkspaceSourceLoaded(ctx, binding.sourceAssetId)) ImGui::TextDisabled("Source not loaded / metadata unavailable");
             else if (!binding.clipName.empty() && clip == nullptr) ImGui::TextColored(ImVec4(1,.4f,.4f,1), "Missing explicit clip");
             else ImGui::TextColored(ImVec4(.5f,.9f,.5f,1), "OK");
+            if (!isRequired && ImGui::SmallButton("Remove Mapping"))
+            {
+            	profile.motions.erase(bindingIt);
+            	profileState.dirty = true;
+            	if (state.selectedMotionId == motion) state.selectedMotionId.clear();
+            	ImGui::PopID();
+            	continue;
+            }
             ImGui::Separator(); ImGui::PopID();
         }
+        if (!additionalHeaderShown) ImGui::SeparatorText("Additional Mappings");
+        ImGui::SeparatorText("Add Motion Mapping");
+        ImGui::PushID("add-motion-mapping");
+        InputTextString("MotionId", profileState.newMotionId);
+        if (DrawWorkspaceSourceCombo("Source", level, profileState.newSourceAssetId))
+        {
+        	profileState.newClipName.clear();
+        }
+        DrawWorkspaceClipCombo("Clip", ctx, profileState.newSourceAssetId, profileState.newClipName);
+        const bool mappingExists = profile.motions.contains(profileState.newMotionId);
+        const bool sourceExists = level.animations.contains(profileState.newSourceAssetId);
+        const bool explicitClipExists = profileState.newClipName.empty() ||
+        	FindWorkspaceClip(ctx, profileState.newSourceAssetId, profileState.newClipName) != nullptr;
+        if (mappingExists) ImGui::TextColored(ImVec4(1,.65f,.3f,1), "Mapping already exists; edit its existing row.");
+        else if (!profileState.newSourceAssetId.empty() && !sourceExists) ImGui::TextColored(ImVec4(1,.4f,.4f,1), "Selected source is not registered.");
+        else if (!explicitClipExists) ImGui::TextColored(ImVec4(1,.4f,.4f,1), "Selected clip is unavailable for this source.");
+        const bool canAddMapping = !profileState.newMotionId.empty() && !profileState.newSourceAssetId.empty() &&
+        	!mappingExists && sourceExists && explicitClipExists;
+        ImGui::BeginDisabled(!canAddMapping);
+        if (ImGui::Button("Add Mapping"))
+        {
+        	const std::string addedMotion = profileState.newMotionId;
+        	profile.motions.emplace(addedMotion, rendern::AnimationClipRef{
+        		.sourceAssetId = profileState.newSourceAssetId,
+        		.clipName = profileState.newClipName
+        	});
+        	profileState.dirty = true;
+        	state.selectedMotionId = addedMotion;
+        	SelectWorkspaceClip(state, profileState.newSourceAssetId, profileState.newClipName);
+        	profileState.newMotionId.clear();
+        	profileState.newSourceAssetId.clear();
+        	profileState.newClipName.clear();
+        	profileState.message = "Motion mapping added.";
+        }
+        ImGui::EndDisabled();
+        ImGui::PopID();
         const auto pathIt = level.animationProfileAssetPaths.find(profile.id);
         if (pathIt != level.animationProfileAssetPaths.end())
         {

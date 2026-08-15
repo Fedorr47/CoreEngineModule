@@ -139,6 +139,41 @@ export namespace rendern
 		int priority{ 0 };
 		std::vector<AnimationConditionDesc> conditions;
 	};
+	
+	struct AnimationStateSelector
+	{
+		std::vector<std::string> states;
+		std::vector<std::string> allTags;
+		std::vector<std::string> anyTags;
+		std::vector<std::string> noneTags;
+	};
+	struct AnimationTransitionRuleDesc
+	{
+		std::string id;
+		AnimationStateSelector from;
+		AnimationStateSelector to;
+		std::vector<AnimationConditionDesc> conditions;
+		bool hasExitTime{ false };
+		float exitTimeNormalized{ 1.0f };
+		float blendDurationSeconds{ 0.15f };
+		int priority{ 0 };
+	};
+	enum class AnimationTransitionOrigin : std::uint8_t
+	{
+		Explicit,
+		ExplicitWildcard,
+		Rule
+	};
+	
+	inline constexpr std::size_t InvalidAnimationTransitionAuthorIndex = std::numeric_limits<std::size_t>::max();
+	struct EffectiveAnimationTransition
+	{
+		AnimationTransitionDesc transition;
+		AnimationTransitionOrigin origin{ AnimationTransitionOrigin::Explicit };
+		std::string sourceRuleId;
+		std::size_t authoredTransitionIndex{ InvalidAnimationTransitionAuthorIndex };
+		std::size_t authoredRuleIndex{ InvalidAnimationTransitionAuthorIndex };
+	};
 
 	struct AnimationEventBindingDesc
 	{
@@ -155,8 +190,17 @@ export namespace rendern
 		std::vector<AnimationParameterDesc> parameters;
 		std::vector<AnimationStateDesc> states;
 		std::vector<AnimationTransitionDesc> transitions;
+		std::vector<AnimationTransitionRuleDesc> transitionRules;
 		std::vector<AnimationEventBindingDesc> eventBindings;
 	};
+	
+	[[nodiscard]] bool MatchesAnimationState(const AnimationStateDesc& state, const AnimationStateSelector& selector);
+	[[nodiscard]] std::vector<int> ResolveAnimationStateSelector(const AnimationControllerAsset& controller, const AnimationStateSelector& selector);
+	[[nodiscard]] std::vector<EffectiveAnimationTransition> BuildEffectiveAnimationTransitions(const AnimationControllerAsset& controller);
+	void ValidateAnimationTransitionConditions(const AnimationControllerAsset& controller, const std::vector<AnimationConditionDesc>& conditions, std::string_view context);
+	void RenameAnimationControllerState(AnimationControllerAsset& controller, std::string_view oldName, std::string newName);
+	[[nodiscard]] std::vector<std::string> FindAnimationControllerStateReferences(const AnimationControllerAsset& controller, std::string_view stateName);
+	void DeleteAnimationControllerState(AnimationControllerAsset& controller, std::string_view stateName);
 	
 	inline void ValidateAnimationStateContentMode(
 		const AnimationControllerAsset& controller,
@@ -245,6 +289,7 @@ export namespace rendern
 		std::vector<int> resolvedStateClipIndices;
 		std::vector<std::vector<int>> resolvedStateBlend1DClipIndices;
 		std::vector<std::vector<int>> resolvedStateBlend2DClipIndices;
+		std::vector<EffectiveAnimationTransition> effectiveTransitions;
 
 		bool currentStateUsesBlend1D{ false };
 		bool currentStateUsesBlend2D{ false };
@@ -296,6 +341,8 @@ export namespace rendern
 
 	[[nodiscard]] inline const AnimationClip* ResolveLegacyAnimationClip(const AnimationControllerRuntime& runtime) noexcept;
 
+	#include "AnimationController_topology.inl"
+	
 	#include "AnimationController_detail.inl"
 
 	#include "AnimationController_api.inl"

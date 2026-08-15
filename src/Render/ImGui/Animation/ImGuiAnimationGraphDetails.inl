@@ -1,119 +1,316 @@
-    static void DrawAnimationGraphStateInspector(
-        const rendern::AnimationControllerAsset& controllerAsset,
-        const rendern::AnimationControllerRuntime& runtime,
-        AnimationUIState& uiState)
+    static bool DrawControllerConditionEditor(
+        std::vector<rendern::AnimationConditionDesc>& conditions,
+        const rendern::AnimationControllerAsset& controller)
     {
-        const rendern::AnimationStateDesc* selectedState = nullptr;
+        bool changed = false;
+        for (std::size_t index = 0; index < conditions.size(); ++index)
+        {
+            rendern::AnimationConditionDesc& condition = conditions[index];
+            ImGui::PushID(static_cast<int>(index));
+            const char* preview = condition.parameter.empty() ? "<parameter>" : condition.parameter.c_str();
+            if (ImGui::BeginCombo("Parameter", preview))
+            {
+                for (const rendern::AnimationParameterDesc& parameter : controller.parameters)
+                {
+                    if (ImGui::Selectable(parameter.name.c_str(), condition.parameter == parameter.name))
+                    {
+                        condition.parameter = parameter.name;
+                        condition.value.type = parameter.defaultValue.type;
+                        condition.op = parameter.defaultValue.type == rendern::AnimationParameterType::Trigger
+                            ? rendern::AnimationConditionOp::Triggered : rendern::AnimationConditionOp::IfTrue;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            
+            static const char* opNames[] = { "true", "false", ">", ">=", "<", "<=", "==", "!=", "triggered" };
+            int op = static_cast<int>(condition.op);
+            if (ImGui::Combo("Operator", &op, opNames, IM_ARRAYSIZE(opNames)))
+            {
+                condition.op = static_cast<rendern::AnimationConditionOp>(op);
+                changed = true;
+            }
+            if (condition.value.type == rendern::AnimationParameterType::Bool)
+                changed |= ImGui::Checkbox("Value", &condition.value.boolValue);
+            else if (condition.value.type == rendern::AnimationParameterType::Int)
+                changed |= ImGui::InputInt("Value", &condition.value.intValue);
+            else if (condition.value.type == rendern::AnimationParameterType::Float)
+                changed |= ImGui::InputFloat("Value", &condition.value.floatValue);
+            if (ImGui::SmallButton("Remove condition"))
+            {
+                conditions.erase(conditions.begin() + static_cast<std::ptrdiff_t>(index));
+                --index;
+                changed = true;
+            }
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+
+        if (ImGui::Button("Add Condition"))
+        {
+            rendern::AnimationConditionDesc condition;
+            if (!controller.parameters.empty())
+            {
+                condition.parameter = controller.parameters.front().name;
+                condition.value.type = controller.parameters.front().defaultValue.type;
+                condition.op = condition.value.type == rendern::AnimationParameterType::Trigger
+                    ? rendern::AnimationConditionOp::Triggered : rendern::AnimationConditionOp::IfTrue;
+            }
+            conditions.push_back(std::move(condition));
+            changed = true;
+        }
+        return changed;
+    }
+
+    static bool DrawSelectorStringList(const char* label, std::vector<std::string>& values)
+    {
+        bool changed = false;
+        ImGui::TextUnformatted(label);
+        for (std::size_t index = 0; index < values.size(); ++index)
+        {
+            ImGui::PushID(static_cast<int>(index));
+            ImGui::SetNextItemWidth(190.0f);
+            changed |= InputTextString("##value", values[index]);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("-")) { values.erase(values.begin() + static_cast<std::ptrdiff_t>(index)); --index; changed = true; }
+            ImGui::PopID();
+        }
+        if (ImGui::SmallButton((std::string("+") + label).c_str())) { values.emplace_back(); changed = true; }
+        return changed;
+    }
+
+    static bool DrawAnimationSelectorEditor(const char* label, rendern::AnimationStateSelector& selector)
+    {
+        bool changed = false;
+        if (ImGui::TreeNode(label))
+        {
+            changed |= DrawSelectorStringList("States", selector.states);
+            changed |= DrawSelectorStringList("All Tags", selector.allTags);
+            changed |= DrawSelectorStringList("Any Tags", selector.anyTags);
+            changed |= DrawSelectorStringList("No Tags", selector.noneTags);
+            ImGui::TreePop();
+        }
+        return changed;
+    }
+
+    static void DrawAnimationGraphStateInspector(
+        rendern::AnimationControllerAsset& controllerAsset,
+        const std::vector<rendern::EffectiveAnimationTransition>& effectiveTransitions,
+        const rendern::AnimationControllerRuntime& runtime,
+        AnimationUIState& uiState,
+        AnimationControllerEditorState& editor)
+    {
+        if (editor.selectedAuthoredTransition >= 0 && static_cast<std::size_t>(editor.selectedAuthoredTransition) < controllerAsset.transitions.size())
+        {
+            rendern::AnimationTransitionDesc& transition = controllerAsset.transitions[static_cast<std::size_t>(editor.selectedAuthoredTransition)];
+            ImGui::SeparatorText("Explicit Transition Inspector");
+            bool changed = false;
+            auto stateCombo = [&](const char* label, std::string& value, bool allowWildcard)
+            {
+                if (ImGui::BeginCombo(label, value.empty() ? "<state>" : value.c_str()))
+                {
+                    if (allowWildcard && ImGui::Selectable("*", value == "*")) { value = "*"; changed = true; }
+                    for (const auto& state : controllerAsset.states)
+                        if (ImGui::Selectable(state.name.c_str(), value == state.name)) { value = state.name; changed = true; }
+                    ImGui::EndCombo();
+                }
+            };
+            stateCombo("From", transition.fromState, true);
+            stateCombo("To", transition.toState, false);
+            changed |= ImGui::InputInt("Priority", &transition.priority);
+            changed |= ImGui::InputFloat("Blend Duration", &transition.blendDurationSeconds);
+            changed |= ImGui::Checkbox("Has Exit Time", &transition.hasExitTime);
+            if (transition.hasExitTime) changed |= ImGui::SliderFloat("Exit Time", &transition.exitTimeNormalized, 0.0f, 1.0f);
+            changed |= DrawControllerConditionEditor(transition.conditions, controllerAsset);
+            if (ImGui::Button("Delete Explicit Transition"))
+            {
+                controllerAsset.transitions.erase(controllerAsset.transitions.begin() + editor.selectedAuthoredTransition);
+                editor.selectedAuthoredTransition = -1;
+                changed = true;
+            }
+            if (changed)
+            {
+                MarkControllerEditorChanged(editor);
+            }
+            return;
+        }
+
+        if (editor.selectedRule >= 0 && static_cast<std::size_t>(editor.selectedRule) < controllerAsset.transitionRules.size())
+        {
+            rendern::AnimationTransitionRuleDesc& rule = controllerAsset.transitionRules[static_cast<std::size_t>(editor.selectedRule)];
+            ImGui::SeparatorText("Transition Rule Inspector");
+            bool changed = false;
+            changed |= InputTextString("Id", rule.id);
+            changed |= DrawAnimationSelectorEditor("From Selector", rule.from);
+            changed |= DrawAnimationSelectorEditor("To Selector", rule.to);
+            changed |= ImGui::InputInt("Priority", &rule.priority);
+            changed |= ImGui::InputFloat("Blend Duration", &rule.blendDurationSeconds);
+            changed |= ImGui::Checkbox("Has Exit Time", &rule.hasExitTime);
+            if (rule.hasExitTime) changed |= ImGui::SliderFloat("Exit Time", &rule.exitTimeNormalized, 0.0f, 1.0f);
+            changed |= DrawControllerConditionEditor(rule.conditions, controllerAsset);
+            if (ImGui::Button("Delete Rule"))
+            {
+                controllerAsset.transitionRules.erase(controllerAsset.transitionRules.begin() + editor.selectedRule);
+                editor.selectedRule = -1;
+                changed = true;
+            }
+            if (changed)
+            {
+                MarkControllerEditorChanged(editor);
+            }
+            return;
+        }
+        
+        rendern::AnimationStateDesc* selectedState = nullptr;
         if (!uiState.animationGraphSelectedStateName.empty())
         {
-            selectedState = rendern::FindAnimationControllerState(controllerAsset, uiState.animationGraphSelectedStateName);
+            const auto selected = std::find_if(controllerAsset.states.begin(), controllerAsset.states.end(),
+                [&](const auto& state) { return state.name == uiState.animationGraphSelectedStateName; });
+            if (selected != controllerAsset.states.end()) selectedState = &*selected;
         }
         if (selectedState == nullptr && !controllerAsset.states.empty())
         {
             selectedState = &controllerAsset.states.front();
             uiState.animationGraphSelectedStateName = selectedState->name;
         }
-
         if (selectedState == nullptr)
         {
-            ImGui::TextDisabled("No state selected.");
-            return;
+            ImGui::TextDisabled("No state selected."); return;
         }
 
         ImGui::SeparatorText("State Inspector");
-        ImGui::Text("Name: %s", selectedState->name.c_str());
-        ImGui::Text("Category: %s", AnimationGraphStateCategory(*selectedState));
-        ImGui::Text("Loop: %s", selectedState->looping ? "true" : "false");
-        ImGui::Text("Play rate: %.2f", selectedState->playRate);
-
-        if (!selectedState->tags.empty())
+        bool changed = false;
+        if (editor.stateRenameSourceName != selectedState->name)
         {
-            ImGui::TextUnformatted("Tags:");
-            for (const std::string& tag : selectedState->tags)
+            editor.stateRenameSourceName = selectedState->name;
+            editor.stateNameDraft = selectedState->name;
+        }
+        if (InputTextString("Name", editor.stateNameDraft, ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            try
             {
-                ImGui::BulletText("%s", tag.c_str());
+                const std::string oldName = selectedState->name;
+                rendern::RenameAnimationControllerState(controllerAsset, oldName, editor.stateNameDraft);
+                if (oldName != editor.stateNameDraft)
+                {
+                    if (const auto mode = editor.stateContentModes.find(oldName); mode != editor.stateContentModes.end())
+                    {
+                        const AnimationControllerEditorState::StateContentMode modeValue = mode->second;
+                        editor.stateContentModes.erase(mode);
+                        editor.stateContentModes.insert_or_assign(editor.stateNameDraft, modeValue);
+                    }
+                }
+                uiState.animationGraphSelectedStateName = editor.stateNameDraft;
+                editor.stateRenameSourceName = editor.stateNameDraft;
+                const std::string oldKey = AnimationGraphMakeKey("fsm", controllerAsset.id, oldName);
+                const std::string newKey = AnimationGraphMakeKey("fsm", controllerAsset.id, editor.stateNameDraft);
+                if (const auto position = uiState.animationGraphFsmNodePositions.find(oldKey); position != uiState.animationGraphFsmNodePositions.end())
+                { uiState.animationGraphFsmNodePositions[newKey] = position->second; uiState.animationGraphFsmNodePositions.erase(position); }
+                changed = true;
+            }
+            catch (const std::exception& error)
+            {
+                editor.message = error.what();
             }
         }
-
-        if (!selectedState->clipSourceAssetId.empty())
+            
+		const bool blendState = !selectedState->blend1D.empty() || !selectedState->blend2D.empty();
+		auto mode = editor.stateContentModes.try_emplace(
+			selectedState->name, InferAnimationStateEditorContentMode(*selectedState)).first;
+		int contentMode = mode->second == AnimationControllerEditorState::StateContentMode::SemanticMotion ? 0 : 1;
+		const char* contentModes[] = { "Semantic MotionId", blendState ? "Legacy Blend (preserved)" : "Legacy Direct Clip" };
+		if (ImGui::Combo("Content Mode", &contentMode, contentModes, IM_ARRAYSIZE(contentModes)))
+		{
+			if (contentMode == 0)
+			{
+				mode->second = AnimationControllerEditorState::StateContentMode::SemanticMotion;
+				selectedState->motionId.value.clear();
+				selectedState->clipName.clear(); selectedState->clipSourceAssetId.clear(); selectedState->blend1D.clear(); selectedState->blend2D.clear();
+			}
+			else
+			{
+				mode->second = AnimationControllerEditorState::StateContentMode::LegacyContent;
+				selectedState->motionId.value.clear();
+			}
+			changed = true;
+		}
+		if (mode->second == AnimationControllerEditorState::StateContentMode::SemanticMotion)
+		{
+			changed |= InputTextString("MotionId", selectedState->motionId.value);
+		}
+		else if (!blendState)
+		{
+			changed |= InputTextString("Clip", selectedState->clipName);
+            changed |= InputTextString("Clip Source Asset", selectedState->clipSourceAssetId);
+		}
+		else ImGui::TextDisabled("Blend data is preserved; use existing blend tooling for point editing.");
+        changed |= ImGui::Checkbox("Loop", &selectedState->looping);
+        changed |= ImGui::InputFloat("Play Rate", &selectedState->playRate);
+        ImGui::TextUnformatted("Tags");
+        for (std::size_t index = 0; index < selectedState->tags.size(); ++index)
         {
-            ImGui::Text("Clip source asset: %s", selectedState->clipSourceAssetId.c_str());
+            ImGui::PushID(static_cast<int>(index));
+            ImGui::SetNextItemWidth(180.0f); changed |= InputTextString("##tag", selectedState->tags[index]);
+            ImGui::SameLine(); if (ImGui::SmallButton("Remove")) { selectedState->tags.erase(selectedState->tags.begin() + static_cast<std::ptrdiff_t>(index)); --index; changed = true; }
+            ImGui::PopID();
         }
-        else if (!selectedState->clipName.empty())
-        {
-            ImGui::Text("Clip name: %s", selectedState->clipName.c_str());
-        }
+         ImGui::SetNextItemWidth(180.0f); InputTextString("##newTag", editor.newTag); ImGui::SameLine();
+        if (ImGui::Button("Add Tag") && !editor.newTag.empty()) { selectedState->tags.push_back(std::move(editor.newTag)); editor.newTag.clear(); changed = true; }
+		if (!selectedState->blend1D.empty()) DrawAnimationGraphBlend1DPreview(*selectedState, runtime);
+		if (!selectedState->blend2D.empty()) DrawAnimationGraphBlend2DPreview(*selectedState, runtime, uiState);
+		if (!selectedState->notifies.empty())
+		{
+			ImGui::SeparatorText("Notify Timeline");
+			const float width = std::max(120.0f, ImGui::GetContentRegionAvail().x - 20.0f);
+			const float height = 56.0f;
+			const ImVec2 p0 = ImGui::GetCursorScreenPos();
+			const ImVec2 p1 = AddImVec2(p0, ImVec2(width, height));
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			drawList->AddRectFilled(p0, p1, IM_COL32(30, 30, 34, 255), 6.0f);
+			drawList->AddLine(AddImVec2(p0, ImVec2(16.0f, height * 0.5f)), AddImVec2(p0, ImVec2(width - 16.0f, height * 0.5f)), IM_COL32(160, 160, 170, 255), 2.0f);
+			for (const rendern::AnimationNotifyDesc& notify : selectedState->notifies)
+			{
+				const float x = 16.0f + std::clamp(notify.timeNormalized, 0.0f, 1.0f) * (width - 32.0f);
+				const ImVec2 marker = AddImVec2(p0, ImVec2(x, height * 0.5f));
+				drawList->AddCircleFilled(marker, 5.0f, notify.fireOnEnter ? IM_COL32(255, 200, 90, 255) : IM_COL32(110, 190, 255, 255));
+				drawList->AddText(AddImVec2(marker, ImVec2(-10.0f, -18.0f)), IM_COL32(220, 220, 220, 255), notify.id.c_str());
+			}
+			ImGui::Dummy(ImVec2(width, height));
+		}
+		const std::vector<std::string> references = rendern::FindAnimationControllerStateReferences(controllerAsset, selectedState->name);
+        if (!references.empty()) ImGui::TextDisabled("Delete blocked: %s", references.front().c_str());
+		bool deletedState = false;
+		if (references.empty() && ImGui::Button("Delete State"))
+		{
+			const std::string deleted = selectedState->name;
+			try { rendern::DeleteAnimationControllerState(controllerAsset, deleted); editor.stateContentModes.erase(deleted); uiState.animationGraphSelectedStateName.clear(); changed = true; deletedState = true; }
+			catch (const std::exception& error) { editor.message = error.what(); }
+		}
+		if (changed) MarkControllerEditorChanged(editor);
+		if (deletedState) return;
 
-        if (!selectedState->blend1D.empty())
+        ImGui::SeparatorText("Effective Topology");
+        for (const rendern::EffectiveAnimationTransition& effective : effectiveTransitions)
         {
-            DrawAnimationGraphBlend1DPreview(*selectedState, runtime);
-        }
-
-        if (!selectedState->blend2D.empty())
-        {
-            DrawAnimationGraphBlend2DPreview(*selectedState, runtime, uiState);
-        }
-
-        if (!selectedState->notifies.empty())
-        {
-            ImGui::SeparatorText("Notify Timeline");
-            const float width = std::max(120.0f, ImGui::GetContentRegionAvail().x - 20.0f);
-            const float height = 56.0f;
-            const ImVec2 p0 = ImGui::GetCursorScreenPos();
-            const ImVec2 p1 = AddImVec2(p0, ImVec2(width, height));
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
-            drawList->AddRectFilled(p0, p1, IM_COL32(30, 30, 34, 255), 6.0f);
-            drawList->AddLine(AddImVec2(p0, ImVec2(16.0f, height * 0.5f)), AddImVec2(p0, ImVec2(width - 16.0f, height * 0.5f)), IM_COL32(160, 160, 170, 255), 2.0f);
-            for (std::size_t notifyIndex = 0; notifyIndex < selectedState->notifies.size(); ++notifyIndex)
+            const auto& transition = effective.transition;
+            if (transition.fromState != selectedState->name && transition.toState != selectedState->name) continue;
+            const char* origin = effective.origin == rendern::AnimationTransitionOrigin::Rule ? "Rule" :
+                (effective.origin == rendern::AnimationTransitionOrigin::ExplicitWildcard ? "Wildcard explicit" : "Explicit");
+            ImGui::PushID(&effective);
+            if (ImGui::Selectable((transition.fromState + " -> " + transition.toState).c_str()))
             {
-                const rendern::AnimationNotifyDesc& notify = selectedState->notifies[notifyIndex];
-                const float t = std::clamp(notify.timeNormalized, 0.0f, 1.0f);
-                const float x = 16.0f + t * (width - 32.0f);
-                const ImVec2 marker = AddImVec2(p0, ImVec2(x, height * 0.5f));
-                drawList->AddCircleFilled(marker, 5.0f, notify.fireOnEnter ? IM_COL32(255, 200, 90, 255) : IM_COL32(110, 190, 255, 255));
-                drawList->AddText(AddImVec2(marker, ImVec2(-10.0f, -18.0f)), IM_COL32(220, 220, 220, 255), notify.id.c_str());
+				if (effective.origin == rendern::AnimationTransitionOrigin::Rule)
+				{
+					editor.selectedRule = effective.authoredRuleIndex < controllerAsset.transitionRules.size()
+						? static_cast<int>(effective.authoredRuleIndex) : -1;
+                    editor.selectedAuthoredTransition = -1;
+                }
+                else { editor.selectedAuthoredTransition = static_cast<int>(effective.authoredTransitionIndex); editor.selectedRule = -1; }
             }
-            ImGui::Dummy(ImVec2(width, height));
-        }
-
-        ImGui::SeparatorText("Transitions");
-        ImGui::TextUnformatted("Outgoing:");
-        bool anyOutgoing = false;
-        for (const rendern::AnimationTransitionDesc& transition : controllerAsset.transitions)
-        {
-            if (transition.fromState == selectedState->name)
-            {
-                anyOutgoing = true;
-                ImGui::BulletText(
-                    "-> %s | prio %d | blend %.2f | %s",
-                    transition.toState.c_str(),
-                    transition.priority,
-                    transition.blendDurationSeconds,
-                    AnimationGraphConditionsSummary(transition.conditions).c_str());
-            }
-        }
-        if (!anyOutgoing)
-        {
-            ImGui::TextDisabled("None");
-        }
-
-        ImGui::TextUnformatted("Incoming:");
-        bool anyIncoming = false;
-        for (const rendern::AnimationTransitionDesc& transition : controllerAsset.transitions)
-        {
-            if (transition.toState == selectedState->name)
-            {
-                anyIncoming = true;
-                ImGui::BulletText(
-                    "%s -> | prio %d | blend %.2f",
-                    transition.fromState.c_str(),
-                    transition.priority,
-                    transition.blendDurationSeconds);
-            }
-        }
-        if (!anyIncoming)
-        {
-            ImGui::TextDisabled("None");
+            ImGui::SameLine(); ImGui::TextDisabled("%s | p%d | %.2fs%s", origin, transition.priority, transition.blendDurationSeconds,
+                effective.origin == rendern::AnimationTransitionOrigin::Rule ? (" | " + effective.sourceRuleId).c_str() : "");
+            ImGui::PopID();
         }
     }
 

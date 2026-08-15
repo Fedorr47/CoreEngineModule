@@ -46,16 +46,38 @@ namespace
     };
 }
 
-TEST(JumpTraversalExecutor, ApproachesTakeoffThroughMovementIntent)
+TEST(JumpTraversalExecutor, ApproachesTakeoffWithoutArrivalSlowdown)
 {
     Fixture fixture{};
-    fixture.world.TryGetTransform(fixture.agent)->position = {-2.0f, 0.0f, 0.0f};
+    fixture.world.TryGetTransform(fixture.agent)->position = {-0.2511f, 0.0f, 0.0f};
     JumpTraversalExecutor executor{fixture.world, fixture.links};
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     EXPECT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
-    EXPECT_GT(fixture.world.TryGetCharacterCommand(fixture.agent)->moveMagnitude, 0.0f);
+    EXPECT_GT(fixture.world.TryGetCharacterCommand(fixture.agent)->moveMagnitude, 0.9f);
     EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
         GameplayActionKind::None);
+}
+
+TEST(JumpTraversalExecutor, IssuesJumpOnlyAfterEnteringTakeoffToleranceAndOnlyOnce)
+{
+    Fixture fixture{};
+    auto* transform = fixture.world.TryGetTransform(fixture.agent);
+    transform->position = {-0.2511f, 0.0f, 0.0f};
+    JumpTraversalExecutor executor{fixture.world, fixture.links};
+    ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
+
+    ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
+    EXPECT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
+        GameplayActionKind::None);
+    
+    transform->position = {-0.2f, 0.0f, 0.0f};
+    ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
+    auto* action = fixture.world.TryGetAction(fixture.agent);
+    EXPECT_EQ(GetGameplayRequestedActionKind(*action), GameplayActionKind::Jump);
+    ClearGameplayActionRequest(action->pending);
+
+    ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
+    EXPECT_EQ(GetGameplayRequestedActionKind(*action), GameplayActionKind::None);
 }
 
 TEST(JumpTraversalExecutor, JumpTraversalDataRequiresExplicitValidConfiguration)
@@ -83,6 +105,8 @@ TEST(JumpTraversalExecutor, LinkRegistryRejectsMissingJumpTraversalData)
 TEST(JumpTraversalExecutor, MovingTakeoffPreservesPlanarMotorVelocityIntoAirborneState)
 {
     Fixture fixture{};
+    auto* transform = fixture.world.TryGetTransform(fixture.agent);
+    transform->position = {-0.2511f, 0.0f, 0.0f};
     JumpTraversalExecutor executor{fixture.world, fixture.links};
     ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
     ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
@@ -91,7 +115,15 @@ TEST(JumpTraversalExecutor, MovingTakeoffPreservesPlanarMotorVelocityIntoAirborn
     UpdateGameplayCharacterMovement(fixture.world, {fixture.agent}, 0.1f);
     auto* motor = fixture.world.TryGetCharacterMotor(fixture.agent);
     ASSERT_GT(motor->desiredVelocity.x, 0.0f);
+    
+    transform->position = {-0.2f, 0.0f, 0.0f};
+    ASSERT_EQ(executor.Tick(fixture.context, 0.1f), GameplayTraversalExecutionResult::Running);
+    ASSERT_EQ(GetGameplayRequestedActionKind(*fixture.world.TryGetAction(fixture.agent)),
+        GameplayActionKind::Jump);
+    motor->velocity = motor->desiredVelocity;
+    UpdateGameplayCharacterMovement(fixture.world, {fixture.agent}, 0.1f);
     auto* movement = fixture.world.TryGetCharacterMovementState(fixture.agent);
+    EXPECT_GT(movement->jumpLockedVelocity.x, 0.0f);
     movement->jumpRequestResult = GameplayJumpRequestResult::Accepted;
     movement->jumpPhase = GameplayJumpPhase::Airborne;
     movement->grounded = false;

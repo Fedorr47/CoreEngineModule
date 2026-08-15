@@ -213,6 +213,56 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 	ParseAnimationEventBindingsInto_(def, bindingsV->AsArray(), std::string("Animation event bindings JSON: ") + def.eventBindingsAssetPath + ".bindings[]");
 }
 
+[[nodiscard]] std::vector<AnimationConditionDesc> ParseAnimationConditions_(
+	const AnimationControllerAsset& controller,
+	const JsonValue* conditionsValue,
+	const std::string& context)
+{
+	std::vector<AnimationConditionDesc> conditions;
+	if (conditionsValue == nullptr) return conditions;
+	if (!conditionsValue->IsArray()) throw std::runtime_error(context + " must be array");
+	for (const JsonValue& conditionValue : conditionsValue->AsArray())
+	{
+		const JsonObject& object = conditionValue.AsObject();
+		AnimationConditionDesc condition;
+		condition.parameter = GetStringOpt(object, "parameter");
+		if (condition.parameter.empty()) throw std::runtime_error(context + "[].parameter is required");
+		const AnimationParameterDesc* parameter = FindAnimationParameterDesc(controller, condition.parameter);
+		if (parameter == nullptr) throw std::runtime_error(context + "[] references unknown parameter '" + condition.parameter + "'");
+		condition.value.type = parameter->defaultValue.type;
+		condition.op = ParseAnimationConditionOp_(GetStringOpt(object, "op", "true"));
+
+		const bool comparisonOp = condition.op == AnimationConditionOp::Greater || condition.op == AnimationConditionOp::GreaterEqual ||
+			condition.op == AnimationConditionOp::Less || condition.op == AnimationConditionOp::LessEqual ||
+			condition.op == AnimationConditionOp::Equal || condition.op == AnimationConditionOp::NotEqual;
+
+		const JsonValue* value = TryGet(object, "value");
+		const bool requiresValue = comparisonOp;
+		if (requiresValue && value == nullptr) throw std::runtime_error(context + "[].value is required for comparison operator");
+		if (value != nullptr)
+		{
+			switch (condition.value.type)
+			{
+			case AnimationParameterType::Bool:
+			case AnimationParameterType::Trigger:
+				if (!value->IsBool()) throw std::runtime_error(context + "[].value must be bool");
+				condition.value.boolValue = value->AsBool();
+				condition.value.triggerValue = value->AsBool();
+				break;
+			case AnimationParameterType::Int:
+				if (!value->IsNumber()) throw std::runtime_error(context + "[].value must be number");
+				condition.value.intValue = static_cast<int>(value->AsNumber());
+				break;
+			case AnimationParameterType::Float:
+				if (!value->IsNumber()) throw std::runtime_error(context + "[].value must be number");
+				condition.value.floatValue = static_cast<float>(value->AsNumber());
+				break;
+			}
+		}
+		conditions.push_back(std::move(condition));
+	}
+	return conditions;
+}
 
 [[nodiscard]] AnimationControllerAsset ParseAnimationControllerAssetObject_(
 	const JsonObject& cd,
@@ -432,43 +482,54 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 			transitionDesc.blendDurationSeconds = GetFloatOpt(td, "blendDuration", 0.15f);
 			transitionDesc.priority = GetIntOpt(td, "priority", 0);
 
-			if (auto* conditionsV = TryGet(td, "conditions"))
-			{
-				const JsonArray& conditionsA = conditionsV->AsArray();
-				for (const JsonValue& conditionV : conditionsA)
-				{
-					const JsonObject& condO = conditionV.AsObject();
-					AnimationConditionDesc conditionDesc;
-					conditionDesc.parameter = GetStringOpt(condO, "parameter");
-					conditionDesc.op = ParseAnimationConditionOp_(GetStringOpt(condO, "op", "true"));
-					if (const AnimationParameterDesc* paramDesc = FindAnimationParameterDesc(def, conditionDesc.parameter))
-					{
-						conditionDesc.value.type = paramDesc->defaultValue.type;
-					}
-					if (auto* valueV = TryGet(condO, "value"))
-					{
-						switch (conditionDesc.value.type)
-						{
-						case AnimationParameterType::Bool:
-						case AnimationParameterType::Trigger:
-							if (!valueV->IsBool()) throw std::runtime_error(contextPrefix + ".transitions[].conditions[].value must be bool");
-							conditionDesc.value.boolValue = valueV->AsBool();
-							conditionDesc.value.triggerValue = valueV->AsBool();
-							break;
-						case AnimationParameterType::Int:
-							if (!valueV->IsNumber()) throw std::runtime_error(contextPrefix + ".transitions[].conditions[].value must be number");
-							conditionDesc.value.intValue = static_cast<int>(valueV->AsNumber());
-							break;
-						case AnimationParameterType::Float:
-							if (!valueV->IsNumber()) throw std::runtime_error(contextPrefix + ".transitions[].conditions[].value must be number");
-							conditionDesc.value.floatValue = static_cast<float>(valueV->AsNumber());
-							break;
-						}
-					}
-					transitionDesc.conditions.push_back(std::move(conditionDesc));
-				}
-			}
+			transitionDesc.conditions = ParseAnimationConditions_(def, TryGet(td, "conditions"), contextPrefix + ".transitions[].conditions");
 			def.transitions.push_back(std::move(transitionDesc));
+		}
+	}
+	if (auto* rulesV = TryGet(cd, "transitionRules"))
+	{
+		if (!rulesV->IsArray()) throw std::runtime_error(contextPrefix + ".transitionRules must be array");
+		const auto parseStringArray = [&](const JsonObject& object, std::string_view key, const std::string& path)
+		{
+			std::vector<std::string> values;
+			const JsonValue* value = TryGet(object, key);
+			if (value == nullptr) return values;
+			if (!value->IsArray()) throw std::runtime_error(path + " must be array");
+			for (const JsonValue& item : value->AsArray())
+			{
+				if (!item.IsString())
+				{
+					throw std::runtime_error(path + "[] must be string");
+				}
+				values.push_back(item.AsString());
+			}
+			return values;
+		};
+		const auto parseSelector = [&](const JsonObject& object, const std::string& path)
+		{
+			return AnimationStateSelector{
+				parseStringArray(object, "states", path + ".states"),
+				parseStringArray(object, "allTags", path + ".allTags"),
+				parseStringArray(object, "anyTags", path + ".anyTags"),
+				parseStringArray(object, "noneTags", path + ".noneTags") };
+		};
+		for (const JsonValue& ruleValue : rulesV->AsArray())
+		{
+			const JsonObject& object = ruleValue.AsObject();
+			AnimationTransitionRuleDesc rule;
+			rule.id = GetStringOpt(object, "id");
+			const JsonValue* from = TryGet(object, "from");
+			const JsonValue* to = TryGet(object, "to");
+			if (from == nullptr || !from->IsObject()) throw std::runtime_error(contextPrefix + ".transitionRules[].from must be object");
+			if (to == nullptr || !to->IsObject()) throw std::runtime_error(contextPrefix + ".transitionRules[].to must be object");
+			rule.from = parseSelector(from->AsObject(), contextPrefix + ".transitionRules[].from");
+			rule.to = parseSelector(to->AsObject(), contextPrefix + ".transitionRules[].to");
+			rule.conditions = ParseAnimationConditions_(def, TryGet(object, "conditions"), contextPrefix + ".transitionRules[].conditions");
+			rule.hasExitTime = TryGet(object, "exitTime") != nullptr;
+			rule.exitTimeNormalized = GetFloatOpt(object, "exitTime", 1.0f);
+			rule.blendDurationSeconds = GetFloatOpt(object, "blendDuration", 0.15f);
+			rule.priority = GetIntOpt(object, "priority", 0);
+			def.transitionRules.push_back(std::move(rule));
 		}
 	}
 
@@ -483,6 +544,7 @@ inline void LoadAndMergeExternalAnimationEventBindingsAsset_(AnimationController
 
 	LoadAndMergeExternalAnimationNotifyAsset_(def);
 	LoadAndMergeExternalAnimationEventBindingsAsset_(def);
+	(void)BuildEffectiveAnimationTransitions(def);
 	return def;
 }
 

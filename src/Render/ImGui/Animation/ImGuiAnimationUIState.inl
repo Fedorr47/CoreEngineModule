@@ -13,6 +13,31 @@ namespace rendern::ui::animation_ui_detail
         rendern::AnimationRootTrajectoryDiagnostics diagnostics;
     };
     
+    struct AnimationControllerEditorState
+    {
+        enum class StateContentMode : std::uint8_t
+        {
+            SemanticMotion,
+            LegacyContent
+        };
+
+        bool initialized{ false };
+        bool dirty{ false };
+        bool reloadRequired{ false };
+        bool persistedDiffersFromBound{ false };
+        bool topologyValid{ false };
+        std::string message;
+        rendern::AnimationControllerAsset workingController;
+        rendern::AnimationControllerAsset persistedController;
+        std::unordered_map<std::string, StateContentMode> stateContentModes;
+        std::vector<rendern::EffectiveAnimationTransition> effectiveTransitions;
+        int selectedAuthoredTransition{ -1 };
+        int selectedRule{ -1 };
+        std::string stateRenameSourceName;
+        std::string stateNameDraft;
+        std::string newTag;
+    };
+    
     struct AnimationUIState
     {
         bool animationGraphWindowOpen = true;
@@ -27,7 +52,11 @@ namespace rendern::ui::animation_ui_detail
         std::string selectedSourceAssetId;
         std::string selectedClipName;
         std::string selectedMotionId;
+        std::string newAnimationSourceId;
+        std::string newAnimationSourcePath;
+        std::string animationSourcesMessage;
         std::unordered_map<std::string, rendern::AnimationProfileEditorState> profileEditorStates;
+        std::unordered_map<std::string, AnimationControllerEditorState> controllerEditorStates;
         AnimationRootTrajectoryCache rootTrajectoryCache;
         bool clipInspectorPlaying = false;
         bool clipInspectorLoop = true;

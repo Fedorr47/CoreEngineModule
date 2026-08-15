@@ -189,12 +189,14 @@
 		bool paused,
 		bool forceBindPose)
 	{
+		std::vector<EffectiveAnimationTransition> effectiveTransitions = BuildEffectiveAnimationTransitions(asset);
 		const bool sameAsset = runtime.mode == AnimationControllerMode::StateMachine && runtime.stateMachineAsset == &asset;
 		runtime.mode = AnimationControllerMode::StateMachine;
 		runtime.skeleton = &skeleton;
 		runtime.clips = &clips;
 		runtime.clipSourceAssetIds = &clipSourceAssetIds;
 		runtime.stateMachineAsset = &asset;
+		runtime.effectiveTransitions = std::move(effectiveTransitions);
 		runtime.animationProfile = animationProfile;
 		runtime.controllerAssetId = asset.id;
 		runtime.autoplay = autoplay;
@@ -342,8 +344,9 @@
 			}
 			else if (!runtime.transitionActive)
 			{
-				for (const AnimationTransitionDesc& transition : runtime.stateMachineAsset->transitions)
+				for (const EffectiveAnimationTransition& effectiveTransition : runtime.effectiveTransitions)
 				{
+					const AnimationTransitionDesc& transition = effectiveTransition.transition;
 					if (!detail::TransitionMatchesState(transition, runtime.currentStateName))
 					{
 						continue;

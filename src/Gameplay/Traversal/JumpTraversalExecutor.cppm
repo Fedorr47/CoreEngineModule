@@ -72,6 +72,9 @@ export namespace rendern
             {
                 GameplayArrivalSteeringSettings settings = steeringSettings_;
                 settings.acceptanceRadius = active.data.takeoffTolerance;
+                // The takeoff is a trigger to cross with momentum, not a destination to stop at.
+                // Collapsing the slowing interval keeps full movement intent until acceptance.
+                settings.slowingRadius = active.data.takeoffTolerance;
                 const GameplaySteeringOutput steering = BuildGameplayArrivalSteering(
                     transform->position, active.data.takeoffPosition, settings);
                 if (steering.status == GameplaySteeringStatus::Moving)

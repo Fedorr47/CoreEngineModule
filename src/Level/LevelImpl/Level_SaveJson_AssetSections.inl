@@ -205,6 +205,7 @@ inline void WriteAnimationControllersSection_(std::ostringstream& ss, const Leve
 			}
 			const AnimationControllerAsset& controller = level.animationControllers.at(id);
 			if (firstController) ss << "\n"; else ss << ",\n";
+			(void)BuildEffectiveAnimationTransitions(controller);
 			firstController = false;
 			ss << "    ";
 			WriteJsonEscaped(ss, id);
@@ -320,53 +321,23 @@ inline void WriteAnimationControllersSection_(std::ostringstream& ss, const Leve
 			}
 			if (!controller.states.empty()) ss << "\n    ";
 			ss << "}, \"transitions\": [";
-			for (std::size_t tIndex = 0; tIndex < controller.transitions.size(); ++tIndex)
+			for (std::size_t transitionIndex = 0; transitionIndex < controller.transitions.size(); ++transitionIndex)
 			{
-				const AnimationTransitionDesc& transition = controller.transitions[tIndex];
-				if (tIndex == 0) ss << "\n"; else ss << ",\n";
-				ss << "      {\"from\": ";
-				WriteJsonEscaped(ss, transition.fromState);
-				ss << ", \"to\": ";
-				WriteJsonEscaped(ss, transition.toState);
-				if (transition.hasExitTime)
-				{
-					ss << ", \"exitTime\": " << transition.exitTimeNormalized;
-				}
-				if (std::fabs(transition.blendDurationSeconds - 0.15f) > 1e-6f)
-				{
-					ss << ", \"blendDuration\": " << transition.blendDurationSeconds;
-				}
-				if (transition.priority != 0)
-				{
-					ss << ", \"priority\": " << transition.priority;
-				}
-				if (!transition.conditions.empty())
-				{
-					ss << ", \"conditions\": [";
-					for (std::size_t cIndex = 0; cIndex < transition.conditions.size(); ++cIndex)
-					{
-						const AnimationConditionDesc& condition = transition.conditions[cIndex];
-						if (cIndex == 0) ss << "\n"; else ss << ",\n";
-						ss << "        {\"parameter\": ";
-						WriteJsonEscaped(ss, condition.parameter);
-						ss << ", \"op\": ";
-						WriteJsonEscaped(ss, AnimationConditionOpToJsonString_(condition.op));
-						if (condition.op != AnimationConditionOp::IfTrue &&
-							condition.op != AnimationConditionOp::IfFalse &&
-							condition.op != AnimationConditionOp::Triggered)
-						{
-							ss << ", \"value\": ";
-							WriteAnimationParameterLiteral_(ss, condition.value);
-						}
-						ss << "}";
-					}
-					if (!transition.conditions.empty()) ss << "\n      ";
-					ss << "]";
-				}
-				ss << "}";
+				if (transitionIndex == 0) ss << "\n      "; else ss << ",\n      ";
+				WriteAnimationTransition_(ss, controller.transitions[transitionIndex]);
 			}
 			if (!controller.transitions.empty()) ss << "\n    ";
 			ss << "]";
+			if (!controller.transitionRules.empty())
+			{
+				ss << ", \"transitionRules\": [";
+				for (std::size_t ruleIndex = 0; ruleIndex < controller.transitionRules.size(); ++ruleIndex)
+				{
+					if (ruleIndex != 0) ss << ", ";
+					WriteAnimationTransitionRule_(ss, controller.transitionRules[ruleIndex]);
+				}
+				ss << "]";
+			}
 			if (controller.eventBindingsAssetPath.empty() && !controller.eventBindings.empty())
 			{
 				ss << ", \"eventBindings\": [";

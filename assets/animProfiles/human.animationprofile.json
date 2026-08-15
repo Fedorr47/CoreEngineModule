@@ -7,6 +7,10 @@
     "Jump.Moving": {
       "sourceAssetId": "running_jump",
       "clip": ""
+    },
+    "Combat.PunchingAttack": {
+      "sourceAssetId": "punching_attack",
+      "clip": ""
     }
   }
 }

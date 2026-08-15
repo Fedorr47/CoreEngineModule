@@ -109,6 +109,339 @@ TEST(AnimationController, ParameterStoreSupportsSetTriggerConsumeAndReset)
 	EXPECT_TRUE(store.values.empty());
 }
 
+TEST(AnimationController, StateSelectorExactNamesAndTagsUseAndSemantics)
+{
+    AnimationControllerAsset controller{ .id = "Selector" };
+    controller.states = {
+        AnimationStateDesc{ .name = "Idle", .tags = { "locomotion", "grounded" } },
+        AnimationStateDesc{ .name = "Run", .tags = { "locomotion", "moving", "grounded" } },
+        AnimationStateDesc{ .name = "Fall", .tags = { "airborne" } }
+    };
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .states = { "Idle" } }), std::vector<int>({ 0 }));
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .allTags = { "locomotion", "grounded" } }), std::vector<int>({ 0, 1 }));
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .anyTags = { "moving", "airborne" } }), std::vector<int>({ 1, 2 }));
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .noneTags = { "airborne" } }), std::vector<int>({ 0, 1 }));
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .states = { "Idle", "Run" }, .allTags = { "moving" } }), std::vector<int>({ 1 }));
+    EXPECT_EQ(ResolveAnimationStateSelector(controller, {}).size(), 3u);
+    EXPECT_TRUE(ResolveAnimationStateSelector(controller, AnimationStateSelector{ .allTags = { "missing" } }).empty());
+}
+
+TEST(AnimationController, EffectiveTopologyRetainsExplicitRuleAndWildcardProvenance)
+{
+    AnimationControllerAsset controller{ .id = "Topology", .defaultState = "Idle" };
+    controller.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle", .tags = { "locomotion" } }, AnimationStateDesc{ .name = "Run", .clipName = "Run", .tags = { "locomotion" } }, AnimationStateDesc{ .name = "Action", .clipName = "Action" }, AnimationStateDesc{ .name = "Done", .clipName = "Done" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "Action", .toState = "Done" }, AnimationTransitionDesc{ .fromState = "*", .toState = "Idle", .priority = 1 } };
+    controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Action.Entry", .from = { .allTags = { "locomotion" } }, .to = { .states = { "Action" } }, .priority = 100 } };
+    const auto topology = BuildEffectiveAnimationTransitions(controller);
+    ASSERT_EQ(topology.size(), 6u);
+    EXPECT_EQ(topology[0].origin, AnimationTransitionOrigin::Explicit);
+    EXPECT_EQ(topology[0].authoredTransitionIndex, 0u);
+	EXPECT_EQ(topology[0].authoredRuleIndex, InvalidAnimationTransitionAuthorIndex);
+	EXPECT_TRUE(topology[0].sourceRuleId.empty());
+    EXPECT_EQ(topology[1].origin, AnimationTransitionOrigin::ExplicitWildcard);
+    EXPECT_EQ(topology[1].authoredTransitionIndex, 1u);
+	EXPECT_EQ(topology[1].authoredRuleIndex, InvalidAnimationTransitionAuthorIndex);
+	EXPECT_TRUE(topology[1].sourceRuleId.empty());
+    EXPECT_EQ(topology[1].transition.fromState, "Run"); // Idle -> Idle is deliberately omitted.
+    EXPECT_EQ(topology[4].origin, AnimationTransitionOrigin::Rule);
+	EXPECT_EQ(topology[4].sourceRuleId, "Action.Entry");
+	EXPECT_EQ(topology[4].authoredRuleIndex, 0u);
+	EXPECT_EQ(topology[4].authoredTransitionIndex, InvalidAnimationTransitionAuthorIndex);
+    EXPECT_EQ(topology[4].transition.fromState, "Idle");
+    EXPECT_EQ(topology[5].transition.fromState, "Run");
+}
+
+TEST(AnimationController, TransitionRuleValidationRejectsInvalidSelectorsAndIds)
+{
+    AnimationControllerAsset base{ .id = "Invalid", .defaultState = "A" };
+    base.states = { AnimationStateDesc{ .name = "A", .clipName = "A", .tags = { "source" } }, AnimationStateDesc{ .name = "B", .clipName = "B" }, AnimationStateDesc{ .name = "C", .clipName = "C" } };
+    const auto rejects = [&](AnimationTransitionRuleDesc rule, std::string_view message)
+    {
+        AnimationControllerAsset controller = base; controller.transitionRules.push_back(std::move(rule));
+        ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); }, { message });
+    };
+    rejects(AnimationTransitionRuleDesc{ .from = { .states = { "A" } }, .to = { .states = { "B" } } }, "id must not be empty");
+    rejects(AnimationTransitionRuleDesc{ .id = "UnknownSource", .from = { .states = { "Missing" } }, .to = { .states = { "B" } } }, "unknown source state");
+    rejects(AnimationTransitionRuleDesc{ .id = "UnknownTarget", .from = { .states = { "A" } }, .to = { .states = { "Missing" } } }, "unknown destination state");
+    rejects(AnimationTransitionRuleDesc{ .id = "NoSource", .from = { .allTags = { "missing" } }, .to = { .states = { "B" } } }, "source selector matched no states");
+    rejects(AnimationTransitionRuleDesc{ .id = "NoTarget", .from = { .states = { "A" } }, .to = { .allTags = { "missing" } } }, "destination selector matched 0");
+    rejects(AnimationTransitionRuleDesc{ .id = "ManyTargets", .from = { .states = { "A" } }, .to = {} }, "destination selector matched 3");
+    rejects(AnimationTransitionRuleDesc{ .id = "Self", .from = { .states = { "A" } }, .to = { .states = { "A" } } }, "unsupported self-transition");
+    AnimationControllerAsset duplicate = base;
+    duplicate.transitionRules = { AnimationTransitionRuleDesc{ .id = "Same", .from = { .states = { "A" } }, .to = { .states = { "B" } } }, AnimationTransitionRuleDesc{ .id = "Same", .from = { .states = { "A" } }, .to = { .states = { "C" } } } };
+    ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(duplicate); }, { "duplicate transition rule id" });
+}
+
+TEST(AnimationController, EffectiveTopologyRejectsInvalidDefaultAndExplicitEndpoints)
+{
+	AnimationControllerAsset controller{ .id = "References", .defaultState = "Missing" };
+	controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); }, { "unknown default state", "Missing" });
+	controller.defaultState = "A";
+	controller.transitions = { AnimationTransitionDesc{ .fromState = "Missing", .toState = "B" } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); }, { "unknown transition source" });
+	controller.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "Missing" } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); }, { "unknown transition target" });
+}
+
+TEST(AnimationController, ControllerFinalizationRejectsMissingStateContent)
+{
+	AnimationControllerAsset controller{ .id = "Draft", .defaultState = "DraftState" };
+	controller.states = { AnimationStateDesc{ .name = "DraftState" } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); },
+		{ "DraftState", "has no animation content" });
+}
+
+TEST(AnimationController, EffectiveTopologyRejectsStructuralDuplicatesAcrossOrigins)
+{
+    AnimationControllerAsset controller{ .id = "Duplicate", .defaultState = "A" };
+    controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "B" } };
+    controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "DuplicateRule", .from = { .states = { "A" } }, .to = { .states = { "B" } } } };
+    ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(controller); }, { "duplicate effective transition", "explicit", "DuplicateRule" });
+}
+
+TEST(AnimationController, EffectiveTopologyRejectsRuleAndWildcardDuplicateExpansions)
+{
+	AnimationControllerAsset rules{ .id = "RuleDuplicate", .defaultState = "A" };
+	rules.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+	rules.transitionRules = {
+		AnimationTransitionRuleDesc{ .id = "First", .from = { .states = { "A" } }, .to = { .states = { "B" } } },
+		AnimationTransitionRuleDesc{ .id = "Second", .from = { .states = { "A" } }, .to = { .states = { "B" } } }
+	};
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(rules); }, { "duplicate effective transition", "First", "Second" });
+	AnimationControllerAsset wildcard = rules;
+	wildcard.id = "WildcardDuplicate";
+	wildcard.transitionRules = { AnimationTransitionRuleDesc{ .id = "Rule", .from = { .states = { "A" } }, .to = { .states = { "B" } } } };
+	wildcard.transitions = { AnimationTransitionDesc{ .fromState = "*", .toState = "B" } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(wildcard); }, { "duplicate effective transition", "wildcard", "Rule" });
+}
+
+TEST(AnimationController, StateRenameUpdatesExactReferencesButNotTags)
+{
+    AnimationControllerAsset controller{ .id = "Rename", .defaultState = "Old" };
+    controller.states = { AnimationStateDesc{ .name = "Old", .tags = { "Old" } }, AnimationStateDesc{ .name = "Other" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "Old", .toState = "Other" }, AnimationTransitionDesc{ .fromState = "*", .toState = "Old" } };
+    controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Rule", .from = { .states = { "Old" }, .allTags = { "Old" } }, .to = { .states = { "Other" } } } };
+    RenameAnimationControllerState(controller, "Old", "New");
+    EXPECT_EQ(controller.defaultState, "New");
+    EXPECT_EQ(controller.transitions[0].fromState, "New");
+    EXPECT_EQ(controller.transitions[1].fromState, "*");
+    EXPECT_EQ(controller.transitions[1].toState, "New");
+    EXPECT_EQ(controller.transitionRules[0].from.states[0], "New");
+    EXPECT_EQ(controller.states[0].tags[0], "Old");
+    EXPECT_EQ(controller.transitionRules[0].from.allTags[0], "Old");
+    EXPECT_THROW(RenameAnimationControllerState(controller, "New", ""), std::runtime_error);
+    EXPECT_THROW(RenameAnimationControllerState(controller, "New", "Other"), std::runtime_error);
+    EXPECT_THROW(RenameAnimationControllerState(controller, "Missing", "Valid"), std::runtime_error);
+}
+
+TEST(AnimationController, StateDeletionIsBlockedByControllerReferences)
+{
+    AnimationControllerAsset controller{ .id = "Delete", .defaultState = "A" };
+    controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" }, AnimationStateDesc{ .name = "Free" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "B" } };
+    EXPECT_FALSE(FindAnimationControllerStateReferences(controller, "A").empty());
+    EXPECT_THROW(DeleteAnimationControllerState(controller, "A"), std::runtime_error);
+    EXPECT_NO_THROW(DeleteAnimationControllerState(controller, "Free"));
+    EXPECT_EQ(controller.states.size(), 2u);
+}
+
+TEST(AnimationController, ExternalControllerRulesRoundTripWithoutGeneratedEdgesAndSaveIsSafe)
+{
+    test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_rules") };
+    const std::filesystem::path path = temp.Path() / "controller.json";
+    AnimationControllerAsset controller{ .id = "RoundTrip", .defaultState = "Idle" };
+    controller.parameters = { AnimationParameterDesc{ .name = "Attack", .defaultValue = { .type = AnimationParameterType::Trigger } } };
+	controller.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle", .tags = { "locomotion", "grounded" } }, AnimationStateDesc{ .name = "Attack", .clipName = "Attack" } };
+    controller.transitions = { AnimationTransitionDesc{ .fromState = "*", .toState = "Idle" } };
+	controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Attack.Entry", .from = { .allTags = { "locomotion" }, .anyTags = { "grounded" }, .noneTags = { "airborne" } }, .to = { .states = { "Attack" } }, .conditions = { AnimationConditionDesc{ .parameter = "Attack", .op = AnimationConditionOp::Triggered, .value = { .type = AnimationParameterType::Trigger } } }, .priority = 100 } };
+    SaveAnimationControllerAssetToJson(path.string(), controller);
+    const AnimationControllerAsset loaded = LoadAnimationControllerAssetFromJson(path.string(), controller.id);
+    ASSERT_EQ(loaded.transitionRules.size(), 1u);
+	EXPECT_EQ(loaded.transitionRules[0].from.allTags, std::vector<std::string>({ "locomotion" }));
+	EXPECT_EQ(loaded.transitionRules[0].from.anyTags, std::vector<std::string>({ "grounded" }));
+	EXPECT_EQ(loaded.transitionRules[0].from.noneTags, std::vector<std::string>({ "airborne" }));
+	EXPECT_EQ(loaded.transitionRules[0].to.states, std::vector<std::string>({ "Attack" }));
+    ASSERT_EQ(loaded.transitions.size(), 1u);
+    EXPECT_EQ(loaded.transitions[0].fromState, "*");
+    std::ifstream input(path, std::ios::binary); const std::string before((std::istreambuf_iterator<char>(input)), {});
+    AnimationControllerAsset invalid = controller; invalid.defaultState = "Missing";
+    EXPECT_THROW(SaveAnimationControllerAssetToJson(path.string(), invalid), std::runtime_error);
+    std::ifstream afterInput(path, std::ios::binary); const std::string after((std::istreambuf_iterator<char>(afterInput)), {});
+    EXPECT_EQ(after, before);
+	EXPECT_EQ(before.find("effectiveTransitions"), std::string::npos);
+	EXPECT_EQ(before.find("\"states\": []"), std::string::npos);
+	const std::string canonicalSelector = "\"from\": {\"allTags\": [\"locomotion\"], \"anyTags\": [\"grounded\"], \"noneTags\": [\"airborne\"]}";
+	EXPECT_NE(before.find(canonicalSelector), std::string::npos);
+
+	LevelAsset inlineLevel;
+	inlineLevel.name = "InlineControllerRules";
+	inlineLevel.animationControllers.emplace(controller.id, controller);
+	const std::filesystem::path inlinePath = temp.Path() / "inline.level.json";
+	SaveLevelAssetToJson(inlinePath.string(), inlineLevel);
+	std::ifstream inlineInput(inlinePath, std::ios::binary);
+	const std::string inlineText((std::istreambuf_iterator<char>(inlineInput)), {});
+	EXPECT_NE(inlineText.find(canonicalSelector), std::string::npos);
+	EXPECT_EQ(inlineText.find("\"states\": []"), std::string::npos);
+	EXPECT_EQ(inlineText.find("effectiveTransitions"), std::string::npos);
+}
+
+TEST(AnimationController, RuleConditionParserRejectsUnknownParameter)
+{
+    test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_bad_condition") };
+    const std::filesystem::path path = temp.Path() / "controller.json";
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream output(path); output << R"({"defaultState":"A","parameters":{},"states":{"A":{"clip":"A"},"B":{"clip":"B"}},"transitionRules":[{"id":"Bad","from":{"states":["A"]},"to":{"states":["B"]},"conditions":[{"parameter":"Missing","op":"true"}]}]})"; output.close();
+    ExpectRuntimeErrorFragments([&] { (void)LoadAnimationControllerAssetFromJson(path.string(), "Bad"); }, { "unknown parameter", "Missing" });
+}
+
+TEST(AnimationController, ExplicitAndRuleConditionsShareTypeAndOperatorValidation)
+{
+	test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_condition_validation") };
+	std::filesystem::create_directories(temp.Path());
+	const auto expectInvalid = [&](std::string_view name, std::string_view member, std::string_view expected)
+	{
+		const std::filesystem::path path = temp.Path() / (std::string(name) + ".json");
+		std::ofstream output(path);
+		output << "{\"defaultState\":\"A\",\"parameters\":{\"speed\":{\"type\":\"float\",\"default\":0},\"fire\":{\"type\":\"trigger\"}},\"states\":{\"A\":{\"clip\":\"A\"},\"B\":{\"clip\":\"B\"}}," << member << "}";
+		output.close();
+		ExpectRuntimeErrorFragments([&] { (void)LoadAnimationControllerAssetFromJson(path.string(), "Invalid"); }, { expected });
+	};
+	expectInvalid("explicit_value", "\"transitions\":[{\"from\":\"A\",\"to\":\"B\",\"conditions\":[{\"parameter\":\"speed\",\"op\":\">\",\"value\":\"fast\"}]}]", "value must be number");
+	expectInvalid("rule_operator", "\"transitionRules\":[{\"id\":\"Bad\",\"from\":{\"states\":[\"A\"]},\"to\":{\"states\":[\"B\"]},\"conditions\":[{\"parameter\":\"fire\",\"op\":\"true\"}]}]", "requires op 'triggered'");
+	expectInvalid("rule_invalid_op", "\"transitionRules\":[{\"id\":\"Bad\",\"from\":{\"states\":[\"A\"]},\"to\":{\"states\":[\"B\"]},\"conditions\":[{\"parameter\":\"speed\",\"op\":\"approximately\",\"value\":1}]}]", "condition op is invalid");
+
+	AnimationControllerAsset direct{ .id = "DirectInvalid", .defaultState = "A" };
+	direct.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+	direct.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "B",
+		.conditions = { AnimationConditionDesc{ .parameter = "missing", .op = AnimationConditionOp::IfTrue } } } };
+	ExpectRuntimeErrorFragments([&] { (void)BuildEffectiveAnimationTransitions(direct); }, { "unknown parameter", "missing" });
+}
+
+TEST(AnimationController, WorkingTopologyChangesDoNotMutateBoundRuntimeUntilRebind)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("A"), animationTest::MakeMinimalSingleBoneClip("B") };
+	std::vector<std::string> sources{ "test", "test" };
+	AnimationControllerAsset bound{ .id = "Bound", .defaultState = "A" };
+	bound.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+	bound.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "B" } };
+	AnimationControllerRuntime runtime;
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, bound, true, false, false);
+	ASSERT_EQ(runtime.effectiveTransitions.size(), 1u);
+	AnimationControllerAsset working = bound;
+	working.transitions.clear();
+	EXPECT_TRUE(BuildEffectiveAnimationTransitions(working).empty());
+	EXPECT_EQ(runtime.effectiveTransitions.size(), 1u);
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, working, true, false, false);
+	EXPECT_TRUE(runtime.effectiveTransitions.empty());
+}
+
+TEST(AnimationController, RuleGeneratedTransitionMatchesExplicitRuntimeBehavior)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), animationTest::MakeMinimalSingleBoneClip("Run") };
+	std::vector<std::string> sources{ "test", "test" };
+	AnimationControllerAsset explicitController{ .id = "Explicit", .defaultState = "Idle" };
+	explicitController.parameters = { AnimationParameterDesc{ .name = "speed", .defaultValue = { .type = AnimationParameterType::Float } } };
+	explicitController.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle" }, AnimationStateDesc{ .name = "Run", .clipName = "Run" } };
+	AnimationTransitionDesc transition{ .fromState = "Idle", .toState = "Run", .hasExitTime = true, .exitTimeNormalized = 0.0f, .blendDurationSeconds = 0.25f, .priority = 7,
+		.conditions = { AnimationConditionDesc{ .parameter = "speed", .op = AnimationConditionOp::GreaterEqual, .value = { .type = AnimationParameterType::Float, .floatValue = 2.0f } } } };
+	explicitController.transitions = { transition };
+	AnimationControllerAsset ruleController = explicitController;
+	ruleController.id = "Rule";
+	ruleController.transitions.clear();
+	ruleController.transitionRules = { AnimationTransitionRuleDesc{ .id = "Run.Entry", .from = { .states = { "Idle" } }, .to = { .states = { "Run" } }, .conditions = transition.conditions, .hasExitTime = true, .exitTimeNormalized = 0.0f, .blendDurationSeconds = 0.25f, .priority = 7 } };
+	AnimationControllerRuntime explicitRuntime, ruleRuntime;
+	BindAnimationControllerStateMachine(explicitRuntime, skeleton, clips, sources, explicitController, true, false, false);
+	BindAnimationControllerStateMachine(ruleRuntime, skeleton, clips, sources, ruleController, true, false, false);
+	SetAnimationParameter(explicitRuntime.parameters, "speed", 2.0f);
+	SetAnimationParameter(ruleRuntime.parameters, "speed", 2.0f);
+	AnimatorState explicitAnimator, ruleAnimator;
+	UpdateAnimationControllerRuntime(explicitRuntime, explicitAnimator, 0.016f);
+	UpdateAnimationControllerRuntime(ruleRuntime, ruleAnimator, 0.016f);
+	EXPECT_EQ(explicitRuntime.currentStateName, ruleRuntime.currentStateName);
+	EXPECT_EQ(explicitRuntime.transitionActive, ruleRuntime.transitionActive);
+	EXPECT_FLOAT_EQ(explicitRuntime.transitionDurationSeconds, ruleRuntime.transitionDurationSeconds);
+}
+
+TEST(AnimationController, TriggerIsConsumedOnlyByHighestPrioritySelectedTransition)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("Idle"), animationTest::MakeMinimalSingleBoneClip("Low"), animationTest::MakeMinimalSingleBoneClip("High") };
+	std::vector<std::string> sources{ "test", "test", "test" };
+	AnimationConditionDesc trigger{ .parameter = "fire", .op = AnimationConditionOp::Triggered, .value = { .type = AnimationParameterType::Trigger } };
+	AnimationControllerAsset controller{ .id = "PriorityTrigger", .defaultState = "Idle" };
+	controller.parameters = { AnimationParameterDesc{ .name = "fire", .defaultValue = { .type = AnimationParameterType::Trigger } } };
+	controller.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle" }, AnimationStateDesc{ .name = "Low", .clipName = "Low" }, AnimationStateDesc{ .name = "High", .clipName = "High" } };
+	controller.transitions = {
+		AnimationTransitionDesc{ .fromState = "Idle", .toState = "Low", .priority = 1, .conditions = { trigger } },
+		AnimationTransitionDesc{ .fromState = "Idle", .toState = "High", .priority = 10, .conditions = { trigger } }
+	};
+	AnimationControllerRuntime runtime;
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, controller, true, false, false);
+	FireAnimationTrigger(runtime.parameters, "fire");
+	AnimatorState animator;
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "High");
+	ASSERT_NE(FindAnimationParameter(runtime.parameters, "fire"), nullptr);
+	EXPECT_FALSE(FindAnimationParameter(runtime.parameters, "fire")->triggerValue);
+}
+
+TEST(AnimationController, WildcardAuthoredTransitionExecutesConcreteEffectiveEdge)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("A"), animationTest::MakeMinimalSingleBoneClip("B") };
+	std::vector<std::string> sources{ "test", "test" };
+	AnimationControllerAsset controller{ .id = "Wildcard", .defaultState = "A" };
+	controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" } };
+	controller.transitions = { AnimationTransitionDesc{ .fromState = "*", .toState = "B" } };
+	AnimationControllerRuntime runtime;
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, controller, true, false, false);
+	ASSERT_EQ(runtime.effectiveTransitions.size(), 1u);
+	EXPECT_EQ(runtime.effectiveTransitions[0].transition.fromState, "A");
+	AnimatorState animator;
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "B");
+}
+
+TEST(AnimationController, RuleExitTimeBlocksThenHighestPriorityGeneratedTransitionWins)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("A"), animationTest::MakeMinimalSingleBoneClip("B"), animationTest::MakeMinimalSingleBoneClip("C") };
+	std::vector<std::string> sources{ "test", "test", "test" };
+	AnimationControllerAsset controller{ .id = "RuleExitTime", .defaultState = "A" };
+	controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "B", .clipName = "B" }, AnimationStateDesc{ .name = "C", .clipName = "C" } };
+	controller.transitionRules = {
+		AnimationTransitionRuleDesc{ .id = "Low", .from = { .states = { "A" } }, .to = { .states = { "B" } }, .hasExitTime = true, .exitTimeNormalized = 0.5f, .priority = 10 },
+		AnimationTransitionRuleDesc{ .id = "High", .from = { .states = { "A" } }, .to = { .states = { "C" } }, .hasExitTime = true, .exitTimeNormalized = 0.5f, .priority = 100 }
+	};
+	AnimationControllerRuntime runtime;
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, controller, true, false, false);
+	AnimatorState animator;
+	UpdateAnimationControllerRuntime(runtime, animator, 0.1f);
+	EXPECT_EQ(runtime.currentStateName, "A");
+	UpdateAnimationControllerRuntime(runtime, animator, 0.5f);
+	EXPECT_EQ(runtime.currentStateName, "C");
+}
+
+TEST(AnimationController, ExplicitAndGeneratedCandidatesUseSamePrioritySemantics)
+{
+	Skeleton skeleton = animationTest::MakeSingleBoneSkeleton();
+	std::vector<AnimationClip> clips{ animationTest::MakeMinimalSingleBoneClip("A"), animationTest::MakeMinimalSingleBoneClip("Explicit"), animationTest::MakeMinimalSingleBoneClip("Generated") };
+	std::vector<std::string> sources{ "test", "test", "test" };
+	AnimationControllerAsset controller{ .id = "MixedPriority", .defaultState = "A" };
+	controller.states = { AnimationStateDesc{ .name = "A", .clipName = "A" }, AnimationStateDesc{ .name = "Explicit", .clipName = "Explicit" }, AnimationStateDesc{ .name = "Generated", .clipName = "Generated" } };
+	controller.transitions = { AnimationTransitionDesc{ .fromState = "A", .toState = "Explicit", .priority = 10 } };
+	controller.transitionRules = { AnimationTransitionRuleDesc{ .id = "Generated.High", .from = { .states = { "A" } }, .to = { .states = { "Generated" } }, .priority = 100 } };
+	AnimationControllerRuntime runtime;
+	BindAnimationControllerStateMachine(runtime, skeleton, clips, sources, controller, true, false, false);
+	AnimatorState animator;
+	UpdateAnimationControllerRuntime(runtime, animator, 0.016f);
+	EXPECT_EQ(runtime.currentStateName, "Generated");
+}
+
 TEST(AnimationController, ArbitrarySemanticMotionResolvesToConcreteClipAtBindTime)
 {
 	Skeleton skeleton{};

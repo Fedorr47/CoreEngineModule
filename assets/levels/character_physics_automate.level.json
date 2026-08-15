@@ -24,7 +24,8 @@
     "running_jump": {"path": "animations/Running Jump.fbx", "flipUVs": true, "debugName": "Running Jump"},
     "swing_dancing": {"path": "animations/Swing Dancing.fbx", "flipUVs": true, "debugName": "Swing Dancing"},
     "walking": {"path": "animations/walking.fbx", "flipUVs": true, "debugName": "walking"},
-    "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"}
+    "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"},
+    "punching_attack": {"path": "animations/Punching.fbx", "flipUVs": true, "debugName": "Punching Attack"}
   },
   "animationProfileAssets": {
     "human": {"path": "animProfiles/human.animationprofile.json"}

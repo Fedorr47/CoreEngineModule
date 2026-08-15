@@ -23,6 +23,33 @@
     {
         return std::clamp(zoom, 0.45f, 2.50f);
     }
+    
+    static int InputTextStringResizeCallback(ImGuiInputTextCallbackData* data)
+    {
+    	if (data->EventFlag != ImGuiInputTextFlags_CallbackResize)
+    	{
+    		return 0;
+    	}
+    	std::string& value = *static_cast<std::string*>(data->UserData);
+    	value.resize(static_cast<std::size_t>(data->BufTextLen));
+    	data->Buf = value.data();
+    	return 0;
+    }
+    
+    static bool InputTextString(
+    	const char* label,
+    	std::string& value,
+    	ImGuiInputTextFlags flags = ImGuiInputTextFlags_None)
+    {
+    	flags |= ImGuiInputTextFlags_CallbackResize;
+    	return ImGui::InputText(
+    		label,
+    		value.data(),
+    		value.capacity() + 1,
+    		flags,
+    		InputTextStringResizeCallback,
+    		&value);
+    }
 
     static void AnimationGraphHandleCanvasZoom(
         float& zoom,
@@ -330,6 +357,84 @@
         rendern::SkinnedDrawItem* skinnedItem = nullptr;
         const rendern::AnimationControllerAsset* controllerAsset = nullptr;
     };
+
+[[nodiscard]] static AnimationControllerEditorState::StateContentMode InferAnimationStateEditorContentMode(
+		const rendern::AnimationStateDesc& state)
+	{
+		return state.motionId.empty()
+			? AnimationControllerEditorState::StateContentMode::LegacyContent
+			: AnimationControllerEditorState::StateContentMode::SemanticMotion;
+	}
+
+	static void RebuildAnimationStateEditorContentModes(AnimationControllerEditorState& editor)
+	{
+		editor.stateContentModes.clear();
+		for (const rendern::AnimationStateDesc& state : editor.workingController.states)
+		{
+			editor.stateContentModes.emplace(state.name, InferAnimationStateEditorContentMode(state));
+		}
+	}
+
+	static void RebuildControllerEditorTopology(AnimationControllerEditorState& editor)
+	{
+		try
+		{
+			editor.effectiveTransitions = rendern::BuildEffectiveAnimationTransitions(editor.workingController);
+			editor.topologyValid = true;
+			editor.message = editor.dirty ? "Authored controller changed. Save and rebind to update runtime." : "Controller topology is valid.";
+		}
+		catch (const std::exception& error)
+		{
+			editor.effectiveTransitions.clear();
+			editor.topologyValid = false;
+			editor.message = error.what();
+		}
+	}
+
+	static void MarkControllerEditorChanged(AnimationControllerEditorState& editor)
+	{
+		editor.dirty = true;
+		editor.reloadRequired = true;
+		RebuildControllerEditorTopology(editor);
+	}
+
+	static void MarkControllerEditorSaved(AnimationControllerEditorState& editor)
+	{
+		editor.persistedController = editor.workingController;
+		editor.persistedDiffersFromBound = true;
+		editor.dirty = false;
+		editor.reloadRequired = true;
+		editor.message = "Controller saved. Reload / Rebind to update runtime.";
+	}
+
+	static void MarkControllerEditorRebound(
+		AnimationControllerEditorState& editor,
+		const rendern::AnimationControllerAsset& controller)
+	{
+		editor.workingController = controller;
+		editor.persistedController = controller;
+		editor.dirty = false;
+		editor.reloadRequired = false;
+		editor.persistedDiffersFromBound = false;
+		editor.stateRenameSourceName.clear();
+        editor.stateNameDraft.clear();
+		RebuildAnimationStateEditorContentModes(editor);
+		RebuildControllerEditorTopology(editor);
+		editor.message = "Controller reloaded and rebound.";
+	}
+
+	static void DiscardControllerWorkingChanges(AnimationControllerEditorState& editor)
+	{
+		if (!editor.dirty) return;
+		editor.workingController = editor.persistedController;
+		editor.dirty = false;
+		editor.reloadRequired = editor.persistedDiffersFromBound;
+		editor.stateRenameSourceName.clear();
+        editor.stateNameDraft.clear();
+		RebuildAnimationStateEditorContentModes(editor);
+		RebuildControllerEditorTopology(editor);
+		editor.message = "Unsaved controller changes discarded.";
+	}
 
     [[nodiscard]] static AnimationGraphContext GetAnimationGraphContext(
         rendern::LevelAsset& level,
