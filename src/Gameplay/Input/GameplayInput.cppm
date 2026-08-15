@@ -63,10 +63,10 @@ export namespace rendern
         outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
         for (const GameplayActionKeyBinding& binding : bindings.actions)
         {
-            if (binding.action != GameplayActionKind::None &&
+            if (binding.action.IsValid() &&
                     binding.key != 0 && input.KeyPressed(binding.key))
             {
-                AddGameplayActionIntent(outIntent.actionIntentMask, binding.action);
+                AddGameplayActionIntent(outIntent.actionIntents, binding.action);
             }
         }
     }

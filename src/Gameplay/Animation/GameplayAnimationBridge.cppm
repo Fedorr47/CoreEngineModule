@@ -148,30 +148,30 @@ export namespace rendern
             }
         }
 
-        [[nodiscard]] inline GameplayActionKind InferGameplayActionKindFromNotifyId_(const std::string_view notifyId) noexcept
+        [[nodiscard]] inline GameplayActionId InferGameplayActionIdFromNotifyId_(const std::string_view notifyId) noexcept
         {
             if (NameMatchesAnyAlias_(
                 notifyId,
                 { "LightAttackBegin", "LightAttackStart", "AttackBegin", "AttackStart", "Attack" }))
             {
-                return GameplayActionKind::LightAttack;
+                return kGameplayActionLightAttack;
             }
 
             if (NameMatchesAnyAlias_(
                 notifyId,
                 { "InteractBegin", "InteractStart", "UseBegin", "UseStart", "Use" }))
             {
-                return GameplayActionKind::Interact;
+                return kGameplayActionInteract;
             }
 
             if (NameMatchesAnyAlias_(
                 notifyId,
                 { "JumpBegin", "JumpStart", "Jump" }))
             {
-                return GameplayActionKind::Jump;
+                return kGameplayActionJump;
             }
 
-            return GameplayActionKind::None;
+            return GameplayActionId{};
         }
     }
 
@@ -240,12 +240,12 @@ export namespace rendern
             notifyState.actionStartedThisFrame = true;
             if (action != nullptr)
             {
-                GameplayActionKind startedKind = GetGameplayRequestedActionKind(*action);
-                if (startedKind == GameplayActionKind::None)
+                GameplayActionId startedId = GetGameplayRequestedActionId(*action);
+                if (!startedId.IsValid())
                 {
-                    startedKind = detail::InferGameplayActionKindFromNotifyId_(gameplayEventId);
+                    startedId = detail::InferGameplayActionIdFromNotifyId_(gameplayEventId);
                 }
-                CommitGameplayActionState(*action, startedKind);
+                CommitGameplayActionState(*action, startedId);
             }
         }
 
@@ -401,17 +401,18 @@ export namespace rendern
 
     inline void WriteGameplayActionAnimationParameters(
         AnimationControllerRuntime& controller,
-        GameplayActionComponent& action)
+        GameplayActionComponent& action,
+        const GameplayActionAnimationBindings& animationBindings)
     {
-        const GameplayActionKind requestedKind = GetGameplayRequestedActionKind(action);
-        const GameplayActionKind bufferedKind = GetGameplayBufferedActionKind(action);
-        const bool hasRequest = requestedKind != GameplayActionKind::None;
-        const bool hasBufferedRequest = bufferedKind != GameplayActionKind::None;
-        const bool requestAttack = requestedKind == GameplayActionKind::LightAttack;
-        const bool requestInteract = requestedKind == GameplayActionKind::Interact;
-        const bool requestJump = requestedKind == GameplayActionKind::Jump;
-        const bool isAttacking = action.busy && action.current == GameplayActionKind::LightAttack;
-        const bool isInteracting = action.busy && action.current == GameplayActionKind::Interact;
+        const GameplayActionId& requestedId = GetGameplayRequestedActionId(action);
+        const GameplayActionId& bufferedId = GetGameplayBufferedActionId(action);
+        const bool hasRequest = requestedId.IsValid();
+        const bool hasBufferedRequest = bufferedId.IsValid();
+        const bool requestAttack = requestedId == kGameplayActionLightAttack;
+        const bool requestInteract = requestedId == kGameplayActionInteract;
+        const bool requestJump = requestedId == kGameplayActionJump;
+        const bool isAttacking = action.busy && action.current == kGameplayActionLightAttack;
+        const bool isInteracting = action.busy && action.current == kGameplayActionInteract;
 
         detail::SetAnimationBoolParameterByAliases_(
             controller,
@@ -453,43 +454,12 @@ export namespace rendern
             { "IsInteracting", "Interacting", "bIsInteracting" },
             isInteracting);
 
-        detail::SetAnimationNumericParameterByAliases_(
-            controller,
-            { "RequestedAction", "RequestedActionKind", "ActionRequestKind", "ActionKindRequested" },
-            static_cast<int>(requestedKind));
-
-        detail::SetAnimationNumericParameterByAliases_(
-            controller,
-            { "BufferedAction", "BufferedActionKind", "QueuedActionKind" },
-            static_cast<int>(bufferedKind));
-
-        detail::SetAnimationNumericParameterByAliases_(
-            controller,
-            { "CurrentAction", "CurrentActionKind", "ActiveAction", "ActionKind" },
-            static_cast<int>(action.current));
-
         if (!action.pendingDispatched && hasRequest)
         {
-            switch (requestedKind)
+            if (const GameplayActionAnimationBinding* binding = FindGameplayActionAnimationBinding(animationBindings, requestedId);
+                binding != nullptr && !binding->triggerParameter.empty())
             {
-            case GameplayActionKind::LightAttack:
-                detail::FireAnimationTriggerByAliases_(
-                    controller,
-                    { "LightAttack", "Attack", "LightAttackTrigger", "AttackTrigger" });
-                break;
-            case GameplayActionKind::Interact:
-                detail::FireAnimationTriggerByAliases_(
-                    controller,
-                    { "Interact", "Use", "InteractTrigger", "UseTrigger" });
-                break;
-            case GameplayActionKind::Jump:
-                detail::FireAnimationTriggerByAliases_(
-                    controller,
-                    { "Jump", "JumpTrigger", "StartJump" });
-                break;
-            case GameplayActionKind::None:
-            default:
-                break;
+                FireAnimationTrigger(controller.parameters, binding->triggerParameter);
             }
 
             action.pendingDispatched = true;

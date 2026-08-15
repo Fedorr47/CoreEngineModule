@@ -62,18 +62,18 @@ TEST(GameplayWorld, MultipleEntitiesMaintainIndependentComponentState)
 	world.AddTransform(first, GameplayTransformComponent{ .position = { 1.0f, 0.0f, 0.0f } });
 	world.AddTransform(second, GameplayTransformComponent{ .position = { 0.0f, 2.0f, 0.0f } });
 	world.AddAction(first, GameplayActionComponent{
-		.pending = GameplayActionRequest{ .kind = GameplayActionKind::Interact }
+		.pending = GameplayActionRequest{ .id = kGameplayActionInteract }
 	});
 
 	world.AddAction(second, GameplayActionComponent{
-		.pending = GameplayActionRequest{ .kind = GameplayActionKind::Jump }
+		.pending = GameplayActionRequest{ .id = kGameplayActionJump }
 	});
 
 	ASSERT_NE(world.TryGetAction(first), nullptr);
 	ASSERT_NE(world.TryGetAction(second), nullptr);
 
-	EXPECT_EQ(world.TryGetAction(first)->pending.kind, GameplayActionKind::Interact);
-	EXPECT_EQ(world.TryGetAction(second)->pending.kind, GameplayActionKind::Jump);
+	EXPECT_EQ(world.TryGetAction(first)->pending.id, kGameplayActionInteract);
+	EXPECT_EQ(world.TryGetAction(second)->pending.id, kGameplayActionJump);
 }
 
 // Protects foundational Door storage so its minimal open state can be updated and removed.

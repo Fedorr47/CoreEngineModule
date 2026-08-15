@@ -110,7 +110,7 @@ namespace
                     if (requestJump)
                     {
                         rendern::AddGameplayActionIntent(
-                            intent.actionIntentMask, rendern::GameplayActionKind::Jump);
+                            intent.actionIntents, rendern::kGameplayActionJump);
                     }
                 });
         }
@@ -380,8 +380,8 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, RejectedJumpAttemptIsConsumedWit
     EXPECT_EQ(movement->jumpRequestResult, rendern::GameplayJumpRequestResult::Rejected);
     EXPECT_FALSE(movement->jumping);
     EXPECT_EQ(movement->jumpLockedVelocity, mathUtils::Vec3{});
-    EXPECT_EQ(rendern::GetGameplayRequestedActionKind(*action),
-        rendern::GameplayActionKind::None);
+    EXPECT_EQ(rendern::GetGameplayRequestedActionId(*action),
+        rendern::GameplayActionId{});
     EXPECT_TRUE(movement->jumpRequestConsumed);
 
     for (int frame = 0; frame < 10; ++frame)
@@ -431,8 +431,8 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, PhysicalLandingClearsJumpState)
 
     const auto* action = world.TryGetAction(player);
     ASSERT_NE(action, nullptr);
-    ASSERT_EQ(rendern::GetGameplayRequestedActionKind(*action),
-        rendern::GameplayActionKind::Jump);
+    ASSERT_EQ(rendern::GetGameplayRequestedActionId(*action),
+        rendern::kGameplayActionJump);
     ASSERT_FALSE(action->pendingDispatched);
     ASSERT_TRUE(movement->jumpRequestConsumed);
     for (int frame = 0; frame < 10; ++frame)

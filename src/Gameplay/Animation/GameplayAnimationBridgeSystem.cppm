@@ -84,7 +84,8 @@ export namespace rendern
     inline void PushGameplayStateToAnimation(
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
-        const GameplayUpdateContext& ctx)
+        const GameplayUpdateContext& ctx,
+        const GameplayActionAnimationBindings& animationBindings)
     {
         if (ctx.levelInstance == nullptr || ctx.scene == nullptr)
         {
@@ -121,7 +122,7 @@ export namespace rendern
 
             if (action != nullptr)
             {
-                WriteGameplayActionAnimationParameters(skinnedItem->controller, *action);
+                WriteGameplayActionAnimationParameters(skinnedItem->controller, *action, animationBindings);
             }
         }
     }
@@ -130,6 +131,7 @@ export namespace rendern
         GameplayWorld& world,
         const std::vector<EntityHandle>& entities,
         const GameplayUpdateContext& ctx,
+        const GameplayActionAnimationBindings& animationBindings,
         std::unordered_map<EntityHandle, GameplayGraphInstance>* graphInstances = nullptr,
         std::size_t* outProcessedEntityCount = nullptr)
     {

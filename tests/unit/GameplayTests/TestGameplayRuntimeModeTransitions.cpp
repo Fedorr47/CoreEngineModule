@@ -160,7 +160,7 @@ TEST(GameplayRuntimeModeTransitions, GameToEditor_RestoresEditorModeAndClearsOrR
     movement->grounded = false;
     motor->velocity = {2.0f, 1.0f, 0.5f};
     action->busy = true;
-    action->pending.kind = GameplayActionKind::Jump;
+    action->pending.id = kGameplayActionJump;
     
     StepFrame(runtime, GameplayRuntimeMode::Editor, levelAsset, levelInstance, scene);
 
@@ -181,7 +181,7 @@ TEST(GameplayRuntimeModeTransitions, GameToEditor_RestoresEditorModeAndClearsOrR
     EXPECT_FLOAT_EQ(motor->velocity.y, 0.0f);
     EXPECT_FLOAT_EQ(motor->velocity.z, 0.0f);
     EXPECT_FALSE(action->busy);
-    EXPECT_EQ(action->pending.kind, GameplayActionKind::None);
+    EXPECT_EQ(action->pending.id, GameplayActionId{});
 }
 
 TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDeterministic)
@@ -217,7 +217,7 @@ TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDetermi
         intent->moveY = 1.0f;
         command->moveInputX = -1.0f;
         command->moveInputY = 1.0f;
-        action->pending.kind = GameplayActionKind::LightAttack;
+        action->pending.id = kGameplayActionLightAttack;
 
         StepFrame(runtime, GameplayRuntimeMode::Game, levelAsset, levelInstance, scene);
         EXPECT_EQ(runtime.GetCurrentMode(), GameplayRuntimeMode::Game);
@@ -238,7 +238,7 @@ TEST(GameplayRuntimeModeTransitions, EditorGameEditor_RepeatedTransitionsDetermi
         EXPECT_FLOAT_EQ(intent->moveY, 0.0f);
         EXPECT_FLOAT_EQ(command->moveInputX, 0.0f);
         EXPECT_FLOAT_EQ(command->moveInputY, 0.0f);
-        EXPECT_EQ(action->pending.kind, GameplayActionKind::None);
+        EXPECT_EQ(action->pending.id, GameplayActionId{});
     };
 
     runTransitionCycle();

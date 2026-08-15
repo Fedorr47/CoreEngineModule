@@ -1,39 +1,41 @@
 module;
 
-#include <array>
+#include <algorithm>
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 export module core:gameplay_action_components;
 
-import :gameplay_character_components;
-
 export namespace rendern
 {
-    enum class GameplayActionKind : std::uint8_t
+    struct GameplayActionId
     {
-        None = 0,
-        LightAttack,
-        Interact,
-        Jump
+        std::string value{};
+
+        GameplayActionId() = default;
+        GameplayActionId(std::string text) : value(std::move(text)) {}
+        GameplayActionId(const char* text) : value(text != nullptr ? text : "") {}
+
+        [[nodiscard]] bool IsValid() const noexcept { return !value.empty(); }
+        friend bool operator==(const GameplayActionId&, const GameplayActionId&) = default;
     };
+
+    inline const GameplayActionId kGameplayActionJump{ "Movement.Jump" };
+    inline const GameplayActionId kGameplayActionLightAttack{ "Combat.LightAttack" };
+    inline const GameplayActionId kGameplayActionInteract{ "Interaction.Interact" };
 
     enum class GameplayActionRequestSource : std::uint8_t
     {
-        None = 0,
-        Input,
-        Combat,
-        Interaction,
-        AnimationEvent,
-        Script
+        None = 0, Input, Combat, Interaction, AnimationEvent, Script
     };
 
     enum class GameplayActionPolicyGroup : std::uint8_t
     {
-        None = 0,
-        Input,
-        Combat,
-        Interaction,
-        Any
+        None = 0, Input, Combat, Interaction, Any
     };
 
     enum class GameplayActionPolicyGate : std::uint32_t
@@ -47,148 +49,232 @@ export namespace rendern
         RequireNoBuffered = 1u << 5u
     };
 
+    enum class GameplayActionExecutorKind : std::uint8_t
+    {
+        None = 0, Jump, CombatAttack, Interact
+    };
+
+    struct GameplayActionDefinition
+    {
+        GameplayActionId id{};
+        GameplayActionPolicyGroup group{ GameplayActionPolicyGroup::None };
+        GameplayActionRequestSource source{ GameplayActionRequestSource::None };
+        GameplayActionExecutorKind executor{ GameplayActionExecutorKind::None };
+        int priority{ 0 };
+        std::uint32_t gates{ 0u };
+    };
+
+    struct GameplayActionAnimationBinding
+    {
+        GameplayActionId actionId{};
+        std::string triggerParameter{};
+    };
+
+    using GameplayActionDefinitions = std::vector<GameplayActionDefinition>;
+    using GameplayActionAnimationBindings = std::vector<GameplayActionAnimationBinding>;
+    using GameplayActionPolicyEntry = GameplayActionDefinition;
+
+    [[nodiscard]] constexpr std::uint32_t GameplayActionPolicyGateMask(
+        const GameplayActionPolicyGate gate) noexcept
+    {
+        return static_cast<std::uint32_t>(gate);
+    }
+
+    [[nodiscard]] constexpr bool HasGameplayActionPolicyGate(
+        const std::uint32_t mask,
+        const GameplayActionPolicyGate gate) noexcept
+    {
+        const std::uint32_t bit = GameplayActionPolicyGateMask(gate);
+        return bit != 0u && (mask & bit) != 0u;
+    }
+
+    [[nodiscard]] inline GameplayActionDefinitions MakeDefaultGameplayActionDefinitions()
+    {
+        using Gate = GameplayActionPolicyGate;
+        return {
+            { kGameplayActionJump, GameplayActionPolicyGroup::Combat,
+              GameplayActionRequestSource::Combat, GameplayActionExecutorKind::Jump,
+              200, GameplayActionPolicyGateMask(Gate::RequireGrounded) },
+            { kGameplayActionLightAttack, GameplayActionPolicyGroup::Combat,
+              GameplayActionRequestSource::Combat, GameplayActionExecutorKind::CombatAttack,
+              10, GameplayActionPolicyGateMask(Gate::RequireGrounded) },
+            { kGameplayActionInteract, GameplayActionPolicyGroup::Interaction,
+              GameplayActionRequestSource::Interaction, GameplayActionExecutorKind::Interact,
+              50, GameplayActionPolicyGateMask(Gate::RequireGrounded) |
+                  GameplayActionPolicyGateMask(Gate::RequireNotBusy) |
+                  GameplayActionPolicyGateMask(Gate::RequireNoPending) |
+                  GameplayActionPolicyGateMask(Gate::RequireNoBuffered) }
+        };
+    }
+
+    [[nodiscard]] inline GameplayActionAnimationBindings MakeDefaultGameplayActionAnimationBindings()
+    {
+        return {
+            { kGameplayActionJump, "Jump" },
+            { kGameplayActionLightAttack, "LightAttack" },
+            { kGameplayActionInteract, "Interact" }
+        };
+    }
+
+    [[nodiscard]] inline const GameplayActionDefinition* FindGameplayActionDefinition(
+        const GameplayActionDefinitions& definitions,
+        const GameplayActionId& id) noexcept
+    {
+        const auto it = std::find_if(definitions.begin(), definitions.end(),
+            [&id](const GameplayActionDefinition& definition) { return definition.id == id; });
+        return it != definitions.end() ? &*it : nullptr;
+    }
+
+    [[nodiscard]] inline const GameplayActionAnimationBinding* FindGameplayActionAnimationBinding(
+        const GameplayActionAnimationBindings& bindings,
+        const GameplayActionId& id) noexcept
+    {
+        const auto it = std::find_if(bindings.begin(), bindings.end(),
+            [&id](const GameplayActionAnimationBinding& binding) { return binding.actionId == id; });
+        return it != bindings.end() ? &*it : nullptr;
+    }
+
+    [[nodiscard]] inline bool IsRequiredGameplayAction(const GameplayActionId& id) noexcept
+    {
+        return id == kGameplayActionJump;
+    }
+
+    [[nodiscard]] inline bool ValidateGameplayActionDefinitions(
+        const GameplayActionDefinitions& definitions,
+        std::string& diagnostic)
+    {
+        std::unordered_set<std::string> ids;
+        for (const GameplayActionDefinition& definition : definitions)
+        {
+            if (!definition.id.IsValid())
+            {
+                diagnostic = "Gameplay action ID cannot be empty.";
+                return false;
+            }
+            if (!ids.insert(definition.id.value).second)
+            {
+                diagnostic = "Duplicate gameplay action '" + definition.id.value + "'.";
+                return false;
+            }
+            if (HasGameplayActionPolicyGate(definition.gates, GameplayActionPolicyGate::RequireGrounded) &&
+                HasGameplayActionPolicyGate(definition.gates, GameplayActionPolicyGate::RequireAirborne))
+            {
+                diagnostic = "Gameplay action '" + definition.id.value +
+                    "' cannot require both grounded and airborne.";
+                return false;
+            }
+            if (HasGameplayActionPolicyGate(definition.gates, GameplayActionPolicyGate::RequireBusy) &&
+                HasGameplayActionPolicyGate(definition.gates, GameplayActionPolicyGate::RequireNotBusy))
+            {
+                diagnostic = "Gameplay action '" + definition.id.value +
+                    "' cannot require both busy and not busy.";
+                return false;
+            }
+        }
+        if (FindGameplayActionDefinition(definitions, kGameplayActionJump) == nullptr)
+        {
+            diagnostic = "Required gameplay action 'Movement.Jump' is missing.";
+            return false;
+        }
+        diagnostic.clear();
+        return true;
+    }
+
+    [[nodiscard]] inline bool ValidateGameplayActionAnimationBindings(
+        const GameplayActionDefinitions& definitions,
+        const GameplayActionAnimationBindings& bindings,
+        std::string& diagnostic)
+    {
+        std::unordered_set<std::string> ids;
+        for (const GameplayActionAnimationBinding& binding : bindings)
+        {
+            if (FindGameplayActionDefinition(definitions, binding.actionId) == nullptr)
+            {
+                diagnostic = "Animation binding references unknown gameplay action '" +
+                    binding.actionId.value + "'.";
+                return false;
+            }
+            if (binding.triggerParameter.empty())
+            {
+                diagnostic = "Animation trigger for gameplay action '" + binding.actionId.value +
+                    "' cannot be empty.";
+                return false;
+            }
+            if (!ids.insert(binding.actionId.value).second)
+            {
+                diagnostic = "Duplicate animation binding for gameplay action '" +
+                    binding.actionId.value + "'.";
+                return false;
+            }
+        }
+        diagnostic.clear();
+        return true;
+    }
+
+    [[nodiscard]] inline bool ValidateGameplayInputAction(
+        const GameplayActionDefinitions& definitions,
+        const GameplayActionId& id,
+        std::string& diagnostic)
+    {
+        if (!id.IsValid() || FindGameplayActionDefinition(definitions, id) == nullptr)
+        {
+            diagnostic = "Input binding references unknown gameplay action '" + id.value + "'.";
+            return false;
+        }
+        diagnostic.clear();
+        return true;
+    }
+
+    inline void AddGameplayActionIntent(
+        std::vector<GameplayActionId>& intents,
+        const GameplayActionId& id)
+    {
+        if (id.IsValid() && std::find(intents.begin(), intents.end(), id) == intents.end())
+        {
+            intents.push_back(id);
+        }
+    }
+
+    [[nodiscard]] inline bool HasGameplayActionIntent(
+        const std::vector<GameplayActionId>& intents,
+        const GameplayActionId& id) noexcept
+    {
+        return id.IsValid() && std::find(intents.begin(), intents.end(), id) != intents.end();
+    }
+
     struct GameplayActionRequest
     {
-        GameplayActionKind kind{ GameplayActionKind::None };
+        GameplayActionId id{};
         GameplayActionRequestSource source{ GameplayActionRequestSource::None };
         int priority{ 0 };
     };
 
     struct GameplayActionComponent
     {
-        GameplayActionKind current{ GameplayActionKind::None };
+        GameplayActionId current{};
         GameplayActionRequest pending{};
         GameplayActionRequest buffered{};
         bool busy{ false };
         bool pendingDispatched{ false };
     };
 
-    struct GameplayActionPolicyEntry
+    [[nodiscard]] inline bool HasGameplayActionRequest(const GameplayActionRequest& request) noexcept
     {
-        GameplayActionKind intentKind{ GameplayActionKind::None };
-        GameplayActionRequest request{};
-        GameplayActionPolicyGroup group{ GameplayActionPolicyGroup::None };
-        std::uint32_t gates{ 0u };
-    };
-
-    namespace detail
-    {
-        [[nodiscard]] constexpr bool GameplayActionPolicyGroupMatches_(const GameplayActionPolicyGroup requestedGroup, const GameplayActionPolicyGroup entryGroup) noexcept
-        {
-            if (requestedGroup == GameplayActionPolicyGroup::Any)
-            {
-                return entryGroup != GameplayActionPolicyGroup::None;
-            }
-
-            return requestedGroup == entryGroup;
-        }
-
-        [[nodiscard]] constexpr auto MakeGameplayActionPolicyTable_() noexcept
-        {
-            using Entry = GameplayActionPolicyEntry;
-            using Gate = GameplayActionPolicyGate;
-            using Kind = GameplayActionKind;
-            using Group = GameplayActionPolicyGroup;
-            using Source = GameplayActionRequestSource;
-
-            return std::array<Entry, 3>{ {
-                Entry{
-                    .intentKind = Kind::Jump,
-                    .request = GameplayActionRequest{
-                        .kind = Kind::Jump,
-                        .source = Source::Combat,
-                        .priority = 200
-                    },
-                    .group = Group::Combat,
-                    .gates = static_cast<std::uint32_t>(Gate::RequireGrounded)
-                },
-                Entry{
-                    .intentKind = Kind::LightAttack,
-                    .request = GameplayActionRequest{
-                        .kind = Kind::LightAttack,
-                        .source = Source::Combat,
-                        .priority = 10
-                    },
-                    .group = Group::Combat,
-                    .gates = static_cast<std::uint32_t>(Gate::RequireGrounded)
-                },
-                Entry{
-                    .intentKind = Kind::Interact,
-                    .request = GameplayActionRequest{
-                        .kind = Kind::Interact,
-                        .source = Source::Interaction,
-                        .priority = 50
-                    },
-                    .group = Group::Interaction,
-                    .gates = static_cast<std::uint32_t>(Gate::RequireGrounded) |
-                        static_cast<std::uint32_t>(Gate::RequireNotBusy) |
-                        static_cast<std::uint32_t>(Gate::RequireNoPending) |
-                        static_cast<std::uint32_t>(Gate::RequireNoBuffered)
-                }
-            } };
-        }
-
-        // TODO: move it to data-driven asset/config
-        inline constexpr auto kGameplayActionPolicyTable = MakeGameplayActionPolicyTable_();
+        return request.id.IsValid();
     }
 
-    [[nodiscard]] constexpr std::uint32_t GameplayActionIntentMask(const GameplayActionKind kind) noexcept
+    inline void ClearGameplayActionRequest(GameplayActionRequest& request) noexcept { request = {}; }
+
+    [[nodiscard]] inline const GameplayActionId& GetGameplayRequestedActionId(
+        const GameplayActionComponent& action) noexcept
     {
-        switch (kind)
-        {
-        case GameplayActionKind::LightAttack:
-            return 1u << 0u;
-        case GameplayActionKind::Interact:
-            return 1u << 1u;
-        case GameplayActionKind::Jump:
-            return 1u << 2u;
-        case GameplayActionKind::None:
-        default:
-            return 0u;
-        }
+        return action.pending.id;
     }
 
-    [[nodiscard]] constexpr std::uint32_t GameplayActionPolicyGateMask(const GameplayActionPolicyGate gate) noexcept
+    [[nodiscard]] inline const GameplayActionId& GetGameplayBufferedActionId(
+        const GameplayActionComponent& action) noexcept
     {
-        return static_cast<std::uint32_t>(gate);
-    }
-
-    [[nodiscard]] constexpr bool HasGameplayActionPolicyGate(const std::uint32_t gateMask, const GameplayActionPolicyGate gate) noexcept
-    {
-        const std::uint32_t bit = GameplayActionPolicyGateMask(gate);
-        return bit != 0u && (gateMask & bit) != 0u;
-    }
-
-    inline void AddGameplayActionIntent(std::uint32_t& intentMask, const GameplayActionKind kind) noexcept
-    {
-        // TODO: change it to Tag system instead of mask
-        intentMask |= GameplayActionIntentMask(kind);
-    }
-
-    [[nodiscard]] constexpr bool HasGameplayActionIntent(const std::uint32_t intentMask, const GameplayActionKind kind) noexcept
-    {
-        const std::uint32_t mask = GameplayActionIntentMask(kind);
-        return mask != 0u && (intentMask & mask) != 0u;
-    }
-
-    [[nodiscard]] constexpr bool HasGameplayActionRequest(const GameplayActionRequest& request) noexcept
-    {
-        return request.kind != GameplayActionKind::None;
-    }
-
-    inline void ClearGameplayActionRequest(GameplayActionRequest& request) noexcept
-    {
-        request = {};
-    }
-
-    [[nodiscard]] inline GameplayActionKind GetGameplayRequestedActionKind(const GameplayActionComponent& action) noexcept
-    {
-        return action.pending.kind;
-    }
-
-    [[nodiscard]] inline GameplayActionKind GetGameplayBufferedActionKind(const GameplayActionComponent& action) noexcept
-    {
-        return action.buffered.kind;
+        return action.buffered.id;
     }
 
     [[nodiscard]] inline bool HasGameplayPendingActionRequest(const GameplayActionComponent& action) noexcept
@@ -203,102 +289,78 @@ export namespace rendern
 
     [[nodiscard]] inline bool EvaluateGameplayActionPolicyGates(
         const GameplayActionPolicyEntry& entry,
-        const GameplayCharacterMovementStateComponent* movementState,
+        const auto* movementState,
         const GameplayActionComponent& action) noexcept
     {
         const std::uint32_t gates = entry.gates;
-
-        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireGrounded))
+        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireGrounded) &&
+            (movementState == nullptr || !movementState->grounded))
         {
-            if (movementState == nullptr || !movementState->grounded)
-            {
-                return false;
-            }
+            return false;
         }
-
-        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireAirborne))
+        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireAirborne) &&
+            (movementState == nullptr || movementState->grounded))
         {
-            if (movementState == nullptr || movementState->grounded)
-            {
-                return false;
-            }
+            return false;
         }
-
         if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireNotBusy) && action.busy)
         {
             return false;
         }
-
         if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireBusy) && !action.busy)
         {
             return false;
         }
-
-        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireNoPending) && HasGameplayPendingActionRequest(action))
+        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireNoPending) &&
+            HasGameplayPendingActionRequest(action))
         {
             return false;
         }
-
-        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireNoBuffered) && HasGameplayBufferedActionRequest(action))
+        if (HasGameplayActionPolicyGate(gates, GameplayActionPolicyGate::RequireNoBuffered) &&
+            HasGameplayBufferedActionRequest(action))
         {
             return false;
         }
-
         return true;
+    }
+
+    [[nodiscard]] inline const GameplayActionPolicyEntry* FindGameplayActionPolicy(
+        const GameplayActionDefinitions& definitions,
+        const GameplayActionPolicyGroup group,
+        const GameplayActionId& id) noexcept
+    {
+        const GameplayActionDefinition* definition = FindGameplayActionDefinition(definitions, id);
+        if (definition == nullptr)
+        {
+            return nullptr;
+        }
+        const bool groupMatches = group == GameplayActionPolicyGroup::Any
+            ? definition->group != GameplayActionPolicyGroup::None
+            : definition->group == group;
+        return groupMatches ? definition : nullptr;
     }
 
     inline bool QueueGameplayActionRequest(GameplayActionComponent& action, GameplayActionRequest request) noexcept;
 
-    [[nodiscard]] inline const GameplayActionPolicyEntry* FindGameplayActionPolicy(const GameplayActionPolicyGroup group, const GameplayActionKind kind) noexcept
-    {
-        for (const GameplayActionPolicyEntry& entry : detail::kGameplayActionPolicyTable)
-        {
-            if (entry.intentKind != kind)
-            {
-                continue;
-            }
-
-            if (!detail::GameplayActionPolicyGroupMatches_(group, entry.group))
-            {
-                continue;
-            }
-
-            return &entry;
-        }
-
-        return nullptr;
-    }
-
-    [[nodiscard]] bool QueueGameplayActionRequestsFromPolicies(
+    [[nodiscard]] inline bool QueueGameplayActionRequestsFromPolicies(
         GameplayActionComponent& action,
-        const GameplayCharacterMovementStateComponent* movementState,
-        const std::uint32_t intentMask,
-        const GameplayActionPolicyGroup group) noexcept
+        const auto* movementState,
+        const std::vector<GameplayActionId>& intents,
+        const GameplayActionPolicyGroup group,
+        const GameplayActionDefinitions& definitions) noexcept
     {
         bool queuedAny = false;
-
         const GameplayActionComponent gateSnapshot = action;
-
-        for (const GameplayActionPolicyEntry& entry : detail::kGameplayActionPolicyTable)
+        for (const GameplayActionId& intent : intents)
         {
-            if (!detail::GameplayActionPolicyGroupMatches_(group, entry.group))
+            const GameplayActionDefinition* entry = FindGameplayActionPolicy(definitions, group, intent);
+            if (entry == nullptr ||
+                !EvaluateGameplayActionPolicyGates(*entry, movementState, gateSnapshot))
             {
                 continue;
             }
-
-            if (!HasGameplayActionIntent(intentMask, entry.intentKind))
-            {
-                continue;
-            }
-
-            if (!EvaluateGameplayActionPolicyGates(entry, movementState, gateSnapshot))
-            {
-                continue;
-            }
-
-            queuedAny |= QueueGameplayActionRequest(action, entry.request);
+            queuedAny |= QueueGameplayActionRequest(action, { entry->id, entry->source, entry->priority });
         }
-
         return queuedAny;
     }
 
@@ -308,67 +370,54 @@ export namespace rendern
         {
             return false;
         }
-
         if (!HasGameplayPendingActionRequest(action))
         {
-            action.pending = request;
+            action.pending = std::move(request);
             action.pendingDispatched = false;
             return true;
         }
-
         if (request.priority > action.pending.priority)
         {
-            if (!action.busy)
-            {
-                if (!HasGameplayBufferedActionRequest(action) || action.pending.priority >= action.buffered.priority)
-                {
-                    action.buffered = action.pending;
-                }
-            }
-            action.pending = request;
+            if (!action.busy && (!HasGameplayBufferedActionRequest(action) ||
+                action.pending.priority >= action.buffered.priority)) action.buffered = action.pending;
+            action.pending = std::move(request);
             action.pendingDispatched = false;
             return true;
         }
-
         if (!HasGameplayBufferedActionRequest(action) || request.priority >= action.buffered.priority)
         {
-            action.buffered = request;
+            action.buffered = std::move(request);
             return !action.busy;
         }
-
         return false;
     }
 
-    inline void PrimeGameplayActionState(GameplayActionComponent& action, const GameplayActionKind startedKind = GameplayActionKind::None) noexcept
+    inline void PrimeGameplayActionState(GameplayActionComponent& action, const GameplayActionId& startedId = {}) noexcept
     {
         if (HasGameplayPendingActionRequest(action))
         {
-            action.current = startedKind != GameplayActionKind::None ? startedKind : action.pending.kind;
+            action.current = startedId.IsValid() ? startedId : action.pending.id;
             action.busy = true;
-            return;
         }
-
-        if (startedKind != GameplayActionKind::None)
+        else if (startedId.IsValid())
         {
-            action.current = startedKind;
+            action.current = startedId;
             action.busy = true;
         }
     }
 
-    inline void CommitGameplayActionState(GameplayActionComponent& action, const GameplayActionKind startedKind = GameplayActionKind::None) noexcept
+    inline void CommitGameplayActionState(GameplayActionComponent& action, const GameplayActionId& startedId = {}) noexcept
     {
         if (HasGameplayPendingActionRequest(action))
         {
-            action.current = startedKind != GameplayActionKind::None ? startedKind : action.pending.kind;
+            action.current = startedId.IsValid() ? startedId : action.pending.id;
             action.busy = true;
             ClearGameplayActionRequest(action.pending);
             action.pendingDispatched = false;
-            return;
         }
-
-        if (startedKind != GameplayActionKind::None)
+        else if (startedId.IsValid())
         {
-            action.current = startedKind;
+            action.current = startedId;
             action.busy = true;
             action.pendingDispatched = false;
         }
@@ -377,23 +426,17 @@ export namespace rendern
     inline void FinishGameplayActionState(GameplayActionComponent& action) noexcept
     {
         action.busy = false;
-        action.current = GameplayActionKind::None;
+        action.current = {};
         action.pendingDispatched = false;
-
         if (!HasGameplayPendingActionRequest(action) && HasGameplayBufferedActionRequest(action))
         {
-            action.pending = action.buffered;
+            action.pending = std::move(action.buffered);
             ClearGameplayActionRequest(action.buffered);
         }
     }
 
     inline void ResetGameplayActionState(GameplayActionComponent& action) noexcept
     {
-        action.current = GameplayActionKind::None;
-        ClearGameplayActionRequest(action.pending);
-        ClearGameplayActionRequest(action.buffered);
-        action.busy = false;
-        action.pendingDispatched = false;
+        action = {};
     }
-
 }

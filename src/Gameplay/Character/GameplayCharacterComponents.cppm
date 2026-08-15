@@ -1,8 +1,11 @@
 module;
 
 #include <cstdint>
+#include <vector>
 
 export module core:gameplay_character_components;
+
+import :gameplay_action_components;
 
 import :math_utils;
 export import :physics_types;
@@ -31,7 +34,7 @@ export namespace rendern
         mathUtils::Vec3 moveWorld{ 0.0f, 0.0f, 0.0f };
         float moveMagnitude{ 0.0f };
         bool wantsRun{ false };
-        std::uint32_t actionIntentMask{ 0u };
+        std::vector<GameplayActionId> actionIntents{};
     };
 
     struct GameplayCharacterMotorComponent

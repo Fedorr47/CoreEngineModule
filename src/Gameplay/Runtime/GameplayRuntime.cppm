@@ -81,6 +81,12 @@ export namespace rendern
         void UnbindIntentSource(const EntityHandle entity);
         [[nodiscard]] bool ApplyKeyboardMouseBindings(const GameplayKeyboardMouseBindings& bindings);
         [[nodiscard]] const GameplayKeyboardMouseBindings& GetKeyboardMouseBindings() const noexcept;
+        [[nodiscard]] const GameplayActionDefinitions& GetGameplayActionDefinitions() const noexcept;
+        [[nodiscard]] const GameplayActionAnimationBindings& GetGameplayActionAnimationBindings() const noexcept;
+        [[nodiscard]] bool ApplyGameplayActionConfiguration(
+            const GameplayActionDefinitions& definitions,
+            const GameplayActionAnimationBindings& animationBindings,
+            std::string& diagnostic);
 
         void BeginFrame();
         void PrePhysicsUpdate(const GameplayUpdateContext& ctx);
@@ -165,6 +171,8 @@ export namespace rendern
         GameplayWorld world_{};
         EntityHandle controlledEntity_{ kNullEntity };
         GameplayKeyboardMouseBindings keyboardMouseBindings_{};
+        GameplayActionDefinitions actionDefinitions_{ MakeDefaultGameplayActionDefinitions() };
+        GameplayActionAnimationBindings actionAnimationBindings_{ MakeDefaultGameplayActionAnimationBindings() };
         LevelAsset* currentLevelAsset_{ nullptr };
         LevelInstance* currentLevelInstance_{ nullptr };
         Scene* currentScene_{ nullptr };

@@ -319,3 +319,86 @@ inline void ParseMaterialSection_(LevelAsset& out, const JsonObject& jsonObject)
 	}
 
 }
+
+inline GameplayActionPolicyGroup ParseGameplayActionGroup_(const std::string& value)
+{
+	if (value == "Input") return GameplayActionPolicyGroup::Input;
+	if (value == "Combat") return GameplayActionPolicyGroup::Combat;
+	if (value == "Interaction") return GameplayActionPolicyGroup::Interaction;
+	if (value == "Any") return GameplayActionPolicyGroup::Any;
+	if (value == "None") return GameplayActionPolicyGroup::None;
+	throw std::runtime_error("Level JSON: unknown gameplay action group '" + value + "'.");
+}
+
+inline GameplayActionRequestSource ParseGameplayActionSource_(const std::string& value)
+{
+	if (value == "Input") return GameplayActionRequestSource::Input;
+	if (value == "Combat") return GameplayActionRequestSource::Combat;
+	if (value == "Interaction") return GameplayActionRequestSource::Interaction;
+	if (value == "AnimationEvent") return GameplayActionRequestSource::AnimationEvent;
+	if (value == "Script") return GameplayActionRequestSource::Script;
+	if (value == "None") return GameplayActionRequestSource::None;
+	throw std::runtime_error("Level JSON: unknown gameplay action source '" + value + "'.");
+}
+
+inline GameplayActionExecutorKind ParseGameplayActionExecutor_(const std::string& value)
+{
+	if (value == "Jump") return GameplayActionExecutorKind::Jump;
+	if (value == "CombatAttack") return GameplayActionExecutorKind::CombatAttack;
+	if (value == "Interact") return GameplayActionExecutorKind::Interact;
+	if (value == "None") return GameplayActionExecutorKind::None;
+	throw std::runtime_error("Level JSON: unknown gameplay action executor '" + value + "'.");
+}
+
+inline std::uint32_t ParseGameplayActionGates_(const JsonObject& object)
+{
+	std::uint32_t gates = 0u;
+	const JsonValue* gatesValue = TryGet(object, "gates");
+	if (gatesValue == nullptr) return gates;
+	for (const JsonValue& value : gatesValue->AsArray())
+	{
+		const std::string& gate = value.AsString();
+		if (gate == "RequireGrounded") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireGrounded);
+		else if (gate == "RequireAirborne") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireAirborne);
+		else if (gate == "RequireNotBusy") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireNotBusy);
+		else if (gate == "RequireBusy") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireBusy);
+		else if (gate == "RequireNoPending") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireNoPending);
+		else if (gate == "RequireNoBuffered") gates |= GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireNoBuffered);
+		else throw std::runtime_error("Level JSON: unknown gameplay action gate '" + gate + "'.");
+	}
+	return gates;
+}
+
+inline void ParseGameplayActionsSection_(LevelAsset& out, const JsonObject& object)
+{
+	if (const JsonValue* actions = TryGet(object, "gameplayActions"))
+	{
+		for (const JsonValue& value : actions->AsArray())
+		{
+			const JsonObject& action = value.AsObject();
+			out.gameplayActions.push_back({
+				GameplayActionId{ GetStringOpt(action, "id") },
+				ParseGameplayActionGroup_(GetStringOpt(action, "group", "None")),
+				ParseGameplayActionSource_(GetStringOpt(action, "source", "None")),
+				ParseGameplayActionExecutor_(GetStringOpt(action, "executor", "None")),
+				GetIntOpt(action, "priority", 0), ParseGameplayActionGates_(action) });
+		}
+	}
+	if (const JsonValue* bindings = TryGet(object, "gameplayActionAnimationBindings"))
+	{
+		for (const JsonValue& value : bindings->AsArray())
+		{
+			const JsonObject& binding = value.AsObject();
+			out.gameplayActionAnimationBindings.push_back({
+				GameplayActionId{ GetStringOpt(binding, "actionId") },
+				GetStringOpt(binding, "triggerParameter") });
+		}
+	}
+	if (out.gameplayActions.empty()) out.gameplayActions = MakeDefaultGameplayActionDefinitions();
+	if (out.gameplayActionAnimationBindings.empty())
+		out.gameplayActionAnimationBindings = MakeDefaultGameplayActionAnimationBindings();
+	std::string diagnostic;
+	if (!ValidateGameplayActionDefinitions(out.gameplayActions, diagnostic) ||
+		!ValidateGameplayActionAnimationBindings(out.gameplayActions, out.gameplayActionAnimationBindings, diagnostic))
+		throw std::runtime_error("Level JSON: " + diagnostic);
+}

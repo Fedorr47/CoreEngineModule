@@ -6,6 +6,10 @@
             currentLevelAsset_ = &levelAsset;
             currentLevelInstance_ = &levelInstance;
             currentScene_ = &scene;
+            actionDefinitions_ = levelAsset.gameplayActions.empty()
+                ? MakeDefaultGameplayActionDefinitions() : levelAsset.gameplayActions;
+            actionAnimationBindings_ = levelAsset.gameplayActionAnimationBindings.empty()
+                ? MakeDefaultGameplayActionAnimationBindings() : levelAsset.gameplayActionAnimationBindings;
 
             GameplayUpdateContext ctx{};
             ctx.mode = GameplayRuntimeMode::Editor;
@@ -98,6 +102,14 @@
             {
                 return false;
             }
+            std::string diagnostic;
+            for (const GameplayActionKeyBinding& binding : bindings.actions)
+            {
+                if (!ValidateGameplayInputAction(actionDefinitions_, binding.action, diagnostic))
+                {
+                    return false;
+                }
+            }
             keyboardMouseBindings_ = bindings;
             if (controlledEntity_ == kNullEntity || !world_.IsEntityValid(controlledEntity_))
             {
@@ -110,6 +122,48 @@
         const GameplayKeyboardMouseBindings& GameplayRuntime::GetKeyboardMouseBindings() const noexcept
         {
             return keyboardMouseBindings_;
+        }
+
+        const GameplayActionDefinitions& GameplayRuntime::GetGameplayActionDefinitions() const noexcept
+        {
+            return actionDefinitions_;
+        }
+
+        const GameplayActionAnimationBindings& GameplayRuntime::GetGameplayActionAnimationBindings() const noexcept
+        {
+            return actionAnimationBindings_;
+        }
+
+        bool GameplayRuntime::ApplyGameplayActionConfiguration(
+            const GameplayActionDefinitions& definitions,
+            const GameplayActionAnimationBindings& animationBindings,
+            std::string& diagnostic)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            if (!ValidateGameplayActionDefinitions(definitions, diagnostic) ||
+                !ValidateGameplayActionAnimationBindings(definitions, animationBindings, diagnostic))
+            {
+                return false;
+            }
+            for (const GameplayActionKeyBinding& binding : keyboardMouseBindings_.actions)
+            {
+                if (!ValidateGameplayInputAction(definitions, binding.action, diagnostic))
+                {
+                    return false;
+                }
+            }
+            actionDefinitions_ = definitions;
+            actionAnimationBindings_ = animationBindings;
+            if (currentLevelAsset_ != nullptr)
+            {
+                currentLevelAsset_->gameplayActions = definitions;
+                currentLevelAsset_->gameplayActionAnimationBindings = animationBindings;
+                if (!currentLevelAsset_->sourcePath.empty())
+                {
+                    SaveLevelAssetToJson(currentLevelAsset_->sourcePath, *currentLevelAsset_);
+                }
+            }
+            return true;
         }
 
         void GameplayRuntime::UnbindIntentSource(const EntityHandle entity)
@@ -164,8 +218,8 @@
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
             objectReservationSystem_.CleanupInvalidReservations(world_);
             aiSystem_.Update(world_, ctx.deltaSeconds);
-            UpdateGameplayCombatRequests(world_, nodeBoundEntities_);
-            UpdateGameplayInteractionRequests(world_, nodeBoundEntities_);
+            UpdateGameplayCombatRequests(world_, nodeBoundEntities_, actionDefinitions_);
+            UpdateGameplayInteractionRequests(world_, nodeBoundEntities_, actionDefinitions_);
             ExecuteGameplayGraphs_(ctx);
             UpdateGameplayCharacterMovement(world_, nodeBoundEntities_, ctx.deltaSeconds);
         }
@@ -181,7 +235,7 @@
             UpdateGameplayCharacterLocomotion(world_, nodeBoundEntities_);
             SyncGameplayTransformsToRuntime(world_, nodeBoundEntities_, ctx);
             UpdateFollowCamera_(ctx, false);
-            PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx);
+            PushGameplayStateToAnimation(world_, nodeBoundEntities_, ctx, actionAnimationBindings_);
             
             const auto syncStartedAt = std::chrono::steady_clock::now();
             std::size_t processedEntityCount = 0;
@@ -189,6 +243,7 @@
                 world_,
                 nodeBoundEntities_,
                 ctx,
+                actionAnimationBindings_,
                 &graphInstances_,
                 &processedEntityCount);
             
@@ -217,6 +272,7 @@
                     world_,
                     nodeBoundEntities_,
                     ctx,
+                    actionAnimationBindings_,
                     &graphInstances_,
                     &processedEntityCount);
 

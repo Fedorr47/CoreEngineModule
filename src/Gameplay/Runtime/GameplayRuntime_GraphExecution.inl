@@ -204,9 +204,12 @@
             SetGameplayGraphBool(instance.parameters, "hasActionRequest", false);
             SetGameplayGraphBool(instance.parameters, "hasBufferedAction", false);
             SetGameplayGraphBool(instance.parameters, "actionBusy", false);
-            SetGameplayGraphInt(instance.parameters, "requestedActionKind", 0);
-            SetGameplayGraphInt(instance.parameters, "bufferedActionKind", 0);
-            SetGameplayGraphInt(instance.parameters, "currentAction", 0);
+            SetGameplayGraphInt(instance.parameters, "requestedActionExecutor", 0);
+            SetGameplayGraphInt(instance.parameters, "bufferedActionExecutor", 0);
+            SetGameplayGraphInt(instance.parameters, "currentActionExecutor", 0);
+            SetGameplayGraphString(instance.parameters, "requestedActionId", {});
+            SetGameplayGraphString(instance.parameters, "bufferedActionId", {});
+            SetGameplayGraphString(instance.parameters, "currentActionId", {});
             SetGameplayGraphString(instance.parameters, "currentAnimationController", {});
             SetGameplayGraphString(instance.parameters, "currentAnimationState", {});
             SetGameplayGraphString(instance.parameters, "previousAnimationState", {});
@@ -241,26 +244,29 @@
             bool hasActionRequest = false;
             bool hasBufferedAction = false;
             bool actionBusy = false;
-            int requestedActionKind = 0;
-            int bufferedActionKind = 0;
-            int currentAction = 0;
+            int requestedActionExecutor = 0;
+            int bufferedActionExecutor = 0;
+            int currentActionExecutor = 0;
 
             if (action != nullptr)
             {
                 hasActionRequest = HasGameplayPendingActionRequest(*action);
                 hasBufferedAction = HasGameplayBufferedActionRequest(*action);
                 actionBusy = action->busy;
-                requestedActionKind = static_cast<int>(GetGameplayRequestedActionKind(*action));
-                bufferedActionKind = static_cast<int>(GetGameplayBufferedActionKind(*action));
-                currentAction = static_cast<int>(action->current);
+                if (const auto* definition = FindGameplayActionDefinition(actionDefinitions_, GetGameplayRequestedActionId(*action))) requestedActionExecutor = static_cast<int>(definition->executor);
+                if (const auto* definition = FindGameplayActionDefinition(actionDefinitions_, GetGameplayBufferedActionId(*action))) bufferedActionExecutor = static_cast<int>(definition->executor);
+                if (const auto* definition = FindGameplayActionDefinition(actionDefinitions_, action->current)) currentActionExecutor = static_cast<int>(definition->executor);
             }
 
+            SetGameplayGraphString(graph.parameters, "requestedActionId", action != nullptr ? action->pending.id.value : std::string{});
+            SetGameplayGraphString(graph.parameters, "bufferedActionId", action != nullptr ? action->buffered.id.value : std::string{});
+            SetGameplayGraphString(graph.parameters, "currentActionId", action != nullptr ? action->current.value : std::string{});
             SetGameplayGraphBool(graph.parameters, "hasActionRequest", hasActionRequest);
             SetGameplayGraphBool(graph.parameters, "hasBufferedAction", hasBufferedAction);
             SetGameplayGraphBool(graph.parameters, "actionBusy", actionBusy);
-            SetGameplayGraphInt(graph.parameters, "requestedActionKind", requestedActionKind);
-            SetGameplayGraphInt(graph.parameters, "bufferedActionKind", bufferedActionKind);
-            SetGameplayGraphInt(graph.parameters, "currentAction", currentAction);
+            SetGameplayGraphInt(graph.parameters, "requestedActionExecutor", requestedActionExecutor);
+            SetGameplayGraphInt(graph.parameters, "bufferedActionExecutor", bufferedActionExecutor);
+            SetGameplayGraphInt(graph.parameters, "currentActionExecutor", currentActionExecutor);
         }
 
         void GameplayRuntime::ExecuteGameplayGraphs_(const GameplayUpdateContext& ctx)

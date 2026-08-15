@@ -81,9 +81,9 @@ TEST(GameplayAIJumpTraversalDevelopmentScenario, StartRegistersAuthoredLinkAndRe
     level.nodes.front().transform.position = {99.0f, 99.0f, 99.0f};
     GameplayActionComponent* action = world.TryGetAction(agent);
     ASSERT_NE(action, nullptr);
-    action->current = GameplayActionKind::Jump;
-    action->pending = {.kind = GameplayActionKind::Jump, .source = GameplayActionRequestSource::Script, .priority = 200};
-    action->buffered = {.kind = GameplayActionKind::LightAttack, .source = GameplayActionRequestSource::Combat, .priority = 10};
+    action->current = kGameplayActionJump;
+    action->pending = {.id = kGameplayActionJump, .source = GameplayActionRequestSource::Script, .priority = 200};
+    action->buffered = {.id = kGameplayActionLightAttack, .source = GameplayActionRequestSource::Combat, .priority = 10};
     action->busy = true;
     action->pendingDispatched = true;
 
@@ -92,7 +92,7 @@ TEST(GameplayAIJumpTraversalDevelopmentScenario, StartRegistersAuthoredLinkAndRe
     EXPECT_FALSE(runtime.FindGameplayTraversalLink(kAIJumpTraversalDevelopmentLinkHandle).has_value());
     EXPECT_EQ(runtime.GetAIActionStatus(agent), AIActionExecutionStatus::NotStarted);
     EXPECT_EQ(runtime.GetWorld().TryGetTransform(agent)->position, mathUtils::Vec3(0.0f, 0.0f, -6.0f));
-    EXPECT_EQ(action->current, GameplayActionKind::None);
+    EXPECT_EQ(action->current, GameplayActionId{});
     EXPECT_FALSE(HasGameplayPendingActionRequest(*action));
     EXPECT_FALSE(HasGameplayBufferedActionRequest(*action));
     EXPECT_FALSE(action->busy);

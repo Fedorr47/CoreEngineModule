@@ -36,6 +36,7 @@ import :animator;
 import :animation_controller;
 import :animation_clip;
 import :physics_types;
+import :gameplay_action_components;
 
 // ------------------------------------------------------------
 // LevelAsset / LevelInstance

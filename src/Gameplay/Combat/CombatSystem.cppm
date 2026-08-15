@@ -10,8 +10,9 @@ export namespace rendern
 {
     inline void UpdateGameplayCombatRequests(
         GameplayWorld& world,
-        const std::vector<EntityHandle>& entities)
+        const std::vector<EntityHandle>& entities,
+        const GameplayActionDefinitions& definitions)
     {
-        UpdateGameplayActionRequestsFromPolicies(world, entities, GameplayActionPolicyGroup::Combat);
+        UpdateGameplayActionRequestsFromPolicies(world, entities, GameplayActionPolicyGroup::Combat, definitions);
     }
 }

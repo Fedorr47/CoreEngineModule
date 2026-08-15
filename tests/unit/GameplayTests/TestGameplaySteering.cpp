@@ -190,17 +190,17 @@ TEST(GameplaySteering, AdapterWritesCanonicalCharacterMovementFields)
 }
 
 // Protects separation between movement and action requests and prevents regressions that erase pending action intent state.
-TEST(GameplaySteering, AdapterPreservesActionIntentMask)
+TEST(GameplaySteering, AdapterPreservesSemanticActionIntents)
 {
     GameplayMovementIntent intent{};
     intent.moveWorld = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
     intent.moveMagnitude = 1.0f;
     GameplayCharacterCommandComponent command{};
-    command.actionIntentMask = 0xA5u;
+    command.actionIntents = { GameplayActionId{ "Test.One" }, GameplayActionId{ "Test.Two" } };
 
     ApplyGameplayMovementIntent(intent, command);
 
-    EXPECT_EQ(command.actionIntentMask, 0xA5u);
+    EXPECT_EQ(command.actionIntents.size(), 2u);
 }
 
 // Protects against invalid manual movement intents and prevents regressions that retain run state for stationary commands.
