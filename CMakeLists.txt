@@ -506,6 +506,7 @@ set(COMMON_MODULES
         Gameplay/AI/AISystem.cppm
         Gameplay/AI/AIDecisionContracts.cppm
         Gameplay/AI/AIActionRuntime.cppm
+        Gameplay/AI/AIPlanner.cppm
         Gameplay/AI/AIActionTask.cppm
         Gameplay/AI/GameplayRequest.cppm
         Gameplay/AI/GameplaySteering.cppm

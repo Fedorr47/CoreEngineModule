@@ -75,6 +75,26 @@ TEST(AIAgentWorldState, FirstAndLastFactSlotsCanBeStored)
     EXPECT_FALSE(worldState.IsFactSet(lastFact));
 }
 
+TEST(AIAgentWorldState, EqualityAndHashCoverCompleteFactState)
+{
+    AIAgentWorldState first{};
+    AIAgentWorldState equivalent{};
+    AIAgentWorldState different{};
+    constexpr AIWorldFactId firstFact{ 0u };
+    constexpr AIWorldFactId lastFact{
+        static_cast<std::uint16_t>(AIAgentWorldState::FactCapacity - 1u) };
+
+    first.SetFact(firstFact);
+    first.SetFact(lastFact);
+    equivalent.SetFact(firstFact);
+    equivalent.SetFact(lastFact);
+    different.SetFact(firstFact);
+
+    EXPECT_EQ(first, equivalent);
+    EXPECT_NE(first, different);
+    EXPECT_EQ(AIAgentWorldStateHash{}(first), AIAgentWorldStateHash{}(equivalent));
+}
+
 // Protects complete snapshot replacement so producers can rebuild an agent's
 // facts without leaving conditions from a previous update in the state.
 TEST(AIAgentWorldState, ClearRemovesEverySetFact)
