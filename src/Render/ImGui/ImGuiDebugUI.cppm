@@ -131,44 +131,79 @@ namespace rendern::ui
         ImGui::PopStyleVar(3);
 
         const ImGuiID dockId = ImGui::GetID("DebugDockSpace");
-        const ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+        const ImGuiDockNodeFlags dockFlags =
+            ImGuiDockNodeFlags_PassthruCentralNode;
 
-        ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), dockFlags);
-
-        // Build a default UE-like layout once.
-        // User can rearrange it; ImGui will persist layout in imgui.ini.
-        static bool built = false;
-        if (!built)
+        // Build the default layout only when no persisted dock node exists.
+        // If ImGui restored the node from imgui_layout.ini, preserve it.
+        if (ImGui::DockBuilderGetNode(dockId) == nullptr)
         {
-            built = true;
+            ImGui::DockBuilderAddNode(
+                dockId,
+                ImGuiDockNodeFlags_DockSpace | dockFlags);
 
-            ImGui::DockBuilderRemoveNode(dockId);
-            ImGui::DockBuilderAddNode(dockId, ImGuiDockNodeFlags_DockSpace | dockFlags);
-            ImGui::DockBuilderSetNodeSize(dockId, viewport->Size);
+            ImGui::DockBuilderSetNodeSize(
+                dockId,
+                viewport->Size);
 
             // Split: left (Level Editor), right (renderer tools stack).
             ImGuiID dockLeft = 0;
             ImGuiID dockRight = 0;
-            ImGui::DockBuilderSplitNode(dockId, ImGuiDir_Left, 0.52f, &dockLeft, &dockRight);
+
+            ImGui::DockBuilderSplitNode(
+                dockId,
+                ImGuiDir_Left,
+                0.52f,
+                &dockLeft,
+                &dockRight);
 
             ImGuiID dockRightTop = 0;
             ImGuiID dockRightBottom = 0;
-            ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Up, 0.58f, &dockRightTop, &dockRightBottom);
+
+            ImGui::DockBuilderSplitNode(
+                dockRight,
+                ImGuiDir_Up,
+                0.58f,
+                &dockRightTop,
+                &dockRightBottom);
 
             ImGuiID dockRightBottomLeft = 0;
             ImGuiID dockRightBottomRight = 0;
-            ImGui::DockBuilderSplitNode(dockRightBottom, ImGuiDir_Left, 0.52f, &dockRightBottomLeft, &dockRightBottomRight);
+
+            ImGui::DockBuilderSplitNode(
+                dockRightBottom,
+                ImGuiDir_Left,
+                0.52f,
+                &dockRightBottomLeft,
+                &dockRightBottomRight);
 
             ImGui::DockBuilderDockWindow("Level Editor", dockLeft);
             ImGui::DockBuilderDockWindow("Animation Graph", dockLeft);
             ImGui::DockBuilderDockWindow("Animation Runtime", dockLeft);
-            ImGui::DockBuilderDockWindow("Renderer / Shadows", dockRightTop);
-            ImGui::DockBuilderDockWindow("Performance / Profiler", dockRightTop);
-            ImGui::DockBuilderDockWindow("Reflections", dockRightBottomLeft);
-            ImGui::DockBuilderDockWindow("Lights", dockRightBottomLeft);
+
+            ImGui::DockBuilderDockWindow(
+                "Renderer / Shadows",
+                dockRightTop);
+
+            ImGui::DockBuilderDockWindow(
+                "Performance / Profiler",
+                dockRightTop);
+
+            ImGui::DockBuilderDockWindow(
+                "Reflections",
+                dockRightBottomLeft);
+
+            ImGui::DockBuilderDockWindow(
+                "Lights",
+                dockRightBottomLeft);
 
             ImGui::DockBuilderFinish(dockId);
         }
+
+        ImGui::DockSpace(
+            dockId,
+            ImVec2(0.0f, 0.0f),
+            dockFlags);
 
         ImGui::End();
     }

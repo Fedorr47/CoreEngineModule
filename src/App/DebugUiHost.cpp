@@ -20,6 +20,21 @@ import std;
 namespace appUi
 {
 #if defined(CORE_USE_DX12)
+    const std::string& GetImGuiLayoutPath()
+    {
+        static const std::string path = []
+        {
+            const std::filesystem::path directory =
+                std::filesystem::path("Saved") / "Editor";
+
+            std::filesystem::create_directories(directory);
+
+            return (directory / "imgui_layout.ini").string();
+        }();
+
+        return path;
+    }
+    
     void InitializeImGui(
         appWin32::AppShellContext& shell,
         HWND hwnd,
@@ -30,12 +45,18 @@ namespace appUi
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
-        ImGui_ImplWin32_Init(hwnd);
-        device.InitImGui(hwnd, backbufferCount, backbufferFormat);
-        shell.imguiInitialized = true;
 
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        
+        // ImGui keeps this pointer for the lifetime of the context,
+        // so the backing string must have stable storage.
+        io.IniFilename = GetImGuiLayoutPath().c_str();
+
+        ImGui_ImplWin32_Init(hwnd);
+        device.InitImGui(hwnd, backbufferCount, backbufferFormat);
+
+        shell.imguiInitialized = true;
     }
 
     void ShutdownImGui(appWin32::AppShellContext& shell, rhi::IRHIDevice& device)
@@ -44,7 +65,13 @@ namespace appUi
         {
             return;
         }
-
+        
+        const ImGuiIO& io = ImGui::GetIO();
+        if (io.IniFilename != nullptr)
+        {
+            ImGui::SaveIniSettingsToDisk(io.IniFilename);
+        }
+        
         device.ShutdownImGui();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
