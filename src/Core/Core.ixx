@@ -44,6 +44,7 @@ export import :gameplay_graph_assets;
 export import :ai_decision_contracts;
 export import :gameplay_route;
 export import :ai_planner;
+export import :ai_plan_execution;
 export import :gameplay_route_follower;
 export import :gameplay_traversal_link;
 export import :gameplay_traversal_link_registry;
