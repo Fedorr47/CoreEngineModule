@@ -49,22 +49,25 @@ export namespace rendern
         const GameplayKeyboardMouseBindings& bindings,
         GameplayInputIntentComponent& outIntent)
     {
-        if (!input.hasFocus || input.capture.captureKeyboard)
+        if (!input.hasFocus)
         {
             return;
         }
         
-        float moveX = 0.0f;
-        float moveY = 0.0f;
-        ReadGameplayAxisFromKeys(input, bindings.moveX, moveX);
-        ReadGameplayAxisFromKeys(input, bindings.moveY, moveY);
-        [[maybe_unused]] const float moveMagnitude = NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
-
-        outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
+        if (!input.capture.captureKeyboard)
+        {
+            float moveX = 0.0f;
+            float moveY = 0.0f;
+            ReadGameplayAxisFromKeys(input, bindings.moveX, moveX);
+            ReadGameplayAxisFromKeys(input, bindings.moveY, moveY);
+            [[maybe_unused]] const float moveMagnitude = NormalizeGameplayMoveAxis(moveX, moveY, outIntent.moveX, outIntent.moveY);
+            outIntent.runHeld = ReadGameplayHeldButton(input, bindings.run);
+        }
         for (const GameplayActionKeyBinding& binding : bindings.actions)
         {
             if (binding.action.IsValid() &&
-                    binding.key != 0 && input.KeyPressed(binding.key))
+                !(IsGameplayMouseButton(binding.key) ? input.capture.captureMouse : input.capture.captureKeyboard) 
+                && binding.key != 0 && input.KeyPressed(binding.key))
             {
                 AddGameplayActionIntent(outIntent.actionIntents, binding.action);
             }

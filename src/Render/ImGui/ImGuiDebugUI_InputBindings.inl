@@ -9,6 +9,8 @@ namespace rendern::ui
             static const std::vector<InputBindingKeyChoice> choices = []
             {
                 std::vector<InputBindingKeyChoice> result{
+                    { kGameplayMouseLeft, "Mouse Left" }, { kGameplayMouseRight, "Mouse Right (Reserved for look)" },
+                    { kGameplayMouseMiddle, "Mouse Middle" }, { kGameplayMouseX1, "Mouse X1" }, { kGameplayMouseX2, "Mouse X2" },
                     { 0x20, "Space" }, { 0x10, "Shift" }, { 0x11, "Control" },
                     { 0x0D, "Enter" }, { 0x1B, "Escape" }, { 0x09, "Tab" }, { 0x2E, "Delete" }
                 };
@@ -61,7 +63,7 @@ namespace rendern::ui
         static GameplayRuntime* stateRuntime = nullptr;
         static GameplayKeyboardMouseBindings working{};
         static bool dirty = false;
-        static int newKey = 0x78;
+        static int newKey = kGameplayMouseLeft;
         static GameplayActionId newAction = kGameplayActionLightAttack;
         static std::string status{};
         static GameplayActionDefinitions workingDefinitions{};
@@ -173,10 +175,12 @@ namespace rendern::ui
         }
         ImGui::EndDisabled();
 
-        ImGui::SeparatorText("Keyboard Actions");
-        if (ImGui::BeginTable("KeyboardActions", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+        ImGui::SeparatorText("Keyboard / Mouse Actions");
+        if (ImGui::BeginTable("KeyboardMouseActions", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
         {
-            ImGui::TableSetupColumn("Key"); ImGui::TableSetupColumn("Action"); ImGui::TableSetupColumn("##Remove");
+            ImGui::TableSetupColumn("Input"); 
+            ImGui::TableSetupColumn("Action");
+            ImGui::TableSetupColumn("##Remove");
             ImGui::TableHeadersRow();
             for (std::size_t index = 0; index < working.actions.size();)
             {
@@ -199,19 +203,29 @@ namespace rendern::ui
         if (ImGui::BeginCombo("Action", InputBindingActionName(newAction)))
         {
             for (const GameplayActionDefinition& definition : workingDefinitions)
-                if (ImGui::Selectable(InputBindingActionName(definition.id), definition.id == newAction)) newAction = definition.id;
+            {
+                if (ImGui::Selectable(InputBindingActionName(definition.id), definition.id == newAction))
+                {
+                    newAction = definition.id;
+                }
+            }
             ImGui::EndCombo();
         }
-        if (ImGui::BeginCombo("Key", InputBindingKeyName(newKey)))
+        if (ImGui::BeginCombo("Input", InputBindingKeyName(newKey)))
         {
             for (const auto& choice : InputBindingKeyChoices())
             {
                 const bool reserved = IsGameplayActionBindingKeyReserved(choice.key);
                 ImGui::BeginDisabled(reserved);
-                if (ImGui::Selectable(InputBindingKeyName(choice.key), choice.key == newKey) && !reserved) newKey = choice.key;
+                if (ImGui::Selectable(InputBindingKeyName(choice.key), choice.key == newKey) && !reserved)
+                {
+                    newKey = choice.key;
+                }
                 ImGui::EndDisabled();
                 if (reserved && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip("Reserved for an application hotkey.");
+                {
+                    ImGui::SetTooltip(choice.key == kGameplayMouseRight ? "Reserved for relative camera look." : "Reserved for an application hotkey.");
+                }
             }
             ImGui::EndCombo();
         }
@@ -225,9 +239,9 @@ namespace rendern::ui
                 {
                     return binding.key == candidateKey;
                 });
-            if (IsGameplayActionBindingKeyReserved(newKey)) status = "F5, F6, and F7 are reserved application hotkeys.";
-            else if (newKey == 0 || !newAction.IsValid()) status = "Choose a valid key and action.";
-            else if (conflict != working.actions.end()) status = "That key is already bound. Remove its binding first.";
+            if (IsGameplayActionBindingKeyReserved(newKey)) {status = "That input is reserved for an application hotkey or camera look.";}
+            else if (newKey == 0 || !newAction.IsValid()) {status = "Choose a valid input and action.";}
+            else if (conflict != working.actions.end()) {status = "That input is already bound. Remove its binding first.";}
             else { working.actions.push_back({ newKey, newAction }); dirty = true; status = "Binding added to working copy."; }
         }
         const bool canApplyBindings = dirty && !actionsDirty;
@@ -246,8 +260,7 @@ namespace rendern::ui
 
             if (containsReservedKey)
             {
-                status =
-                    "Cannot apply: remove bindings that use reserved F5, F6, or F7 keys.";
+                status = "Cannot apply: remove bindings that use reserved application inputs.";
             }
             else
             {
@@ -257,11 +270,11 @@ namespace rendern::ui
                 if (rebound)
                 {
                     dirty = false;
-                    status = "Applied to the controlled entity.";
+                    status = "Saved and applied (or stored for the next controlled entity).";
                 }
                 else
                 {
-                    status = "Failed to apply keyboard bindings.";
+                    status = "Failed to apply keyboard/mouse bindings.";
                 }
             }
         }

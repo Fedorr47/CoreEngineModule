@@ -564,3 +564,37 @@ inline void WriteGameplayActionsSection_(std::ostringstream& ss, const LevelAsse
 	}
 	if (!level.gameplayActionAnimationBindings.empty()) ss << "\n  "; ss << "],\n";
 }
+
+inline std::string GameplayInputKeyName_(const int key)
+{
+	if ((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9')) return std::string(1, static_cast<char>(key));
+	switch (key)
+	{
+	case 0x20: return "Space"; case 0x10: return "Shift"; case 0x11: return "Control";
+	case 0x0D: return "Enter"; case 0x1B: return "Escape"; case 0x09: return "Tab"; case 0x2E: return "Delete";
+	case kGameplayMouseLeft: return "MouseLeft"; case kGameplayMouseRight: return "MouseRight";
+	case kGameplayMouseMiddle: return "MouseMiddle"; case kGameplayMouseX1: return "MouseX1"; case kGameplayMouseX2: return "MouseX2";
+	default: break;
+	}
+	if (key >= 0x70 && key <= 0x7B) return "F" + std::to_string(key - 0x6F);
+	throw std::runtime_error("Level JSON: cannot serialize unknown gameplay input key " + std::to_string(key) + ".");
+}
+
+inline void WriteGameplayInputSection_(std::ostringstream& ss, const LevelAsset& level)
+{
+	const auto& bindings = level.gameplayKeyboardMouseBindings;
+	ss << "  \"gameplayKeyboardMouseBindings\": {\n";
+	ss << "    \"moveX\": {\"negative\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.moveX.negativeKey));
+	ss << ", \"positive\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.moveX.positiveKey)); ss << "},\n";
+	ss << "    \"moveY\": {\"negative\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.moveY.negativeKey));
+	ss << ", \"positive\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.moveY.positiveKey)); ss << "},\n";
+	ss << "    \"run\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.run.key)); ss << ",\n    \"actions\": [";
+	for (std::size_t i = 0; i < bindings.actions.size(); ++i)
+	{
+		if (i == 0) ss << "\n"; else ss << ",\n";
+		ss << "      {\"input\": "; WriteJsonEscaped(ss, GameplayInputKeyName_(bindings.actions[i].key));
+		ss << ", \"actionId\": "; WriteJsonEscaped(ss, bindings.actions[i].action.value); ss << "}";
+	}
+	if (!bindings.actions.empty()) ss << "\n    ";
+	ss << "]\n  },\n";
+}

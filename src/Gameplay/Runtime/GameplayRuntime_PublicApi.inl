@@ -10,7 +10,8 @@
                 ? MakeDefaultGameplayActionDefinitions() : levelAsset.gameplayActions;
             actionAnimationBindings_ = levelAsset.gameplayActionAnimationBindings.empty()
                 ? MakeDefaultGameplayActionAnimationBindings() : levelAsset.gameplayActionAnimationBindings;
-
+            keyboardMouseBindings_ = levelAsset.gameplayKeyboardMouseBindings;
+            
             GameplayUpdateContext ctx{};
             ctx.mode = GameplayRuntimeMode::Editor;
             ctx.levelAsset = &levelAsset;
@@ -93,6 +94,14 @@
         bool GameplayRuntime::ApplyKeyboardMouseBindings(const GameplayKeyboardMouseBindings& bindings)
         {
             CORE_ASSERT_RUNTIME_THREAD();
+            if (!IsSupportedGameplayKeyboardKey(bindings.moveX.negativeKey) ||
+                !IsSupportedGameplayKeyboardKey(bindings.moveX.positiveKey) ||
+                !IsSupportedGameplayKeyboardKey(bindings.moveY.negativeKey) ||
+                !IsSupportedGameplayKeyboardKey(bindings.moveY.positiveKey) ||
+                !IsSupportedGameplayKeyboardKey(bindings.run.key))
+            {
+                return false;
+            }
             const bool containsReservedKey = std::any_of(bindings.actions.begin(), bindings.actions.end(),
                 [](const GameplayActionKeyBinding& binding)
                 {
@@ -101,6 +110,20 @@
             if (containsReservedKey)
             {
                 return false;
+            }
+            for (std::size_t i = 0; i < bindings.actions.size(); ++i)
+            {
+                if (!IsSupportedGameplayActionInput(bindings.actions[i].key))
+                {
+                    return false;
+                }
+                for (std::size_t j = i + 1; j < bindings.actions.size(); ++j)
+                {
+                    if (bindings.actions[i].key == bindings.actions[j].key)
+                    {
+                        return false;
+                    }
+                }
             }
             std::string diagnostic;
             for (const GameplayActionKeyBinding& binding : bindings.actions)
@@ -111,9 +134,17 @@
                 }
             }
             keyboardMouseBindings_ = bindings;
+            if (currentLevelAsset_ != nullptr)
+            {
+                currentLevelAsset_->gameplayKeyboardMouseBindings = bindings;
+                if (!currentLevelAsset_->sourcePath.empty())
+                {
+                    SaveLevelAssetToJson(currentLevelAsset_->sourcePath, *currentLevelAsset_);
+                }
+            }
             if (controlledEntity_ == kNullEntity || !world_.IsEntityValid(controlledEntity_))
             {
-                return false;
+                return true; // Valid configuration is stored for the next controlled entity.
             }
             BindKeyboardMouseIntentSource(controlledEntity_, keyboardMouseBindings_);
             return true;

@@ -500,6 +500,7 @@ set(COMMON_MODULES
         Gameplay/Character/GameplayCharacterComponents.cppm
         Gameplay/Camera/GameplayCameraComponents.cppm
         Gameplay/Action/GameplayActionComponents.cppm
+        Gameplay/Input/GameplayInputBindings.cppm
         Gameplay/Animation/GameplayAnimationComponents.cppm
         Gameplay/GameplayWorld.cppm
         Gameplay/GameplayWorld_impl.cppm

@@ -137,6 +137,7 @@ struct LevelAsset
 
 	GameplayActionDefinitions gameplayActions;
 	GameplayActionAnimationBindings gameplayActionAnimationBindings;
+	GameplayKeyboardMouseBindings gameplayKeyboardMouseBindings{};
 
 	std::vector<LevelNode> nodes;
 };

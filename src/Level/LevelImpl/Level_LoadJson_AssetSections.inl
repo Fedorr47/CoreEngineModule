@@ -402,3 +402,84 @@ inline void ParseGameplayActionsSection_(LevelAsset& out, const JsonObject& obje
 		!ValidateGameplayActionAnimationBindings(out.gameplayActions, out.gameplayActionAnimationBindings, diagnostic))
 		throw std::runtime_error("Level JSON: " + diagnostic);
 }
+
+inline int ParseGameplayInputKey_(const std::string& value)
+{
+	if (value.size() == 1 && ((value[0] >= 'A' && value[0] <= 'Z') ||
+		(value[0] >= '0' && value[0] <= '9'))) return value[0];
+	if (value == "Space") return 0x20;
+	if (value == "Shift") return 0x10;
+	if (value == "Control") return 0x11;
+	if (value == "Enter") return 0x0D;
+	if (value == "Escape") return 0x1B;
+	if (value == "Tab") return 0x09;
+	if (value == "Delete") return 0x2E;
+	if (value == "MouseLeft") return kGameplayMouseLeft;
+	if (value == "MouseRight") return kGameplayMouseRight;
+	if (value == "MouseMiddle") return kGameplayMouseMiddle;
+	if (value == "MouseX1") return kGameplayMouseX1;
+	if (value == "MouseX2") return kGameplayMouseX2;
+	if (value.size() >= 2 && value[0] == 'F')
+	{
+		int number = 0;
+		for (std::size_t i = 1; i < value.size(); ++i)
+		{
+			if (value[i] < '0' || value[i] > '9')
+				throw std::runtime_error("Level JSON: unknown gameplay input identifier '" + value + "'.");
+			number = number * 10 + (value[i] - '0');
+		}
+		if (number >= 1 && number <= 12 && value == "F" + std::to_string(number)) return 0x6F + number;
+	}
+	throw std::runtime_error("Level JSON: unknown gameplay input identifier '" + value + "'.");
+}
+
+inline void ParseGameplayInputSection_(LevelAsset& out, const JsonObject& object)
+{
+	const JsonValue* sectionValue = TryGet(object, "gameplayKeyboardMouseBindings");
+	if (sectionValue == nullptr) return; // Default member value preserves old levels.
+	const JsonObject& section = sectionValue->AsObject();
+	const JsonObject& moveX = section.at("moveX").AsObject();
+	const JsonObject& moveY = section.at("moveY").AsObject();
+	out.gameplayKeyboardMouseBindings.moveX = {
+		ParseGameplayInputKey_(GetStringOpt(moveX, "negative")),
+		ParseGameplayInputKey_(GetStringOpt(moveX, "positive")) };
+	out.gameplayKeyboardMouseBindings.moveY = {
+		ParseGameplayInputKey_(GetStringOpt(moveY, "negative")),
+		ParseGameplayInputKey_(GetStringOpt(moveY, "positive")) };
+	out.gameplayKeyboardMouseBindings.run.key = ParseGameplayInputKey_(GetStringOpt(section, "run"));
+	const auto validateKeyboardBinding = [](const int key, const std::string_view field)
+	{
+		if (!IsSupportedGameplayKeyboardKey(key))
+			throw std::runtime_error("Level JSON: gameplay input '" + std::string(field) +
+				"' must be a supported keyboard key.");
+		if (IsGameplayActionBindingKeyReserved(key))
+			throw std::runtime_error("Level JSON: gameplay input '" + std::string(field) +
+				"' uses a reserved application hotkey.");
+	};
+	validateKeyboardBinding(out.gameplayKeyboardMouseBindings.moveX.negativeKey, "moveX.negative");
+	validateKeyboardBinding(out.gameplayKeyboardMouseBindings.moveX.positiveKey, "moveX.positive");
+	validateKeyboardBinding(out.gameplayKeyboardMouseBindings.moveY.negativeKey, "moveY.negative");
+	validateKeyboardBinding(out.gameplayKeyboardMouseBindings.moveY.positiveKey, "moveY.positive");
+	validateKeyboardBinding(out.gameplayKeyboardMouseBindings.run.key, "run");
+	out.gameplayKeyboardMouseBindings.actions.clear();
+	for (const JsonValue& value : section.at("actions").AsArray())
+	{
+		const JsonObject& binding = value.AsObject();
+		out.gameplayKeyboardMouseBindings.actions.push_back({
+			ParseGameplayInputKey_(GetStringOpt(binding, "input")),
+			GameplayActionId{ GetStringOpt(binding, "actionId") } });
+	}
+	std::string diagnostic;
+	for (std::size_t i = 0; i < out.gameplayKeyboardMouseBindings.actions.size(); ++i)
+	{
+		const auto& binding = out.gameplayKeyboardMouseBindings.actions[i];
+		if (IsGameplayActionBindingKeyReserved(binding.key))
+			throw std::runtime_error("Level JSON: gameplay input uses a reserved application input.");
+		if (!ValidateGameplayInputAction(out.gameplayActions, binding.action, diagnostic))
+			throw std::runtime_error("Level JSON: " + diagnostic);
+		for (std::size_t j = i + 1; j < out.gameplayKeyboardMouseBindings.actions.size(); ++j)
+			if (binding.key == out.gameplayKeyboardMouseBindings.actions[j].key)
+				throw std::runtime_error("Level JSON: duplicate gameplay input binding '" +
+					GetStringOpt(section.at("actions").AsArray()[i].AsObject(), "input") + "'.");
+	}
+}

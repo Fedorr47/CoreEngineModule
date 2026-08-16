@@ -16,6 +16,7 @@ LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath)
 	out.sourcePath = std::string(levelRelativePath);
 
 	ParseGameplayActionsSection_(out, jsonObject);
+	ParseGameplayInputSection_(out, jsonObject);
 	ParseMeshSection_(out, jsonObject);
 	ParseModelSection_(out, jsonObject);
 	ParseTextureSection_(out, jsonObject);

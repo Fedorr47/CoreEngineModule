@@ -13,6 +13,7 @@ import :input;
 import :level;
 import :scene;
 import :animation_controller;
+export import :gameplay_input_bindings;
 
 export namespace rendern
 {
@@ -51,40 +52,6 @@ export namespace rendern
         LevelAsset* levelAsset{ nullptr };
         LevelInstance* levelInstance{ nullptr };
         Scene* scene{ nullptr };
-    };
-
-    struct GameplayAxisKeyBinding
-    {
-        int negativeKey{ 0 };
-        int positiveKey{ 0 };
-    };
-
-    struct GameplayButtonKeyBinding
-    {
-        int key{ 0 };
-    };
-    
-    struct GameplayActionKeyBinding
-    {
-        int key{ 0 };
-        GameplayActionId action{};
-    };
-
-    [[nodiscard]] constexpr bool IsGameplayActionBindingKeyReserved(const int key) noexcept
-    {
-        return key == 0x74 || key == 0x75 || key == 0x76;
-    }
-
-    struct GameplayKeyboardMouseBindings
-    {
-        GameplayAxisKeyBinding moveX{ 'D', 'A' };
-        GameplayAxisKeyBinding moveY{ 'S', 'W' };
-        GameplayButtonKeyBinding run{ 0x10 };
-        std::vector<GameplayActionKeyBinding> actions{
-                { 0x20, kGameplayActionJump },
-                { 0x78, kGameplayActionLightAttack },
-                { 'E', kGameplayActionInteract }
-        };
     };
 
     using GameplayIntentSourceCallback = std::function<void(

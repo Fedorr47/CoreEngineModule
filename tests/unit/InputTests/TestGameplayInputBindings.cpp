@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+#include <filesystem>
+#include <fstream>
 
 #include "TestSupport/TestThreadAffinity.h"
 
@@ -22,13 +24,115 @@ namespace
     }
 }
 
-TEST(GameplayInputBindings, DefaultMappingsPreserveJumpAttackAndInteract)
+TEST(GameplayInputBindings, DefaultsLeaveLightAttackUnbound)
 {
     GameplayKeyboardMouseBindings defaults{};
-    const auto intent = ReadPressed(defaults.actions, { 0x20, 0x78, 'E' });
+    const auto intent = ReadPressed(defaults.actions, { 0x20, 'F', 'E' });
     EXPECT_TRUE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionJump));
-    EXPECT_TRUE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionLightAttack));
+    EXPECT_FALSE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionLightAttack));
     EXPECT_TRUE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionInteract));
+}
+
+TEST(GameplayInputBindings, MousePressedEdgeAndDeviceCaptureAreIndependent)
+{
+    GameplayKeyboardMouseBindings bindings{};
+    bindings.actions = { { kGameplayMouseLeft, kGameplayActionLightAttack }, { 'J', kGameplayActionJump } };
+    InputState input{};
+    input.keyPressed[kGameplayMouseLeft] = 1;
+    input.keyPressed['J'] = 1;
+    GameplayInputIntentComponent intent{};
+    input.capture.captureMouse = true;
+    ReadKeyboardMouseGameplayIntent(input, bindings, intent);
+    EXPECT_FALSE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionLightAttack));
+    EXPECT_TRUE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionJump));
+
+    intent = {};
+    input.capture = { true, false };
+    ReadKeyboardMouseGameplayIntent(input, bindings, intent);
+    EXPECT_TRUE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionLightAttack));
+    EXPECT_FALSE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionJump));
+
+    intent = {};
+    input.capture = {};
+    input.keyPressed[kGameplayMouseLeft] = 0;
+    input.keyDown[kGameplayMouseLeft] = 1;
+    ReadKeyboardMouseGameplayIntent(input, bindings, intent);
+    EXPECT_FALSE(HasGameplayActionIntent(intent.actionIntents, kGameplayActionLightAttack));
+}
+
+TEST(GameplayInputBindings, LevelBindingsRoundTripKeyboardAndMouse)
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "gameplay_input_roundtrip.level.json";
+    LevelAsset source{};
+    source.name = "InputRoundTrip";
+    const GameplayActionId punching{ "Combat.PunchingAttack" };
+    source.gameplayActions = MakeDefaultGameplayActionDefinitions();
+    source.gameplayActions.push_back({ punching, GameplayActionPolicyGroup::Combat,
+        GameplayActionRequestSource::Combat, GameplayActionExecutorKind::CombatAttack, 10, 0 });
+    source.gameplayKeyboardMouseBindings.actions = {
+        { 'F', punching }, { kGameplayMouseLeft, punching } };
+    SaveLevelAssetToJson(path.string(), source);
+    const LevelAsset loaded = LoadLevelAssetFromJson(path.string());
+    ASSERT_EQ(loaded.gameplayKeyboardMouseBindings.actions.size(), 2u);
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[0].key, 'F');
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[1].key, kGameplayMouseLeft);
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[1].action, punching);
+    std::filesystem::remove(path);
+}
+
+TEST(GameplayInputBindings, PersistedMouseMovementAndRunBindingsAreRejected)
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "gameplay_input_invalid_keyboard_fields.level.json";
+    LevelAsset source{};
+    source.gameplayKeyboardMouseBindings.moveX.negativeKey = kGameplayMouseLeft;
+    SaveLevelAssetToJson(path.string(), source);
+    EXPECT_THROW(static_cast<void>(LoadLevelAssetFromJson(path.string())), std::runtime_error);
+
+    source.gameplayKeyboardMouseBindings = {};
+    source.gameplayKeyboardMouseBindings.run.key = kGameplayMouseMiddle;
+    SaveLevelAssetToJson(path.string(), source);
+    EXPECT_THROW(static_cast<void>(LoadLevelAssetFromJson(path.string())), std::runtime_error);
+
+    source.gameplayKeyboardMouseBindings = {};
+    source.gameplayKeyboardMouseBindings.run.key = 0x74;
+    SaveLevelAssetToJson(path.string(), source);
+    EXPECT_THROW(static_cast<void>(LoadLevelAssetFromJson(path.string())), std::runtime_error);
+    std::filesystem::remove(path);
+}
+
+TEST(GameplayInputBindings, PersistedKeyboardMovementAndMouseActionLoadSuccessfully)
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "gameplay_input_valid_devices.level.json";
+    LevelAsset source{};
+    source.gameplayKeyboardMouseBindings.moveX = { 'A', 'D' };
+    source.gameplayKeyboardMouseBindings.moveY = { 'S', 'W' };
+    source.gameplayKeyboardMouseBindings.run.key = 0x10;
+    source.gameplayKeyboardMouseBindings.actions = { { kGameplayMouseLeft, kGameplayActionLightAttack } };
+    SaveLevelAssetToJson(path.string(), source);
+    const LevelAsset loaded = LoadLevelAssetFromJson(path.string());
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.moveX.negativeKey, 'A');
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.moveX.positiveKey, 'D');
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.moveY.negativeKey, 'S');
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.moveY.positiveKey, 'W');
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.run.key, 0x10);
+    ASSERT_EQ(loaded.gameplayKeyboardMouseBindings.actions.size(), 1u);
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[0].key, kGameplayMouseLeft);
+    std::filesystem::remove(path);
+}
+
+TEST(GameplayInputBindings, LevelWithoutBindingsUsesDefaults)
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "gameplay_input_legacy.level.json";
+    {
+        std::ofstream file(path);
+        file << "{\"name\":\"Legacy\"}";
+    }
+    const LevelAsset loaded = LoadLevelAssetFromJson(path.string());
+    ASSERT_FALSE(loaded.gameplayKeyboardMouseBindings.actions.empty());
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[0].key, 0x20);
+    ASSERT_EQ(loaded.gameplayKeyboardMouseBindings.actions.size(), 2u);
+    EXPECT_EQ(loaded.gameplayKeyboardMouseBindings.actions[1].key, 'E');
+    std::filesystem::remove(path);
 }
 
 TEST(GameplayInputBindings, ConfiguredMappingsAndUnboundKeysAreDataDriven)
@@ -80,6 +184,16 @@ TEST(GameplayInputBindings, ApplicationHotkeysAreReservedForAuthoring)
     EXPECT_TRUE(IsGameplayActionBindingKeyReserved(0x76));
     EXPECT_FALSE(IsGameplayActionBindingKeyReserved(0x77));
     EXPECT_FALSE(IsGameplayActionBindingKeyReserved(0x78));
+    EXPECT_TRUE(IsGameplayActionBindingKeyReserved(kGameplayMouseRight));
+    EXPECT_FALSE(IsGameplayActionBindingKeyReserved(kGameplayMouseLeft));
+}
+
+TEST(GameplayInputBindings, MovementAndRunSupportKeyboardKeysOnly)
+{
+    EXPECT_TRUE(IsSupportedGameplayKeyboardKey('W'));
+    EXPECT_FALSE(IsSupportedGameplayKeyboardKey(kGameplayMouseLeft));
+    EXPECT_TRUE(IsSupportedGameplayActionInput('F'));
+    EXPECT_TRUE(IsSupportedGameplayActionInput(kGameplayMouseLeft));
 }
 
 TEST(GameplayInputBindings, RuntimeApplyReplacesCapturedBindings)
@@ -96,6 +210,11 @@ TEST(GameplayInputBindings, RuntimeApplyReplacesCapturedBindings)
     Scene scene{};
     runtime.Initialize(levelAsset, levelInstance, scene);
 
+    GameplayKeyboardMouseBindings mouseMovement{};
+    mouseMovement.moveX.positiveKey = kGameplayMouseLeft;
+    EXPECT_FALSE(runtime.ApplyKeyboardMouseBindings(mouseMovement));
+    EXPECT_EQ(runtime.GetKeyboardMouseBindings().moveX.positiveKey, 'A');
+    
     GameplayUpdateContext context{};
     context.mode = GameplayRuntimeMode::Editor;
     context.levelAsset = &levelAsset;
@@ -111,7 +230,12 @@ TEST(GameplayInputBindings, RuntimeApplyReplacesCapturedBindings)
 
     GameplayKeyboardMouseBindings first{};
     first.actions = { { 'J', kGameplayActionJump } };
+    const std::filesystem::path persistedPath = std::filesystem::temp_directory_path() / "gameplay_input_apply.level.json";
+    levelAsset.sourcePath = persistedPath.string();
     ASSERT_TRUE(runtime.ApplyKeyboardMouseBindings(first));
+    const LevelAsset persisted = LoadLevelAssetFromJson(persistedPath.string());
+    ASSERT_EQ(persisted.gameplayKeyboardMouseBindings.actions.size(), 1u);
+    EXPECT_EQ(persisted.gameplayKeyboardMouseBindings.actions[0].key, 'J');
 
     InputState input{};
     context.mode = GameplayRuntimeMode::Game;
@@ -134,6 +258,7 @@ TEST(GameplayInputBindings, RuntimeApplyReplacesCapturedBindings)
     input.keyPressed[static_cast<std::uint8_t>('K')] = 1;
     runtime.PrePhysicsUpdate(context);
     EXPECT_TRUE(HasGameplayActionIntent(intent->actionIntents, kGameplayActionJump));
+    std::filesystem::remove(persistedPath);
 }
 
 TEST(GameplayInputBindings, ArbitrarySemanticActionHasNoMaskLimitAndValidates)
