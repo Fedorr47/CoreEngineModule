@@ -338,6 +338,69 @@
         }
          ImGui::SetNextItemWidth(180.0f); InputTextString("##newTag", editor.newTag); ImGui::SameLine();
         if (ImGui::Button("Add Tag") && !editor.newTag.empty()) { selectedState->tags.push_back(std::move(editor.newTag)); editor.newTag.clear(); changed = true; }
+        ImGui::SeparatorText("State Notifies");
+		bool sortNotifies = false;
+		for (std::size_t index = 0; index < selectedState->notifies.size(); ++index)
+		{
+			rendern::AnimationNotifyDesc& notify = selectedState->notifies[index];
+			ImGui::PushID(static_cast<int>(index));
+			ImGui::SetNextItemWidth(90.0f);
+			if (ImGui::InputFloat("##notifyTime", &notify.timeNormalized, 0.0f, 0.0f, "%.3f"))
+			{
+				notify.timeNormalized = std::isfinite(notify.timeNormalized)
+					? std::clamp(notify.timeNormalized, 0.0f, 1.0f)
+					: 0.0f;
+				changed = true;
+			}
+			sortNotifies |= ImGui::IsItemDeactivatedAfterEdit();
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(180.0f);
+			changed |= InputTextString("##notifyId", notify.id);
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Remove"))
+			{
+				selectedState->notifies.erase(selectedState->notifies.begin() + static_cast<std::ptrdiff_t>(index));
+				--index;
+				changed = true;
+			}
+			ImGui::PopID();
+		}
+		if (sortNotifies)
+		{
+			std::stable_sort(selectedState->notifies.begin(), selectedState->notifies.end(),
+				[](const auto& left, const auto& right) { return left.timeNormalized < right.timeNormalized; });
+		}
+		ImGui::SetNextItemWidth(90.0f);
+		editor.newNotifyTimeNormalized = std::isfinite(editor.newNotifyTimeNormalized)
+			? std::clamp(editor.newNotifyTimeNormalized, 0.0f, 1.0f)
+			: 0.0f;
+		if (ImGui::InputFloat("##newNotifyTime", &editor.newNotifyTimeNormalized, 0.0f, 0.0f, "%.3f"))
+		{
+			editor.newNotifyTimeNormalized = std::isfinite(editor.newNotifyTimeNormalized)
+				? std::clamp(editor.newNotifyTimeNormalized, 0.0f, 1.0f)
+				: 0.0f;
+		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(180.0f);
+		InputTextString("##newNotifyId", editor.newNotifyId);
+		ImGui::SameLine();
+		ImGui::BeginDisabled(editor.newNotifyId.empty());
+        const bool canAddNotify = !editor.newNotifyId.empty();
+        if (ImGui::Button("Add Notify") && canAddNotify)
+		{
+			editor.newNotifyTimeNormalized = std::isfinite(editor.newNotifyTimeNormalized)
+				? std::clamp(editor.newNotifyTimeNormalized, 0.0f, 1.0f)
+				: 0.0f;
+			selectedState->notifies.push_back(rendern::AnimationNotifyDesc{
+				.id = std::move(editor.newNotifyId),
+				.timeNormalized = editor.newNotifyTimeNormalized });
+			std::stable_sort(selectedState->notifies.begin(), selectedState->notifies.end(),
+				[](const auto& left, const auto& right) { return left.timeNormalized < right.timeNormalized; });
+			editor.newNotifyId.clear();
+			editor.newNotifyTimeNormalized = 0.0f;
+			changed = true;
+		}
+        ImGui::EndDisabled();
 		if (!selectedState->blend1D.empty()) DrawAnimationGraphBlend1DPreview(*selectedState, runtime);
 		if (!selectedState->blend2D.empty()) DrawAnimationGraphBlend2DPreview(*selectedState, runtime, uiState);
 		if (!selectedState->notifies.empty())

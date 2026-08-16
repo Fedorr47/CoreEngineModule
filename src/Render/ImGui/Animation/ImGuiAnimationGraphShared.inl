@@ -418,6 +418,8 @@
 		editor.persistedDiffersFromBound = false;
 		editor.stateRenameSourceName.clear();
         editor.stateNameDraft.clear();
+    editor.newNotifyId.clear();
+    editor.newNotifyTimeNormalized = 0.0f;
         editor.parameterNameDrafts.clear();
 		RebuildAnimationStateEditorContentModes(editor);
 		RebuildControllerEditorTopology(editor);
@@ -432,6 +434,8 @@
 		editor.reloadRequired = editor.persistedDiffersFromBound;
 		editor.stateRenameSourceName.clear();
         editor.stateNameDraft.clear();
+        editor.newNotifyId.clear();
+        editor.newNotifyTimeNormalized = 0.0f;
         editor.parameterNameDrafts.clear();
 		RebuildAnimationStateEditorContentModes(editor);
 		RebuildControllerEditorTopology(editor);

@@ -150,6 +150,10 @@ namespace rendern::ui
             else if (FindGameplayActionDefinition(workingDefinitions, id) != nullptr) status = "Gameplay action ID already exists.";
             else { workingDefinitions.push_back({ id, GameplayActionPolicyGroup::Combat, GameplayActionRequestSource::Combat, GameplayActionExecutorKind::CombatAttack, 10, GameplayActionPolicyGateMask(GameplayActionPolicyGate::RequireGrounded) }); newAction = id; actionsDirty = true; status = "Gameplay action added to working copy."; }
         }
+        const bool inheritedDisabled =
+    (GImGui->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
+
+        assert(!inheritedDisabled);
         ImGui::BeginDisabled(!actionsDirty);
         if (ImGui::Button("Save / Apply Actions"))
         {
@@ -226,24 +230,55 @@ namespace rendern::ui
             else if (conflict != working.actions.end()) status = "That key is already bound. Remove its binding first.";
             else { working.actions.push_back({ newKey, newAction }); dirty = true; status = "Binding added to working copy."; }
         }
-        ImGui::BeginDisabled(!dirty);
+        const bool canApplyBindings = dirty && !actionsDirty;
+
+        ImGui::BeginDisabled(!canApplyBindings);
+
         if (ImGui::Button("Apply"))
         {
-            const bool containsReservedKey = std::any_of(working.actions.begin(), working.actions.end(),
-                [](const GameplayActionKeyBinding& binding) { return IsGameplayActionBindingKeyReserved(binding.key); });
+            const bool containsReservedKey = std::any_of(
+                working.actions.begin(),
+                working.actions.end(),
+                [](const GameplayActionKeyBinding& binding)
+                {
+                    return IsGameplayActionBindingKeyReserved(binding.key);
+                });
+
             if (containsReservedKey)
             {
-                status = "Cannot apply: remove bindings that use reserved F5, F6, or F7 keys.";
+                status =
+                    "Cannot apply: remove bindings that use reserved F5, F6, or F7 keys.";
             }
             else
             {
-                const bool rebound = gameplayRuntime->ApplyKeyboardMouseBindings(working);
-                dirty = false;
-                status = rebound ? "Applied to the controlled entity." : "Saved for the next controlled entity; none is currently available.";
+                const bool rebound =
+                    gameplayRuntime->ApplyKeyboardMouseBindings(working);
+
+                if (rebound)
+                {
+                    dirty = false;
+                    status = "Applied to the controlled entity.";
+                }
+                else
+                {
+                    status = "Failed to apply keyboard bindings.";
+                }
             }
         }
+
         ImGui::EndDisabled();
-        ImGui::SameLine(); ImGui::TextDisabled(dirty ? "Unsaved changes" : "Up to date");
+
+        if (dirty && actionsDirty)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("Apply Gameplay Actions first.");
+        }
+        else
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled(dirty ? "Unsaved changes" : "Up to date");
+        }
+        
         if (!status.empty()) ImGui::TextWrapped("%s", status.c_str());
         ImGui::End();
     }

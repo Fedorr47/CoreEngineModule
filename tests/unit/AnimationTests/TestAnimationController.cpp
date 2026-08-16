@@ -331,6 +331,58 @@ TEST(AnimationController, ParameterTypesAndDefaultsRoundTrip)
     EXPECT_FALSE(loaded.parameters[3].defaultValue.triggerValue);
 }
 
+TEST(AnimationController, StateNotifiesRoundTripInlineAndExternalAssets)
+{
+    test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_notifies") };
+    AnimationControllerAsset controller{ .id = "NotifyRoundTrip", .defaultState = "Attack" };
+    controller.states = { AnimationStateDesc{
+        .name = "Attack",
+        .clipName = "Attack",
+        .notifies = {
+            AnimationNotifyDesc{ .id = "ActionBegin", .timeNormalized = 0.02f },
+            AnimationNotifyDesc{ .id = "ActionEnd", .timeNormalized = 0.95f }
+        } } };
+
+    const std::filesystem::path inlinePath = temp.Path() / "inline.controller.json";
+    SaveAnimationControllerAssetToJson(inlinePath.string(), controller);
+    AnimationControllerAsset loaded = LoadAnimationControllerAssetFromJson(inlinePath.string(), controller.id);
+    ASSERT_EQ(loaded.states[0].notifies.size(), 2u);
+    EXPECT_EQ(loaded.states[0].notifies[0].id, "ActionBegin");
+    EXPECT_FLOAT_EQ(loaded.states[0].notifies[0].timeNormalized, 0.02f);
+    EXPECT_EQ(loaded.states[0].notifies[1].id, "ActionEnd");
+    EXPECT_FLOAT_EQ(loaded.states[0].notifies[1].timeNormalized, 0.95f);
+
+    const std::filesystem::path notifyPath = temp.Path() / "external.notifies.json";
+    const std::filesystem::path controllerPath = temp.Path() / "external.controller.json";
+    controller.notifyAssetPath = notifyPath.string();
+    SaveAnimationControllerAssetToJson(controllerPath.string(), controller);
+    loaded = LoadAnimationControllerAssetFromJson(controllerPath.string(), controller.id);
+    ASSERT_EQ(loaded.states[0].notifies.size(), 2u);
+    EXPECT_EQ(loaded.states[0].notifies[0].id, "ActionBegin");
+    EXPECT_FLOAT_EQ(loaded.states[0].notifies[0].timeNormalized, 0.02f);
+    EXPECT_EQ(loaded.states[0].notifies[1].id, "ActionEnd");
+    EXPECT_FLOAT_EQ(loaded.states[0].notifies[1].timeNormalized, 0.95f);
+}
+
+TEST(AnimationController, StateNotifySaveRejectsMalformedData)
+{
+    test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_invalid_notify") };
+    const std::filesystem::path controllerPath = temp.Path() / "controller.json";
+    const std::filesystem::path notifyPath = temp.Path() / "notifies.json";
+    WriteTestAssetFile(temp.Path(), "controller.json", "controller sentinel");
+    WriteTestAssetFile(temp.Path(), "notifies.json", "notify sentinel");
+    AnimationControllerAsset controller{ .id = "InvalidNotify", .defaultState = "Attack" };
+    controller.notifyAssetPath = notifyPath.string();
+    controller.states = { AnimationStateDesc{
+        .name = "Attack", .clipName = "Attack",
+        .notifies = { AnimationNotifyDesc{ .id = {}, .timeNormalized = 0.5f } } } };
+    EXPECT_THROW(SaveAnimationControllerAssetToJson(controllerPath.string(), controller), std::runtime_error);
+    std::ifstream controllerInput(controllerPath, std::ios::binary);
+    std::ifstream notifyInput(notifyPath, std::ios::binary);
+    EXPECT_EQ(std::string((std::istreambuf_iterator<char>(controllerInput)), {}), "controller sentinel");
+    EXPECT_EQ(std::string((std::istreambuf_iterator<char>(notifyInput)), {}), "notify sentinel");
+}
+
 TEST(AnimationController, ExternalControllerRulesRoundTripWithoutGeneratedEdgesAndSaveIsSafe)
 {
     test::ScopedTempPath temp{ test::MakeUniqueTempPath("animation_controller_rules") };

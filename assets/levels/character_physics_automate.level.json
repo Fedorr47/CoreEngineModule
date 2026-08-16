@@ -1,5 +1,17 @@
 {
   "name": "CharacterPhysicsAutomate",
+  "gameplayActions": [
+    {"id": "Movement.Jump", "group": "Combat", "source": "Combat", "executor": "Jump", "priority": 200, "gates": ["RequireGrounded"]},
+    {"id": "Combat.LightAttack", "group": "Combat", "source": "Combat", "executor": "CombatAttack", "priority": 10, "gates": ["RequireGrounded"]},
+    {"id": "Interaction.Interact", "group": "Interaction", "source": "Interaction", "executor": "Interact", "priority": 50, "gates": ["RequireGrounded", "RequireNotBusy", "RequireNoPending", "RequireNoBuffered"]},
+    {"id": "Combat.PunchingAttack", "group": "Combat", "source": "Combat", "executor": "CombatAttack", "priority": 10, "gates": ["RequireGrounded"]}
+  ],
+  "gameplayActionAnimationBindings": [
+    {"actionId": "Movement.Jump", "triggerParameter": "Jump"},
+    {"actionId": "Combat.LightAttack", "triggerParameter": "LightAttack"},
+    {"actionId": "Interaction.Interact", "triggerParameter": "Interact"},
+    {"actionId": "Combat.PunchingAttack", "triggerParameter": "PunchingAttack"}
+  ],
   "meshes": {
     "cube": {"path": "models/cube.obj", "debugName": "CharacterPhysicsAutomateCube"}
   },
@@ -15,6 +27,7 @@
     "left_strafe_walking": {"path": "animations/left strafe walking.fbx", "flipUVs": true, "debugName": "left strafe walking"},
     "left_turn": {"path": "animations/left turn.fbx", "flipUVs": true, "debugName": "left turn"},
     "left_turn_90": {"path": "animations/left turn 90.fbx", "flipUVs": true, "debugName": "left turn 90"},
+    "punching_attack": {"path": "animations/Punching.fbx", "flipUVs": true, "debugName": "Punching Attack"},
     "right_strafe": {"path": "animations/right strafe.fbx", "flipUVs": true, "debugName": "right strafe"},
     "right_strafe_walking": {"path": "animations/right strafe walking.fbx", "flipUVs": true, "debugName": "right strafe walking"},
     "right_turn": {"path": "animations/right turn.fbx", "flipUVs": true, "debugName": "right turn"},
@@ -24,8 +37,7 @@
     "running_jump": {"path": "animations/Running Jump.fbx", "flipUVs": true, "debugName": "Running Jump"},
     "swing_dancing": {"path": "animations/Swing Dancing.fbx", "flipUVs": true, "debugName": "Swing Dancing"},
     "walking": {"path": "animations/walking.fbx", "flipUVs": true, "debugName": "walking"},
-    "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"},
-    "punching_attack": {"path": "animations/Punching.fbx", "flipUVs": true, "debugName": "Punching Attack"}
+    "walking_backward": {"path": "animations/Walking Backwards.fbx", "flipUVs": true, "debugName": "Walking Backwards"}
   },
   "animationProfileAssets": {
     "human": {"path": "animProfiles/human.animationprofile.json"}
@@ -59,14 +71,14 @@
     }},
     "wall": {"baseColor": [0.850000,0.180000,0.140000,1.000000], "shininess": 64.000000, "specStrength": 0.500000, "shadowBias": 0.000000, "metallic": 0.000000, "roughness": 0.800000, "ao": 1.000000, "emissiveStrength": 1.000000, "heightScale": 0.000000, "flags": ["useShadow"], "textures": {}}
   },
-  "camera": {"position": [25.265638,8.000000,6.544721], "target": [24.351297,7.623472,6.693747], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.100000, "farZ": 150.000000},
+  "camera": {"position": [-6.665344,1.928276,-1.323843], "target": [-6.172290,1.765459,-0.469216], "up": [0.000000,1.000000,0.000000], "fovYDeg": 60.000000, "nearZ": 0.100000, "farZ": 150.000000},
   "lights": [
     {"type": "directional", "position": [0.000000,0.000000,0.000000], "direction": [-0.361773,-0.904431,0.226108], "color": [1.000000,1.000000,1.000000], "intensity": 3.000000, "range": 10.000000, "innerHalfAngleDeg": 12.000000, "outerHalfAngleDeg": 20.000000, "attConstant": 1.000000, "attLinear": 0.120000, "attQuadratic": 0.040000}
   ],
   "particleEmitters": [],
   "skybox": null,
   "nodes": [
-    {"name": "CharacterPhysicsAutomate_Player", "parent": -1, "visible": true, "skinnedMesh": "models_Character_fbx", "material": "models_Character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "animationProfile": "human", "transform": {"position": [0.000000,0.000000,0.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [0.010000,0.010000,0.010000]}},
+    {"name": "CharacterPhysicsAutomate_Player", "parent": -1, "visible": true, "skinnedMesh": "models_Character_fbx", "material": "models_Character_fbx__mat_0", "animationController": "fsm_test_locomotion_action", "animationProfile": "human", "transform": {"position": [-3.793928,-0.000000,1.058252], "rotationDegrees": [0.000000,50.321266,0.000000], "scale": [0.010000,0.010000,0.010000]}},
     {"name": "CharacterPhysicsAutomate_Floor", "parent": -1, "visible": true, "mesh": "cube", "material": "floor", "transform": {"position": [0.000000,-0.500000,5.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [20.000000,1.000000,20.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [10.000000,0.500000,10.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 10}},
     {"name": "CharacterPhysicsAutomate_Wall", "parent": -1, "visible": true, "mesh": "cube", "material": "wall", "transform": {"position": [0.000000,1.500000,6.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [8.000000,3.000000,0.500000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [4.000000,1.500000,0.250000]}, "material": {"friction": 0.800000, "restitution": 0.000000}, "surfaceId": 11}},
     {"name": "CharacterPhysicsAutomate_StepLow", "parent": -1, "visible": true, "mesh": "cube", "material": "lowStep", "transform": {"position": [-6.000000,0.125000,3.000000], "rotationDegrees": [0.000000,0.000000,0.000000], "scale": [3.000000,0.250000,2.000000]}, "physicsBody": {"motionType": "static", "shape": {"type": "box", "halfExtents": [1.500000,0.125000,1.000000]}, "material": {"friction": 0.900000, "restitution": 0.000000}, "surfaceId": 12}},

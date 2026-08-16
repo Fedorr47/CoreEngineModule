@@ -1,123 +1,16 @@
 {
   "states": {
-    "Idle": [
-      {
-        "id": "idle_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ],
-    "IdleRelaxed": [
-      {
-        "id": "idle_relaxed_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ],
-    "LocomotionWalk": [
-      {
-        "id": "Footstep",
-        "time": 0.16
-      },
-      {
-        "id": "Footstep",
-        "time": 0.66
-      }
-    ],
-    "LocomotionRun": [
-      {
-        "id": "Footstep",
-        "time": 0.14
-      },
-      {
-        "id": "Footstep",
-        "time": 0.62
-      }
-    ],
-    "LightAttack": [
-      {
-        "id": "ActionBegin",
-        "time": 0.0,
-        "fireOnEnter": true
-      },
-      {
-        "id": "HitWindowBegin",
-        "time": 0.22
-      },
-      {
-        "id": "HitWindowEnd",
-        "time": 0.56
-      },
-      {
-        "id": "ActionEnd",
-        "time": 0.9
-      }
-    ],
-    "JumpIdle": [
-      {
-        "id": "JumpBegin",
-        "time": 0.0,
-        "fireOnEnter": true
-      },
-      {
-        "id": "JumpTakeoff",
-        "time": 0.2
-      },
-      {
-        "id": "JumpLand",
-        "time": 0.72
-      },
-      {
-        "id": "JumpEnd",
-        "time": 0.92
-      }
-    ],
-    "JumpMoving": [
-      {
-        "id": "JumpBegin",
-        "time": 0.0,
-        "fireOnEnter": true
-      },
-      {
-        "id": "JumpTakeoff",
-        "time": 0.2
-      },
-      {
-        "id": "JumpLand",
-        "time": 0.72
-      },
-      {
-        "id": "JumpEnd",
-        "time": 0.92
-      }
-    ],
-    "TurnLeftStart": [
-      {
-        "id": "turn_left_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ],
-    "TurnLeft90": [
-      {
-        "id": "turn_left_90_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ],
-    "TurnRightStart": [
-      {
-        "id": "turn_right_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ],
-    "TurnRight90": [
-      {
-        "id": "turn_right_90_enter",
-        "time": 0.0,
-        "fireOnEnter": true
-      }
-    ]
+    "Idle": [{"id": "idle_enter", "time": 0, "fireOnEnter": true}],
+    "JumpIdle": [{"id": "JumpBegin", "time": 0, "fireOnEnter": true}, {"id": "JumpTakeoff", "time": 0.2}, {"id": "JumpLand", "time": 0.72}, {"id": "JumpEnd", "time": 0.92}],
+    "IdleRelaxed": [{"id": "idle_relaxed_enter", "time": 0, "fireOnEnter": true}],
+    "LocomotionWalk": [{"id": "Footstep", "time": 0.16}, {"id": "Footstep", "time": 0.66}],
+    "TurnLeftStart": [{"id": "turn_left_enter", "time": 0, "fireOnEnter": true}],
+    "LocomotionRun": [{"id": "Footstep", "time": 0.14}, {"id": "Footstep", "time": 0.62}],
+    "LightAttack": [{"id": "ActionBegin", "time": 0, "fireOnEnter": true}, {"id": "HitWindowBegin", "time": 0.22}, {"id": "HitWindowEnd", "time": 0.56}, {"id": "ActionEnd", "time": 0.9}],
+    "JumpMoving": [{"id": "JumpBegin", "time": 0, "fireOnEnter": true}, {"id": "JumpTakeoff", "time": 0.2}, {"id": "JumpLand", "time": 0.72}, {"id": "JumpEnd", "time": 0.92}],
+    "TurnLeft90": [{"id": "turn_left_90_enter", "time": 0, "fireOnEnter": true}],
+    "TurnRightStart": [{"id": "turn_right_enter", "time": 0, "fireOnEnter": true}],
+    "TurnRight90": [{"id": "turn_right_90_enter", "time": 0, "fireOnEnter": true}],
+    "PunchingAttack": [{"id": "ActionBegin", "time": 0.02}, {"id": "ActionEnd", "time": 0.95}]
   }
 }
