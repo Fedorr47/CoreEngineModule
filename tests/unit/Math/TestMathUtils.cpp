@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "TestSupport/MathTestHelper.h"
+#include <array>
 #include <cmath>
 
 using namespace MathTestHelper;
@@ -157,6 +158,44 @@ TEST(MathUtils, DegRad)
 	EXPECT_NEAR(radians, Pi / 4.0f, kEpsTrig);
 	converted_back = RadToDeg(radians);
 	EXPECT_FLOAT_EQ(converted_back, degrees);
+}
+
+TEST(MathUtils, EulerDegreesZYXToQuatMatchesTransformMatrixConvention)
+{
+	const Vec3 rotationDegrees{ 23.0f, -37.0f, 51.0f };
+	const Mat4 quaternionMatrix = QuatToMat4(EulerDegreesZYXToQuat(rotationDegrees));
+
+	Mat4 expectedMatrix{ 1.0f };
+	expectedMatrix = Rotate(expectedMatrix, DegToRad(rotationDegrees.z), Vec3(0.0f, 0.0f, 1.0f));
+	expectedMatrix = Rotate(expectedMatrix, DegToRad(rotationDegrees.y), Vec3(0.0f, 1.0f, 0.0f));
+	expectedMatrix = Rotate(expectedMatrix, DegToRad(rotationDegrees.x), Vec3(1.0f, 0.0f, 0.0f));
+
+	ExpectMat4Near(quaternionMatrix, expectedMatrix);
+}
+
+TEST(MathUtils, QuaternionEulerZYXRoundTripsPreserveOrientation)
+{
+	constexpr std::array rotations{
+		Vec3{ 23.0f, -37.0f, 51.0f },
+		Vec3{ -70.0f, 15.0f, 120.0f },
+		Vec3{ 40.0f, 89.9f, -20.0f },
+		Vec3{ 40.0f, -89.9f, -20.0f },
+		Vec3{ 40.0f, 90.0f, -20.0f },
+		Vec3{ 40.0f, -90.0f, -20.0f }
+	};
+
+	for (const Vec3& inputEuler : rotations)
+	{
+		SCOPED_TRACE(testing::Message()
+			<< "Euler degrees: " << inputEuler.x << ", " << inputEuler.y << ", " << inputEuler.z);
+		const Vec4 original = NormalizeQuat(EulerDegreesZYXToQuat(inputEuler));
+		const Vec3 recoveredEuler = QuatToEulerDegreesZYX(original);
+		const Vec4 recovered = NormalizeQuat(EulerDegreesZYXToQuat(recoveredEuler));
+
+		EXPECT_TRUE(IsFinite(recoveredEuler));
+		EXPECT_TRUE(IsFinite(recovered));
+		EXPECT_NEAR(std::fabs(DotQuat(original, recovered)), 1.0f, 1.0e-5f);
+	}
 }
 
 TEST(MathUtils, Mat4Identity)

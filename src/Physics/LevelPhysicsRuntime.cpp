@@ -12,13 +12,22 @@
 
 namespace 
 {
-    constexpr float RotationToleranceDegrees = 1.0e-4f;
     constexpr float PositionChangeTolerance = 1.0e-6f;
+    constexpr float QuaternionDotChangeTolerance = 1.0e-7f;
     
     [[nodiscard]] bool IsShapeValid(const physics::PhysicsShapeDescriptor& shape)
     {
         return std::visit([](const auto& descriptor) -> bool 
         { return descriptor.IsValid(); }, shape);
+    }
+    
+    [[nodiscard]] bool RotationsDiffer(
+        const mathUtils::Vec3& eulerDegrees, const mathUtils::Vec4& quaternion) noexcept
+    {
+        const mathUtils::Vec4 authored = mathUtils::EulerDegreesZYXToQuat(eulerDegrees);
+        const mathUtils::Vec4 simulated = mathUtils::NormalizeQuat(quaternion);
+        return 1.0f - std::fabs(mathUtils::DotQuat(authored, simulated))
+            > QuaternionDotChangeTolerance;
     }
     
     [[nodiscard]] bool PositionsDiffer(
@@ -68,13 +77,10 @@ namespace physics
                 errorMessage = "Level physics node '" + node.name + "' must be a root-level node.";
                 return false;
             }
-            const mathUtils::Vec3& rotation = node.transform.rotationDegrees;
-            if (node.transform.useMatrix
-                || std::fabs(rotation.x) > RotationToleranceDegrees
-                || std::fabs(rotation.y) > RotationToleranceDegrees
-                || std::fabs(rotation.z) > RotationToleranceDegrees)
+            if (node.transform.useMatrix)
             {
-                errorMessage = "Level physics node '" + node.name + "' must use zero authored rotation.";
+                errorMessage = "Level physics node '" + node.name
+                    + "' cannot use a matrix-authored transform.";
                 return false;
             }
             if (index > static_cast<std::size_t>(std::numeric_limits<int>::max()))
@@ -102,7 +108,11 @@ namespace physics
                 // Serialized shape dimensions are authoritative and are not multiplied by visual scale.
                 const PhysicsBodyDescriptor descriptor{
                     .shape = node.physicsBody->shape,
-                    .transform = { .position = node.transform.position },
+                    .transform = {
+                        .position = node.transform.position,
+                        .rotationQuaternion = mathUtils::EulerDegreesZYXToQuat(
+                            node.transform.rotationDegrees)
+                        },
                     .motionType = node.physicsBody->motionType,
                     .material = node.physicsBody->material,
                     .surface = node.physicsBody->surface
@@ -120,7 +130,8 @@ namespace physics
                     .nodeIndex = static_cast<int>(index),
                     .handle = handle,
                     .motionType = node.physicsBody->motionType,
-                    .authoredPosition = node.transform.position
+                    .authoredPosition = node.transform.position,
+                    .authoredRotationDegrees = node.transform.rotationDegrees
                 });
                 unrecordedHandle.reset();
             }
@@ -189,8 +200,11 @@ namespace physics
             if (binding.nodeIndex < 0
                 || static_cast<std::size_t>(binding.nodeIndex) >= levelAsset.nodes.size()
                 || !levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].alive
-                || !world_.SetKinematicTarget(binding.handle,
-                    { .position = levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.position }))
+                || !world_.SetKinematicTarget(binding.handle, {
+                    .position = levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.position,
+                    .rotationQuaternion = mathUtils::EulerDegreesZYXToQuat(
+                        levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.rotationDegrees)
+                }))
             {
                 errorMessage = "Level physics kinematic binding is invalid.";
                 return false;
@@ -245,6 +259,12 @@ namespace physics
                 node.transform.position = transform->position;
                 changed = true;
             }
+            if (RotationsDiffer(node.transform.rotationDegrees, transform->rotationQuaternion))
+            {
+                node.transform.rotationDegrees = mathUtils::QuatToEulerDegreesZYX(
+                    transform->rotationQuaternion);
+                changed = true;
+            }
         }
         if (changed)
         {
@@ -283,6 +303,8 @@ namespace physics
             {
                 levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.position =
                     binding.authoredPosition;
+                levelAsset.nodes[static_cast<std::size_t>(binding.nodeIndex)].transform.rotationDegrees =
+                    binding.authoredRotationDegrees;
             }
         }
         const bool bindingsDestroyed = DestroyBindings();

@@ -9,6 +9,7 @@ import core;
 #include <string>
 #include <type_traits>
 #include <limits>
+#include <cmath>
 
 namespace
 {
@@ -34,6 +35,24 @@ namespace
                 .motionType = physics::PhysicsMotionType::Dynamic
             }
         };
+    }
+    
+    [[nodiscard]] rendern::LevelNode KinematicBoxNode()
+    {
+        auto node = StaticNode();
+        node.name = "KinematicBox";
+        node.transform.position = {};
+        node.physicsBody->shape = physics::BoxShapeDescriptor{ .halfExtents = { 2.0f, 0.25f, 0.25f } };
+        node.physicsBody->motionType = physics::PhysicsMotionType::Kinematic;
+        return node;
+    }
+
+    [[nodiscard]] bool OrientationsEquivalent(
+        const mathUtils::Vec3& eulerDegrees, const mathUtils::Vec4& quaternion)
+    {
+        const auto expected = mathUtils::EulerDegreesZYXToQuat(eulerDegrees);
+        const auto actual = mathUtils::NormalizeQuat(quaternion);
+        return std::fabs(mathUtils::DotQuat(expected, actual)) > 1.0f - 1.0e-5f;
     }
 
     class LevelPhysicsRuntime : public testing::Test
@@ -94,15 +113,31 @@ TEST_F(LevelPhysicsRuntime, EnterGameRejectsParentedPhysicsNode)
     EXPECT_EQ(runtime.GetBindingCount(), 0u);
 }
 
-TEST_F(LevelPhysicsRuntime, EnterGameRejectsRotatedPhysicsNode)
+TEST_F(LevelPhysicsRuntime, EnterGameAcceptsRotatedStaticPhysicsNode)
+{
+    auto node = KinematicBoxNode();
+    node.physicsBody->motionType = physics::PhysicsMotionType::Static;
+    node.transform.rotationDegrees.z = 90.0f;
+    level.nodes = { node };
+    ASSERT_TRUE(runtime.EnterGame(level, levelInstance, scene, error)) << error;
+
+    const auto hit = world.RayCastClosest({
+        .origin = { 0.0f, 3.0f, 0.0f },
+        .direction = { 0.0f, -1.0f, 0.0f },
+        .maxDistance = 4.0f
+    });
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_NEAR(hit->position.y, 2.0f, 1.0e-3f);
+}
+
+TEST_F(LevelPhysicsRuntime, EnterGameRejectsMatrixAuthoredPhysicsNode)
 {
     auto node = DynamicNode();
-    node.transform.rotationDegrees.y = 1.0f;
+    node.transform.useMatrix = true;
     level.nodes = { node };
     EXPECT_FALSE(runtime.EnterGame(level, levelInstance, scene, error));
-    EXPECT_NE(error.find("zero authored rotation"), std::string::npos);
+    EXPECT_NE(error.find("matrix-authored transform"), std::string::npos);
     EXPECT_FALSE(runtime.IsActive());
-    EXPECT_EQ(runtime.GetBindingCount(), 0u);
 }
 
 TEST_F(LevelPhysicsRuntime, ValidationFailureDoesNotCreateEarlierBodies)
@@ -133,23 +168,46 @@ TEST_F(LevelPhysicsRuntime, FailedSecondBodyCreationRollsBackEarlierBody)
     EXPECT_TRUE(world.DestroyBody(handle));
 }
 
-TEST_F(LevelPhysicsRuntime, LeaveGameRestoresAuthoredPosition)
+TEST_F(LevelPhysicsRuntime, DynamicRotationSynchronizesAndLeaveGameRestoresAuthoredTransform)
 {
-    constexpr float FixedDeltaSeconds = 1.0f / 60.0f;
     level.nodes = { DynamicNode() };
+    level.nodes[0].transform.rotationDegrees = { 10.0f, 20.0f, 30.0f };
     const mathUtils::Vec3 authoredPosition = level.nodes[0].transform.position;
+    const mathUtils::Vec3 authoredRotation = level.nodes[0].transform.rotationDegrees;
     ASSERT_TRUE(runtime.EnterGame(level, levelInstance, scene, error)) << error;
-    for (int stepIndex = 0; stepIndex < 20; ++stepIndex)
-    {
-        ASSERT_EQ(world.Update(FixedDeltaSeconds), 1u);
-    }
+    const mathUtils::Vec3 simulatedRotation{ -25.0f, 40.0f, 70.0f };
+    ASSERT_TRUE(runtime.RequestDynamicTeleport(0, {
+        .position = { 2.0f, 3.0f, 4.0f },
+        .rotationQuaternion = mathUtils::EulerDegreesZYXToQuat(simulatedRotation)
+    }));
+    ASSERT_TRUE(runtime.SynchronizeBeforePhysics(level, error)) << error;
     ASSERT_TRUE(runtime.SynchronizeAfterPhysics(level, levelInstance, scene, error)) << error;
-    EXPECT_LT(level.nodes[0].transform.position.y, authoredPosition.y);
+    EXPECT_TRUE(OrientationsEquivalent(
+        level.nodes[0].transform.rotationDegrees,
+        mathUtils::EulerDegreesZYXToQuat(simulatedRotation)));
     EXPECT_TRUE(runtime.LeaveGame(level, levelInstance, scene, error)) << error;
     EXPECT_EQ(level.nodes[0].transform.position, authoredPosition);
+    EXPECT_EQ(level.nodes[0].transform.rotationDegrees, authoredRotation);
     EXPECT_EQ(levelInstance.GetNodeWorldPosition(0), authoredPosition);
     EXPECT_FALSE(runtime.IsActive());
     EXPECT_EQ(runtime.GetBindingCount(), 0u);
+}
+
+TEST_F(LevelPhysicsRuntime, KinematicSynchronizationForwardsRotation)
+{
+    level.nodes = { KinematicBoxNode() };
+    ASSERT_TRUE(runtime.EnterGame(level, levelInstance, scene, error)) << error;
+    level.nodes[0].transform.rotationDegrees.z = 90.0f;
+    ASSERT_TRUE(runtime.SynchronizeBeforePhysics(level, error)) << error;
+    ASSERT_EQ(world.Update(1.0f / 60.0f), 1u);
+
+    const auto hit = world.RayCastClosest({
+        .origin = { 0.0f, 3.0f, 0.0f },
+        .direction = { 0.0f, -1.0f, 0.0f },
+        .maxDistance = 4.0f
+    });
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_NEAR(hit->position.y, 2.0f, 1.0e-3f);
 }
 
 TEST_F(LevelPhysicsRuntime, ShutdownDestroysBindingsAndLeavesWorldUsable)

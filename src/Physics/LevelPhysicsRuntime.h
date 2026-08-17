@@ -45,6 +45,7 @@ namespace physics
             PhysicsBodyHandle handle{};
             PhysicsMotionType motionType{ PhysicsMotionType::Static };
             mathUtils::Vec3 authoredPosition{};
+            mathUtils::Vec3 authoredRotationDegrees{};
         };
         
         struct TeleportRequest

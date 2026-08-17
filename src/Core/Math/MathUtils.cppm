@@ -1,6 +1,7 @@
 module;
 
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <cmath>
 #include <iomanip>
@@ -660,6 +661,50 @@ export namespace mathUtils
 	[[nodiscard]] inline float DotQuat(const mathUtils::Vec4& a, const mathUtils::Vec4& b) noexcept
 	{
 		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+	}
+	
+	inline constexpr float EulerSingularityTolerance = 1.0e-6f;
+
+	// Matches Transform::ToMatrix(): the composed orientation is Rz * Ry * Rx.
+	[[nodiscard]] inline mathUtils::Vec4 EulerDegreesZYXToQuat(
+		const mathUtils::Vec3& rotationDegrees) noexcept
+	{
+		const float halfX = DegToRad(rotationDegrees.x) * 0.5f;
+		const float halfY = DegToRad(rotationDegrees.y) * 0.5f;
+		const float halfZ = DegToRad(rotationDegrees.z) * 0.5f;
+		const float cx = std::cos(halfX); const float sx = std::sin(halfX);
+		const float cy = std::cos(halfY); const float sy = std::sin(halfY);
+		const float cz = std::cos(halfZ); const float sz = std::sin(halfZ);
+		return NormalizeQuat({
+			sx * cy * cz - cx * sy * sz,
+			cx * sy * cz + sx * cy * sz,
+			cx * cy * sz - sx * sy * cz,
+			cx * cy * cz + sx * sy * sz
+		});
+	}
+
+	[[nodiscard]] inline mathUtils::Vec3 QuatToEulerDegreesZYX(
+		const mathUtils::Vec4& quaternion) noexcept
+	{
+		const mathUtils::Vec4 q = NormalizeQuat(quaternion);
+		const float sinY = std::clamp(2.0f * (q.w * q.y - q.z * q.x), -1.0f, 1.0f);
+		// At gimbal lock X and Z are underdetermined; X = 0 gives one stable equivalent orientation.
+		float x = 0.0f;
+		float y = std::copysign(Pi * 0.5f, sinY);
+		float z = std::atan2(
+			2.0f * (q.w * q.z - q.x * q.y),
+			1.0f - 2.0f * (q.x * q.x + q.z * q.z));
+		if (1.0f - std::fabs(sinY) > EulerSingularityTolerance)
+		{
+			x = std::atan2(
+				2.0f * (q.w * q.x + q.y * q.z),
+				1.0f - 2.0f * (q.x * q.x + q.y * q.y));
+			y = std::asin(sinY);
+			z = std::atan2(
+				2.0f * (q.w * q.z + q.x * q.y),
+				1.0f - 2.0f * (q.y * q.y + q.z * q.z));
+		}
+		return { x * 180.0f / Pi, y * 180.0f / Pi, z * 180.0f / Pi };
 	}
 
 	[[nodiscard]] inline mathUtils::Vec4 NlerpQuat(
