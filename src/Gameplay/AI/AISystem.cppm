@@ -113,6 +113,19 @@ export namespace rendern
             return taskIt->second.GetStatus();
         }
         
+        [[nodiscard]] AIActionExecutionStatus GetActionStatus(
+            const EntityHandle agentEntity,
+            const AIActionId expectedActionId) const noexcept
+        {
+            const auto taskIt = tasksByEntity_.find(agentEntity);
+            if (taskIt == tasksByEntity_.end()
+                || taskIt->second.GetContext().actionId != expectedActionId)
+            {
+                return AIActionExecutionStatus::NotStarted;
+            }
+            return taskIt->second.GetStatus();
+        }
+        
         [[nodiscard]] bool HasActiveAction(const EntityHandle agentEntity) const noexcept
         {
             const auto taskIt = tasksByEntity_.find(agentEntity);

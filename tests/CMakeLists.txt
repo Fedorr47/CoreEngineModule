@@ -29,6 +29,8 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestAIDecisionContracts.cpp"
         "unit/GameplayTests/AI/TestAIPlanner.cpp"
         "unit/GameplayTests/AI/TestAIPlanExecution.cpp"
+        "unit/GameplayTests/AI/TestAIActionBinding.cpp"
+        "unit/GameplayTests/AI/TestAIPlanExecutionBridge.cpp"
         "unit/GameplayTests/AI/TestAIActionRuntime.cpp"
         "unit/GameplayTests/AI/TestAIActionTask.cpp"
         "unit/GameplayTests/AI/TestAIFollowRouteAction.cpp"
