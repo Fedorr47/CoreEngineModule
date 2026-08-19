@@ -83,13 +83,16 @@ TEST(JumpTraversalExecutor, IssuesJumpOnlyAfterEnteringTakeoffToleranceAndOnlyOn
 TEST(JumpTraversalExecutor, JumpTraversalDataRequiresExplicitValidConfiguration)
 {
     EXPECT_FALSE(GameplayJumpTraversalData{}.IsValid());
-    EXPECT_TRUE(GameplayJumpTraversalData{
+    const GameplayJumpTraversalData validData{
         .takeoffPosition = {},
         .landingPosition = {1.0f, 1.0f, 0.0f},
         .verticalSpeed = 5.0f,
         .takeoffTolerance = 0.25f,
         .landingHorizontalTolerance = 0.5f,
-        .landingVerticalTolerance = 0.25f}.IsValid());
+        .landingVerticalTolerance = 0.25f
+    };
+
+    EXPECT_TRUE(validData.IsValid());
 }
 
 TEST(JumpTraversalExecutor, LinkRegistryRejectsMissingJumpTraversalData)

@@ -89,7 +89,7 @@ TEST(GameplayAnimationBridge, ActionStateDoesNotOverridePhysicalJumpPresentation
     rendern::GameplayActionComponent action{};
     action.busy = true;
     action.current = rendern::kGameplayActionJump;
-    rendern::WriteGameplayActionAnimationParameters(controller, action, MakeDefaultGameplayActionAnimationBindings());
+    rendern::WriteGameplayActionAnimationParameters(controller, action, rendern::MakeDefaultGameplayActionAnimationBindings());
 
     ASSERT_NE(rendern::FindAnimationParameter(controller.parameters, "IsJumping"), nullptr);
     EXPECT_FALSE(rendern::FindAnimationParameter(controller.parameters, "IsJumping")->boolValue);

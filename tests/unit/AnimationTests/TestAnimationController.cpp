@@ -247,7 +247,7 @@ TEST(AnimationController, StateDeletionIsBlockedByControllerReferences)
     EXPECT_EQ(controller.states.size(), 2u);
 }
 
-EST(AnimationController, ParameterRenameUpdatesOnlyExactConditionReferences)
+TEST(AnimationController, ParameterRenameUpdatesOnlyExactConditionReferences)
 {
     AnimationControllerAsset controller{ .id = "Parameters", .defaultState = "Attack", .notifyAssetPath = "Attack" };
     controller.parameters = {

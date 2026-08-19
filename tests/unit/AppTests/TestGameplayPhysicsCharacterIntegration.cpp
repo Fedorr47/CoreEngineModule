@@ -167,10 +167,7 @@ namespace
 
         void StepFrame(const float frameSeconds = StepSeconds)
         {
-            [[maybe_unused]] const std::uint32_t physicsSteps = physicsWorld.Update(frameSeconds);
-            ASSERT_TRUE(appRuntime::ApplyGameplayPhysicsCharacterFeedback(
-                gameplayRuntime, physicsWorld));
-            gameplayRuntime.PostPhysicsUpdate(frameContext);
+            static_cast<void>(StepFrameAndReturnPhysicsSteps(frameSeconds));
         }
 
         std::optional<InlineThreadOwnerRolesGuard> threadGuard{};

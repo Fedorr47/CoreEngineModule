@@ -65,6 +65,9 @@ export import :editor_commands;
 export import :character_controller;
 export import :character_movement;
 export import :door_traversal_executor;
+export import :gameplay_input_system;
+export import  :jump_traversal_executor;
+export import :gameplay_animation_bridge;
 
 #if defined(CORE_USE_DX12)
 export import :render_dx12;
