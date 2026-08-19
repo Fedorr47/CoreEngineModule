@@ -38,6 +38,7 @@ export import :ai_follow_route_action_runtime;
 export import :ai_follow_route_action;
 export import :ai_move_to_action;
 export import :gameplay_request;
+export import :ai_move_to_action_binding;
 export import :gameplay_steering;
 export import :gameplay_route_search;
 export import :gameplay_graph_assets;

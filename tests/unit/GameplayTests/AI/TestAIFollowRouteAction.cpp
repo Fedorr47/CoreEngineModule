@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <utility>
 
 import core;
@@ -69,6 +70,49 @@ TEST(AIFollowRouteAction, ValidRouteAndMovementAgentSubmitsRunningTask)
         AIFollowRouteAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, MakeFollowRoute({5.0f, 0.0f, 0.0f})),
         AIActionExecutionStatus::Running);
     EXPECT_EQ(aiSystem.GetActionStatus(agent), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent, kAIFollowRouteActionId), AIActionExecutionStatus::Running);
+}
+
+// Protects the reusable FollowRoute preparation boundary used by semantic
+// actions: it validates without submitting or assigning an action identity.
+TEST(AIFollowRouteAction, CreateRuntimeValidatesWithoutSubmittingTask)
+{
+    GameplayWorld world{};
+    GameplayTraversalLinkRegistry traversalRegistry{};
+    GameplayTraversalExecutorRegistry traversalExecutorRegistry{};
+    const EntityHandle agent = CreateFollowRouteAgent(world);
+
+    std::unique_ptr<IAIActionRuntime> runtime = AIFollowRouteAction::CreateRuntime(
+        world,
+        traversalRegistry,
+        traversalExecutorRegistry,
+        agent,
+        MakeFollowRoute({5.0f, 0.0f, 0.0f}));
+    EXPECT_NE(runtime, nullptr);
+
+    GameplayRoute invalidRoute{
+        .points = {
+            GameplayRoutePoint{.worldPosition = {0.0f, 0.0f, 0.0f}},
+            GameplayRoutePoint{.worldPosition = {5.0f, 0.0f, 0.0f}}
+        }};
+    EXPECT_EQ(
+        AIFollowRouteAction::CreateRuntime(
+            world,
+            traversalRegistry,
+            traversalExecutorRegistry,
+            agent,
+            std::move(invalidRoute)),
+        nullptr);
+
+    world.RemoveCharacterMotor(agent);
+    EXPECT_EQ(
+        AIFollowRouteAction::CreateRuntime(
+            world,
+            traversalRegistry,
+            traversalExecutorRegistry,
+            agent,
+            MakeFollowRoute({5.0f, 0.0f, 0.0f})),
+        nullptr);
 }
 
 // Protects validation-before-submission so an invalid route cannot replace an

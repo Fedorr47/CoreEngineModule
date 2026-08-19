@@ -35,6 +35,8 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestAIActionTask.cpp"
         "unit/GameplayTests/AI/TestAIFollowRouteAction.cpp"
         "unit/GameplayTests/AI/TestAIMoveToAction.cpp"
+        "unit/GameplayTests/AI/TestAIMoveToActionBinding.cpp"
+        "unit/GameplayTests/AI/TestAIGOAPMoveToVerticalSlice.cpp"
         "unit/GameplayTests/TestGameplayRequest.cpp"
         "unit/GameplayTests/TestGameplayRoute.cpp"
         "unit/GameplayTests/TestGameplaySteering.cpp"

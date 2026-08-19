@@ -118,6 +118,8 @@ TEST(AIMoveToAction, LowerCostBranchIsConsumedByFollower)
         AIMoveToAction::Start(aiSystem, world, traversalRegistry, traversalExecutorRegistry, agent, graph, MoveNodeId(1u), MoveNodeId(3u)),
         AIActionExecutionStatus::Running);
     EXPECT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent, kAIMoveToActionId), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent, kAIFollowRouteActionId), AIActionExecutionStatus::NotStarted);
 
     const GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agent);
     ASSERT_NE(command, nullptr);
