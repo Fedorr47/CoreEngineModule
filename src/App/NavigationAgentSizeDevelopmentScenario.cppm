@@ -290,11 +290,31 @@ namespace app::navigationRuntime
             largeStatus_ = StartScenarioAgent(runtime, profiles, level, largeEntity_, kLargeTargetNodeName);
         }
         [[nodiscard]] AgentSizeScenarioResetResult ResetToInitialState(
-            rendern::GameplayRuntime& runtime, const rendern::LevelAsset& level) noexcept
+            rendern::GameplayRuntime& runtime, rendern::LevelAsset& level) noexcept
         {
             if (!IsAgentSizeScenario(level) || !runtime.IsCurrentLevelAsset(level))
             {
                 return {};
+            }
+            
+            if (hasSmallInitialTransform_)
+            {
+                const int smallNodeIndex = FindAgentSizeScenarioNode(level, kSmallAgentNodeName);
+
+                if (smallNodeIndex >= 0)
+                {
+                    level.nodes[static_cast<std::size_t>(smallNodeIndex)].transform = smallInitialTransform_;
+                }
+            }
+
+            if (hasLargeInitialTransform_)
+            {
+                const int largeNodeIndex = FindAgentSizeScenarioNode(level, kLargeAgentNodeName);
+
+                if (largeNodeIndex >= 0)
+                {
+                    level.nodes[static_cast<std::size_t>(largeNodeIndex)].transform = largeInitialTransform_;
+                }
             }
 
             const rendern::EntityHandle resetSmall =

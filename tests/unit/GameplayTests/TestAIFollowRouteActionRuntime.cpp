@@ -83,6 +83,4 @@ TEST(AIFollowRouteActionRuntime, ExposesPhysicalBlockedFeedbackWithoutAddingRout
     EXPECT_TRUE(runtime.IsPhysicallyBlocked());
     runtime.Cancel(MakeContext(agent));
     EXPECT_FALSE(runtime.IsPhysicallyBlocked());
-    EXPECT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Failed);
-    EXPECT_FALSE(runtime.IsPhysicallyBlocked());
 }

@@ -224,6 +224,11 @@ namespace appDevelopment
             {
                 const auto result = impl_->agentSizeScenario.ResetToInitialState(
                     context.gameplayRuntime, context.level);
+                context.levelInstance.MarkTransformsDirty();
+                context.levelInstance.SyncTransformsIfDirty(
+                    context.level,
+                    context.scene);
+                
                 if (context.physicsWorld != nullptr)
                 {
                     if (result.smallEntity != rendern::kNullEntity)

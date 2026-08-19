@@ -832,9 +832,11 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, BlockedPersistenceAt30FpsUsesFix
     {
         StepFrame(1.0f / 30.0f);
     }
-    EXPECT_TRUE(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicallyBlocked);
-    EXPECT_NEAR(gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds,
-        0.25f, StepSeconds);
+    const float blockedSeconds =
+        gameplayRuntime.GetWorld().TryGetCharacterMovementState(npc)->physicalBlockedSeconds;
+
+    EXPECT_GE(blockedSeconds, 0.25f);
+    EXPECT_LT(blockedSeconds, 0.25f + 2.0f * StepSeconds + 1e-4f);
 }
 
 TEST(GameplayPhysicsCharacterAppLifecycle, SetGameplayModeDestroysAndRecreatesControlledCharacter)

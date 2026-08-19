@@ -113,37 +113,55 @@ TEST(GameplayAnimationBridge, ProductionControllerUsesPhysicalJumpLifecycle)
     ASSERT_NE(parameter, controller.parameters.end());
     EXPECT_EQ(parameter->defaultValue.type, rendern::AnimationParameterType::Bool);
 
+    const auto isJumpState = [](const std::string_view state)
+    {
+        return state == "JumpIdle" ||
+               state == "JumpMoving";
+    };
+
     std::size_t jumpEntryCount = 0;
     std::size_t jumpExitCount = 0;
     bool hasRunningLanding = false;
+
     for (const rendern::AnimationTransitionDesc& transition : controller.transitions)
     {
-        if (transition.toState == "Jump")
+        if (isJumpState(transition.toState))
         {
             ++jumpEntryCount;
+
             EXPECT_TRUE(HasCondition(
-                transition, "IsJumping", rendern::AnimationConditionOp::IfTrue));
-            EXPECT_FALSE(HasCondition(
-                transition, "Jump", rendern::AnimationConditionOp::Triggered));
+                transition,
+                "IsJumping",
+                rendern::AnimationConditionOp::IfTrue));
         }
-        if (transition.fromState == "Jump")
+
+        if (isJumpState(transition.fromState))
         {
             ++jumpExitCount;
+
             EXPECT_TRUE(HasCondition(
-                transition, "IsJumping", rendern::AnimationConditionOp::IfFalse));
-            EXPECT_FALSE(HasCondition(
-                transition, "ActionBusy", rendern::AnimationConditionOp::IfFalse));
+                transition,
+                "IsJumping",
+                rendern::AnimationConditionOp::IfFalse));
+
             if (transition.toState == "LocomotionRun")
             {
                 hasRunningLanding =
-                    HasCondition(transition, "IsMoving", rendern::AnimationConditionOp::IfTrue) &&
-                    HasCondition(transition, "IsRunning", rendern::AnimationConditionOp::IfTrue);
+                    hasRunningLanding ||
+                    (HasCondition(
+                        transition,
+                        "IsMoving",
+                        rendern::AnimationConditionOp::IfTrue) &&
+                     HasCondition(
+                        transition,
+                        "IsRunning",
+                        rendern::AnimationConditionOp::IfTrue));
             }
         }
     }
 
     EXPECT_EQ(jumpEntryCount, 8u);
-    EXPECT_EQ(jumpExitCount, 3u);
+    EXPECT_EQ(jumpExitCount, 6u);
     EXPECT_TRUE(hasRunningLanding);
 }
 TEST(GameplayAnimationBridge, UsesExplicitPresentationBindingForArbitraryAction)

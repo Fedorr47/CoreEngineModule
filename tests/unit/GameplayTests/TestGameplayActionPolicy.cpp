@@ -202,6 +202,21 @@ TEST(GameplayActionPolicy, ArbitraryDefinitionDrivesPolicyAndRuntimeState)
     PrimeGameplayActionState(action);
     EXPECT_EQ(action.current, punching);
     CommitGameplayActionState(action);
+    const GameplayActionId next{
+        "Combat.ArbitraryPending"
+    };
+
+    EXPECT_TRUE(QueueGameplayActionRequest(
+        action,
+        {
+            next,
+            GameplayActionRequestSource::Combat,
+            1
+        }));
+
+    EXPECT_TRUE(HasGameplayPendingActionRequest(action));
+    EXPECT_EQ(GetGameplayRequestedActionId(action), next);
+    EXPECT_FALSE(HasGameplayBufferedActionRequest(action));
     QueueGameplayActionRequest(action, { GameplayActionId{ "Combat.ArbitraryBuffered" }, GameplayActionRequestSource::Combat, 1 });
     EXPECT_TRUE(HasGameplayBufferedActionRequest(action));
 }

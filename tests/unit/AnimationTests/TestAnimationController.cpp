@@ -320,15 +320,27 @@ TEST(AnimationController, ParameterTypesAndDefaultsRoundTrip)
     controller.states = { AnimationStateDesc{ .name = "Idle", .clipName = "Idle" } };
     SaveAnimationControllerAssetToJson(path.string(), controller);
     const AnimationControllerAsset loaded = LoadAnimationControllerAssetFromJson(path.string(), controller.id);
-    ASSERT_EQ(loaded.parameters.size(), 4u);
-    EXPECT_EQ(loaded.parameters[0].defaultValue.type, AnimationParameterType::Bool);
-    EXPECT_TRUE(loaded.parameters[0].defaultValue.boolValue);
-    EXPECT_EQ(loaded.parameters[1].defaultValue.type, AnimationParameterType::Int);
-    EXPECT_EQ(loaded.parameters[1].defaultValue.intValue, -12);
-    EXPECT_EQ(loaded.parameters[2].defaultValue.type, AnimationParameterType::Float);
-    EXPECT_FLOAT_EQ(loaded.parameters[2].defaultValue.floatValue, 3.25f);
-    EXPECT_EQ(loaded.parameters[3].defaultValue.type, AnimationParameterType::Trigger);
-    EXPECT_FALSE(loaded.parameters[3].defaultValue.triggerValue);
+	const auto* boolParam = FindAnimationParameterDesc(loaded, "Bool");
+	const auto* intParam = FindAnimationParameterDesc(loaded, "Int");
+	const auto* floatParam = FindAnimationParameterDesc(loaded, "Float");
+	const auto* triggerParam = FindAnimationParameterDesc(loaded, "Trigger");
+
+	ASSERT_NE(boolParam, nullptr);
+	ASSERT_NE(intParam, nullptr);
+	ASSERT_NE(floatParam, nullptr);
+	ASSERT_NE(triggerParam, nullptr);
+
+	EXPECT_EQ(boolParam->defaultValue.type, AnimationParameterType::Bool);
+	EXPECT_TRUE(boolParam->defaultValue.boolValue);
+
+	EXPECT_EQ(intParam->defaultValue.type, AnimationParameterType::Int);
+	EXPECT_EQ(intParam->defaultValue.intValue, -12);
+
+	EXPECT_EQ(floatParam->defaultValue.type, AnimationParameterType::Float);
+	EXPECT_FLOAT_EQ(floatParam->defaultValue.floatValue, 3.25f);
+
+	EXPECT_EQ(triggerParam->defaultValue.type, AnimationParameterType::Trigger);
+	EXPECT_FALSE(triggerParam->defaultValue.triggerValue);
 }
 
 TEST(AnimationController, StateNotifiesRoundTripInlineAndExternalAssets)
@@ -1100,6 +1112,12 @@ TEST(AnimationController, EvaluateConditionTriggeredAndRuntimeConsumesTrigger)
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 	
 	AnimationControllerAsset asset{};
+	asset.parameters = {
+		AnimationParameterDesc{
+			.name = "attack",
+			.defaultValue = AnimationParameterValue{ .type = AnimationParameterType::Trigger}
+		}
+	};
 	asset.id = "trigger_runtime";
 	asset.defaultState = "Idle";
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
@@ -1160,7 +1178,21 @@ TEST(AnimationController, DefaultStateFallsBackToFirstStateWhenMissingAndRejects
 	// as invalid controller data. Runtime must not silently fallback to Idle,
 	// because that could hide broken JSON/controller authoring.
 	AnimationControllerRuntime runtimeInvalid{};
-	BindAnimationControllerStateMachine(runtimeInvalid, skeleton, clips, clipSourceAssetIds, invalidDefault, true, false, false);
+
+	EXPECT_THROW(
+		BindAnimationControllerStateMachine(
+			runtimeInvalid,
+			skeleton,
+			clips,
+			clipSourceAssetIds,
+			invalidDefault,
+			true,
+			false,
+			false),
+		std::runtime_error);
+
+	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
+	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
 	EXPECT_EQ(runtimeInvalid.currentStateIndex, -1);
 	EXPECT_TRUE(runtimeInvalid.currentStateName.empty());
 
@@ -1180,6 +1212,21 @@ TEST(AnimationController, TriggerTransitionRequiresAllConditionsAndDoesNotConsum
 	std::vector<std::string> clipSourceAssetIds{ "hero", "hero" };
 
 	AnimationControllerAsset asset{};
+	asset.parameters = {
+		AnimationParameterDesc{
+			.name = "attack",
+			.defaultValue = AnimationParameterValue{
+				.type = AnimationParameterType::Trigger
+			}
+		},
+		AnimationParameterDesc{
+			.name = "canAttack",
+			.defaultValue = AnimationParameterValue{
+				.type = AnimationParameterType::Bool,
+				.boolValue = false
+			}
+		}
+	};
 	asset.id = "trigger_gate";
 	asset.defaultState = "Idle";
 	asset.states.push_back(AnimationStateDesc{ .name = "Idle", .clipName = "Idle" });
