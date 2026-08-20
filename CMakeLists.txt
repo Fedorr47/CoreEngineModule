@@ -506,11 +506,13 @@ set(COMMON_MODULES
         Gameplay/GameplayWorld_impl.cppm
         Gameplay/AI/AISystem.cppm
         Gameplay/AI/AIDecisionContracts.cppm
+        Gameplay/AI/AIGoalSelection.cppm
         Gameplay/AI/AIActionRuntime.cppm
         Gameplay/AI/AIPlanner.cppm
         Gameplay/AI/AIPlanExecution.cppm
         Gameplay/AI/AIActionBinding.cppm
         Gameplay/AI/AIPlanExecutionBridge.cppm
+        Gameplay/AI/AIDecisionRuntime.cppm
         Gameplay/AI/AIActionTask.cppm
         Gameplay/AI/GameplayRequest.cppm
         Gameplay/AI/GameplaySteering.cppm
