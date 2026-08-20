@@ -5,6 +5,8 @@ module;
 #include <cstdint>
 #include <optional>
 #include <iostream>
+#include <memory>
+#include <span>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -24,6 +26,8 @@ import :gameplay_bootstrap;
 import :ai_system;
 import :ai_follow_route_action;
 import :ai_move_to_action;
+import :ai_move_to_action_binding;
+import :ai_decision_runtime;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
@@ -117,6 +121,15 @@ export namespace rendern
             GameplayRouteNodeId startNodeId,
             GameplayRouteNodeId goalNodeId,
             const GameplayArrivalSteeringSettings& steeringSettings = {});
+        [[nodiscard]] std::unique_ptr<AIMoveToActionBinding> CreateAIMoveToActionBinding(
+           IAIMoveToActionRequestProvider& requestProvider);
+        [[nodiscard]] AIPlanExecutionStatus UpdateAIDecision(
+            AIDecisionRuntime& decision,
+            const AIAgentWorldState& observedState,
+            std::span<const AIGoalSelectionCandidate> candidates,
+            std::span<const AIActionDefinition> actions,
+            const AIActionBindingRegistry& bindings);
+        void CancelAIDecision(AIDecisionRuntime& decision) noexcept;
         [[nodiscard]] bool RegisterGameplayTraversalLink(GameplayTraversalLink link);
         [[nodiscard]] bool RemoveGameplayTraversalLink(GameplayTraversalLinkHandle handle) noexcept;
         [[nodiscard]] std::optional<GameplayTraversalLink> FindGameplayTraversalLink(

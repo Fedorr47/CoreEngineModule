@@ -53,6 +53,7 @@ namespace appDevelopment
         ScenarioKind kind{ScenarioKind::None};
         app::navigationRuntime::NavigationAgentSizeDevelopmentScenario agentSizeScenario{};
         rendern::GameplayAIJumpTraversalDevelopmentScenarioState jumpTraversalScenario{};
+        rendern::GameplayAIGOAPAccessKeyDevelopmentScenario goapAccessKeyScenario{};
         rendern::GameplayRuntimeMode lastMode{rendern::GameplayRuntimeMode::Editor};
     };
 
@@ -74,9 +75,18 @@ namespace appDevelopment
         impl_->lastMode = rendern::GameplayRuntimeMode::Editor;
     }
 
+    void AppDevelopmentScenarioRuntime::Reset(ScenarioContext& context) noexcept
+    {
+        if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
+        {
+            (void)impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
+        }
+        Reset();
+    }
+    
     void AppDevelopmentScenarioRuntime::OnLevelLoaded(ScenarioContext& context)
     {
-        Reset();
+        Reset(context);
         if (app::navigationRuntime::IsAgentSizeScenario(context.level))
         {
             impl_->kind = ScenarioKind::NavigationAgentSize;
@@ -84,6 +94,10 @@ namespace appDevelopment
         else if (rendern::IsGameplayAIStepDebugScenario(context.level))
         {
             impl_->kind = ScenarioKind::AIPhysicsStep;
+        }
+        else if (rendern::IsGameplayAIGOAPAccessKeyDevelopmentScenario(context.level))
+        {
+            impl_->kind = ScenarioKind::AIGOAPAccessKey;
         }
         else if (rendern::IsGameplayAIJumpTraversalDevelopmentScenario(context.level))
         {
@@ -104,6 +118,11 @@ namespace appDevelopment
             rendern::PrepareGameplayAIJumpTraversalDevelopmentScenario(
                 impl_->jumpTraversalScenario, context.level);
         }
+        else if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
+        {
+            (void)impl_->goapAccessKeyScenario.Prepare(
+                context.gameplayRuntime, MakeGameplayContext(context));
+        }
         impl_->lastMode = context.gameplayMode;
     }
 
@@ -112,12 +131,19 @@ namespace appDevelopment
         if (impl_->kind == ScenarioKind::NavigationAgentSize)
         {
             impl_->agentSizeScenario.Update(context.gameplayRuntime);
+
             if (impl_->lastMode == rendern::GameplayRuntimeMode::Game &&
                 context.gameplayMode == rendern::GameplayRuntimeMode::Editor)
             {
                 impl_->agentSizeScenario.ResetExecutionState();
             }
         }
+        else if (impl_->kind == ScenarioKind::AIGOAPAccessKey &&
+                 context.gameplayMode == rendern::GameplayRuntimeMode::Game)
+        {
+            impl_->goapAccessKeyScenario.Update(context.gameplayRuntime);
+        }
+
         impl_->lastMode = context.gameplayMode;
     }
 
@@ -206,6 +232,33 @@ namespace appDevelopment
             {
                 const rendern::EntityHandle entity = rendern::ResetGameplayAIJumpTraversalDevelopmentScenario(
                     context.gameplayRuntime, context.level, impl_->jumpTraversalScenario);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
+            }
+            break;
+            
+        case ScenarioKind::AIGOAPAccessKey:
+            if (command == ScenarioCommand::Start)
+            {
+                const rendern::EntityHandle entity =
+                    impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
+                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
+                {
+                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                        context.gameplayRuntime, *context.physicsWorld, entity);
+                }
+                (void)impl_->goapAccessKeyScenario.Prepare(
+                    context.gameplayRuntime, MakeGameplayContext(context));
+                (void)impl_->goapAccessKeyScenario.Start(
+                    context.gameplayRuntime, MakeGameplayContext(context));
+            }
+            else if (command == ScenarioCommand::Reset || command == ScenarioCommand::Stop)
+            {
+                const rendern::EntityHandle entity =
+                    impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
                 if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
                 {
                     (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
@@ -303,6 +356,19 @@ namespace appDevelopment
                     context.gameplayRuntime, context.level))
             };
             view.statusCount = 1;
+            break;
+            
+        case ScenarioKind::AIGOAPAccessKey:
+            view.title = "Stage 5 GOAP: Access Key";
+            view.description = "NPC moves behind itself for the key, then crosses the arena to the final goal.";
+            view.startLabel = "Start / Restart GOAP";
+            view.resetLabel = "Reset Scenario";
+            view.stopLabel = "Stop GOAP";
+            view.canStart = view.canReset = view.canStop = true;
+            view.statuses[0] = {"Has access key", impl_->goapAccessKeyScenario.GetObservedFacts().IsFactSet(rendern::kGOAPHasAccessKeyFact) ? "true" : "false"};
+            view.statuses[1] = {"At destination", impl_->goapAccessKeyScenario.GetObservedFacts().IsFactSet(rendern::kGOAPAtDestinationFact) ? "true" : "false"};
+            view.statuses[2] = {"Player / NPC", impl_->goapAccessKeyScenario.GetPlayerEntity() != impl_->goapAccessKeyScenario.GetAgentEntity() ? "distinct" : "invalid"};
+            view.statusCount = 3;
             break;
 
         case ScenarioKind::NavigationAgentSize:

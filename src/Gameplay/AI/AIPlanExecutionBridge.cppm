@@ -35,7 +35,8 @@ export namespace rendern
             
             const AIActionRuntimeContext context{
                 .agentEntity = agentEntity,
-                .actionId = step->actionId};
+                .actionId = step->actionId,
+                .contextId = step->contextId};
             if (!context.IsValid())
             {
                 return execution.MarkCurrentStepStartFailed();

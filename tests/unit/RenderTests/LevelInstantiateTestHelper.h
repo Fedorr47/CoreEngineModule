@@ -35,6 +35,11 @@ namespace rendern::test
         {
             return scene_;
         }
+        
+        [[nodiscard]] Scene& GetScene() noexcept
+        {
+            return scene_;
+        }
 
         [[nodiscard]] std::string InstantiateAndCaptureRuntimeError(const LevelAsset& level)
         {

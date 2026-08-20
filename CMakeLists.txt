@@ -547,6 +547,7 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/Runtime/GameplayAIMovementDevelopmentScenario.cppm
         Gameplay/Runtime/GameplayAIJumpTraversalDevelopmentScenario.cppm
+        Gameplay/Runtime/GameplayAIGOAPAccessKeyDevelopmentScenario.cppm
 
         Timer/GameTimer.ixx
         Timer/GameTimer.cppm

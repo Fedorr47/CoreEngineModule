@@ -10,6 +10,27 @@ import core;
 
 using namespace rendern;
 
+TEST(AIPlanner, PreservesContextForRepeatedSemanticAction)
+{
+    constexpr AIWorldFactId hasKey{40u};
+    constexpr AIWorldFactId atGoal{41u};
+    constexpr AIActionContextId keyTarget{1u};
+    constexpr AIActionContextId finalTarget{2u};
+    AIAgentWorldState initial{};
+    const AIGoalDefinition goal{AIGoalId{50u}, {{atGoal, true}}};
+    const std::array actions{
+        AIActionDefinition{kAIMoveToActionId, {{hasKey, false}}, {{hasKey, true}}, 1.0f, keyTarget},
+        AIActionDefinition{kAIMoveToActionId, {{hasKey, true}}, {{atGoal, true}}, 1.0f, finalTarget}};
+
+    const auto plan = FindAIPlan(initial, goal, actions);
+    ASSERT_TRUE(plan);
+    ASSERT_EQ(plan->steps.size(), 2u);
+    EXPECT_EQ(plan->steps[0], (AIPlanStep{kAIMoveToActionId, keyTarget}));
+    EXPECT_EQ(plan->steps[1], (AIPlanStep{kAIMoveToActionId, finalTarget}));
+    EXPECT_FALSE(initial.IsFactSet(hasKey));
+    EXPECT_FALSE(initial.IsFactSet(atGoal));
+}
+
 namespace
 {
     constexpr AIWorldFactId Fact(const std::uint16_t value) { return AIWorldFactId{ value }; }

@@ -48,6 +48,129 @@ bool TryParseMaterialTextureSlot_(std::string_view slotName, MaterialTextureSlot
 	return false;
 }
 
+// Runtime-only presentation visibility. Asset authoring visibility is left
+// unchanged so repeated simulation reset cycles do not rewrite level content.
+bool SetNodeRuntimeVisible(
+    const LevelAsset& asset,
+    Scene& scene,
+    const int nodeIndex,
+    const bool visible) noexcept
+{
+    if (nodeIndex < 0)
+    {
+        return false;
+    }
+
+    const std::size_t index = static_cast<std::size_t>(nodeIndex);
+    if (index >= nodeToDraws_.size() && index >= nodeToSkinnedDraw_.size())
+    {
+        return false;
+    }
+
+    if (nodeRuntimeVisible_.size() <= index)
+    {
+        nodeRuntimeVisible_.resize(index + 1u, true);
+        nodeRuntimeMeshes_.resize(index + 1u);
+        nodeRuntimeSkinnedMeshes_.resize(index + 1u);
+    }
+
+    const bool hasStaticBinding =
+        index < nodeToDraws_.size() && !nodeToDraws_[index].empty();
+
+    const bool hasSkinnedBinding =
+        index < nodeToSkinnedDraw_.size() && nodeToSkinnedDraw_[index] >= 0;
+
+    if (!hasStaticBinding && !hasSkinnedBinding)
+    {
+        return false;
+    }
+
+    if (nodeRuntimeVisible_[index] == visible)
+    {
+        return true;
+    }
+
+    if (index < nodeToDraws_.size())
+    {
+        for (const int drawIndex : nodeToDraws_[index])
+        {
+            if (drawIndex < 0 ||
+                static_cast<std::size_t>(drawIndex) >= scene.drawItems.size())
+            {
+                continue;
+            }
+
+            DrawItem& item =
+                scene.drawItems[static_cast<std::size_t>(drawIndex)];
+
+            if (!visible)
+            {
+                nodeRuntimeMeshes_[index].push_back(item.mesh);
+            }
+            else if (!nodeRuntimeMeshes_[index].empty())
+            {
+                item.mesh = nodeRuntimeMeshes_[index].front();
+                nodeRuntimeMeshes_[index].erase(
+                    nodeRuntimeMeshes_[index].begin());
+            }
+
+            if (!visible)
+            {
+                item.mesh.reset();
+            }
+        }
+    }
+
+    if (index < nodeToSkinnedDraw_.size())
+    {
+        const int drawIndex = nodeToSkinnedDraw_[index];
+
+        if (drawIndex >= 0 &&
+            static_cast<std::size_t>(drawIndex) <
+                scene.skinnedDrawItems.size())
+        {
+            SkinnedDrawItem& item =
+                scene.skinnedDrawItems[
+                    static_cast<std::size_t>(drawIndex)];
+
+            if (!visible)
+            {
+                nodeRuntimeSkinnedMeshes_[index] = item.asset;
+                item.asset.reset();
+            }
+            else
+            {
+                item.asset =
+                    std::move(nodeRuntimeSkinnedMeshes_[index]);
+            }
+        }
+    }
+
+    nodeRuntimeVisible_[index] = visible;
+    SyncEntityRenderableForNode_(asset, scene, nodeIndex);
+    return true;
+}
+
+[[nodiscard]]
+bool IsNodeRuntimeVisible(const int nodeIndex) const noexcept
+{
+    if (nodeIndex < 0)
+    {
+        return false;
+    }
+
+    const std::size_t index = static_cast<std::size_t>(nodeIndex);
+
+    if (index >= nodeToDraws_.size() &&
+        index >= nodeToSkinnedDraw_.size())
+    {
+        return false;
+    }
+
+    return index >= nodeRuntimeVisible_.size()
+        || nodeRuntimeVisible_[index];
+}
+
 // -----------------------------
 // Runtime: descriptor management
 // -----------------------------

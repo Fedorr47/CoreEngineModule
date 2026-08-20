@@ -629,6 +629,11 @@ namespace appLifecycle
 
             if (runtimeState.gameplayRuntime)
             {
+                appDevelopment::ScenarioContext developmentContext{
+                    *runtimeState.gameplayRuntime, *contentState.levelAsset,
+                    *runtimeState.levelInstance, runtimeState.scene, runtimeState.gameplayMode,
+                    app.physicsState.joltPhysicsWorld.get(), runtimeState.navigationProfiles.get()};
+                app.developmentScenarioRuntime.Reset(developmentContext);
                 runtimeState.gameplayRuntime->Shutdown();
                 runtimeState.gameplayRuntime.reset();
             }
@@ -880,7 +885,6 @@ namespace appLifecycle
 
     void ShutdownApp(AppState& app)
     {
-        app.developmentScenarioRuntime.Reset();
         CORE_ASSERT_MAIN_THREAD();
 
         if (!app.initialized)
@@ -893,6 +897,19 @@ namespace appLifecycle
         auto& windowState       = app.windowState;
         auto& contentState      = app.contentState;
         auto& physicsState      = app.physicsState;
+        
+        if (runtimeState.gameplayRuntime && runtimeState.levelInstance && contentState.levelAsset)
+        {
+            appDevelopment::ScenarioContext developmentContext{
+                *runtimeState.gameplayRuntime, *contentState.levelAsset,
+                *runtimeState.levelInstance, runtimeState.scene, runtimeState.gameplayMode,
+                physicsState.joltPhysicsWorld.get(), runtimeState.navigationProfiles.get()};
+            app.developmentScenarioRuntime.Reset(developmentContext);
+        }
+        else
+        {
+            app.developmentScenarioRuntime.Reset();
+        }
         
         if (runtimeState.gameplayRuntime && physicsState.joltPhysicsWorld)
         {

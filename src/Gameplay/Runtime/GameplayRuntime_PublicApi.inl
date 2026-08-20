@@ -505,6 +505,32 @@
             return aiSystem_.GetActionStatus(agentEntity);
         }
 
+        [[nodiscard]] std::unique_ptr<AIMoveToActionBinding>
+            GameplayRuntime::CreateAIMoveToActionBinding(
+            IAIMoveToActionRequestProvider& requestProvider)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return std::make_unique<AIMoveToActionBinding>(
+                world_, traversalLinkRegistry_, traversalExecutorRegistry_, requestProvider);
+        }
+
+        [[nodiscard]] AIPlanExecutionStatus GameplayRuntime::UpdateAIDecision(
+            AIDecisionRuntime& decision,
+            const AIAgentWorldState& observedState,
+            const std::span<const AIGoalSelectionCandidate> candidates,
+            const std::span<const AIActionDefinition> actions,
+            const AIActionBindingRegistry& bindings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return decision.Update(observedState, candidates, actions, bindings, aiSystem_, world_);
+        }
+
+        void GameplayRuntime::CancelAIDecision(AIDecisionRuntime& decision) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            decision.Cancel(aiSystem_);
+        }
+
         [[nodiscard]] EntityHandle GameplayRuntime::SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
             const int nodeIndex,

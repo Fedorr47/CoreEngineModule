@@ -19,6 +19,10 @@ std::vector<int> particleEmitterToSceneEmitter_;
 std::unordered_map<std::string, MaterialHandle> materialHandles_;
 bool transformsDirty_{ true };
 
+std::vector<bool> nodeRuntimeVisible_;
+std::vector<std::vector<MeshHandle>> nodeRuntimeMeshes_;
+std::vector<SkinnedHandle> nodeRuntimeSkinnedMeshes_;
+
 // ECS runtime (hybrid phase)
 LevelWorld ecs_{};
 std::vector<EntityHandle> nodeToEntity_{};

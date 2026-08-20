@@ -16,6 +16,7 @@ export namespace rendern
     {
         EntityHandle agentEntity{kNullEntity};
         AIActionId actionId{};
+        AIActionContextId contextId{};
         
         [[nodiscard]] constexpr bool IsValid() const noexcept
         {

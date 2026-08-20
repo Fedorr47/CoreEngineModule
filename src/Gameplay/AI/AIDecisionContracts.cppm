@@ -20,6 +20,9 @@ export namespace rendern
 		struct AIActionIdTag
 		{
 		};
+		
+		struct AIActionContextIdTag 
+		{};
 	}
 	
 	template <typename TTag>
@@ -51,6 +54,9 @@ export namespace rendern
 
 	using AIGoalId = AIId<details::AIGoalIdTag>;
 	using AIActionId = AIId<details::AIActionIdTag>;
+	// Distinguishes semantic invocations of the same action (for example MoveTo
+	// against two different targets) without creating scenario-specific actions.
+	using AIActionContextId = AIId<details::AIActionContextIdTag>;
 	
 	struct AIFactCondition
 	{
@@ -79,6 +85,7 @@ export namespace rendern
 		AIActionId actionId{};
 		std::vector<AIFactCondition> preconditions{};
 		std::vector<AIFactEffect> effects{};
+		AIActionContextId contextId{};
 		float baseCost{ 1.0f };
 	};
 	
@@ -94,6 +101,7 @@ export namespace rendern
 	struct AIPlanStep
 	{
 		AIActionId actionId{};
+		AIActionContextId contextId{};
 		
 		friend constexpr bool operator==(const AIPlanStep&, const AIPlanStep&) noexcept = default;
 	};

@@ -37,8 +37,7 @@ namespace rendern
                 return false;
             }
 
-            std::vector<AIActionId::ValueType> actionIds;
-            actionIds.reserve(actions.size());
+            std::vector<std::pair<AIActionId::ValueType, AIActionContextId::ValueType>> actionKeys;
             for (const AIActionDefinition& action : actions)
             {
                 if (!action.actionId.IsValid()
@@ -55,11 +54,11 @@ namespace rendern
                 {
                     return false;
                 }
-                actionIds.push_back(action.actionId.value);
+                actionKeys.emplace_back(action.actionId.value, action.contextId.value);
             }
 
-            std::ranges::sort(actionIds);
-            return std::ranges::adjacent_find(actionIds) == actionIds.end();
+            std::ranges::sort(actionKeys);
+            return std::ranges::adjacent_find(actionKeys) == actionKeys.end();
         }
 
         struct SearchNode
@@ -108,7 +107,7 @@ export namespace rendern
         }
         std::ranges::sort(orderedActions, {}, [](const AIActionDefinition* action)
         {
-            return action->actionId.value;
+            return std::pair{action->actionId.value, action->contextId.value};
         });
 
         std::priority_queue<SearchNode, std::vector<SearchNode>, SearchNodeGreater> frontier;
@@ -153,7 +152,7 @@ export namespace rendern
                 }
 
                 std::vector<AIPlanStep> nextSteps = current.steps;
-                nextSteps.push_back(AIPlanStep{ action->actionId });
+                nextSteps.push_back(AIPlanStep{ action->actionId, action->contextId });
                 bestCosts.insert_or_assign(nextState, nextCost);
                 frontier.push(SearchNode{
                     std::move(nextState), nextCost, nextSequence++, std::move(nextSteps) });

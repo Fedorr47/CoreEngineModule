@@ -27,6 +27,7 @@ namespace appDevelopment
         AIMovement,
         AIPhysicsStep,
         AIJumpTraversal,
+        AIGOAPAccessKey,
         NavigationAgentSize
     };
 
@@ -88,6 +89,7 @@ namespace appDevelopment
             const AppDevelopmentScenarioRuntime&) = delete;
 
         void Reset() noexcept;
+        void Reset(ScenarioContext& context) noexcept;
         void OnLevelLoaded(ScenarioContext& context);
         void Update(ScenarioContext& context) noexcept;
 
