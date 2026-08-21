@@ -58,6 +58,11 @@ TEST(JsonUtils, ParseObjectFailureCasesThrow)
     }
 }
 
+TEST(JsonUtils, DuplicateObjectKeysAreRejected)
+{
+    EXPECT_THROW(ParseJson(R"json({"role":"first","role":"second"})json"), std::runtime_error);
+}
+
 TEST(JsonUtils, ParseArraySuccessAndFailureCases)
 {
     const jsonUtils::JsonValue validArray = ParseJson(R"json([true,false,null,{"k":"v"},[1,2,3]])json");

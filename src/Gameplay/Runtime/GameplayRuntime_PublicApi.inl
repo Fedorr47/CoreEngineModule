@@ -588,6 +588,32 @@
             return entity;
         }
 
+        [[nodiscard]] bool GameplayRuntime::DestroyNodeBoundEntity(const EntityHandle entity)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+
+            const auto tracked = std::find(
+                nodeBoundEntities_.begin(), nodeBoundEntities_.end(), entity);
+            if (tracked == nodeBoundEntities_.end())
+            {
+                return false;
+            }
+
+            ClearAIAction(entity);
+            UnbindIntentSource(entity);
+            graphInstances_.erase(entity);
+            nodeBoundEntities_.erase(
+                std::remove(nodeBoundEntities_.begin(), nodeBoundEntities_.end(), entity),
+                nodeBoundEntities_.end());
+            if (controlledEntity_ == entity)
+            {
+                controlledEntity_ = kNullEntity;
+            }
+            world_.DestroyEntity(entity);
+            objectReservationSystem_.CleanupInvalidReservations(world_);
+            return true;
+        }
+
         void GameplayRuntime::SetSkipDuplicatePostAnimationSyncEnabled(bool enabled) noexcept
         {
             skipDuplicatePostAnimationSyncEnabled_ = enabled;        

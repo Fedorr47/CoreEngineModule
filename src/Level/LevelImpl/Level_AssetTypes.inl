@@ -118,6 +118,9 @@ struct LevelAsset
 	// Remember where this level was loaded from (used by editor Save).
 	// Can be asset-relative (e.g. "levels/demo.level.json") or absolute.
 	std::string sourcePath;
+	// Optional explicit data-driven development scenario asset. Empty preserves
+	// legacy development-level detection.
+	std::string developmentScenario;
 
 	std::unordered_map<std::string, LevelMeshDef> meshes;
 	std::unordered_map<std::string, LevelModelDef> models;

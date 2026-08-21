@@ -14,6 +14,7 @@ LevelAsset LoadLevelAssetFromJson(std::string_view levelRelativePath)
 	LevelAsset out;
 	out.name = GetStringOpt(jsonObject, "name", "Level");
 	out.sourcePath = std::string(levelRelativePath);
+	out.developmentScenario = GetStringOpt(jsonObject, "developmentScenario", "");
 
 	ParseGameplayActionsSection_(out, jsonObject);
 	ParseGameplayInputSection_(out, jsonObject);

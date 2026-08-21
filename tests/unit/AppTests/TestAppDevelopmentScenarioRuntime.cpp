@@ -7,6 +7,7 @@
 import core;
 
 #include "App/Development/AppDevelopmentScenarioRuntime.h"
+#include "unit/RenderTests/LevelInstantiateTestHelper.h"
 
 namespace
 {
@@ -79,6 +80,11 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     EXPECT_TRUE(jumpView.canStart);
     EXPECT_TRUE(jumpView.canReset);
     EXPECT_TRUE(jumpView.canStop);
+    
+    rendern::LevelAsset goap{};
+    AddNode(goap, "GOAP_Observer_Player"); AddNode(goap, "GOAP_Agent");
+    AddNode(goap, "GOAP_Start"); AddNode(goap, "GOAP_Access_Key"); AddNode(goap, "GOAP_Final_Goal");
+    EXPECT_EQ(detect(goap).first, appDevelopment::ScenarioKind::AIGOAPAccessKey);
 
     rendern::LevelAsset agentSize{}; agentSize.name = "NavigationSmallLargePassage";
     AddNode(agentSize, "SMALL NPC"); AddNode(agentSize, "LARGE NPC");
@@ -89,6 +95,48 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
 
     rendern::LevelAsset none{};
     EXPECT_EQ(detect(none).first, appDevelopment::ScenarioKind::None);
+}
+
+TEST(AppDevelopmentScenarioRuntime, ExplicitInvalidScenarioNeverFallsBackToLegacyDetection)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{};
+    AddNode(level, "AI_Move_Agent"); AddNode(level, "AI_Move_Point_0"); AddNode(level, "AI_Move_Point_1");
+    level.developmentScenario = "tests/development/does_not_exist.scenario.json";
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    auto context = MakeContext(runtime, level, instance, scene);
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    EXPECT_THROW(development.OnLevelLoaded(context), std::runtime_error);
+    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::None);
+    runtime.Shutdown();
+}
+
+TEST(AppDevelopmentScenarioRuntime, LoadsRunsAndStopsExplicitDataDrivenScenario)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson("tests/development/basic.level.json");
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{}; runtime.Initialize(level, instance, scene);
+    auto context = MakeContext(runtime, level, instance, scene);
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
+    EXPECT_TRUE(development.GetView(context).active);
+    EXPECT_FALSE(instance.IsNodeRuntimeVisible(1));
+
+    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
+    development.Execute(appDevelopment::ScenarioCommand::Start, context);
+    EXPECT_STREQ(development.GetView(context).statuses[0].value, "Running");
+    development.Update(context);
+    context.gameplayMode = rendern::GameplayRuntimeMode::Editor;
+    development.Update(context);
+    EXPECT_STREQ(development.GetView(context).statuses[0].value, "Loaded");
+    development.Reset(context);
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(1));
+    runtime.Shutdown();
 }
 
 TEST(AppDevelopmentScenarioRuntime, OwnsAndResetsAgentSizeSetup)

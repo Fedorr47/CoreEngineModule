@@ -34,4 +34,9 @@ namespace appRuntime
     [[nodiscard]] bool DestroyGameplayPhysicsCharacters(
         rendern::GameplayRuntime& gameplayRuntime,
         physics::JoltPhysicsWorld& physicsWorld);
+    
+    [[nodiscard]] bool DestroyGameplayPhysicsCharacter(
+        rendern::GameplayRuntime& gameplayRuntime,
+        physics::JoltPhysicsWorld& physicsWorld,
+        rendern::EntityHandle entity);
 }

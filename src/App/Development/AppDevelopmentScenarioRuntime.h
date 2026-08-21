@@ -15,7 +15,7 @@ namespace rendern
     class GameplayRuntime;
     struct LevelAsset;
     class LevelInstance;
-    struct Scene;
+    class Scene;
     enum class GameplayRuntimeMode : unsigned char;
 }
 
@@ -24,6 +24,7 @@ namespace appDevelopment
     enum class ScenarioKind
     {
         None,
+        DataDriven,
         AIMovement,
         AIPhysicsStep,
         AIJumpTraversal,

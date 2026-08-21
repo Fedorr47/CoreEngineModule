@@ -662,6 +662,7 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/App/DebugUiHost.cpp"
 
         "${SRC_DIR}/App/Development/AppDevelopmentScenarioRuntime.cpp"
+        "${SRC_DIR}/App/Development/DevelopmentScenario.cpp"
         
         "${SRC_DIR}/App/AppArguments.cpp"
         "${SRC_DIR}/App/AppBootstrap.cpp"

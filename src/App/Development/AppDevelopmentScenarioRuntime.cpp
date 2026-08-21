@@ -1,10 +1,12 @@
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "App/GameplayPhysicsCharacterIntegration.h"
+#include <stdexcept>
 
 import core;
 import app.navigation_agent_size_development_scenario;
 
 #include "AppDevelopmentScenarioRuntime.h"
+#include "DevelopmentScenario.h"
 
 namespace appDevelopment
 {
@@ -55,6 +57,8 @@ namespace appDevelopment
         rendern::GameplayAIJumpTraversalDevelopmentScenarioState jumpTraversalScenario{};
         rendern::GameplayAIGOAPAccessKeyDevelopmentScenario goapAccessKeyScenario{};
         rendern::GameplayRuntimeMode lastMode{rendern::GameplayRuntimeMode::Editor};
+        DevelopmentScenarioAsset dataAsset{};
+        DevelopmentScenarioRunner dataRunner{};
     };
 
     AppDevelopmentScenarioRuntime::AppDevelopmentScenarioRuntime()
@@ -69,6 +73,14 @@ namespace appDevelopment
 
     void AppDevelopmentScenarioRuntime::Reset() noexcept
     {
+        // A data-driven runner needs its ScenarioContext to cancel owned work.
+        // Retain it until Reset(context) can perform a safe unload.
+        if (impl_->dataRunner.IsLoaded()) 
+        {
+            return;
+        }
+        impl_->dataRunner = DevelopmentScenarioRunner{};
+        impl_->dataAsset = {};
         impl_->kind = ScenarioKind::None;
         impl_->agentSizeScenario.Reset();
         impl_->jumpTraversalScenario.Reset();
@@ -77,6 +89,7 @@ namespace appDevelopment
 
     void AppDevelopmentScenarioRuntime::Reset(ScenarioContext& context) noexcept
     {
+        impl_->dataRunner.Unload(context);
         if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
         {
             (void)impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
@@ -87,6 +100,26 @@ namespace appDevelopment
     void AppDevelopmentScenarioRuntime::OnLevelLoaded(ScenarioContext& context)
     {
         Reset(context);
+        
+        // Do not replace a data-driven scenario whose spawned entity still owns
+        // a physics binding that could not be torn down safely.
+        if (impl_->dataRunner.IsLoaded())
+        {
+            throw std::runtime_error(
+                "Development scenario: failed to unload previous data-driven scenario");
+        }
+        
+        if (!context.level.developmentScenario.empty())
+        {
+            impl_->dataAsset = LoadDevelopmentScenarioAsset(context.level.developmentScenario);
+            if (!impl_->dataRunner.Load(impl_->dataAsset, context))
+            {
+                throw std::runtime_error("Development scenario '" + context.level.developmentScenario + "': failed to resolve roles or execute setup");
+            }
+            impl_->kind = ScenarioKind::DataDriven;
+            impl_->lastMode = context.gameplayMode;
+            return;
+        }
         if (app::navigationRuntime::IsAgentSizeScenario(context.level))
         {
             impl_->kind = ScenarioKind::NavigationAgentSize;
@@ -128,7 +161,19 @@ namespace appDevelopment
 
     void AppDevelopmentScenarioRuntime::Update(ScenarioContext& context) noexcept
     {
-        if (impl_->kind == ScenarioKind::NavigationAgentSize)
+        if (impl_->kind == ScenarioKind::DataDriven)
+        {
+            if (impl_->lastMode == rendern::GameplayRuntimeMode::Game &&
+                context.gameplayMode == rendern::GameplayRuntimeMode::Editor)
+            {
+                impl_->dataRunner.Stop(context);
+            }
+            if (context.gameplayMode == rendern::GameplayRuntimeMode::Game)
+            {
+                impl_->dataRunner.Update(context);
+            }
+        }
+        else if (impl_->kind == ScenarioKind::NavigationAgentSize)
         {
             impl_->agentSizeScenario.Update(context.gameplayRuntime);
 
@@ -152,6 +197,23 @@ namespace appDevelopment
     {
         if (context.gameplayMode != rendern::GameplayRuntimeMode::Game)
         {
+            return;
+        }
+        
+        if (impl_->kind == ScenarioKind::DataDriven)
+        {
+            if (command == ScenarioCommand::Start)
+            {
+                (void)impl_->dataRunner.Start(context);
+            }
+            else if (command == ScenarioCommand::Stop)
+            {
+                impl_->dataRunner.Stop(context);
+            }
+            else
+            {
+                impl_->dataRunner.Reset(context);
+            }
             return;
         }
 
@@ -314,6 +376,18 @@ namespace appDevelopment
 
         switch (impl_->kind)
         {
+        case ScenarioKind::DataDriven:
+            if (const auto* asset = impl_->dataRunner.GetAsset())
+            {
+                view.title = asset->title.c_str();
+                view.description = asset->description.c_str();
+                view.canStart = !impl_->dataRunner.IsRunning();
+                view.canStop = impl_->dataRunner.IsRunning();
+                view.canReset = true;
+                view.statuses[0] = {"Status", impl_->dataRunner.IsRunning() ? "Running" : "Loaded"};
+                view.statusCount = 1;
+            }
+            break;
         case ScenarioKind::AIMovement:
             view.title = "AI Movement";
             view.description = "AI_Move_Agent and ordered AI_Move_Point_<number> nodes.";

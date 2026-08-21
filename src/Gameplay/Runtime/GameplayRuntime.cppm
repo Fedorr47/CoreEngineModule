@@ -111,6 +111,7 @@ export namespace rendern
             const GameplayUpdateContext& ctx,
             const int nodeIndex,
             const bool playerControlled);
+        [[nodiscard]] bool DestroyNodeBoundEntity(EntityHandle entity);
         [[nodiscard]] AIActionExecutionStatus StartAIFollowRoute(
             EntityHandle agentEntity,
             GameplayRoute route,

@@ -1,11 +1,10 @@
 #include "Core/ThreadAffinity/ThreadAffinityAssertions.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
+#include "GameplayPhysicsCharacterIntegration.h"
 
 #include <cmath>
 
 import core;
-
-#include "GameplayPhysicsCharacterIntegration.h"
 
 namespace
 {
@@ -279,22 +278,42 @@ bool appRuntime::DestroyGameplayPhysicsCharacters(
     CORE_ASSERT_RUNTIME_THREAD();
     CORE_ASSERT_PHYSICS_THREAD();
 
-    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
+
     for (const rendern::EntityHandle entity : gameplayRuntime.GetNodeBoundEntities())
     {
-        const auto* binding = world.TryGetPhysicsCharacter(entity);
-        if (binding == nullptr)
-        {
-            continue;
-        }
-        const physics::PhysicsCharacterHandle character = binding->character;
-        if (physicsWorld.IsCharacterValid(character) && !physicsWorld.DestroyCharacter(character))
+        if (!DestroyGameplayPhysicsCharacter(gameplayRuntime, physicsWorld, entity))
         {
             return false;
         }
-        world.RemovePhysicsCharacter(entity);
     }
 
+    return true;
+}
+
+bool appRuntime::DestroyGameplayPhysicsCharacter(
+    rendern::GameplayRuntime& gameplayRuntime,
+    physics::JoltPhysicsWorld& physicsWorld,
+    const rendern::EntityHandle entity)
+{
+    CORE_ASSERT_RUNTIME_THREAD();
+    CORE_ASSERT_PHYSICS_THREAD();
+
+    rendern::GameplayWorld& world = gameplayRuntime.GetWorld();
+    if (!world.IsEntityValid(entity))
+    {
+        return true;
+    }
+    const auto* binding = world.TryGetPhysicsCharacter(entity);
+    if (binding == nullptr)
+    {
+        return true;
+    }
+    const physics::PhysicsCharacterHandle character = binding->character;
+    if (physicsWorld.IsCharacterValid(character) && !physicsWorld.DestroyCharacter(character))
+    {
+        return false;
+    }
+    world.RemovePhysicsCharacter(entity);
     return true;
 }
 

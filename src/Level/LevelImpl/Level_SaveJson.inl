@@ -14,6 +14,12 @@ void SaveLevelAssetToJson(std::string_view levelRelativeOrAbsPath, const LevelAs
 	ss << "  \"name\": ";
 	WriteJsonEscaped(ss, level.name);
 	ss << ",\n";
+	if (!level.developmentScenario.empty())
+	{
+		ss << "  \"developmentScenario\": ";
+		WriteJsonEscaped(ss, level.developmentScenario);
+		ss << ",\n";
+	}
 
 	WriteGameplayActionsSection_(ss, level);
 	WriteGameplayInputSection_(ss, level);

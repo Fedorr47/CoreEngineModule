@@ -190,7 +190,8 @@ export namespace jsonUtils
                 std::string key = ParseString();
                 Expect(':');
                 JsonValue value = ParseValue();
-                obj.emplace(std::move(key), std::move(value));
+                const auto [_, inserted] = obj.emplace(std::move(key), std::move(value));
+                if (!inserted) Throw("duplicate object key");
                 SkipWs();
                 const char c = Get();
                 if (c == '}') break;

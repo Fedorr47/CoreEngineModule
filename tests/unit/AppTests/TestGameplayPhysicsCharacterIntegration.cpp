@@ -17,6 +17,8 @@ import core;
 import std;
 
 #include "App/GameplayPhysicsCharacterIntegration.h"
+#include "App/Development/DevelopmentScenario.h"
+#include "App/Development/AppDevelopmentScenarioRuntime.h"
 #include "App/AppLifecycle.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "Physics/Jolt/JoltRuntime.h"
@@ -181,6 +183,89 @@ namespace
         rendern::GameplayUpdateContext gameContext{};
         rendern::EntityHandle player{rendern::kNullEntity};
     };
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, ScenarioTeleportOperationUsesProductionCharacterPath)
+{
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
+        gameplayRuntime, physicsWorld, levelAsset));
+    auto* transform = gameplayRuntime.GetWorld().TryGetTransform(player);
+    ASSERT_NE(transform, nullptr);
+    transform->position = {3.0f, 2.0f, -4.0f};
+
+    appDevelopment::DevelopmentScenarioAsset asset{
+        .id = "test.teleport",
+        .title = "Teleport operation",
+        .roles = {{"agent", "Player"}},
+        .start = {appDevelopment::TeleportPhysicsCharacterOperation{"agent"}}};
+    appDevelopment::ScenarioContext context{
+        gameplayRuntime, levelAsset, levelInstance, scene,
+        rendern::GameplayRuntimeMode::Game, &physicsWorld, nullptr};
+    appDevelopment::DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(asset, context));
+    EXPECT_TRUE(runner.Start(context));
+    runner.Unload(context);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, SingleEntityPhysicsTeardownPreservesGameplayEntity)
+{
+    const rendern::EntityHandle npc = SpawnNPC();
+    ASSERT_NE(npc, rendern::kNullEntity);
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
+        gameplayRuntime, physicsWorld, levelAsset));
+    const auto* binding = gameplayRuntime.GetWorld().TryGetPhysicsCharacter(npc);
+    ASSERT_NE(binding, nullptr);
+    const physics::PhysicsCharacterHandle character = binding->character;
+    ASSERT_TRUE(physicsWorld.IsCharacterValid(character));
+
+    EXPECT_TRUE(appRuntime::DestroyGameplayPhysicsCharacter(
+        gameplayRuntime, physicsWorld, npc));
+    EXPECT_FALSE(physicsWorld.IsCharacterValid(character));
+    EXPECT_FALSE(gameplayRuntime.GetWorld().HasPhysicsCharacter(npc));
+    EXPECT_TRUE(gameplayRuntime.GetWorld().IsEntityValid(npc));
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, SingleEntityPhysicsTeardownWithoutBindingIsNoOp)
+{
+    ASSERT_TRUE(gameplayRuntime.GetWorld().IsEntityValid(player));
+    ASSERT_FALSE(gameplayRuntime.GetWorld().HasPhysicsCharacter(player));
+    EXPECT_TRUE(appRuntime::DestroyGameplayPhysicsCharacter(
+        gameplayRuntime, physicsWorld, player));
+    EXPECT_TRUE(gameplayRuntime.GetWorld().IsEntityValid(player));
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, ScenarioUnloadDestroysPhysicsBeforeSpawnedGameplayEntity)
+{
+    appDevelopment::DevelopmentScenarioAsset asset{
+        .id = "test.spawned.physics",
+        .title = "Spawned physics teardown",
+        .roles = {{"agent", "NPC"}},
+        .setup = {
+            appDevelopment::EnsureNodeBoundEntityOperation{"agent"},
+            appDevelopment::EnsureAIOperation{"agent"}}};
+    appDevelopment::ScenarioContext context{
+        gameplayRuntime, levelAsset, levelInstance, scene,
+        rendern::GameplayRuntimeMode::Game, &physicsWorld, nullptr};
+    appDevelopment::DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(asset, context));
+    rendern::EntityHandle npc = rendern::kNullEntity;
+    for (const auto entity : gameplayRuntime.GetNodeBoundEntities())
+        if (const auto* link = gameplayRuntime.GetWorld().TryGetNodeLink(entity);
+            link && link->nodeIndex == 1) npc = entity;
+    ASSERT_NE(npc, rendern::kNullEntity);
+    gameplayRuntime.GetWorld().SetCharacterPhysicalSettings(npc, {
+        .radius = 0.22f, .cylinderHeight = 0.86f,
+        .maximumSlopeAngleDegrees = 38.0f, .maximumStepHeight = 0.18f, .mass = 54.0f});
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(
+        gameplayRuntime, physicsWorld, levelAsset));
+    const auto* binding = gameplayRuntime.GetWorld().TryGetPhysicsCharacter(npc);
+    ASSERT_NE(binding, nullptr);
+    const physics::PhysicsCharacterHandle character = binding->character;
+
+    runner.Unload(context);
+    EXPECT_FALSE(physicsWorld.IsCharacterValid(character));
+    EXPECT_FALSE(gameplayRuntime.GetWorld().IsEntityValid(npc));
+    EXPECT_EQ(std::ranges::count(gameplayRuntime.GetNodeBoundEntities(), npc), 0);
 }
 
 TEST(GameplayCharacterPhysicalSettings, DerivesSynchronizedPhysicsAndNavigationDimensions)

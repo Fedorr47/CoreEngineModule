@@ -1,0 +1,19 @@
+﻿{
+  "id": "test.basic",
+  "title": "Basic Framework Scenario",
+  "description": "Framework-only Stage 1 fixture.",
+  "roles": { "agent": "Scenario_Agent", "marker": "Scenario_Marker" },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "agent" },
+    { "op": "captureTransform", "entity": "agent", "slot": "initialAgentTransform" },
+    { "op": "ensureAI", "entity": "agent" },
+    { "op": "setRuntimeVisibility", "entity": "marker", "visible": false }
+  ],
+  "start": [],
+  "update": [],
+  "stop": [ { "op": "cancelAI", "entity": "agent" } ],
+  "reset": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "restoreTransform", "entity": "agent", "slot": "initialAgentTransform" }
+  ]
+}

@@ -41,10 +41,35 @@ namespace
             ctx.scene = &scene_;
             return ctx;
         }
+        
+        [[nodiscard]] GameplayRuntime& Runtime() noexcept
+        {
+            return runtime_;
+        }
 
         [[nodiscard]] EntityHandle SyncNodeMapping(const int nodeIndex, const bool playerControlled = false)
         {
             return runtime_.SpawnNodeBoundEntity(Context(), nodeIndex, playerControlled);
+        }
+        
+        [[nodiscard]] bool DestroyNodeMapping(const EntityHandle entity)
+        {
+            return runtime_.DestroyNodeBoundEntity(entity);
+        }
+
+        [[nodiscard]] bool IsEntityValid(const EntityHandle entity) const
+        {
+            return runtime_.GetWorld().IsEntityValid(entity);
+        }
+
+        [[nodiscard]] EntityHandle CreateUntrackedEntity()
+        {
+            return runtime_.GetWorld().CreateEntity();
+        }
+
+        [[nodiscard]] EntityHandle ControlledEntity() const
+        {
+            return runtime_.GetControlledEntity();
         }
 
         [[nodiscard]] MappingSnapshot CaptureNodeMappings() const
@@ -115,6 +140,61 @@ namespace
         Scene scene_{};
         GameplayRuntime runtime_{};
     };
+}
+
+TEST(GameplayRuntimeNodeBoundMappingConsistency, ExplicitDestructionImmediatelyRemovesTrackingAndAllowsFreshSpawn)
+{
+    GameplayRuntimeNodeBoundMappingHarness harness(1);
+    const EntityHandle first = harness.SyncNodeMapping(0, true);
+    ASSERT_NE(first, kNullEntity);
+    EXPECT_EQ(harness.ControlledEntity(), first);
+    
+    GameplayRuntime& runtime = harness.Runtime();
+    GameplayWorld& world = runtime.GetWorld();
+    world.AddAI(first);
+    
+    GameplayRoute route{
+        .points = {
+                            {{0.0f, 0.0f, 0.0f}},
+                            {{1.0f, 0.0f, 0.0f}}},
+                        .segmentAnnotations = {{}}};
+    ASSERT_EQ(
+        runtime.StartAIFollowRoute(first, std::move(route)),
+        AIActionExecutionStatus::Running);
+    
+    const EntityHandle interactionObject = world.CreateEntity();
+    world.AddInteractionPoint(
+        interactionObject,
+        GameplayInteractionPointComponent{});
+    ASSERT_TRUE(runtime.TryReserveGameplayObject(interactionObject, first));
+    ASSERT_TRUE(runtime.IsGameplayObjectReservedBy(interactionObject, first));
+    
+    EXPECT_TRUE(harness.DestroyNodeMapping(first));
+    EXPECT_FALSE(harness.IsEntityValid(first));
+    EXPECT_EQ(harness.ControlledEntity(), kNullEntity);
+    EXPECT_EQ(
+        runtime.GetAIActionStatus(first),
+        AIActionExecutionStatus::NotStarted);
+    EXPECT_FALSE(runtime.IsGameplayObjectReserved(interactionObject));
+    EXPECT_TRUE(world.IsEntityValid(interactionObject));
+
+    const auto afterDestroy = harness.CaptureNodeMappings();
+    EXPECT_EQ(afterDestroy.validNodeBoundEntityCount, 0u);
+    EXPECT_EQ(afterDestroy.uniqueNodeIndexCount, 0u);
+
+    EXPECT_FALSE(harness.DestroyNodeMapping(first));
+    const EntityHandle untracked = harness.CreateUntrackedEntity();
+    EXPECT_FALSE(harness.DestroyNodeMapping(untracked));
+    EXPECT_TRUE(harness.IsEntityValid(untracked));
+
+    const EntityHandle second = harness.SyncNodeMapping(0);
+    ASSERT_NE(second, kNullEntity);
+    EXPECT_NE(second, first);
+    const auto afterRespawn = harness.CaptureNodeMappings();
+    EXPECT_EQ(afterRespawn.validNodeBoundEntityCount, 1u);
+    EXPECT_EQ(afterRespawn.uniqueNodeIndexCount, 1u);
+    EXPECT_EQ(afterRespawn.duplicateNodeIndexCount, 0u);
+    EXPECT_EQ(afterRespawn.nodeToEntity.at(0), second);
 }
 
 TEST(GameplayRuntimeNodeBoundMappingConsistency, CreateSyncBuildsStableMappings)
