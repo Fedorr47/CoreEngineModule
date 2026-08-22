@@ -74,12 +74,7 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     AddNode(jump, "JumpTraversalEntry");
     AddNode(jump, "JumpTakeoff"); AddNode(jump, "JumpLanding");
     AddNode(jump, "JumpPostLanding"); AddNode(jump, "JumpRouteFinish");
-    const auto [jumpKind, jumpView] = detect(jump);
-    EXPECT_EQ(jumpKind, appDevelopment::ScenarioKind::AIJumpTraversal);
-    EXPECT_STREQ(jumpView.startLabel, "Start Route");
-    EXPECT_TRUE(jumpView.canStart);
-    EXPECT_TRUE(jumpView.canReset);
-    EXPECT_TRUE(jumpView.canStop);
+    EXPECT_EQ(detect(jump).first, appDevelopment::ScenarioKind::None);
     
     rendern::LevelAsset goap{};
     AddNode(goap, "GOAP_Observer_Player"); AddNode(goap, "GOAP_Agent");
@@ -95,6 +90,25 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
 
     rendern::LevelAsset none{};
     EXPECT_EQ(detect(none).first, appDevelopment::ScenarioKind::None);
+}
+
+TEST(AppDevelopmentScenarioRuntime, LoadsActualJumpLevelOnlyAsDataDriven)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_jump_traversal_development.level.json");
+    ASSERT_EQ(level.developmentScenario, "development/ai_jump_traversal.scenario.json");
+    rendern::LevelInstance instance{};
+    rendern::Scene scene{};
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    auto context = MakeContext(runtime, level, instance, scene);
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
+    EXPECT_STREQ(development.GetView(context).title, "CR-447 AI Jump Traversal");
+    development.Reset(context);
+    runtime.Shutdown();
 }
 
 TEST(AppDevelopmentScenarioRuntime, ExplicitInvalidScenarioNeverFallsBackToLegacyDetection)

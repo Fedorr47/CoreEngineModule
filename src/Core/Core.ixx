@@ -58,7 +58,6 @@ export import :gameplay_traversal_executor_registry;
 export import :gameplay_graph;
 export import :gameplay_runtime;
 export import :gameplay_ai_movement_development_scenario;
-export import :gameplay_ai_jump_traversal_development_scenario;
 export import :gameplay_ai_goap_access_key_development_scenario;
 export import :json_utils;
 export import :hash_utils;

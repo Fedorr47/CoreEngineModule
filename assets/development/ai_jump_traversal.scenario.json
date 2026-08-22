@@ -1,0 +1,48 @@
+{
+  "id": "core.ai_jump_traversal",
+  "title": "CR-447 AI Jump Traversal",
+  "description": "Authored flat-gap Jump link through the production FollowRoute path.",
+  "roles": {
+    "agent": "JumpTraversalAgent",
+    "routeStart": "JumpRouteStart",
+    "traversalEntry": "JumpTraversalEntry",
+    "takeoff": "JumpTakeoff",
+    "landing": "JumpLanding",
+    "postLanding": "JumpPostLanding",
+    "routeFinish": "JumpRouteFinish"
+  },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "agent" },
+    { "op": "captureTransform", "entity": "agent", "slot": "initialAgentTransform" },
+    { "op": "ensureAI", "entity": "agent" },
+    { "op": "ensureNodeBoundEntity", "entity": "landing" },
+    { "op": "removeCharacterPhysicalSettings", "entity": "landing" }
+  ],
+  "start": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 4470001 },
+    { "op": "restoreTransform", "entity": "agent", "slot": "initialAgentTransform" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" },
+    { "op": "registerJumpTraversalLink", "entity": "landing", "handle": 4470001,
+      "takeoff": "takeoff", "landing": "landing", "verticalSpeed": 5.5,
+      "takeoffTolerance": 0.20, "landingHorizontalTolerance": 0.55,
+      "landingVerticalTolerance": 0.30 },
+    { "op": "startFollowRoute", "entity": "agent",
+      "points": ["routeStart", "traversalEntry", "landing", "postLanding", "routeFinish"],
+      "segmentTraversals": [{ "segment": 1, "link": 4470001 }],
+      "acceptanceRadius": 0.20, "slowingRadius": 0.75, "wantsRun": false }
+  ],
+  "update": [],
+  "stop": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 4470001 }
+  ],
+  "reset": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 4470001 },
+    { "op": "restoreTransform", "entity": "agent", "slot": "initialAgentTransform" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" }
+  ]
+}

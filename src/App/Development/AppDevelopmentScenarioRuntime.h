@@ -27,7 +27,6 @@ namespace appDevelopment
         DataDriven,
         AIMovement,
         AIPhysicsStep,
-        AIJumpTraversal,
         AIGOAPAccessKey,
         NavigationAgentSize
     };

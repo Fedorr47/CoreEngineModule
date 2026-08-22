@@ -2,61 +2,92 @@
         {
             for (const EntityHandle entity : nodeBoundEntities_)
             {
-                if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
-                {
-                    *intent = {};
-                }
+                ResetEntitySimulationState_(entity);
+            }
+        }
 
+        void GameplayRuntime::ResetNodeBoundEntitySimulationState(const EntityHandle entity)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            if (std::ranges::find(nodeBoundEntities_, entity) == nodeBoundEntities_.end() ||
+                !world_.IsEntityValid(entity))
+            {
+                return;
+            }
+            ClearAIAction(entity);
+            ResetEntitySimulationState_(entity);
+            if (const GameplayTransformComponent* transform = world_.TryGetTransform(entity);
+                transform != nullptr)
+            {
+                if (GameplayCharacterMovementStateComponent* movementState =
+                    world_.TryGetCharacterMovementState(entity))
                 if (GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity))
                 {
-                    *command = {};
+                    const float yaw = transform->rotationDegrees.y;
+                    movementState->facingYawDegrees = yaw;
+                    movementState->desiredFacingYawDegrees = yaw;
+                    movementState->previousFacingYawDegrees = yaw;
+                    movementState->cameraFacingYawDegrees = yaw;
                 }
+            }
+        }
 
-                if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
-                {
-                    motor->velocity = {};
-                    motor->desiredVelocity = {};
-                    motor->desiredMoveWorld = {};
-                }
+        void GameplayRuntime::ResetEntitySimulationState_(const EntityHandle entity)
+        {
+            if (GameplayInputIntentComponent* intent = world_.TryGetInputIntent(entity))
+            {
+                *intent = {};
+            }        
 
-                if (GameplayCharacterMovementStateComponent* movementState = world_.TryGetCharacterMovementState(entity))
-                {
-                    movementState->grounded = true;
-                    movementState->jumping = false;
-                    movementState->falling = false;
-                    movementState->physicallyBlocked = false;
-                    movementState->physicalBlockedSeconds = 0.0f;
-                    movementState->jumpPhase = GameplayJumpPhase::None;
-                    movementState->jumpRequestConsumed = false;
-                    movementState->jumpRequestResult = GameplayJumpRequestResult::None;
-                    movementState->jumpAirbornePhysicallyObserved = false;
-                    movementState->turningInPlace = false;
-                    movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
-                    movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
-                    movementState->cameraFacingYawDegrees = movementState->facingYawDegrees;
-                    movementState->jumpLockedVelocity = {};
-                }
+            if (GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity))
+            {
+                *command = {};
+            }
+            
+            if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
+            {
+                motor->velocity = {};
+                motor->desiredVelocity = {};
+                motor->desiredMoveWorld = {};
+            }
+            
+            if (GameplayCharacterMovementStateComponent* movementState = world_.TryGetCharacterMovementState(entity))
+            {
+                movementState->grounded = true;
+                movementState->jumping = false;
+                movementState->falling = false;
+                movementState->physicallyBlocked = false;
+                movementState->physicalBlockedSeconds = 0.0f;
+                movementState->jumpPhase = GameplayJumpPhase::None;
+                movementState->jumpRequestConsumed = false;
+                movementState->jumpRequestResult = GameplayJumpRequestResult::None;
+                movementState->jumpAirbornePhysicallyObserved = false;
+                movementState->turningInPlace = false;
+                movementState->desiredFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->previousFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->cameraFacingYawDegrees = movementState->facingYawDegrees;
+                movementState->jumpLockedVelocity = {};
+            }    
 
-                if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))
-                {
-                    *locomotion = {};
-                }
+            if (GameplayLocomotionComponent* locomotion = world_.TryGetLocomotion(entity))
+            {
+                *locomotion = {};
+            }
 
-                if (GameplayActionComponent* action = world_.TryGetAction(entity))
-                {
-                    ResetGameplayActionState(*action);
-                }
+            if (GameplayActionComponent* action = world_.TryGetAction(entity))
+            {
+                ResetGameplayActionState(*action);
+            }
 
-                if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))
-                {
-                    *notifyState = {};
-                }
+            if (GameplayAnimationNotifyStateComponent* notifyState = world_.TryGetAnimationNotifyState(entity))
+            {
+                *notifyState = {};
+            }
 
-                if (auto it = graphInstances_.find(entity); it != graphInstances_.end())
-                {
-                    ClearGameplayGraphFrameState(it->second);
-                    SyncActionStateToGraphParameters_(entity, it->second);
-                }
+            if (auto it = graphInstances_.find(entity); it != graphInstances_.end())
+            {
+                ClearGameplayGraphFrameState(it->second);
+                SyncActionStateToGraphParameters_(entity, it->second);
             }
         }
 

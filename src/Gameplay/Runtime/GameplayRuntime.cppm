@@ -144,6 +144,8 @@ export namespace rendern
             GameplayTraversalTypeId typeId) const noexcept;
         void CancelAIAction(EntityHandle agentEntity);
         void ClearAIAction(EntityHandle agentEntity);
+        // Clears one node-bound entity's transient action, movement and graph state.
+        void ResetNodeBoundEntitySimulationState(EntityHandle entity);
         [[nodiscard]] AIActionExecutionStatus GetAIActionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] bool TryReserveGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity);
         [[nodiscard]] bool ReleaseGameplayObject(EntityHandle objectEntity, EntityHandle agentEntity) noexcept;
@@ -171,6 +173,7 @@ export namespace rendern
                                 const std::vector<GameplayGraphTaskDesc>& tasks);
         void BeginActionState_(EntityHandle entity, GameplayGraphInstance& graph);
         void ResetSimulationState_();
+        void ResetEntitySimulationState_(EntityHandle entity);
         void RemoveDeadNodeBoundEntities_(const GameplayUpdateContext& ctx);
         void HandleRuntimeModeChanged_(const GameplayUpdateContext& ctx);
         // Profiling zone start

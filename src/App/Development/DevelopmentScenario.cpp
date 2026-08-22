@@ -30,6 +30,26 @@ namespace appDevelopment
                 Invalid(source, section, index, "missing or empty string field '" + std::string(key) + "'");
             return it->second.AsString();
         }
+        
+        double RequiredNumber(const JsonObject& object, const std::string_view key,
+            const std::string_view source, const std::string_view section, const std::size_t index)
+        {
+            const auto it = object.find(std::string(key));
+            if (it == object.end() || !it->second.IsNumber())
+                Invalid(source, section, index, "missing numeric field '" + std::string(key) + "'");
+            return it->second.AsNumber();
+        }
+
+        template<typename Integer>
+        Integer RequiredInteger(const JsonObject& object, const std::string_view key,
+            const std::string_view source, const std::string_view section, const std::size_t index)
+        {
+            const double value = RequiredNumber(object, key, source, section, index);
+            if (!std::isfinite(value) || value < 0.0 || std::trunc(value) != value ||
+                static_cast<long double>(value) > static_cast<long double>(std::numeric_limits<Integer>::max()))
+                Invalid(source, section, index, "field '" + std::string(key) + "' must be a non-negative in-range integer");
+            return static_cast<Integer>(value);
+        }
 
         std::vector<ScenarioOperation> ParseOperations(const JsonObject& root, const std::string_view section,
             const std::string_view source)
@@ -60,6 +80,54 @@ namespace appDevelopment
                     result.emplace_back(SetRuntimeVisibilityOperation{entity(), visible->second.AsBool()});
                 }
                 else if (op == "ensureNodeBoundEntity") result.emplace_back(EnsureNodeBoundEntityOperation{entity()});
+                else if (op == "removeCharacterPhysicalSettings")
+                    result.emplace_back(RemoveCharacterPhysicalSettingsOperation{entity()});
+                else if (op == "resetEntitySimulationState")
+                    result.emplace_back(ResetEntitySimulationStateOperation{entity()});
+                else if (op == "removeTraversalLink")
+                    result.emplace_back(RemoveTraversalLinkOperation{entity(),
+                        RequiredInteger<std::uint64_t>(operation, "handle", source, section, i)});
+                else if (op == "registerJumpTraversalLink")
+                {
+                    result.emplace_back(RegisterJumpTraversalLinkOperation{
+                        entity(), RequiredInteger<std::uint64_t>(operation, "handle", source, section, i),
+                        RequiredString(operation, "takeoff", source, section, i),
+                        RequiredString(operation, "landing", source, section, i),
+                        static_cast<float>(RequiredNumber(operation, "verticalSpeed", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "takeoffTolerance", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "landingHorizontalTolerance", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "landingVerticalTolerance", source, section, i))});
+                }
+                else if (op == "startFollowRoute")
+                {
+                    StartFollowRouteOperation route{};
+                    route.entity = entity();
+                    const auto points = operation.find("points");
+                    if (points == operation.end() || !points->second.IsArray()) Invalid(source, section, i, "missing array field 'points'");
+                    for (const auto& point : points->second.AsArray())
+                    {
+                        if (!point.IsString() || point.AsString().empty()) Invalid(source, section, i, "route point must be a role name");
+                        route.points.push_back(point.AsString());
+                    }
+                    const auto traversals = operation.find("segmentTraversals");
+                    if (traversals != operation.end())
+                    {
+                        if (!traversals->second.IsArray()) Invalid(source, section, i, "segmentTraversals must be an array");
+                        for (const auto& value : traversals->second.AsArray())
+                        {
+                            if (!value.IsObject()) Invalid(source, section, i, "segment traversal must be an object");
+                            route.traversals.push_back({
+                                RequiredInteger<std::size_t>(value.AsObject(), "segment", source, section, i),
+                                RequiredInteger<std::uint64_t>(value.AsObject(), "link", source, section, i)});
+                        }
+                    }
+                    route.acceptanceRadius = static_cast<float>(RequiredNumber(operation, "acceptanceRadius", source, section, i));
+                    route.slowingRadius = static_cast<float>(RequiredNumber(operation, "slowingRadius", source, section, i));
+                    const auto wantsRun = operation.find("wantsRun");
+                    if (wantsRun == operation.end() || !wantsRun->second.IsBool()) Invalid(source, section, i, "missing boolean field 'wantsRun'");
+                    route.wantsRun = wantsRun->second.AsBool();
+                    result.emplace_back(std::move(route));
+                }
                 else Invalid(source, section, i, "unknown operation type '" + op + "'");
             }
             return result;
@@ -68,6 +136,14 @@ namespace appDevelopment
         std::string OperationRole(const ScenarioOperation& operation)
         {
             return std::visit([](const auto& value) { return value.entity; }, operation);
+        }
+            
+        std::vector<std::string> AdditionalOperationRoles(const ScenarioOperation& operation)
+        {
+            if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation))
+                return {link->takeoff, link->landing};
+            if (const auto* route = std::get_if<StartFollowRouteOperation>(&operation)) return route->points;
+            return {};
         }
     }
 
@@ -135,6 +211,25 @@ namespace appDevelopment
             {
                 const ScenarioOperation& operation = (*operations)[i];
                 if (!roles.contains(OperationRole(operation))) Invalid(identity, name, i, "operation references unknown role '" + OperationRole(operation) + "'");
+                for (const auto& role : AdditionalOperationRoles(operation))
+                    if (!roles.contains(role)) Invalid(identity, name, i, "operation references unknown role '" + role + "'");
+                if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation);
+                    link && (!rendern::GameplayTraversalLinkHandle{link->handle}.IsValid() ||
+                    !std::isfinite(link->verticalSpeed) || link->verticalSpeed <= 0.0f ||
+                    !std::isfinite(link->takeoffTolerance) || link->takeoffTolerance <= 0.0f ||
+                    !std::isfinite(link->landingHorizontalTolerance) || link->landingHorizontalTolerance <= 0.0f ||
+                    !std::isfinite(link->landingVerticalTolerance) || link->landingVerticalTolerance <= 0.0f))
+                    Invalid(identity, name, i, "invalid Jump traversal link parameters");
+                if (const auto* route = std::get_if<StartFollowRouteOperation>(&operation))
+                {
+                    if (route->points.size() < 2 || !std::isfinite(route->acceptanceRadius) ||
+                        !std::isfinite(route->slowingRadius) || route->acceptanceRadius < 0.0f ||
+                        route->slowingRadius < route->acceptanceRadius)
+                        Invalid(identity, name, i, "invalid FollowRoute parameters");
+                    for (const auto& traversal : route->traversals)
+                        if (!rendern::GameplayTraversalLinkHandle{traversal.link}.IsValid() ||
+                            traversal.segment >= route->points.size() - 1) Invalid(identity, name, i, "invalid route segment traversal");
+                }
                 if (const auto* capture = std::get_if<CaptureTransformOperation>(&operation))
                 {
                     captured.insert(capture->slot);
@@ -154,6 +249,8 @@ namespace appDevelopment
         std::unordered_map<std::string, rendern::GameplayTransformComponent> transforms;
         std::unordered_set<EntityHandle> addedAI;
         std::unordered_set<EntityHandle> spawnedEntities;
+        std::unordered_set<rendern::GameplayTraversalLinkHandle,
+            rendern::GameplayTraversalLinkHandleHasher> traversalLinks;
         std::unordered_map<int, bool> visibilityBaselines;
         bool running{};
     };
@@ -218,8 +315,70 @@ namespace appDevelopment
                         return true;
                     }
                     else if constexpr (std::is_same_v<T, CancelAIOperation>) { context.gameplayRuntime.CancelAIAction(entity); return true; }
+                    else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>)
+                    {
+                        if (instance.spawnedEntities.contains(entity)) world.RemoveCharacterPhysicalSettings(entity);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, ResetEntitySimulationStateOperation>)
+                    {
+                        context.gameplayRuntime.ResetNodeBoundEntitySimulationState(entity);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, RemoveTraversalLinkOperation>)
+                    {
+                        const rendern::GameplayTraversalLinkHandle handle{op.handle};
+                        if (!instance.traversalLinks.contains(handle)) return true;
+                        (void)context.gameplayRuntime.RemoveGameplayTraversalLink(handle);
+                        instance.traversalLinks.erase(handle);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, RegisterJumpTraversalLinkOperation>)
+                    {
+                        const auto takeoff = instance.nodes.find(op.takeoff);
+                        const auto landing = instance.nodes.find(op.landing);
+                        if (takeoff == instance.nodes.end() || landing == instance.nodes.end()) return false;
+                        const rendern::GameplayTraversalLinkHandle handle{op.handle};
+                        const rendern::GameplayTraversalLink link{
+                            .handle = handle,
+                            .traversalTypeId = rendern::kJumpTraversalTypeId,
+                            .targetEntity = entity,
+                            .jump = {
+                                .takeoffPosition = context.level.nodes[static_cast<std::size_t>(takeoff->second)].transform.position,
+                                .landingPosition = context.level.nodes[static_cast<std::size_t>(landing->second)].transform.position,
+                                .verticalSpeed = op.verticalSpeed,
+                                .takeoffTolerance = op.takeoffTolerance,
+                                .landingHorizontalTolerance = op.landingHorizontalTolerance,
+                                .landingVerticalTolerance = op.landingVerticalTolerance}};
+                        if (!context.gameplayRuntime.RegisterGameplayTraversalLink(link)) return false;
+                        instance.traversalLinks.insert(handle);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, StartFollowRouteOperation>)
+                    {
+                        rendern::GameplayRoute route{};
+                        route.points.reserve(op.points.size());
+                        for (const auto& role : op.points)
+                        {
+                            const auto point = instance.nodes.find(role);
+                            if (point == instance.nodes.end()) return false;
+                            route.points.push_back({context.level.nodes[static_cast<std::size_t>(point->second)].transform.position});
+                        }
+                        route.segmentAnnotations.resize(route.points.size() - 1);
+                        for (const auto& traversal : op.traversals)
+                            route.segmentAnnotations[traversal.segment].traversalLink =
+                                rendern::GameplayTraversalLinkHandle{traversal.link};
+                        rendern::GameplayArrivalSteeringSettings steering{};
+                        steering.acceptanceRadius = op.acceptanceRadius;
+                        steering.slowingRadius = op.slowingRadius;
+                        steering.wantsRun = op.wantsRun;
+                        return context.gameplayRuntime.StartAIFollowRoute(entity, std::move(route), steering) ==
+                            rendern::AIActionExecutionStatus::Running;
+                    }
                     else if constexpr (std::is_same_v<T, TeleportPhysicsCharacterOperation>)
-                        return context.physicsWorld && appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(context.gameplayRuntime, *context.physicsWorld, entity);
+                        return context.physicsWorld == nullptr ||
+                           appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
+                               context.gameplayRuntime, *context.physicsWorld, entity);
                 }
             }, operation);
         }
@@ -270,6 +429,9 @@ namespace appDevelopment
             context.gameplayRuntime.CancelAIAction(entity);
             if (world.IsEntityValid(entity) && world.HasAI(entity)) world.RemoveAI(entity);
         }
+        for (const auto handle : impl_->traversalLinks)
+            (void)context.gameplayRuntime.RemoveGameplayTraversalLink(handle);
+        impl_->traversalLinks.clear();
         for (const auto& [nodeIndex, visible] : impl_->visibilityBaselines)
             (void)context.levelInstance.SetNodeRuntimeVisible(context.level, context.scene, nodeIndex, visible);
         std::unordered_set<EntityHandle> failedPhysicsTeardown;

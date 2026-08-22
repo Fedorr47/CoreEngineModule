@@ -1,5 +1,6 @@
 {
   "name": "AIJumpTraversalDevelopment",
+  "developmentScenario": "development/ai_jump_traversal.scenario.json",
   "meshes": {
     "cube": {"path": "models/cube.obj", "debugName": "AI Jump Traversal Cube"}
   },

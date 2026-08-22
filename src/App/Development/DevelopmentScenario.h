@@ -1,6 +1,8 @@
 ﻿#pragma once
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -18,6 +20,30 @@ namespace appDevelopment
     struct TeleportPhysicsCharacterOperation { std::string entity; };
     struct SetRuntimeVisibilityOperation { std::string entity; bool visible{}; };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
+    struct RemoveCharacterPhysicalSettingsOperation { std::string entity; };
+    struct ResetEntitySimulationStateOperation { std::string entity; };
+    struct RegisterJumpTraversalLinkOperation
+    {
+        std::string entity; // target entity role
+        std::uint64_t handle{};
+        std::string takeoff;
+        std::string landing;
+        float verticalSpeed{};
+        float takeoffTolerance{};
+        float landingHorizontalTolerance{};
+        float landingVerticalTolerance{};
+    };
+    struct RemoveTraversalLinkOperation { std::string entity; std::uint64_t handle{}; };
+    struct RouteSegmentTraversal { std::size_t segment{}; std::uint64_t link{}; };
+    struct StartFollowRouteOperation
+    {
+        std::string entity;
+        std::vector<std::string> points;
+        std::vector<RouteSegmentTraversal> traversals;
+        float acceptanceRadius{};
+        float slowingRadius{};
+        bool wantsRun{};
+    };
 
     using ScenarioOperation = std::variant<
         CaptureTransformOperation,
@@ -26,7 +52,12 @@ namespace appDevelopment
         CancelAIOperation,
         TeleportPhysicsCharacterOperation,
         SetRuntimeVisibilityOperation,
-        EnsureNodeBoundEntityOperation>;
+        EnsureNodeBoundEntityOperation,
+        RemoveCharacterPhysicalSettingsOperation,
+        ResetEntitySimulationStateOperation,
+        RegisterJumpTraversalLinkOperation,
+        RemoveTraversalLinkOperation,
+        StartFollowRouteOperation>;
 
     struct DevelopmentScenarioAsset
     {
