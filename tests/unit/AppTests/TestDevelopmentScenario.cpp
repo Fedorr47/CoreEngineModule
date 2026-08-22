@@ -90,6 +90,7 @@ TEST(DevelopmentScenarioAsset, PreservesWideHandlesAndRejectsUnsafeIntegerFields
     EXPECT_EQ(std::get<RegisterJumpTraversalLinkOperation>(parse("0").start[0]).handle, 0u);
     EXPECT_THROW(parse("-1"), std::runtime_error);
     EXPECT_THROW(parse("1.5"), std::runtime_error);
+    EXPECT_THROW(parse("9007199254740992"), std::runtime_error);
     EXPECT_THROW(parse("18446744073709551616"), std::runtime_error);
     EXPECT_THROW(parse("7", "-1"), std::runtime_error);
     EXPECT_THROW(parse("7", "0.5"), std::runtime_error);

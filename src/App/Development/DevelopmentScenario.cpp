@@ -45,9 +45,27 @@ namespace appDevelopment
             const std::string_view source, const std::string_view section, const std::size_t index)
         {
             const double value = RequiredNumber(object, key, source, section, index);
-            if (!std::isfinite(value) || value < 0.0 || std::trunc(value) != value ||
-                static_cast<long double>(value) > static_cast<long double>(std::numeric_limits<Integer>::max()))
-                Invalid(source, section, index, "field '" + std::string(key) + "' must be a non-negative in-range integer");
+            // Scenario JSON numbers are stored as double. Restrict authored
+            // integer fields to the range where every integer is represented
+            // exactly, otherwise distinct handles may collapse to one value.
+            constexpr double MaxExactJsonInteger = 9007199254740991.0; // 2^53 - 1
+            const double typeMax =
+                static_cast<double>(std::numeric_limits<Integer>::max());
+            const double safeMax =
+                std::min(typeMax, MaxExactJsonInteger);
+            
+            if (!std::isfinite(value) ||
+                value < 0.0 ||
+                std::trunc(value) != value ||
+                value > safeMax)
+            {
+                Invalid(
+                    source,
+                    section,
+                    index,
+                    "field '" + std::string(key) +
+                    "' must be an exactly representable non-negative integer");
+            }
             return static_cast<Integer>(value);
         }
 
