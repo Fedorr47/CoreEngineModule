@@ -16,35 +16,90 @@ TEST(AIPlanner, PreservesContextForRepeatedSemanticAction)
     constexpr AIWorldFactId atGoal{41u};
     constexpr AIActionContextId keyTarget{1u};
     constexpr AIActionContextId finalTarget{2u};
+
     AIAgentWorldState initial{};
-    const AIGoalDefinition goal{AIGoalId{50u}, {{atGoal, true}}};
+
+    const AIGoalDefinition goal{
+        AIGoalId{50u},
+        {
+            {atGoal, true}
+        }
+    };
+
     const std::array actions{
-        AIActionDefinition{kAIMoveToActionId, {{hasKey, false}}, {{hasKey, true}}, 1.0f, keyTarget},
-        AIActionDefinition{kAIMoveToActionId, {{hasKey, true}}, {{atGoal, true}}, 1.0f, finalTarget}};
+        AIActionDefinition{
+            .actionId = kAIMoveToActionId,
+            .preconditions = {
+                {hasKey, false}
+            },
+            .effects = {
+                {hasKey, true}
+            },
+            .contextId = keyTarget,
+            .baseCost = 1.0f
+        },
+        AIActionDefinition{
+            .actionId = kAIMoveToActionId,
+            .preconditions = {
+                {hasKey, true}
+            },
+            .effects = {
+                {atGoal, true}
+            },
+            .contextId = finalTarget,
+            .baseCost = 1.0f
+        }
+    };
 
     const auto plan = FindAIPlan(initial, goal, actions);
+
     ASSERT_TRUE(plan);
     ASSERT_EQ(plan->steps.size(), 2u);
-    EXPECT_EQ(plan->steps[0], (AIPlanStep{kAIMoveToActionId, keyTarget}));
-    EXPECT_EQ(plan->steps[1], (AIPlanStep{kAIMoveToActionId, finalTarget}));
+
+    EXPECT_EQ(
+        plan->steps[0],
+        (AIPlanStep{kAIMoveToActionId, keyTarget}));
+
+    EXPECT_EQ(
+        plan->steps[1],
+        (AIPlanStep{kAIMoveToActionId, finalTarget}));
+
     EXPECT_FALSE(initial.IsFactSet(hasKey));
     EXPECT_FALSE(initial.IsFactSet(atGoal));
 }
 
 namespace
 {
-    constexpr AIWorldFactId Fact(const std::uint16_t value) { return AIWorldFactId{ value }; }
-    AIGoalDefinition Goal(const std::uint16_t id, const AIWorldFactId fact)
+    constexpr AIWorldFactId Fact(const std::uint16_t value)
     {
-        return { AIGoalId{ id }, { AIFactCondition{ fact, true } } };
+        return AIWorldFactId{value};
     }
+
+    AIGoalDefinition Goal(
+        const std::uint16_t id,
+        const AIWorldFactId fact)
+    {
+        return {
+            AIGoalId{id},
+            {
+                AIFactCondition{fact, true}
+            }
+        };
+    }
+
     AIActionDefinition Action(
         const std::uint16_t id,
         std::vector<AIFactCondition> preconditions,
         std::vector<AIFactEffect> effects,
         const float cost = 1.0f)
     {
-        return { AIActionId{ id }, std::move(preconditions), std::move(effects), cost };
+        return {
+            .actionId = AIActionId{id},
+            .preconditions = std::move(preconditions),
+            .effects = std::move(effects),
+            .contextId = {},
+            .baseCost = cost
+        };
     }
 }
 
@@ -64,15 +119,43 @@ TEST(AIPlanner, BuildsOrderedPrerequisiteChainAndPreservesUnrelatedFacts)
 {
     AIAgentWorldState state{};
     state.SetFact(Fact(7));
+
     const std::array actions{
-        Action(20, { { Fact(1), true }, { Fact(7), true } }, { { Fact(2), true } }),
-        Action(10, { { Fact(0), false } }, { { Fact(1), true } })
+        Action(
+            20,
+            {
+                {Fact(1), true},
+                {Fact(7), true}
+            },
+            {
+                {Fact(2), true}
+            }),
+        Action(
+            10,
+            {
+                {Fact(0), false}
+            },
+            {
+                {Fact(1), true}
+            })
     };
-    const auto plan = FindAIPlan(state, Goal(1, Fact(2)), actions);
+
+    const auto plan = FindAIPlan(
+        state,
+        Goal(1, Fact(2)),
+        actions);
+
     ASSERT_TRUE(plan.has_value());
     ASSERT_EQ(plan->steps.size(), 2u);
-    EXPECT_EQ(plan->steps[0].actionId, AIActionId{ 10 });
-    EXPECT_EQ(plan->steps[1].actionId, AIActionId{ 20 });
+
+    EXPECT_EQ(
+        plan->steps[0].actionId,
+        AIActionId{10});
+
+    EXPECT_EQ(
+        plan->steps[1].actionId,
+        AIActionId{20});
+
     EXPECT_TRUE(state.IsFactSet(Fact(7)));
     EXPECT_FALSE(state.IsFactSet(Fact(1)));
 }

@@ -188,17 +188,19 @@ TEST(
         }
     };
     const AIActionDefinition actionDefinition{
-        actionId,
-        {
+        .actionId = actionId,
+        .preconditions = {
             AIFactCondition{ requiredFact, true },
             AIFactCondition{ firstFact, false }
         },
-        {
+        .effects = {
             AIFactEffect{ secondFact, true },
             AIFactEffect{ requiredFact, false }
         },
-        2.5f
+        .contextId = {},
+        .baseCost = 2.5f
     };
+    EXPECT_FALSE(actionDefinition.contextId.IsValid());
 
     ASSERT_EQ(goalDefinition.goalId, goalId);
     ASSERT_EQ(goalDefinition.desiredFacts.size(), 2u);

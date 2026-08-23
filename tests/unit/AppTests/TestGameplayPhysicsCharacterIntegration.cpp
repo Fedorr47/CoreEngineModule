@@ -248,6 +248,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, DataDrivenStepResetRestoresGamep
     EXPECT_EQ(*physical, canonical - binding->visualRootOffset);
     EXPECT_EQ(gameplayRuntime.GetAIActionStatus(npc), rendern::AIActionExecutionStatus::NotStarted);
     runner.Unload(context);
+}
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, SingleEntityPhysicsTeardownPreservesGameplayEntity)
 {

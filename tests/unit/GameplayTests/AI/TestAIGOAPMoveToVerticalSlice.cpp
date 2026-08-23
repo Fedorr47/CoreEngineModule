@@ -80,11 +80,15 @@ TEST(AIGOAPMoveToVerticalSlice, PlansMovesSteersAndCompletesWithoutMutatingFacts
             AIFactCondition{atDestination, true}
         }
     };
-    const std::array actions{AIActionDefinition{
-        kAIMoveToActionId,
-        {{atDestination, false}},
-        {{atDestination, true}},
-        1.0f}};
+    const std::array actions{
+        AIActionDefinition{
+            .actionId = kAIMoveToActionId,
+            .preconditions = {{atDestination, false}},
+            .effects = {{atDestination, true}},
+            .contextId = {},
+            .baseCost = 1.0f
+        }
+    };
     const std::optional<AIPlan> plan = FindAIPlan(initialState, goal, actions);
     ASSERT_TRUE(plan); ASSERT_EQ(plan->steps.size(), 1u);
     EXPECT_EQ(plan->steps.front().actionId, kAIMoveToActionId);

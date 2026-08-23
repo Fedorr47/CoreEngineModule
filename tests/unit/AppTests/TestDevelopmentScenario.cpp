@@ -1,5 +1,8 @@
 ﻿#include <gtest/gtest.h>
 
+#include <algorithm>
+#include <filesystem>
+
 import core;
 
 #include "App/Development/DevelopmentScenario.h"
