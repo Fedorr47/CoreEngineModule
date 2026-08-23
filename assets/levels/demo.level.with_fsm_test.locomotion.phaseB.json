@@ -20,6 +20,7 @@
     "idle": {"path": "animations/idle.fbx", "flipUVs": true, "debugName": "idle"},
     "jump": {"path": "animations/jump.fbx", "flipUVs": true, "debugName": "jump"},
     "running_jump": {"path": "animations/Running Jump.fbx", "flipUVs": true, "debugName": "Running Jump"},
+    "punching_attack": {"path": "animations/Punching.fbx", "flipUVs": true, "debugName": "Punching Attack"},
     "left_strafe": {"path": "animations/left strafe.fbx", "flipUVs": true, "debugName": "left strafe"},
     "left_strafe_walking": {"path": "animations/left strafe walking.fbx", "flipUVs": true, "debugName": "left strafe walking"},
     "left_turn": {"path": "animations/left turn.fbx", "flipUVs": true, "debugName": "left turn"},

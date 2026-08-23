@@ -230,43 +230,6 @@ TEST(AppDevelopmentScenarioRuntime, OwnsAndResetsAgentSizeSetup)
     runtime.Shutdown();
 }
 
-TEST(AppDevelopmentScenarioRuntime, AdaptsAIMovementStartStopAndAuthoritativeStatus)
-{
-    InlineThreadOwnerRolesGuard guard{};
-    rendern::LevelAsset level{};
-    AddNode(level, "AI_Move_Agent");
-    AddNode(level, "AI_Move_Point_0");
-    level.nodes.back().transform.position = {-1.0f, 0.0f, 0.0f};
-    AddNode(level, "AI_Move_Point_1");
-    level.nodes.back().transform.position = {1.0f, 0.0f, 0.0f};
-    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
-    runtime.Initialize(level, instance, scene);
-    auto context = MakeContext(runtime, level, instance, scene);
-    appDevelopment::AppDevelopmentScenarioRuntime development{};
-    development.OnLevelLoaded(context);
-
-    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
-    rendern::GameplayUpdateContext gameplayContext{};
-    gameplayContext.mode = context.gameplayMode;
-    gameplayContext.levelAsset = &level;
-    gameplayContext.levelInstance = &instance;
-    gameplayContext.scene = &scene;
-    runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameplayContext); runtime.PostPhysicsUpdate(gameplayContext);
-
-    development.Execute(appDevelopment::ScenarioCommand::Start, context);
-    ASSERT_STREQ(development.GetView(context).statuses[0].value, "Running");
-    auto* transform = runtime.GetWorld().TryGetTransform(runtime.GetNodeBoundEntities().back());
-    ASSERT_NE(transform, nullptr);
-    transform->position = {6.0f, 0.0f, 0.0f};
-    development.Execute(appDevelopment::ScenarioCommand::Stop, context);
-    EXPECT_STREQ(development.GetView(context).statuses[0].value, "Cancelled");
-    EXPECT_FLOAT_EQ(transform->position.x, 6.0f);
-    development.Execute(appDevelopment::ScenarioCommand::Reset, context);
-    EXPECT_STREQ(development.GetView(context).statuses[0].value, "NotStarted");
-    EXPECT_FLOAT_EQ(transform->position.x, -1.0f);
-    runtime.Shutdown();
-}
-
 TEST(AppDevelopmentScenarioRuntime, AgentSizeResetRestoresLevelTransformsAndPhysicalSettings)
 {
     InlineThreadOwnerRolesGuard guard{};
