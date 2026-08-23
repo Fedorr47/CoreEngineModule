@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <set>
 
 import core;
 
@@ -107,6 +108,99 @@ TEST(DevelopmentScenarioAsset, ParsesTypedOperationsAndRoles)
     EXPECT_TRUE(std::holds_alternative<EnsureAIOperation>(asset.setup[1]));
 }
 
+TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreValid)
+{
+    namespace fs = std::filesystem;
+    const fs::path repositoryRoot{CORE_REPOSITORY_ROOT};
+    const fs::path developmentRoot = repositoryRoot / "assets/development";
+    const fs::path levelsRoot = repositoryRoot / "assets/levels";
+
+    std::vector<fs::path> scenarioPaths;
+    for (const fs::directory_entry& entry : fs::directory_iterator(developmentRoot))
+    {
+        if (entry.is_regular_file() && entry.path().filename().string().ends_with(".scenario.json"))
+        {
+            scenarioPaths.push_back(entry.path());
+        }
+    }
+    std::ranges::sort(scenarioPaths);
+
+    const std::set<std::string> expectedScenarios{
+        "ai_goap_access_key.scenario.json",
+        "ai_jump_traversal.scenario.json",
+        "ai_movement.scenario.json",
+        "ai_physics_step.scenario.json",
+        "navigation_agent_size.scenario.json"};
+    std::set<std::string> actualScenarios;
+    for (const fs::path& path : scenarioPaths)
+    {
+        actualScenarios.insert(path.filename().string());
+        EXPECT_NO_THROW({
+            const DevelopmentScenarioAsset asset = LoadDevelopmentScenarioAsset(path.string());
+            ValidateDevelopmentScenarioAsset(asset);
+        }) << path.string();
+    }
+    EXPECT_EQ(actualScenarios, expectedScenarios);
+
+    std::vector<fs::path> levelPaths;
+    for (const fs::directory_entry& entry : fs::directory_iterator(levelsRoot))
+    {
+        if (entry.is_regular_file() && entry.path().extension() == ".json")
+        {
+            levelPaths.push_back(entry.path());
+        }
+    }
+    std::ranges::sort(levelPaths);
+
+    std::size_t referencedLevelCount = 0;
+    for (const fs::path& path : levelPaths)
+    {
+        if (!FILE_UTILS::ReadAllText(path).contains("\"developmentScenario\""))
+        {
+            continue;
+        }
+        ++referencedLevelCount;
+        const rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(path.string());
+        ASSERT_FALSE(level.developmentScenario.empty()) << path.string();
+        const fs::path scenarioPath = repositoryRoot / "assets" / level.developmentScenario;
+        ASSERT_TRUE(fs::is_regular_file(scenarioPath))
+            << path.string() << " references " << level.developmentScenario;
+        const DevelopmentScenarioAsset scenario = LoadDevelopmentScenarioAsset(scenarioPath.string());
+        ValidateDevelopmentScenarioAsset(scenario);
+        for (const auto& [role, nodeName] : scenario.roles)
+        {
+            EXPECT_TRUE(std::ranges::any_of(level.nodes, [&](const rendern::LevelNode& node) {
+                return node.alive && node.name == nodeName;
+            })) << path.string() << ": role '" << role << "' references missing node '"
+               << nodeName << "'";
+        }
+    }
+    EXPECT_EQ(referencedLevelCount, 5u);
+}
+
+TEST(DevelopmentScenarioAsset, RejectsDuplicateJsonKeysAndReportsOperationContext)
+{
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(
+        R"({"id":"duplicate","id":"ambiguous","title":"Bad","roles":{}})",
+        "development/duplicate.scenario.json"), std::runtime_error);
+
+    try
+    {
+        (void)ParseDevelopmentScenarioAsset(R"({
+            "id":"diagnostic","title":"Diagnostic","roles":{"agent":"Agent"},
+            "start":[{"op":"startAIDecision","entity":"guard","decision":"test","result":"decision"}]
+        })", "development/diagnostic.scenario.json");
+        FAIL() << "Expected invalid scenario";
+    }
+    catch (const std::runtime_error& error)
+    {
+        const std::string_view message{error.what()};
+        EXPECT_TRUE(message.contains("development/diagnostic.scenario.json"));
+        EXPECT_TRUE(message.contains("start[0]"));
+        EXPECT_TRUE(message.contains("startAIDecision"));
+        EXPECT_TRUE(message.contains("unknown entity role 'guard'"));
+    }
+}
 TEST(DevelopmentScenarioAsset, RejectsUnknownAndMalformedOperations)
 {
     EXPECT_THROW(ParseDevelopmentScenarioAsset(

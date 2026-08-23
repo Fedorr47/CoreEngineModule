@@ -249,6 +249,35 @@ namespace appDevelopment
         {
             return std::visit([](const auto& value) { return value.entity; }, operation);
         }
+        
+        std::string_view OperationName(const ScenarioOperation& operation) noexcept
+        {
+            return std::visit([](const auto& value) -> std::string_view
+            {
+                using T = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<T, CaptureTransformOperation>) { return "captureTransform"; }
+                else if constexpr (std::is_same_v<T, RestoreTransformOperation>) { return "restoreTransform"; }
+                else if constexpr (std::is_same_v<T, EnsureAIOperation>) { return "ensureAI"; }
+                else if constexpr (std::is_same_v<T, CancelAIOperation>) { return "cancelAI"; }
+                else if constexpr (std::is_same_v<T, TeleportPhysicsCharacterOperation>) { return "teleportPhysicsCharacter"; }
+                else if constexpr (std::is_same_v<T, SetRuntimeVisibilityOperation>) { return "setRuntimeVisibility"; }
+                else if constexpr (std::is_same_v<T, EnsureNodeBoundEntityOperation>) { return "ensureNodeBoundEntity"; }
+                else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>) { return "removeCharacterPhysicalSettings"; }
+                else if constexpr (std::is_same_v<T, SetCharacterPhysicalSettingsOperation>) { return "setCharacterPhysicalSettings"; }
+                else if constexpr (std::is_same_v<T, ResetEntitySimulationStateOperation>) { return "resetEntitySimulationState"; }
+                else if constexpr (std::is_same_v<T, RegisterJumpTraversalLinkOperation>) { return "registerJumpTraversalLink"; }
+                else if constexpr (std::is_same_v<T, RemoveTraversalLinkOperation>) { return "removeTraversalLink"; }
+                else if constexpr (std::is_same_v<T, StartFollowRouteOperation>) { return "startFollowRoute"; }
+                else if constexpr (std::is_same_v<T, StartMoveToOperation>) { return "startMoveTo"; }
+                else if constexpr (std::is_same_v<T, StartNavigationPathOperation>) { return "startNavigationPath"; }
+                else if constexpr (std::is_same_v<T, StartAIDecisionOperation>) { return "startAIDecision"; }
+                else if constexpr (std::is_same_v<T, CancelAIDecisionOperation>) { return "cancelAIDecision"; }
+                else
+                {
+                    static_assert(sizeof(T) == 0, "Unhandled DevelopmentScenario operation");
+                }
+                }, operation);
+        }
             
         std::vector<std::string> AdditionalOperationRoles(const ScenarioOperation& operation)
         {
@@ -335,9 +364,18 @@ namespace appDevelopment
             for (std::size_t i = 0; i < operations->size(); ++i)
             {
                 const ScenarioOperation& operation = (*operations)[i];
-                if (!roles.contains(OperationRole(operation))) Invalid(identity, name, i, "operation references unknown role '" + OperationRole(operation) + "'");
+                const std::string operationContext = std::string(OperationName(operation)) + ": ";
+                if (!roles.contains(OperationRole(operation)))
+                {
+                    Invalid(identity, name, i, operationContext + "unknown entity role '" + OperationRole(operation) + "'");
+                }
                 for (const auto& role : AdditionalOperationRoles(operation))
-                    if (!roles.contains(role)) Invalid(identity, name, i, "operation references unknown role '" + role + "'");
+                {
+                    if (!roles.contains(role))
+                    {
+                        Invalid(identity, name, i, operationContext + "unknown entity role '" + role + "'");
+                    }
+                }
                 if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation);
                     link && (!rendern::GameplayTraversalLinkHandle{link->handle}.IsValid() ||
                     !std::isfinite(link->verticalSpeed) || link->verticalSpeed <= 0.0f ||
@@ -756,7 +794,7 @@ namespace appDevelopment
             if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
             {
                 impl_->results.push_back({path->result, ScenarioOperationResultStatus::NotStarted});
-            }AuthoredAccessKeyRunsProductionDecisionAndRestarts
+            }
             if (const auto* decision = std::get_if<StartAIDecisionOperation>(&operation))
             {
                 impl_->results.push_back({decision->result, ScenarioOperationResultStatus::NotStarted});

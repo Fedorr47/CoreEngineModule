@@ -111,6 +111,7 @@ endif()
 target_compile_definitions(CoreEngineModuleTests
         PRIVATE
         CORE_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        CORE_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 
 target_compile_features(CoreEngineModuleTests PRIVATE cxx_std_23)
