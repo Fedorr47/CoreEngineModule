@@ -1,9 +1,9 @@
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "App/GameplayPhysicsCharacterIntegration.h"
+#include <algorithm>
 #include <stdexcept>
 
 import core;
-import app.navigation_agent_size_development_scenario;
 
 #include "AppDevelopmentScenarioRuntime.h"
 #include "DevelopmentScenario.h"
@@ -12,20 +12,7 @@ namespace appDevelopment
 {
     namespace
     {
-        [[nodiscard]] const char* ToText(
-            const app::navigationRuntime::AgentSizeScenarioStatus status) noexcept
-        {
-            switch (status)
-            {
-            case app::navigationRuntime::AgentSizeScenarioStatus::Moving: return "Moving";
-            case app::navigationRuntime::AgentSizeScenarioStatus::Reached: return "Reached";
-            case app::navigationRuntime::AgentSizeScenarioStatus::NoPath: return "NoPath";
-            case app::navigationRuntime::AgentSizeScenarioStatus::Failed: return "Failed";
-            default: return "NotStarted";
-            }
-        }
-
-        [[nodiscard]] rendern::GameplayUpdateContext MakeGameplayContext(
+       [[nodiscard]] rendern::GameplayUpdateContext MakeGameplayContext(
             const ScenarioContext& context) noexcept
         {
             rendern::GameplayUpdateContext result{};
@@ -40,7 +27,6 @@ namespace appDevelopment
     struct AppDevelopmentScenarioRuntime::Impl
     {
         ScenarioKind kind{ScenarioKind::None};
-        app::navigationRuntime::NavigationAgentSizeDevelopmentScenario agentSizeScenario{};
         rendern::GameplayAIGOAPAccessKeyDevelopmentScenario goapAccessKeyScenario{};
         rendern::GameplayRuntimeMode lastMode{rendern::GameplayRuntimeMode::Editor};
         DevelopmentScenarioAsset dataAsset{};
@@ -68,7 +54,6 @@ namespace appDevelopment
         impl_->dataRunner = DevelopmentScenarioRunner{};
         impl_->dataAsset = {};
         impl_->kind = ScenarioKind::None;
-        impl_->agentSizeScenario.Reset();
         impl_->lastMode = rendern::GameplayRuntimeMode::Editor;
     }
 
@@ -105,22 +90,12 @@ namespace appDevelopment
             impl_->lastMode = context.gameplayMode;
             return;
         }
-        if (app::navigationRuntime::IsAgentSizeScenario(context.level))
-        {
-            impl_->kind = ScenarioKind::NavigationAgentSize;
-        }
-        else if (rendern::IsGameplayAIGOAPAccessKeyDevelopmentScenario(context.level))
+        if (rendern::IsGameplayAIGOAPAccessKeyDevelopmentScenario(context.level))
         {
             impl_->kind = ScenarioKind::AIGOAPAccessKey;
         }
-
-
-        if (impl_->kind == ScenarioKind::NavigationAgentSize)
-        {
-            impl_->agentSizeScenario.Prepare(
-                context.gameplayRuntime, MakeGameplayContext(context));
-        }
-        else if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
+        
+        if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
         {
             (void)impl_->goapAccessKeyScenario.Prepare(
                 context.gameplayRuntime, MakeGameplayContext(context));
@@ -140,16 +115,6 @@ namespace appDevelopment
             if (context.gameplayMode == rendern::GameplayRuntimeMode::Game)
             {
                 impl_->dataRunner.Update(context);
-            }
-        }
-        else if (impl_->kind == ScenarioKind::NavigationAgentSize)
-        {
-            impl_->agentSizeScenario.Update(context.gameplayRuntime);
-
-            if (impl_->lastMode == rendern::GameplayRuntimeMode::Game &&
-                context.gameplayMode == rendern::GameplayRuntimeMode::Editor)
-            {
-                impl_->agentSizeScenario.ResetExecutionState();
             }
         }
         else if (impl_->kind == ScenarioKind::AIGOAPAccessKey &&
@@ -214,33 +179,6 @@ namespace appDevelopment
                 }
             }
             break;
-            
-        case ScenarioKind::NavigationAgentSize:
-            if (command == ScenarioCommand::Start && context.navigationProfiles != nullptr)
-            {
-                impl_->agentSizeScenario.Start(
-                    context.gameplayRuntime, *context.navigationProfiles, context.level);
-            }
-            else if (command == ScenarioCommand::Reset)
-            {
-                const auto result = impl_->agentSizeScenario.ResetToInitialState(
-                    context.gameplayRuntime, context.level);
-                context.levelInstance.MarkTransformsDirty();
-                context.levelInstance.SyncTransformsIfDirty(
-                    context.level,
-                    context.scene);
-                
-                if (context.physicsWorld != nullptr)
-                {
-                    if (result.smallEntity != rendern::kNullEntity)
-                        (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                            context.gameplayRuntime, *context.physicsWorld, result.smallEntity);
-                    if (result.largeEntity != rendern::kNullEntity)
-                        (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                            context.gameplayRuntime, *context.physicsWorld, result.largeEntity);
-                }
-            }
-            break;
 
         default:
             break;
@@ -267,11 +205,23 @@ namespace appDevelopment
             {
                 view.title = asset->title.c_str();
                 view.description = asset->description.c_str();
-                view.canStart = !impl_->dataRunner.IsRunning();
+                view.canStart = impl_->dataRunner.CanStart(context);
                 view.canStop = impl_->dataRunner.IsRunning();
                 view.canReset = true;
-                view.statuses[0] = {"Status", impl_->dataRunner.IsRunning() ? "Running" : "Loaded"};
-                view.statusCount = 1;
+                const auto& results = impl_->dataRunner.GetResults();
+                if (results.empty())
+                {
+                    view.statuses[0] = {"Status", impl_->dataRunner.IsRunning() ? "Running" : "Loaded"};
+                    view.statusCount = 1;
+                }
+                else
+                {
+                    view.statusCount = static_cast<unsigned int>(std::min<std::size_t>(results.size(), 4));
+                    for (unsigned int index = 0; index < view.statusCount; ++index)
+                    {
+                        view.statuses[index] = {results[index].name.c_str(), ToString(results[index].status)};
+                    }
+                }
             }
             break;
             
@@ -286,19 +236,6 @@ namespace appDevelopment
             view.statuses[1] = {"At destination", impl_->goapAccessKeyScenario.GetObservedFacts().IsFactSet(rendern::kGOAPAtDestinationFact) ? "true" : "false"};
             view.statuses[2] = {"Player / NPC", impl_->goapAccessKeyScenario.GetPlayerEntity() != impl_->goapAccessKeyScenario.GetAgentEntity() ? "distinct" : "invalid"};
             view.statusCount = 3;
-            break;
-
-        case ScenarioKind::NavigationAgentSize:
-            view.title = "CR-445 Navigation Agent Size";
-            view.description = "Identical 1.2 m openings; radii 0.2 m and 0.7 m.";
-            view.startLabel = "Start Route";
-            view.resetLabel = "Reset Scenario";
-            view.canStart = context.navigationProfiles != nullptr;
-            view.canReset = true;
-            view.commandsEnabled = gameMode;
-            view.statuses[0] = {"Small NPC", ToText(impl_->agentSizeScenario.GetSmallStatus())};
-            view.statuses[1] = {"Large NPC", ToText(impl_->agentSizeScenario.GetLargeStatus())};
-            view.statusCount = 2;
             break;
 
         default:

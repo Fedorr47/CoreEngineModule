@@ -31,6 +31,17 @@ namespace rendern::test
             return InstantiateLevel(scene_, assets_, bindless_, level, mathUtils::Mat4(1.0f));
         }
         
+        void SetMeshCPU(MeshCPU mesh)
+        {
+            meshLoader_.nextMesh = std::move(mesh);
+        }
+
+        void DrainAssetPipeline()
+        {
+            jobSystem_.Drain();
+            renderQueue_.Drain();
+        }
+        
         [[nodiscard]] const Scene& GetScene() const noexcept
         {
             return scene_;

@@ -474,7 +474,6 @@ set(COMMON_MODULES
         Navigation/Navigation.cppm
         App/NavigationDebugDraw.cppm
         App/LevelNavigation.cppm
-        App/NavigationAgentSizeDevelopmentScenario.cppm
 
         Core/Hash/HashUtils.cppm
         Core/Json/JsonUtils.cppm

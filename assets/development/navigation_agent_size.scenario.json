@@ -1,0 +1,54 @@
+{
+  "id": "core.navigation_agent_size",
+  "title": "CR-445 Navigation Agent Size",
+  "description": "Agent-specific navigation profiles route the small NPC and reject the large NPC at the 1.2 m passage.",
+  "roles": {
+    "smallAgent": "SMALL NPC",
+    "largeAgent": "LARGE NPC",
+    "smallTarget": "SMALL TARGET",
+    "largeTarget": "LARGE TARGET"
+  },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "smallAgent" },
+    { "op": "captureTransform", "entity": "smallAgent", "slot": "smallBaseline" },
+    { "op": "ensureAI", "entity": "smallAgent" },
+    { "op": "setCharacterPhysicalSettings", "entity": "smallAgent", "radius": 0.2,
+      "cylinderHeight": 1.0, "maximumSlopeAngleDegrees": 45.0, "maximumStepHeight": 0.25, "mass": 70.0 },
+    { "op": "ensureNodeBoundEntity", "entity": "largeAgent" },
+    { "op": "captureTransform", "entity": "largeAgent", "slot": "largeBaseline" },
+    { "op": "ensureAI", "entity": "largeAgent" },
+    { "op": "setCharacterPhysicalSettings", "entity": "largeAgent", "radius": 0.7,
+      "cylinderHeight": 1.0, "maximumSlopeAngleDegrees": 45.0, "maximumStepHeight": 0.25, "mass": 70.0 }
+  ],
+  "start": [
+    { "op": "cancelAI", "entity": "smallAgent" },
+    { "op": "restoreTransform", "entity": "smallAgent", "slot": "smallBaseline" },
+    { "op": "resetEntitySimulationState", "entity": "smallAgent" },
+    { "op": "teleportPhysicsCharacter", "entity": "smallAgent" },
+    { "op": "startNavigationPath", "entity": "smallAgent", "target": "smallTarget",
+      "searchExtents": [1.0, 2.0, 1.0], "acceptanceRadius": 0.2, "slowingRadius": 0.75,
+      "wantsRun": false, "result": "Small path" },
+    { "op": "cancelAI", "entity": "largeAgent" },
+    { "op": "restoreTransform", "entity": "largeAgent", "slot": "largeBaseline" },
+    { "op": "resetEntitySimulationState", "entity": "largeAgent" },
+    { "op": "teleportPhysicsCharacter", "entity": "largeAgent" },
+    { "op": "startNavigationPath", "entity": "largeAgent", "target": "largeTarget",
+      "searchExtents": [1.0, 2.0, 1.0], "acceptanceRadius": 0.2, "slowingRadius": 0.75,
+      "wantsRun": false, "result": "Large path" }
+  ],
+  "update": [],
+  "stop": [
+    { "op": "cancelAI", "entity": "smallAgent" },
+    { "op": "cancelAI", "entity": "largeAgent" }
+  ],
+  "reset": [
+    { "op": "cancelAI", "entity": "smallAgent" },
+    { "op": "restoreTransform", "entity": "smallAgent", "slot": "smallBaseline" },
+    { "op": "resetEntitySimulationState", "entity": "smallAgent" },
+    { "op": "teleportPhysicsCharacter", "entity": "smallAgent" },
+    { "op": "cancelAI", "entity": "largeAgent" },
+    { "op": "restoreTransform", "entity": "largeAgent", "slot": "largeBaseline" },
+    { "op": "resetEntitySimulationState", "entity": "largeAgent" },
+    { "op": "teleportPhysicsCharacter", "entity": "largeAgent" }
+  ]
+}

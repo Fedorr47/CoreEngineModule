@@ -25,8 +25,7 @@ namespace appDevelopment
     {
         None,
         DataDriven,
-        AIGOAPAccessKey,
-        NavigationAgentSize
+        AIGOAPAccessKey
     };
 
     enum class ScenarioCommand

@@ -1,5 +1,6 @@
 {
   "name": "NavigationSmallLargePassage",
+  "developmentScenario": "development/navigation_agent_size.scenario.json",
   "meshes": { "cube": { "path": "models/cube.obj", "debugName": "CR-445 Passage Geometry" } },
   "models": {},
   "skinnedMeshes": { "character": { "path": "models/Character.fbx", "flipUVs": true, "debugName": "CR-445 NPC" } },

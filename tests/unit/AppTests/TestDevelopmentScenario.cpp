@@ -14,6 +14,28 @@ using namespace appDevelopment;
 
 namespace
 {
+    rendern::MeshCPU MakeCubeMesh()
+    {
+        rendern::MeshCPU mesh{};
+        const auto vertex = [](const float x, const float y, const float z) {
+            rendern::VertexDesc result{};
+            result.px = x;
+            result.py = y;
+            result.pz = z;
+            return result;
+        };
+        mesh.vertices = {
+            vertex(-0.5f, -0.5f, 0.5f), vertex(0.5f, -0.5f, 0.5f),
+            vertex(0.5f, 0.5f, 0.5f), vertex(-0.5f, 0.5f, 0.5f),
+            vertex(-0.5f, -0.5f, -0.5f), vertex(0.5f, -0.5f, -0.5f),
+            vertex(0.5f, 0.5f, -0.5f), vertex(-0.5f, 0.5f, -0.5f)};
+        mesh.indices = {
+            0, 1, 2, 0, 2, 3, 4, 7, 6, 4, 6, 5,
+            4, 0, 3, 4, 3, 7, 1, 5, 6, 1, 6, 2,
+            3, 2, 6, 3, 6, 7, 4, 5, 1, 4, 1, 0};
+        return mesh;
+    }
+    
     void AddMoveToNode(rendern::LevelAsset& level, const char* name,
         const mathUtils::Vec3 position)
     {
@@ -509,5 +531,128 @@ TEST(DevelopmentScenarioRunner, FailedRegistrationNeverRemovesForeignTraversalLi
     ASSERT_TRUE(preserved.has_value());
     EXPECT_EQ(preserved->targetEntity, foreign.targetEntity);
     EXPECT_EQ(preserved->jump.verticalSpeed, foreign.jump.verticalSpeed);
+    runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioAsset, ParsesAndValidatesPhysicalSettingsAndNavigationPath)
+{
+    const auto parse = [](const std::string_view physicalValues,
+        const std::string_view pathValues = R"("searchExtents":[1,2,1],"acceptanceRadius":0.2,"slowingRadius":0.75)") {
+        return ParseDevelopmentScenarioAsset(std::string(R"({"id":"navigation","title":"Navigation","roles":{"agent":"Agent","target":"Target"},"setup":[{"op":"setCharacterPhysicalSettings","entity":"agent",)") +
+            std::string(physicalValues) + R"(}],"start":[{"op":"startNavigationPath","entity":"agent","target":"target",)" +
+            std::string(pathValues) + R"(,"wantsRun":false,"result":"path"}]})");
+    };
+    constexpr std::string_view validPhysical =
+        R"("radius":0.2,"cylinderHeight":1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.25,"mass":70)";
+    const auto asset = parse(validPhysical);
+    ASSERT_TRUE(std::holds_alternative<SetCharacterPhysicalSettingsOperation>(asset.setup[0]));
+    ASSERT_TRUE(std::holds_alternative<StartNavigationPathOperation>(asset.start[0]));
+    EXPECT_EQ(std::get<StartNavigationPathOperation>(asset.start[0]).target, "target");
+    EXPECT_EQ(std::get<StartNavigationPathOperation>(asset.start[0]).result, "path");
+
+    for (const std::string_view invalid : {
+        R"("radius":0,"cylinderHeight":1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.25,"mass":70)",
+        R"("radius":0.2,"cylinderHeight":0,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.25,"mass":70)",
+        R"("radius":0.2,"cylinderHeight":1,"maximumSlopeAngleDegrees":90,"maximumStepHeight":0.25,"mass":70)",
+        R"("radius":0.2,"cylinderHeight":1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":1.4,"mass":70)",
+        R"("radius":0.2,"cylinderHeight":1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.25,"mass":0)"})
+    {
+        EXPECT_THROW(parse(invalid), std::runtime_error);
+    }
+    EXPECT_THROW(parse(validPhysical,
+        R"("searchExtents":[0,2,1],"acceptanceRadius":0.2,"slowingRadius":0.75)"), std::runtime_error);
+    EXPECT_THROW(parse(validPhysical,
+        R"("searchExtents":[1,2,1],"acceptanceRadius":-1,"slowingRadius":0.75)"), std::runtime_error);
+    EXPECT_THROW(parse(validPhysical,
+        R"("searchExtents":[1,2,1],"acceptanceRadius":0.5,"slowingRadius":0.2)"), std::runtime_error);
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({"id":"duplicate","title":"Duplicate","roles":{"agent":"Agent","target":"Target"},"start":[
+      {"op":"startNavigationPath","entity":"agent","target":"target","searchExtents":[1,2,1],"acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false,"result":"path"},
+      {"op":"startNavigationPath","entity":"agent","target":"target","searchExtents":[1,2,1],"acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false,"result":"path"}]})"), std::runtime_error);
+
+    constexpr std::string_view physicalOperation =
+        R"({"op":"setCharacterPhysicalSettings","entity":"agent","radius":0.2,"cylinderHeight":1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.25,"mass":70})";
+    constexpr std::string_view navigationOperation =
+        R"({"op":"startNavigationPath","entity":"agent","target":"target","searchExtents":[1,2,1],"acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false,"result":"path"})";
+    for (const std::string_view section : {"start", "update", "stop", "reset"})
+    {
+        EXPECT_THROW(ParseDevelopmentScenarioAsset(
+            std::string(R"({"id":"section","title":"Section","roles":{"agent":"Agent"},")") +
+            std::string(section) + R"(":[)" + std::string(physicalOperation) + "]}"), std::runtime_error)
+            << section;
+    }
+    for (const std::string_view section : {"setup", "update", "stop", "reset"})
+    {
+        EXPECT_THROW(ParseDevelopmentScenarioAsset(
+            std::string(R"({"id":"section","title":"Section","roles":{"agent":"Agent","target":"Target"},")") +
+            std::string(section) + R"(":[)" + std::string(navigationOperation) + "]}"), std::runtime_error)
+            << section;
+    }
+}
+
+TEST(DevelopmentScenarioRunner, NavigationAgentSizeUsesProfilesAndTreatsNoPathAsDomainResult)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/navigation_small_large_passage.level.json");
+    const DevelopmentScenarioAsset scenario = LoadDevelopmentScenarioAsset(level.developmentScenario);
+    rendern::test::LevelInstantiateHarness harness{};
+    harness.SetMeshCPU(MakeCubeMesh());
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    harness.DrainAssetPipeline();
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+
+    const app::navigationRuntime::GeometryResult geometry =
+        app::navigationRuntime::BuildLevelNavigationGeometry(instance);
+    ASSERT_EQ(geometry.status, app::navigationRuntime::GeometryStatus::Ready);
+    EXPECT_GT(geometry.sourceMeshCount, 0u);
+    navigation::ProfileRegistry profiles{};
+    ASSERT_EQ(profiles.Initialize(geometry.geometry, navigation::BuildSettings{}).status,
+        navigation::BuildStatus::Succeeded);
+    ScenarioContext context{runtime, level, instance, scene,
+        rendern::GameplayRuntimeMode::Game, nullptr, &profiles};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    ASSERT_TRUE(runner.CanStart(context));
+    ASSERT_TRUE(runner.Start(context));
+
+    const auto small = FindRoleEntity(runner, runtime, "smallAgent");
+    const auto large = FindRoleEntity(runner, runtime, "largeAgent");
+    ASSERT_NE(small, rendern::kNullEntity);
+    ASSERT_NE(large, rendern::kNullEntity);
+    ASSERT_EQ(runner.GetResults().size(), 2u);
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::Running);
+    EXPECT_EQ(runner.GetResults()[1].status, ScenarioOperationResultStatus::NoPath);
+    EXPECT_EQ(runtime.GetAIActionStatus(small), rendern::AIActionExecutionStatus::Running);
+    EXPECT_EQ(runtime.GetAIActionStatus(large), rendern::AIActionExecutionStatus::NotStarted);
+    EXPECT_GE(profiles.GetProfileCount(), 2u);
+
+    runner.Stop(context);
+    EXPECT_EQ(runtime.GetAIActionStatus(small), rendern::AIActionExecutionStatus::Cancelled);
+    runner.Reset(context);
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::NotStarted);
+    EXPECT_EQ(runner.GetResults()[1].status, ScenarioOperationResultStatus::NotStarted);
+    ASSERT_TRUE(runner.Start(context));
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::Running);
+    EXPECT_EQ(runner.GetResults()[1].status, ScenarioOperationResultStatus::NoPath);
+    runner.Unload(context);
+    EXPECT_TRUE(runner.GetResults().empty());
+    ASSERT_TRUE(runner.Load(scenario, context));
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::NotStarted);
+    runner.Unload(context);
+
+    DevelopmentScenarioAsset rollbackScenario = scenario;
+    rollbackScenario.start.push_back(EnsureAIOperation{"smallTarget"});
+    ASSERT_TRUE(runner.Load(rollbackScenario, context));
+    EXPECT_FALSE(runner.Start(context));
+    ASSERT_EQ(runner.GetResults().size(), 2u);
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::Cancelled);
+    EXPECT_EQ(runner.GetResults()[1].status, ScenarioOperationResultStatus::NoPath);
+    const auto rollbackSmall = FindRoleEntity(runner, runtime, "smallAgent");
+    ASSERT_NE(rollbackSmall, rendern::kNullEntity);
+    EXPECT_EQ(runtime.GetAIActionStatus(rollbackSmall),
+        rendern::AIActionExecutionStatus::Cancelled);
+    runner.Unload(context);
     runtime.Shutdown();
 }

@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -21,6 +22,15 @@ namespace appDevelopment
     struct SetRuntimeVisibilityOperation { std::string entity; bool visible{}; };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
     struct RemoveCharacterPhysicalSettingsOperation { std::string entity; };
+    struct SetCharacterPhysicalSettingsOperation
+    {
+        std::string entity;
+        float radius{};
+        float cylinderHeight{};
+        float maximumSlopeAngleDegrees{};
+        float maximumStepHeight{};
+        float mass{};
+    };
     struct ResetEntitySimulationStateOperation { std::string entity; };
     struct RegisterJumpTraversalLinkOperation
     {
@@ -61,6 +71,35 @@ namespace appDevelopment
         float slowingRadius{};
         bool wantsRun{};
     };
+    
+    struct StartNavigationPathOperation
+    {
+        std::string entity;
+        std::string target;
+        std::array<float, 3> searchExtents{};
+        float acceptanceRadius{};
+        float slowingRadius{};
+        bool wantsRun{};
+        std::string result;
+    };
+
+    enum class ScenarioOperationResultStatus
+    {
+        NotStarted,
+        Running,
+        Succeeded,
+        NoPath,
+        Failed,
+        Cancelled
+    };
+
+    struct ScenarioOperationResult
+    {
+        std::string name;
+        ScenarioOperationResultStatus status{ScenarioOperationResultStatus::NotStarted};
+    };
+
+    [[nodiscard]] const char* ToString(ScenarioOperationResultStatus status) noexcept;
 
     using ScenarioOperation = std::variant<
         CaptureTransformOperation,
@@ -71,12 +110,14 @@ namespace appDevelopment
         SetRuntimeVisibilityOperation,
         EnsureNodeBoundEntityOperation,
         RemoveCharacterPhysicalSettingsOperation,
+        SetCharacterPhysicalSettingsOperation,
         ResetEntitySimulationStateOperation,
         RegisterJumpTraversalLinkOperation,
         RemoveTraversalLinkOperation,
         StartFollowRouteOperation,
-        StartMoveToOperation>;
-
+        StartMoveToOperation,
+        StartNavigationPathOperation>;
+    
     struct DevelopmentScenarioAsset
     {
         std::string id;
@@ -113,6 +154,7 @@ namespace appDevelopment
         bool Load(const DevelopmentScenarioAsset& asset, ScenarioContext& context);
         void Unload(ScenarioContext& context) noexcept;
         bool Start(ScenarioContext& context);
+        [[nodiscard]] bool CanStart(const ScenarioContext& context) const noexcept;
         void Update(ScenarioContext& context) noexcept;
         void Stop(ScenarioContext& context) noexcept;
         void Reset(ScenarioContext& context) noexcept;
@@ -120,7 +162,8 @@ namespace appDevelopment
         [[nodiscard]] bool IsRunning() const noexcept;
         [[nodiscard]] const DevelopmentScenarioAsset* GetAsset() const noexcept;
         [[nodiscard]] int GetResolvedNodeIndex(std::string_view role) const noexcept;
-
+        [[nodiscard]] const std::vector<ScenarioOperationResult>& GetResults() const noexcept;
+        
     private:
         friend class DevelopmentScenarioOperationExecutor;
         struct Impl;

@@ -8,6 +8,19 @@ import core;
 
 namespace appDevelopment
 {
+    const char* ToString(const ScenarioOperationResultStatus status) noexcept
+    {
+        switch (status)
+        {
+        case ScenarioOperationResultStatus::Running: return "Running";
+        case ScenarioOperationResultStatus::Succeeded: return "Succeeded";
+        case ScenarioOperationResultStatus::NoPath: return "NoPath";
+        case ScenarioOperationResultStatus::Failed: return "Failed";
+        case ScenarioOperationResultStatus::Cancelled: return "Cancelled";
+        default: return "NotStarted";
+        }
+    }
+    
     namespace
     {
         using jsonUtils::JsonArray;
@@ -100,6 +113,16 @@ namespace appDevelopment
                 else if (op == "ensureNodeBoundEntity") result.emplace_back(EnsureNodeBoundEntityOperation{entity()});
                 else if (op == "removeCharacterPhysicalSettings")
                     result.emplace_back(RemoveCharacterPhysicalSettingsOperation{entity()});
+                else if (op == "setCharacterPhysicalSettings")
+                {
+                    result.emplace_back(SetCharacterPhysicalSettingsOperation{
+                        entity(),
+                        static_cast<float>(RequiredNumber(operation, "radius", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "cylinderHeight", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "maximumSlopeAngleDegrees", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "maximumStepHeight", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "mass", source, section, i))});
+                }
                 else if (op == "resetEntitySimulationState")
                     result.emplace_back(ResetEntitySimulationStateOperation{entity()});
                 else if (op == "removeTraversalLink")
@@ -176,6 +199,37 @@ namespace appDevelopment
                     move.wantsRun = wantsRun->second.AsBool();
                     result.emplace_back(std::move(move));
                 }
+                else if (op == "startNavigationPath")
+                {
+                    StartNavigationPathOperation path{};
+                    path.entity = entity();
+                    path.target = RequiredString(operation, "target", source, section, i);
+                    const auto extents = operation.find("searchExtents");
+                    if (extents == operation.end() || !extents->second.IsArray() ||
+                        extents->second.AsArray().size() != 3)
+                    {
+                        Invalid(source, section, i, "field 'searchExtents' must be a three-number array");
+                    }
+                    for (std::size_t component = 0; component < 3; ++component)
+                    {
+                        const auto& value = extents->second.AsArray()[component];
+                        if (!value.IsNumber())
+                        {
+                            Invalid(source, section, i, "field 'searchExtents' must be a three-number array");
+                        }
+                        path.searchExtents[component] = static_cast<float>(value.AsNumber());
+                    }
+                    path.acceptanceRadius = static_cast<float>(RequiredNumber(operation, "acceptanceRadius", source, section, i));
+                    path.slowingRadius = static_cast<float>(RequiredNumber(operation, "slowingRadius", source, section, i));
+                    const auto wantsRun = operation.find("wantsRun");
+                    if (wantsRun == operation.end() || !wantsRun->second.IsBool())
+                    {
+                        Invalid(source, section, i, "missing boolean field 'wantsRun'");
+                    }
+                    path.wantsRun = wantsRun->second.AsBool();
+                    path.result = RequiredString(operation, "result", source, section, i);
+                    result.emplace_back(std::move(path));
+                }
                 else Invalid(source, section, i, "unknown operation type '" + op + "'");
             }
             return result;
@@ -198,6 +252,10 @@ namespace appDevelopment
                 result.push_back(move->goal);
                 for (const auto& edge : move->edges) { result.push_back(edge.from); result.push_back(edge.to); }
                 return result;
+            }
+            if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
+            {
+                return {path->target};
             }
             return {};
         }
@@ -248,6 +306,7 @@ namespace appDevelopment
         const std::string identity = asset.id + (asset.sourcePath.empty() ? std::string{} : " (" + asset.sourcePath + ")");
         std::unordered_set<std::string> captured;
         std::unordered_set<std::string> setupCaptured;
+        std::unordered_set<std::string> resultNames;
         std::unordered_set<std::string> startCaptured;
         const std::array sections{std::pair{"setup", &asset.setup}, std::pair{"start", &asset.start}, std::pair{"update", &asset.update}, std::pair{"stop", &asset.stop}, std::pair{"reset", &asset.reset}};
         for (const auto& [name, operations] : sections)
@@ -300,6 +359,62 @@ namespace appDevelopment
                             !std::isfinite(edge.cost) || edge.cost < 0.0f)
                             Invalid(identity, name, i, "invalid MoveTo graph edge");
                 }
+                if (const auto* physical = std::get_if<SetCharacterPhysicalSettingsOperation>(&operation))
+                {
+                    if (std::string_view(name) != "setup")
+                    {
+                        Invalid(identity, name, i,
+                            "setCharacterPhysicalSettings is only valid in setup");
+                    }
+                    if (!std::isfinite(physical->radius) || physical->radius <= 0.0f)
+                    {
+                        Invalid(identity, name, i, "field 'radius' must be finite and greater than zero");
+                    }
+                    if (!std::isfinite(physical->cylinderHeight) || physical->cylinderHeight <= 0.0f)
+                    {
+                        Invalid(identity, name, i, "field 'cylinderHeight' must be finite and greater than zero");
+                    }
+                    if (!std::isfinite(physical->maximumSlopeAngleDegrees) ||
+                        physical->maximumSlopeAngleDegrees < 0.0f ||
+                        physical->maximumSlopeAngleDegrees >= 90.0f)
+                    {
+                        Invalid(identity, name, i, "field 'maximumSlopeAngleDegrees' must be finite and in [0, 90)");
+                    }
+                    if (!std::isfinite(physical->maximumStepHeight) || physical->maximumStepHeight < 0.0f ||
+                        physical->maximumStepHeight >= physical->cylinderHeight + 2.0f * physical->radius)
+                    {
+                        Invalid(identity, name, i, "field 'maximumStepHeight' must be finite, non-negative, and less than total height");
+                    }
+                    if (!std::isfinite(physical->mass) || physical->mass <= 0.0f)
+                    {
+                        Invalid(identity, name, i, "field 'mass' must be finite and greater than zero");
+                    }
+                }
+                if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
+                {
+                    if (std::string_view(name) != "start")
+                    {
+                        Invalid(identity, name, i,
+                            "startNavigationPath is only valid in start");
+                    }
+                    if (!std::ranges::all_of(path->searchExtents,
+                            [](const float value) { return std::isfinite(value) && value > 0.0f; }))
+                    {
+                        Invalid(identity, name, i, "field 'searchExtents' components must be finite and greater than zero");
+                    }
+                    if (!std::isfinite(path->acceptanceRadius) || path->acceptanceRadius < 0.0f)
+                    {
+                        Invalid(identity, name, i, "field 'acceptanceRadius' must be finite and non-negative");
+                    }
+                    if (!std::isfinite(path->slowingRadius) || path->slowingRadius < path->acceptanceRadius)
+                    {
+                        Invalid(identity, name, i, "field 'slowingRadius' must be finite and at least acceptanceRadius");
+                    }
+                    if (!resultNames.insert(path->result).second)
+                    {
+                        Invalid(identity, name, i, "duplicate result name '" + path->result + "'");
+                    }
+                }
                 if (const auto* capture = std::get_if<CaptureTransformOperation>(&operation))
                 {
                     captured.insert(capture->slot);
@@ -321,6 +436,10 @@ namespace appDevelopment
         std::unordered_set<EntityHandle> spawnedEntities;
         std::unordered_set<rendern::GameplayTraversalLinkHandle,
             rendern::GameplayTraversalLinkHandleHasher> traversalLinks;
+        std::unordered_map<EntityHandle,
+            std::optional<rendern::GameplayCharacterPhysicalSettingsComponent>> physicalBaselines;
+        std::vector<ScenarioOperationResult> results;
+        std::unordered_map<std::string, EntityHandle> resultEntities;
         std::unordered_map<int, bool> visibilityBaselines;
         bool running{};
     };
@@ -388,6 +507,22 @@ namespace appDevelopment
                     else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>)
                     {
                         if (instance.spawnedEntities.contains(entity)) world.RemoveCharacterPhysicalSettings(entity);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, SetCharacterPhysicalSettingsOperation>)
+                    {
+                        if (!instance.physicalBaselines.contains(entity))
+                        {
+                            const auto* existing = world.TryGetCharacterPhysicalSettings(entity);
+                            instance.physicalBaselines.emplace(entity, existing != nullptr
+                                ? std::optional{*existing} : std::nullopt);
+                        }
+                        world.SetCharacterPhysicalSettings(entity, {
+                            .radius = op.radius,
+                            .cylinderHeight = op.cylinderHeight,
+                            .maximumSlopeAngleDegrees = op.maximumSlopeAngleDegrees,
+                            .maximumStepHeight = op.maximumStepHeight,
+                            .mass = op.mass});
                         return true;
                     }
                     else if constexpr (std::is_same_v<T, ResetEntitySimulationStateOperation>)
@@ -472,6 +607,66 @@ namespace appDevelopment
                             entity, graph, ids.at(op.start), ids.at(op.goal), steering) ==
                             rendern::AIActionExecutionStatus::Running;
                     }
+                    else if constexpr (std::is_same_v<T, StartNavigationPathOperation>)
+                    {
+                        auto result = std::ranges::find(instance.results, op.result,
+                            &ScenarioOperationResult::name);
+                        if (result == instance.results.end() || context.navigationProfiles == nullptr)
+                        {
+                            return false;
+                        }
+                        const auto* transform = world.TryGetTransform(entity);
+                        const auto* physical = world.TryGetCharacterPhysicalSettings(entity);
+                        const auto target = instance.nodes.find(op.target);
+                        if (transform == nullptr || physical == nullptr || target == instance.nodes.end())
+                        {
+                            result->status = ScenarioOperationResultStatus::Failed;
+                            return false;
+                        }
+                        const navigation::ProfileResolution profile = context.navigationProfiles->ResolveProfile(
+                            app::navigationRuntime::BuildAgentSettings(*physical));
+                        const navigation::World* navigationWorld = context.navigationProfiles->TryGetWorld(profile.profile);
+                        if (profile.status != navigation::BuildStatus::Succeeded || navigationWorld == nullptr)
+                        {
+                            result->status = ScenarioOperationResultStatus::Failed;
+                            return false;
+                        }
+                        const navigation::PathResult path = navigationWorld->FindPath({
+                            .start = transform->position,
+                            .goal = context.level.nodes[static_cast<std::size_t>(target->second)].transform.position,
+                            .searchExtents = {op.searchExtents[0], op.searchExtents[1], op.searchExtents[2]}});
+                        if (path.status == navigation::QueryStatus::NoPath)
+                        {
+                            result->status = ScenarioOperationResultStatus::NoPath;
+                            instance.resultEntities.erase(op.result);
+                            return true;
+                        }
+                        if (path.status != navigation::QueryStatus::Succeeded || path.points.size() < 2)
+                        {
+                            result->status = ScenarioOperationResultStatus::Failed;
+                            return false;
+                        }
+                        rendern::GameplayRoute route{};
+                        route.points.reserve(path.points.size());
+                        for (const mathUtils::Vec3& point : path.points)
+                        {
+                            route.points.push_back({.worldPosition = point});
+                        }
+                        route.segmentAnnotations.resize(route.points.size() - 1);
+                        rendern::GameplayArrivalSteeringSettings steering{};
+                        steering.acceptanceRadius = op.acceptanceRadius;
+                        steering.slowingRadius = op.slowingRadius;
+                        steering.wantsRun = op.wantsRun;
+                        if (context.gameplayRuntime.StartAIFollowRoute(entity, std::move(route), steering) !=
+                            rendern::AIActionExecutionStatus::Running)
+                        {
+                            result->status = ScenarioOperationResultStatus::Failed;
+                            return false;
+                        }
+                        result->status = ScenarioOperationResultStatus::Running;
+                        instance.resultEntities[op.result] = entity;
+                        return true;
+                    }
                     else if constexpr (std::is_same_v<T, TeleportPhysicsCharacterOperation>)
                         return context.physicsWorld == nullptr ||
                            appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
@@ -503,6 +698,13 @@ namespace appDevelopment
         
         ValidateDevelopmentScenarioAsset(asset);
         impl_->asset = asset;
+        for (const ScenarioOperation& operation : asset.start)
+        {
+            if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
+            {
+                impl_->results.push_back({path->result, ScenarioOperationResultStatus::NotStarted});
+            }
+        }
         for (const auto& [role, nodeName] : asset.roles)
         {
             const auto node = std::ranges::find_if(context.level.nodes, [&](const auto& value) { return value.alive && value.name == nodeName; });
@@ -531,6 +733,21 @@ namespace appDevelopment
         impl_->traversalLinks.clear();
         for (const auto& [nodeIndex, visible] : impl_->visibilityBaselines)
             (void)context.levelInstance.SetNodeRuntimeVisible(context.level, context.scene, nodeIndex, visible);
+        for (const auto& [entity, baseline] : impl_->physicalBaselines)
+        {
+            if (!world.IsEntityValid(entity) || impl_->spawnedEntities.contains(entity))
+            {
+                continue;
+            }
+            if (baseline.has_value())
+            {
+                world.SetCharacterPhysicalSettings(entity, *baseline);
+            }
+            else if (world.HasCharacterPhysicalSettings(entity))
+            {
+                world.RemoveCharacterPhysicalSettings(entity);
+            }
+        }
         std::unordered_set<EntityHandle> failedPhysicsTeardown;
         for (const EntityHandle entity : impl_->spawnedEntities)
         {
@@ -551,13 +768,38 @@ namespace appDevelopment
         }
         impl_->asset.reset(); impl_->nodes.clear(); impl_->transforms.clear(); impl_->addedAI.clear();
         impl_->spawnedEntities.clear(); impl_->visibilityBaselines.clear(); impl_->running = false;
+        impl_->physicalBaselines.clear(); impl_->results.clear(); impl_->resultEntities.clear();
+    }
+    bool DevelopmentScenarioRunner::CanStart(const ScenarioContext& context) const noexcept
+    {
+        if (!impl_->asset || impl_->running)
+        {
+            return false;
+        }
+        return context.navigationProfiles != nullptr ||
+            std::ranges::none_of(impl_->asset->start, [](const ScenarioOperation& operation) {
+                return std::holds_alternative<StartNavigationPathOperation>(operation);
+            });
     }
     bool DevelopmentScenarioRunner::Start(ScenarioContext& context)
     {
-        if (!impl_->asset || impl_->running) return false;
+        if (!CanStart(context)) return false;
+        for (ScenarioOperationResult& result : impl_->results)
+        {
+            result.status = ScenarioOperationResultStatus::NotStarted;
+        }
+        impl_->resultEntities.clear();
         if (!DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->start, *this, context))
         {
             (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->stop, *this, context);
+            for (ScenarioOperationResult& result : impl_->results)
+            {
+                if (result.status == ScenarioOperationResultStatus::Running)
+                {
+                    result.status = ScenarioOperationResultStatus::Cancelled;
+                }
+            }
+            impl_->resultEntities.clear();
             impl_->running = false; return false;
         }
         impl_->running = true; return true;
@@ -565,19 +807,57 @@ namespace appDevelopment
     void DevelopmentScenarioRunner::Update(ScenarioContext& context) noexcept
     {
         if (impl_->running && !DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->update, *this, context)) Stop(context);
+        for (ScenarioOperationResult& result : impl_->results)
+        {
+            if (result.status != ScenarioOperationResultStatus::Running)
+            {
+                continue;
+            }
+            const auto entity = impl_->resultEntities.find(result.name);
+            if (entity == impl_->resultEntities.end())
+            {
+                result.status = ScenarioOperationResultStatus::Failed;
+                continue;
+            }
+            switch (context.gameplayRuntime.GetAIActionStatus(entity->second))
+            {
+            case rendern::AIActionExecutionStatus::Running: break;
+            case rendern::AIActionExecutionStatus::Succeeded:
+                result.status = ScenarioOperationResultStatus::Succeeded; break;
+            case rendern::AIActionExecutionStatus::Cancelled:
+                result.status = ScenarioOperationResultStatus::Cancelled; break;
+            default: result.status = ScenarioOperationResultStatus::Failed; break;
+            }
+        }
     }
     void DevelopmentScenarioRunner::Stop(ScenarioContext& context) noexcept
     {
         if (impl_->asset && impl_->running) (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->stop, *this, context);
+        for (ScenarioOperationResult& result : impl_->results)
+        {
+            if (result.status == ScenarioOperationResultStatus::Running)
+            {
+                result.status = ScenarioOperationResultStatus::Cancelled;
+            }
+        }
         impl_->running = false;
     }
     void DevelopmentScenarioRunner::Reset(ScenarioContext& context) noexcept
     {
         if (!impl_->asset) return; Stop(context);
         (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->reset, *this, context);
+        for (ScenarioOperationResult& result : impl_->results)
+        {
+            result.status = ScenarioOperationResultStatus::NotStarted;
+        }
+        impl_->resultEntities.clear();
     }
     bool DevelopmentScenarioRunner::IsLoaded() const noexcept { return impl_->asset.has_value(); }
     bool DevelopmentScenarioRunner::IsRunning() const noexcept { return impl_->running; }
     const DevelopmentScenarioAsset* DevelopmentScenarioRunner::GetAsset() const noexcept { return impl_->asset ? &*impl_->asset : nullptr; }
     int DevelopmentScenarioRunner::GetResolvedNodeIndex(const std::string_view role) const noexcept { const auto it = impl_->nodes.find(std::string(role)); return it == impl_->nodes.end() ? -1 : it->second; }
+    const std::vector<ScenarioOperationResult>& DevelopmentScenarioRunner::GetResults() const noexcept
+    {
+        return impl_->results;
+    }
 }

@@ -77,10 +77,8 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
 
     rendern::LevelAsset agentSize{}; agentSize.name = "NavigationSmallLargePassage";
     AddNode(agentSize, "SMALL NPC"); AddNode(agentSize, "LARGE NPC");
-    EXPECT_EQ(detect(agentSize).first, appDevelopment::ScenarioKind::NavigationAgentSize);
-    const auto agentSizeView = detect(agentSize).second;
-    EXPECT_TRUE(agentSizeView.canReset);
-    EXPECT_STREQ(agentSizeView.resetLabel, "Reset Scenario");
+    // Historical node names and level names are not an activation mechanism.
+    EXPECT_EQ(detect(agentSize).first, appDevelopment::ScenarioKind::None);
 
     rendern::LevelAsset none{};
     EXPECT_EQ(detect(none).first, appDevelopment::ScenarioKind::None);
@@ -191,82 +189,50 @@ TEST(AppDevelopmentScenarioRuntime, LoadsRunsAndStopsExplicitDataDrivenScenario)
     runtime.Shutdown();
 }
 
-TEST(AppDevelopmentScenarioRuntime, OwnsAndResetsAgentSizeSetup)
+TEST(AppDevelopmentScenarioRuntime, LoadsNavigationAgentSizeOnlyFromExplicitScenarioReference)
 {
     InlineThreadOwnerRolesGuard guard{};
-    rendern::LevelAsset level{}; level.name = "NavigationSmallLargePassage";
-    AddNode(level, "ScenarioObserver_Player"); AddNode(level, "SMALL NPC"); AddNode(level, "LARGE NPC");
-    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
-    runtime.Initialize(level, instance, scene);
-    auto context = MakeContext(runtime, level, instance, scene);
-    rendern::GameplayUpdateContext gameplayContext{};
-    gameplayContext.mode = rendern::GameplayRuntimeMode::Editor;
-    gameplayContext.levelAsset = &level;
-    gameplayContext.levelInstance = &instance;
-    gameplayContext.scene = &scene;
-    ASSERT_NE(runtime.SpawnNodeBoundEntity(gameplayContext, 0, true), rendern::kNullEntity);
-
-    appDevelopment::AppDevelopmentScenarioRuntime development{};
-    development.OnLevelLoaded(context);
-    const rendern::GameplayWorld& world = runtime.GetWorld();
-    rendern::EntityHandle small{rendern::kNullEntity}, large{rendern::kNullEntity};
-    for (const auto entity : runtime.GetNodeBoundEntities())
-    {
-        const auto* link = world.TryGetNodeLink(entity);
-        if (link && link->nodeIndex == 1) small = entity;
-        if (link && link->nodeIndex == 2) large = entity;
-    }
-    ASSERT_NE(small, rendern::kNullEntity); ASSERT_NE(large, rendern::kNullEntity);
-    EXPECT_FALSE(world.HasPlayerControlled(small)); EXPECT_FALSE(world.HasPlayerControlled(large));
-    EXPECT_TRUE(world.HasAI(small)); EXPECT_TRUE(world.HasAI(large));
-    ASSERT_NE(world.TryGetCharacterPhysicalSettings(small), nullptr);
-    ASSERT_NE(world.TryGetCharacterPhysicalSettings(large), nullptr);
-    EXPECT_FLOAT_EQ(world.TryGetCharacterPhysicalSettings(small)->radius, 0.2f);
-    EXPECT_FLOAT_EQ(world.TryGetCharacterPhysicalSettings(large)->radius, 0.7f);
-
-    development.Reset();
-    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::None);
-    EXPECT_FALSE(development.GetView(context).active);
-    runtime.Shutdown();
-}
-
-TEST(AppDevelopmentScenarioRuntime, AgentSizeResetRestoresLevelTransformsAndPhysicalSettings)
-{
-    InlineThreadOwnerRolesGuard guard{};
-    rendern::LevelAsset level{}; level.name = "NavigationSmallLargePassage";
-    AddNode(level, "SMALL NPC"); level.nodes.back().transform.position = {-4.0f, 0.0f, 1.0f};
-    AddNode(level, "LARGE NPC"); level.nodes.back().transform.position = {-4.0f, 0.0f, -1.0f};
-    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/navigation_small_large_passage.level.json");
+    ASSERT_EQ(level.developmentScenario, "development/navigation_agent_size.scenario.json");
+    rendern::LevelInstance instance{};
+    rendern::Scene scene{};
+    rendern::GameplayRuntime runtime{};
     runtime.Initialize(level, instance, scene);
     auto context = MakeContext(runtime, level, instance, scene);
     appDevelopment::AppDevelopmentScenarioRuntime development{};
     development.OnLevelLoaded(context);
+    
+    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
+    EXPECT_STREQ(development.GetView(context).title, "CR-445 Navigation Agent Size");
+    EXPECT_FALSE(development.GetView(context).canStart);
+
+
     rendern::EntityHandle small{rendern::kNullEntity};
     rendern::EntityHandle large{rendern::kNullEntity};
     for (const auto entity : runtime.GetNodeBoundEntities())
     {
         const auto* link = runtime.GetWorld().TryGetNodeLink(entity);
-        if (link && link->nodeIndex == 0) small = entity;
-        if (link && link->nodeIndex == 1) large = entity;
+        if (link != nullptr && link->nodeIndex == 1)
+        {
+            small = entity;
+        }
+        if (link != nullptr && link->nodeIndex == 2)
+        {
+            large = entity;
+        }
     }
-    ASSERT_NE(small, rendern::kNullEntity); ASSERT_NE(large, rendern::kNullEntity);
-    runtime.GetWorld().TryGetTransform(small)->position = {10.0f, 0.0f, 0.0f};
-    runtime.GetWorld().TryGetTransform(large)->position = {20.0f, 0.0f, 0.0f};
-    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
-    const auto gameViewWithoutNavigation = development.GetView(context);
-    EXPECT_TRUE(gameViewWithoutNavigation.commandsEnabled);
-    EXPECT_FALSE(gameViewWithoutNavigation.canStart);
-    EXPECT_TRUE(gameViewWithoutNavigation.canReset);
-    rendern::GameplayUpdateContext gameContext{.mode = context.gameplayMode, .levelAsset = &level,
-        .levelInstance = &instance, .scene = &scene};
-    runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameContext); runtime.PostPhysicsUpdate(gameContext);
-    development.Execute(appDevelopment::ScenarioCommand::Reset, context);
-    EXPECT_EQ(runtime.GetWorld().TryGetTransform(small)->position, level.nodes[0].transform.position);
-    EXPECT_EQ(runtime.GetWorld().TryGetTransform(large)->position, level.nodes[1].transform.position);
+    
+    ASSERT_NE(small, rendern::kNullEntity);
+    ASSERT_NE(large, rendern::kNullEntity);
+    ASSERT_NE(runtime.GetWorld().TryGetCharacterPhysicalSettings(small), nullptr);
+    ASSERT_NE(runtime.GetWorld().TryGetCharacterPhysicalSettings(large), nullptr);
     EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetCharacterPhysicalSettings(small)->radius, 0.2f);
     EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetCharacterPhysicalSettings(large)->radius, 0.7f);
-    const auto view = development.GetView(context);
-    EXPECT_STREQ(view.statuses[0].value, "NotStarted");
-    EXPECT_STREQ(view.statuses[1].value, "NotStarted");
+    EXPECT_EQ(development.GetView(context).statusCount, 2u);
+    EXPECT_STREQ(development.GetView(context).statuses[0].value, "NotStarted");
+    EXPECT_STREQ(development.GetView(context).statuses[1].value, "NotStarted");
+    development.Reset(context);
+    
     runtime.Shutdown();
 }
