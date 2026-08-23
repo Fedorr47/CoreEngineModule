@@ -1,0 +1,77 @@
+﻿module;
+
+#include <memory>
+#include <utility>
+#include <vector>
+
+export module core:gameplay_goap_decision;
+
+import :ai_decision_runtime;
+import :ai_action_binding;
+import :ai_system;
+import :gameplay;
+
+export namespace rendern
+{
+    struct GameplayGOAPDecisionDefinition
+    {
+        std::vector<AIGoalSelectionCandidate> goals{};
+        std::vector<AIActionDefinition> actions{};
+    };
+
+    class GameplayGOAPDecision
+    {
+    public:
+        GameplayGOAPDecision(const EntityHandle agent,
+            GameplayGOAPDecisionDefinition definition)
+            : decision_(agent), definition_(std::move(definition))
+        {
+        }
+
+        [[nodiscard]] bool InstallActionBinding(const AIActionId actionId,
+            std::unique_ptr<IAIActionBinding> binding)
+        {
+            if (!binding || !bindings_.Register(actionId, *binding))
+            {
+                return false;
+            }
+            ownedBindings_.push_back(std::move(binding));
+            return true;
+        }
+
+        void Update(AISystem& aiSystem, const GameplayWorld& world)
+        {
+            (void)decision_.Update(facts_, definition_.goals, definition_.actions,
+                bindings_, aiSystem, world);
+        }
+
+        void Cancel(AISystem& aiSystem) noexcept
+        {
+            decision_.Cancel(aiSystem);
+            bindings_.Reset();
+            ownedBindings_.clear();
+        }
+
+        [[nodiscard]] AIPlanExecutionStatus GetStatus() const noexcept
+        {
+            return decision_.GetStatus();
+        }
+
+        [[nodiscard]] const AIAgentWorldState& GetObservedState() const noexcept
+        {
+            return facts_;
+        }
+
+        [[nodiscard]] AIAgentWorldState& GetObservedState() noexcept
+        {
+            return facts_;
+        }
+
+    private:
+        AIDecisionRuntime decision_;
+        const GameplayGOAPDecisionDefinition definition_;
+        AIAgentWorldState facts_{};
+        AIActionBindingRegistry bindings_{};
+        std::vector<std::unique_ptr<IAIActionBinding>> ownedBindings_{};
+    };
+}

@@ -1,12 +1,15 @@
 {
   "id": "ai-goap-access-key",
-  "title": "Stage 5 GOAP: Access Key",
-  "description": "Production GOAP decision acquires the physical key before reaching the destination.",
+  "title": "Stage 6 GOAP: Coins and Access Key",
+  "description": "Production GOAP decision collects three physical coins before acquiring the key and reaching the destination.",
   "roles": {
     "agent": "GOAP_Agent",
     "start": "GOAP_Start",
     "accessKey": "GOAP_Access_Key",
-    "finalGoal": "GOAP_Final_Goal"
+    "finalGoal": "GOAP_Final_Goal",
+    "coinA": "GOAP_Coin_A",
+    "coinB": "GOAP_Coin_B",
+    "coinC": "GOAP_Coin_C"
   },
   "setup": [
     {"op":"ensureNodeBoundEntity","entity":"agent"},
@@ -19,6 +22,9 @@
     {"op":"restoreTransform","entity":"agent","slot":"baseline"},
     {"op":"resetEntitySimulationState","entity":"agent"},
     {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"coinA","visible":true},
+    {"op":"setRuntimeVisibility","entity":"coinB","visible":true},
+    {"op":"setRuntimeVisibility","entity":"coinC","visible":true},
     {"op":"setRuntimeVisibility","entity":"accessKey","visible":true},
     {"op":"startAIDecision","entity":"agent","decision":"access_key","result":"GOAP decision"}
   ],
@@ -32,6 +38,9 @@
     {"op":"restoreTransform","entity":"agent","slot":"baseline"},
     {"op":"resetEntitySimulationState","entity":"agent"},
     {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"coinA","visible":true},
+    {"op":"setRuntimeVisibility","entity":"coinB","visible":true},
+    {"op":"setRuntimeVisibility","entity":"coinC","visible":true},
     {"op":"setRuntimeVisibility","entity":"accessKey","visible":true}
   ]
 }

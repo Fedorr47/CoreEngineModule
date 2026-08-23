@@ -198,6 +198,19 @@
       "flags": [
         "useShadow"
       ],
+      "textures": {},
+    },
+    "coin": {
+      "baseColor": [
+        0.85,
+        0.25,
+        1,
+        1
+      ],
+      "emissiveStrength": 1.5,
+      "flags": [
+        "useShadow"
+      ],
       "textures": {}
     }
   },
@@ -354,6 +367,81 @@
           1.2,
           0.05,
           1.2
+        ]
+      }
+    },
+    {
+      "name": "GOAP_Coin_A",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "coin",
+      "transform": {
+        "position": [
+          -6,
+          0.35,
+          -3
+        ],
+        "rotationDegrees": [
+          0,
+          45,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "name": "GOAP_Coin_B",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "coin",
+      "transform": {
+        "position": [
+          6,
+          0.35,
+          1
+        ],
+        "rotationDegrees": [
+          0,
+          45,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "name": "GOAP_Coin_C",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "coin",
+      "transform": {
+        "position": [
+          -5,
+          0.35,
+          6
+        ],
+        "rotationDegrees": [
+          0,
+          45,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
         ]
       }
     },

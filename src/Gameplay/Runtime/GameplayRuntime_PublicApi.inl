@@ -546,13 +546,9 @@
                 return false;
             }
             std::unique_ptr<GameplayAIDecisionInstance> decision =
-                CreateGameplayAIDecision(definitionId, agentEntity, *currentLevelAsset_);
+                CreateGameplayAIDecision(definitionId, agentEntity, *currentLevelAsset_,
+                    world_, traversalLinkRegistry_, traversalExecutorRegistry_);
             if (!decision)
-            {
-                return false;
-            }
-            std::unique_ptr<AIMoveToActionBinding> binding = CreateAIMoveToActionBinding(*decision);
-            if (!binding || !decision->InstallMoveToBinding(std::move(binding)))
             {
                 return false;
             }

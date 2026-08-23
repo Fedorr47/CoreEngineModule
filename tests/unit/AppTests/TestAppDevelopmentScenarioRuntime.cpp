@@ -37,6 +37,21 @@ namespace
             nullptr
         };
     }
+    
+    rendern::EntityHandle FindNodeEntity(rendern::GameplayRuntime& runtime,
+        const rendern::LevelAsset& level, const std::string_view name)
+    {
+        for (const rendern::EntityHandle entity : runtime.GetNodeBoundEntities())
+        {
+            const auto* link = runtime.GetWorld().TryGetNodeLink(entity);
+            if (link != nullptr && link->nodeIndex >= 0 &&
+                level.nodes[static_cast<std::size_t>(link->nodeIndex)].name == name)
+            {
+                return entity;
+            }
+        }
+        return rendern::kNullEntity;
+    }
 }
 
 TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabilities)
@@ -128,7 +143,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsRemainingRouteScenariosOnlyAsDataDriven
     }
 }
 
-TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyOnlyAsDataDriven)
+TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesCleanDecision)
 {
     InlineThreadOwnerRolesGuard guard{};
     rendern::test::LevelInstantiateHarness harness{};
@@ -141,8 +156,33 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyOnlyAsDataDriven)
     appDevelopment::AppDevelopmentScenarioRuntime development{};
     development.OnLevelLoaded(context);
     EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
-    EXPECT_EQ(development.GetView(context).title, std::string_view("Stage 5 GOAP: Access Key"));
+    EXPECT_EQ(development.GetView(context).title,
+        std::string_view("Stage 6 GOAP: Coins and Access Key"));
+
+    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
+    rendern::GameplayUpdateContext gameContext{.mode=rendern::GameplayRuntimeMode::Game,
+        .levelAsset=&level, .levelInstance=&instance, .scene=&harness.GetScene()};
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    runtime.PostPhysicsUpdate(gameContext);
+    development.Execute(appDevelopment::ScenarioCommand::Start, context);
+    const rendern::EntityHandle agent=FindNodeEntity(runtime,level,"GOAP_Agent");
+    ASSERT_NE(agent,rendern::kNullEntity);
+    runtime.GetWorld().TryGetTransform(agent)->position={-6,0.35f,-3};
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
+    ASSERT_NE(facts,nullptr);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
     development.Reset(context);
+    development.Execute(appDevelopment::ScenarioCommand::Start, context);
+    facts=runtime.GetAIDecisionObservedState(agent);
+    ASSERT_NE(facts,nullptr);
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
     runtime.Shutdown();
 }
 

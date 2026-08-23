@@ -544,6 +544,9 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayBootstrap.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
+        Gameplay/AI/GameplayAIDecisionContracts.cppm
+        Gameplay/AI/GameplayGOAPDecision.cppm
+        Gameplay/AI/GameplayAIAccessKeyDecision.cppm
         Gameplay/AI/GameplayAIDecision.cppm
 
         Timer/GameTimer.ixx
