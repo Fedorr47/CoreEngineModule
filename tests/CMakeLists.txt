@@ -78,7 +78,6 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayTraversalLinkRegistry.cpp"
         "unit/GameplayTests/TestGameplayTraversalExecutorRegistry.cpp"
         "unit/GameplayTests/AI/TestAIFollowRouteTraversal.cpp"
-        "unit/GameplayTests/TestGameplayAIMovementDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayAIGOAPAccessKeyDevelopmentScenario.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
         "unit/PhysicsTests/TestJoltRuntime.cpp"

@@ -39,7 +39,6 @@ import :animation_workspace;
 import :editor_commands;
 import :editor_selection_service;
 import :gameplay_runtime;
-import :gameplay_ai_movement_development_scenario;
 
 export namespace rendern::ui
 {

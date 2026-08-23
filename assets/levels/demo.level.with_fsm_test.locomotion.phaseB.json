@@ -1,5 +1,6 @@
 {
   "name": "DemoLevel",
+  "developmentScenario": "development/ai_movement.scenario.json",
   "meshes": {
     "cube": {"path": "models/cube.obj", "debugName": "cube.obj"},
     "models_Ch15_nonPBR_fbx_2__mesh_0": {"path": "models/Ch15_nonPBR.fbx", "debugName": "models_Ch15_nonPBR_fbx_2_mesh_0", "submeshIndex": 0, "bakeNodeTransforms": false},

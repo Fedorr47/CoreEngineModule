@@ -1,0 +1,27 @@
+{
+  "id": "core.ai_physics_step",
+  "title": "AI Physics Step-Up Debug",
+  "description": "FollowRoute drives the real PhysicsCharacter across the raised step.",
+  "roles": { "agent": "NPC_Step_Start", "target": "RouteTarget" },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "agent" },
+    { "op": "captureTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "ensureAI", "entity": "agent" }
+  ],
+  "start": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" },
+    { "op": "startFollowRoute", "entity": "agent", "points": ["agent", "target"],
+      "segmentTraversals": [], "acceptanceRadius": 0.20, "slowingRadius": 0.75, "wantsRun": false }
+  ],
+  "update": [],
+  "stop": [{ "op": "cancelAI", "entity": "agent" }],
+  "reset": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" }
+  ]
+}

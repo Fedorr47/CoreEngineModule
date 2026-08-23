@@ -545,7 +545,6 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayBootstrap.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
-        Gameplay/Runtime/GameplayAIMovementDevelopmentScenario.cppm
         Gameplay/Runtime/GameplayAIGOAPAccessKeyDevelopmentScenario.cppm
 
         Timer/GameTimer.ixx

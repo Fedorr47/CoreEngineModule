@@ -44,6 +44,23 @@ namespace appDevelopment
         float slowingRadius{};
         bool wantsRun{};
     };
+    struct MoveToEdge
+    {
+        std::string from;
+        std::string to;
+        float cost{};
+    };
+    struct StartMoveToOperation
+    {
+        std::string entity;
+        std::vector<std::string> nodes;
+        std::vector<MoveToEdge> edges;
+        std::string start;
+        std::string goal;
+        float acceptanceRadius{};
+        float slowingRadius{};
+        bool wantsRun{};
+    };
 
     using ScenarioOperation = std::variant<
         CaptureTransformOperation,
@@ -57,7 +74,8 @@ namespace appDevelopment
         ResetEntitySimulationStateOperation,
         RegisterJumpTraversalLinkOperation,
         RemoveTraversalLinkOperation,
-        StartFollowRouteOperation>;
+        StartFollowRouteOperation,
+        StartMoveToOperation>;
 
     struct DevelopmentScenarioAsset
     {

@@ -1,0 +1,38 @@
+{
+  "id": "core.ai_movement",
+  "title": "AI Movement",
+  "description": "Authored graph through the production MoveTo route-search path.",
+  "roles": {
+    "agent": "AI_Move_Agent",
+    "point0": "AI_Move_Point_000",
+    "point1": "AI_Move_Point_001",
+    "point2": "AI_Move_Point_002"
+  },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "agent" },
+    { "op": "captureTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "ensureAI", "entity": "agent" }
+  ],
+  "start": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" },
+    { "op": "startMoveTo", "entity": "agent",
+      "nodes": ["point0", "point1", "point2"],
+      "edges": [
+        { "from": "point0", "to": "point1", "cost": 1.0 },
+        { "from": "point1", "to": "point2", "cost": 1.0 }
+      ],
+      "start": "point0", "goal": "point2",
+      "acceptanceRadius": 0.20, "slowingRadius": 0.75, "wantsRun": false }
+  ],
+  "update": [],
+  "stop": [{ "op": "cancelAI", "entity": "agent" }],
+  "reset": [
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" }
+  ]
+}

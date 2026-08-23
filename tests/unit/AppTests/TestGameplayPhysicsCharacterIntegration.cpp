@@ -207,6 +207,48 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ScenarioTeleportOperationUsesPro
     runner.Unload(context);
 }
 
+TEST_F(GameplayPhysicsCharacterIntegrationTest, DataDrivenStepResetRestoresGameplayAndPhysicalCharacter)
+{
+    rendern::LevelNode target{};
+    target.name = "RouteTarget"; target.alive = true;
+    target.transform.position = {0.0f, 0.0f, 6.0f};
+    levelAsset.nodes.push_back(target);
+    StepFrame();
+    const auto scenario = appDevelopment::ParseDevelopmentScenarioAsset(R"({
+      "id":"step.integration","title":"Step integration","roles":{"agent":"NPC","target":"RouteTarget"},
+      "setup":[{"op":"ensureNodeBoundEntity","entity":"agent"},{"op":"captureTransform","entity":"agent","slot":"baseline"},{"op":"ensureAI","entity":"agent"}],
+      "start":[{"op":"cancelAI","entity":"agent"},{"op":"restoreTransform","entity":"agent","slot":"baseline"},{"op":"resetEntitySimulationState","entity":"agent"},{"op":"teleportPhysicsCharacter","entity":"agent"},{"op":"startFollowRoute","entity":"agent","points":["agent","target"],"segmentTraversals":[],"acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false}],
+      "stop":[{"op":"cancelAI","entity":"agent"}],
+      "reset":[{"op":"cancelAI","entity":"agent"},{"op":"restoreTransform","entity":"agent","slot":"baseline"},{"op":"resetEntitySimulationState","entity":"agent"},{"op":"teleportPhysicsCharacter","entity":"agent"}]})");
+    appDevelopment::ScenarioContext context{gameplayRuntime, levelAsset, levelInstance, scene,
+        rendern::GameplayRuntimeMode::Game, &physicsWorld, nullptr};
+    appDevelopment::DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    rendern::EntityHandle npc = rendern::kNullEntity;
+    for (const auto entity : gameplayRuntime.GetNodeBoundEntities())
+        if (const auto* link = gameplayRuntime.GetWorld().TryGetNodeLink(entity);
+            link && link->nodeIndex == 1) npc = entity;
+    ASSERT_NE(npc, rendern::kNullEntity);
+    gameplayRuntime.GetWorld().SetCharacterPhysicalSettings(npc, {
+        .radius=0.22f, .cylinderHeight=0.86f, .maximumSlopeAngleDegrees=38.0f,
+        .maximumStepHeight=0.18f, .mass=54.0f});
+    ASSERT_TRUE(appRuntime::EnsureGameplayPhysicsCharacters(gameplayRuntime, physicsWorld, levelAsset));
+    const auto* binding = gameplayRuntime.GetWorld().TryGetPhysicsCharacter(npc);
+    ASSERT_NE(binding, nullptr);
+    ASSERT_TRUE(physicsWorld.IsCharacterValid(binding->character));
+    ASSERT_TRUE(runner.Start(context));
+    EXPECT_EQ(gameplayRuntime.GetAIActionStatus(npc), rendern::AIActionExecutionStatus::Running);
+    gameplayRuntime.GetWorld().TryGetTransform(npc)->position = {7.0f, 4.0f, 9.0f};
+    ASSERT_TRUE(physicsWorld.TeleportCharacter(binding->character, {7.0f, 4.0f, 9.0f}));
+    runner.Reset(context);
+    const mathUtils::Vec3 canonical = levelAsset.nodes[1].transform.position;
+    EXPECT_EQ(gameplayRuntime.GetWorld().TryGetTransform(npc)->position, canonical);
+    const auto physical = physicsWorld.GetCharacterPosition(binding->character);
+    ASSERT_TRUE(physical.has_value());
+    EXPECT_EQ(*physical, canonical - binding->visualRootOffset);
+    EXPECT_EQ(gameplayRuntime.GetAIActionStatus(npc), rendern::AIActionExecutionStatus::NotStarted);
+    runner.Unload(context);
+
 TEST_F(GameplayPhysicsCharacterIntegrationTest, SingleEntityPhysicsTeardownPreservesGameplayEntity)
 {
     const rendern::EntityHandle npc = SpawnNPC();

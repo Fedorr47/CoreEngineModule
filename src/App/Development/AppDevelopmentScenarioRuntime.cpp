@@ -13,19 +13,6 @@ namespace appDevelopment
     namespace
     {
         [[nodiscard]] const char* ToText(
-            const rendern::AIActionExecutionStatus status) noexcept
-        {
-            switch (status)
-            {
-            case rendern::AIActionExecutionStatus::Running: return "Running";
-            case rendern::AIActionExecutionStatus::Succeeded: return "Succeeded";
-            case rendern::AIActionExecutionStatus::Failed: return "Failed";
-            case rendern::AIActionExecutionStatus::Cancelled: return "Cancelled";
-            default: return "NotStarted";
-            }
-        }
-
-        [[nodiscard]] const char* ToText(
             const app::navigationRuntime::AgentSizeScenarioStatus status) noexcept
         {
             switch (status)
@@ -122,18 +109,11 @@ namespace appDevelopment
         {
             impl_->kind = ScenarioKind::NavigationAgentSize;
         }
-        else if (rendern::IsGameplayAIStepDebugScenario(context.level))
-        {
-            impl_->kind = ScenarioKind::AIPhysicsStep;
-        }
         else if (rendern::IsGameplayAIGOAPAccessKeyDevelopmentScenario(context.level))
         {
             impl_->kind = ScenarioKind::AIGOAPAccessKey;
         }
-        else if (rendern::IsGameplayAIMovementDevelopmentScenario(context.level))
-        {
-            impl_->kind = ScenarioKind::AIMovement;
-        }
+
 
         if (impl_->kind == ScenarioKind::NavigationAgentSize)
         {
@@ -208,59 +188,6 @@ namespace appDevelopment
 
         switch (impl_->kind)
         {
-        case ScenarioKind::AIMovement:
-            if (command == ScenarioCommand::Start)
-            {
-                const rendern::EntityHandle entity = rendern::ResetGameplayAIMovementDevelopmentScenario(
-                    context.gameplayRuntime, context.level);
-                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        context.gameplayRuntime, *context.physicsWorld, entity);
-                }
-                (void)rendern::StartGameplayAIMovementDevelopmentScenario(
-                    context.gameplayRuntime, MakeGameplayContext(context));
-            }
-            else if (command == ScenarioCommand::Stop)
-            {
-                rendern::CancelGameplayAIMovementDevelopmentScenario(
-                    context.gameplayRuntime, context.level);
-            }
-            else if (command == ScenarioCommand::Reset)
-            {
-                const rendern::EntityHandle entity = rendern::ResetGameplayAIMovementDevelopmentScenario(
-                    context.gameplayRuntime, context.level);
-                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        context.gameplayRuntime, *context.physicsWorld, entity);
-                }
-            }
-            break;
-
-        case ScenarioKind::AIPhysicsStep:
-            if (command == ScenarioCommand::Start)
-            {
-                (void)rendern::StartGameplayAIStepDebugRoute(
-                    context.gameplayRuntime, MakeGameplayContext(context));
-            }
-            else if (command == ScenarioCommand::Stop)
-            {
-                rendern::CancelGameplayAIStepDebugRoute(
-                    context.gameplayRuntime, context.level);
-            }
-            else if (command == ScenarioCommand::Reset)
-            {
-                const rendern::EntityHandle entity = rendern::ResetGameplayAIStepDebugNPC(
-                    context.gameplayRuntime, context.level);
-                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        context.gameplayRuntime, *context.physicsWorld, entity);
-                }
-            }
-            break;
-            
         case ScenarioKind::AIGOAPAccessKey:
             if (command == ScenarioCommand::Start)
             {
@@ -346,32 +273,6 @@ namespace appDevelopment
                 view.statuses[0] = {"Status", impl_->dataRunner.IsRunning() ? "Running" : "Loaded"};
                 view.statusCount = 1;
             }
-            break;
-        case ScenarioKind::AIMovement:
-            view.title = "AI Movement";
-            view.description = "AI_Move_Agent and ordered AI_Move_Point_<number> nodes.";
-            view.startLabel = "Start / Restart AI Route";
-            view.stopLabel = "Cancel AI Route";
-            view.canStart = true;
-            view.canStop = true;
-            view.canReset = true;
-            view.resetLabel = "Reset Route";
-            view.statuses[0] = {
-                "Route status",
-                ToText(rendern::GetGameplayAIMovementDevelopmentScenarioStatus(
-                    context.gameplayRuntime, context.level))
-            };
-            view.statusCount = 1;
-            break;
-
-        case ScenarioKind::AIPhysicsStep:
-            view.title = "AI Physics Step-Up Debug";
-            view.startLabel = "Start Route";
-            view.resetLabel = "Reset NPC";
-            view.stopLabel = "Stop Route";
-            view.canStart = true;
-            view.canReset = true;
-            view.canStop = true;
             break;
             
         case ScenarioKind::AIGOAPAccessKey:

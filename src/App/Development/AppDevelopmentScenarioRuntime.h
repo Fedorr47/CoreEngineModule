@@ -25,8 +25,6 @@ namespace appDevelopment
     {
         None,
         DataDriven,
-        AIMovement,
-        AIPhysicsStep,
         AIGOAPAccessKey,
         NavigationAgentSize
     };

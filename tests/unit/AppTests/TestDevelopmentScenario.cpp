@@ -9,6 +9,61 @@ import core;
 
 using namespace appDevelopment;
 
+namespace
+{
+    void AddMoveToNode(rendern::LevelAsset& level, const char* name,
+        const mathUtils::Vec3 position)
+    {
+        rendern::LevelNode node{};
+        node.name = name; node.alive = true; node.transform.position = position;
+        level.nodes.push_back(node);
+    }
+
+    rendern::EntityHandle FindRoleEntity(const DevelopmentScenarioRunner& runner,
+        const rendern::GameplayRuntime& runtime, const char* role)
+    {
+        const int node = runner.GetResolvedNodeIndex(role);
+        for (const auto entity : runtime.GetNodeBoundEntities())
+            if (const auto* link = runtime.GetWorld().TryGetNodeLink(entity);
+                link && link->nodeIndex == node) return entity;
+        return rendern::kNullEntity;
+    }
+
+    DevelopmentScenarioAsset FourNodeMoveToScenario()
+    {
+        return ParseDevelopmentScenarioAsset(R"({
+          "id":"move.behavior", "title":"Move behavior",
+          "roles":{"agent":"Agent","start":"Start","a":"A","b":"B","goal":"Goal"},
+          "setup":[{"op":"ensureNodeBoundEntity","entity":"agent"},
+                   {"op":"captureTransform","entity":"agent","slot":"baseline"},
+                   {"op":"ensureAI","entity":"agent"}],
+          "start":[{"op":"cancelAI","entity":"agent"},
+                   {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+                   {"op":"resetEntitySimulationState","entity":"agent"},
+                   {"op":"teleportPhysicsCharacter","entity":"agent"},
+                   {"op":"startMoveTo","entity":"agent","nodes":["start","a","b","goal"],
+                    "edges":[{"from":"start","to":"a","cost":1},{"from":"a","to":"b","cost":1},{"from":"b","to":"goal","cost":1}],
+                    "start":"start","goal":"goal","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false}],
+          "stop":[{"op":"cancelAI","entity":"agent"}],
+          "reset":[{"op":"cancelAI","entity":"agent"},
+                   {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+                   {"op":"resetEntitySimulationState","entity":"agent"},
+                   {"op":"teleportPhysicsCharacter","entity":"agent"}]})");
+    }
+
+    rendern::LevelAsset FourNodeMoveToLevel()
+    {
+        rendern::LevelAsset level{};
+        // Physical order intentionally disagrees with authored graph order.
+        AddMoveToNode(level, "Goal", {4.0f, 0.0f, 1.5f});
+        AddMoveToNode(level, "B", {2.0f, 0.0f, 1.5f});
+        AddMoveToNode(level, "Agent", {-2.0f, 0.0f, 0.0f});
+        AddMoveToNode(level, "Start", {-2.0f, 0.0f, 0.0f});
+        AddMoveToNode(level, "A", {0.0f, 0.0f, 0.0f});
+        return level;
+    }
+}
+
 TEST(DevelopmentScenarioAsset, ParsesTypedOperationsAndRoles)
 {
     const DevelopmentScenarioAsset asset = ParseDevelopmentScenarioAsset(R"({
@@ -74,6 +129,112 @@ TEST(DevelopmentScenarioAsset, ParsesAndValidatesTraversalLinkAndFollowRouteOper
     EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({"id":"bad","title":"Bad","roles":{"agent":"Agent"},
       "start":[{"op":"startFollowRoute","entity":"agent","points":["agent"],"segmentTraversals":[],
       "acceptanceRadius":0.2,"slowingRadius":0.1,"wantsRun":false}]})"), std::runtime_error);
+}
+
+TEST(DevelopmentScenarioAsset, ParsesAndValidatesMoveToGraphOperation)
+{
+    const auto parse = [](std::string_view operation) {
+        return ParseDevelopmentScenarioAsset(std::string(R"({"id":"move","title":"Move","roles":{"agent":"Agent","a":"A","b":"B"},"start":[)") +
+            std::string(operation) + "]}");
+    };
+    const auto asset = parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","b"],"edges":[{"from":"a","to":"b","cost":1.0}],"start":"a","goal":"b","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})");
+    const auto* move = std::get_if<StartMoveToOperation>(&asset.start[0]);
+    ASSERT_NE(move, nullptr);
+    EXPECT_EQ(move->nodes, (std::vector<std::string>{"a", "b"}));
+    EXPECT_EQ(move->edges.size(), 1u);
+
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","missing"],"edges":[],"start":"a","goal":"missing","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})"), std::runtime_error);
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","a"],"edges":[],"start":"a","goal":"a","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})"), std::runtime_error);
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","b"],"edges":[{"from":"a","to":"agent","cost":1}],"start":"a","goal":"b","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})"), std::runtime_error);
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","b"],"edges":[{"from":"a","to":"b","cost":-1}],"start":"a","goal":"b","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})"), std::runtime_error);
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","b"],"edges":[],"start":"a","acceptanceRadius":0.2,"slowingRadius":0.75,"wantsRun":false})"), std::runtime_error);
+    EXPECT_THROW(parse(R"({"op":"startMoveTo","entity":"agent","nodes":["a","b"],"edges":[],"start":"a","goal":"b","acceptanceRadius":0.8,"slowingRadius":0.2,"wantsRun":false})"), std::runtime_error);
+}
+
+TEST(DevelopmentScenarioRunner, MoveToUsesAuthoredGraphOrderAndCompletesAtGoal)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    auto level = FourNodeMoveToLevel();
+    auto scenario = FourNodeMoveToScenario();
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    rendern::GameplayUpdateContext game{.deltaSeconds=1.0f/60.0f,
+        .mode=rendern::GameplayRuntimeMode::Game, .levelAsset=&level, .levelInstance=&instance, .scene=&scene};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+    ScenarioContext context{runtime, level, instance, scene, rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    ASSERT_EQ(runner.GetResolvedNodeIndex("goal"), 0);
+    ASSERT_EQ(runner.GetResolvedNodeIndex("start"), 3);
+    ASSERT_TRUE(runner.Start(context));
+    const auto agent = FindRoleEntity(runner, runtime, "agent");
+    ASSERT_NE(agent, rendern::kNullEntity);
+    auto status = runtime.GetAIActionStatus(agent);
+    for (int frame = 0; frame < 1200 && status == rendern::AIActionExecutionStatus::Running; ++frame)
+    {
+        runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+        status = runtime.GetAIActionStatus(agent);
+    }
+    EXPECT_EQ(status, rendern::AIActionExecutionStatus::Succeeded);
+    const auto* transform = runtime.GetWorld().TryGetTransform(agent);
+    ASSERT_NE(transform, nullptr);
+    EXPECT_NEAR(transform->position.x, 4.0f, 0.3f);
+    EXPECT_NEAR(transform->position.z, 1.5f, 0.3f);
+    runner.Unload(context); runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioRunner, MoveToRestartAndResetRestoreStateWithoutClearingAIWorldFacts)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    auto level = FourNodeMoveToLevel(); auto scenario = FourNodeMoveToScenario();
+    level.nodes[2].transform.rotationDegrees.y = 35.0f;
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    rendern::GameplayUpdateContext game{.deltaSeconds=1.0f/60.0f,
+        .mode=rendern::GameplayRuntimeMode::Game, .levelAsset=&level, .levelInstance=&instance, .scene=&scene};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+    ScenarioContext context{runtime, level, instance, scene, rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{}; ASSERT_TRUE(runner.Load(scenario, context)); ASSERT_TRUE(runner.Start(context));
+    const auto agent = FindRoleEntity(runner, runtime, "agent"); ASSERT_NE(agent, rendern::kNullEntity);
+    auto& world = runtime.GetWorld();
+    auto mutate = [&] {
+        world.TryGetTransform(agent)->position = {7, 8, 9};
+        auto* command = world.TryGetCharacterCommand(agent); command->moveWorld = {1, 0, 0}; command->moveMagnitude = 1; command->wantsRun = true;
+        auto* motor = world.TryGetCharacterMotor(agent); motor->velocity = {4, 3, 2}; motor->desiredVelocity = {3, 2, 1}; motor->desiredMoveWorld = {1, 0, 0};
+        auto* movement = world.TryGetCharacterMovementState(agent); movement->facingYawDegrees = movement->desiredFacingYawDegrees = movement->previousFacingYawDegrees = movement->cameraFacingYawDegrees = 123;
+    };
+    constexpr rendern::AIWorldFactId fact{7u}; world.TryGetAI(agent)->worldState.SetFact(fact, true);
+    mutate(); runner.Stop(context); ASSERT_TRUE(runner.Start(context));
+    const auto expectCanonical = [&] {
+        EXPECT_EQ(world.TryGetTransform(agent)->position, level.nodes[2].transform.position);
+        const auto* command = world.TryGetCharacterCommand(agent); EXPECT_FLOAT_EQ(command->moveMagnitude, 0); EXPECT_FALSE(command->wantsRun); EXPECT_EQ(command->moveWorld, mathUtils::Vec3{});
+        const auto* motor = world.TryGetCharacterMotor(agent); EXPECT_EQ(motor->velocity, mathUtils::Vec3{}); EXPECT_EQ(motor->desiredVelocity, mathUtils::Vec3{}); EXPECT_EQ(motor->desiredMoveWorld, mathUtils::Vec3{});
+        const auto* movement = world.TryGetCharacterMovementState(agent); EXPECT_FLOAT_EQ(movement->facingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->desiredFacingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->previousFacingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->cameraFacingYawDegrees, 35);
+    };
+    expectCanonical(); EXPECT_TRUE(world.TryGetAI(agent)->worldState.IsFactSet(fact));
+    EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Running);
+    mutate(); runner.Reset(context); expectCanonical();
+    EXPECT_TRUE(world.TryGetAI(agent)->worldState.IsFactSet(fact));
+    EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::NotStarted);
+    runner.Unload(context); runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioRunner, MoveToCancellationDoesNotDependOnLiveGraphMarkers)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    auto level = FourNodeMoveToLevel(); auto scenario = FourNodeMoveToScenario();
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    rendern::GameplayUpdateContext game{.mode=rendern::GameplayRuntimeMode::Game,
+        .levelAsset=&level, .levelInstance=&instance, .scene=&scene};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+    ScenarioContext context{runtime, level, instance, scene, rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{}; ASSERT_TRUE(runner.Load(scenario, context)); ASSERT_TRUE(runner.Start(context));
+    const auto agent = FindRoleEntity(runner, runtime, "agent"); ASSERT_NE(agent, rendern::kNullEntity);
+    level.nodes[static_cast<std::size_t>(runner.GetResolvedNodeIndex("a"))].alive = false;
+    runner.Stop(context);
+    EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Cancelled);
+    runner.Unload(context); runtime.Shutdown();
 }
 
 TEST(DevelopmentScenarioAsset, PreservesWideHandlesAndRejectsUnsafeIntegerFields)

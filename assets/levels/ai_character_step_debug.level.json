@@ -1,5 +1,6 @@
 {
   "name": "AICharacterStepDebug",
+  "developmentScenario": "development/ai_physics_step.scenario.json",
   "meshes": {
     "cube": { "path": "models/cube.obj", "debugName": "AI Step Debug Cube" }
   },

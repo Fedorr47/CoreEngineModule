@@ -146,6 +146,36 @@ namespace appDevelopment
                     route.wantsRun = wantsRun->second.AsBool();
                     result.emplace_back(std::move(route));
                 }
+                else if (op == "startMoveTo")
+                {
+                    StartMoveToOperation move{};
+                    move.entity = entity();
+                    const auto nodes = operation.find("nodes");
+                    if (nodes == operation.end() || !nodes->second.IsArray()) Invalid(source, section, i, "missing array field 'nodes'");
+                    for (const auto& node : nodes->second.AsArray())
+                    {
+                        if (!node.IsString() || node.AsString().empty()) Invalid(source, section, i, "graph node must be a role name");
+                        move.nodes.push_back(node.AsString());
+                    }
+                    const auto edges = operation.find("edges");
+                    if (edges == operation.end() || !edges->second.IsArray()) Invalid(source, section, i, "missing array field 'edges'");
+                    for (const auto& edge : edges->second.AsArray())
+                    {
+                        if (!edge.IsObject()) Invalid(source, section, i, "graph edge must be an object");
+                        move.edges.push_back({
+                            RequiredString(edge.AsObject(), "from", source, section, i),
+                            RequiredString(edge.AsObject(), "to", source, section, i),
+                            static_cast<float>(RequiredNumber(edge.AsObject(), "cost", source, section, i))});
+                    }
+                    move.start = RequiredString(operation, "start", source, section, i);
+                    move.goal = RequiredString(operation, "goal", source, section, i);
+                    move.acceptanceRadius = static_cast<float>(RequiredNumber(operation, "acceptanceRadius", source, section, i));
+                    move.slowingRadius = static_cast<float>(RequiredNumber(operation, "slowingRadius", source, section, i));
+                    const auto wantsRun = operation.find("wantsRun");
+                    if (wantsRun == operation.end() || !wantsRun->second.IsBool()) Invalid(source, section, i, "missing boolean field 'wantsRun'");
+                    move.wantsRun = wantsRun->second.AsBool();
+                    result.emplace_back(std::move(move));
+                }
                 else Invalid(source, section, i, "unknown operation type '" + op + "'");
             }
             return result;
@@ -161,6 +191,14 @@ namespace appDevelopment
             if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation))
                 return {link->takeoff, link->landing};
             if (const auto* route = std::get_if<StartFollowRouteOperation>(&operation)) return route->points;
+            if (const auto* move = std::get_if<StartMoveToOperation>(&operation))
+            {
+                std::vector<std::string> result = move->nodes;
+                result.push_back(move->start);
+                result.push_back(move->goal);
+                for (const auto& edge : move->edges) { result.push_back(edge.from); result.push_back(edge.to); }
+                return result;
+            }
             return {};
         }
     }
@@ -247,6 +285,20 @@ namespace appDevelopment
                     for (const auto& traversal : route->traversals)
                         if (!rendern::GameplayTraversalLinkHandle{traversal.link}.IsValid() ||
                             traversal.segment >= route->points.size() - 1) Invalid(identity, name, i, "invalid route segment traversal");
+                }
+                if (const auto* move = std::get_if<StartMoveToOperation>(&operation))
+                {
+                    std::unordered_set<std::string> graphRoles;
+                    for (const auto& role : move->nodes)
+                        if (!graphRoles.insert(role).second) Invalid(identity, name, i, "duplicate MoveTo graph node role '" + role + "'");
+                    if (move->nodes.empty() || !graphRoles.contains(move->start) || !graphRoles.contains(move->goal) ||
+                        !std::isfinite(move->acceptanceRadius) || !std::isfinite(move->slowingRadius) ||
+                        move->acceptanceRadius < 0.0f || move->slowingRadius < move->acceptanceRadius)
+                        Invalid(identity, name, i, "invalid MoveTo parameters");
+                    for (const auto& edge : move->edges)
+                        if (!graphRoles.contains(edge.from) || !graphRoles.contains(edge.to) ||
+                            !std::isfinite(edge.cost) || edge.cost < 0.0f)
+                            Invalid(identity, name, i, "invalid MoveTo graph edge");
                 }
                 if (const auto* capture = std::get_if<CaptureTransformOperation>(&operation))
                 {
@@ -391,6 +443,33 @@ namespace appDevelopment
                         steering.slowingRadius = op.slowingRadius;
                         steering.wantsRun = op.wantsRun;
                         return context.gameplayRuntime.StartAIFollowRoute(entity, std::move(route), steering) ==
+                            rendern::AIActionExecutionStatus::Running;
+                    }
+                    else if constexpr (std::is_same_v<T, StartMoveToOperation>)
+                    {
+                        rendern::GameplayRouteGraph graph{};
+                        std::unordered_map<std::string, rendern::GameplayRouteNodeId> ids;
+                        graph.nodes.reserve(op.nodes.size());
+                        for (std::size_t index = 0; index < op.nodes.size(); ++index)
+                        {
+                            const auto node = instance.nodes.find(op.nodes[index]);
+                            if (node == instance.nodes.end()) return false;
+                            const rendern::GameplayRouteNodeId id{
+                                static_cast<rendern::GameplayRouteNodeId::ValueType>(index + 1u)};
+                            ids.emplace(op.nodes[index], id);
+                            graph.nodes.push_back({
+                                id, context.level.nodes[static_cast<std::size_t>(node->second)].transform.position});
+                        }
+                        graph.edges.reserve(op.edges.size());
+                        for (const auto& edge : op.edges)
+                            graph.edges.push_back({ids.at(edge.from), ids.at(edge.to), edge.cost, {}});
+                        if (!graph.IsValid()) return false;
+                        rendern::GameplayArrivalSteeringSettings steering{};
+                        steering.acceptanceRadius = op.acceptanceRadius;
+                        steering.slowingRadius = op.slowingRadius;
+                        steering.wantsRun = op.wantsRun;
+                        return context.gameplayRuntime.StartAIMoveTo(
+                            entity, graph, ids.at(op.start), ids.at(op.goal), steering) ==
                             rendern::AIActionExecutionStatus::Running;
                     }
                     else if constexpr (std::is_same_v<T, TeleportPhysicsCharacterOperation>)

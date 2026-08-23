@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <iterator>
+#include <string_view>
 #include <utility>
 
 #include "TestSupport/TestThreadAffinity.h"
@@ -54,20 +57,11 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
 
     rendern::LevelAsset movement{};
     AddNode(movement, "AI_Move_Agent"); AddNode(movement, "AI_Move_Point_0"); AddNode(movement, "AI_Move_Point_1");
-    EXPECT_EQ(detect(movement).first, appDevelopment::ScenarioKind::AIMovement);
-    const auto movementView = detect(movement).second;
-    EXPECT_TRUE(movementView.canReset);
-    EXPECT_STREQ(movementView.resetLabel, "Reset Route");
+    EXPECT_EQ(detect(movement).first, appDevelopment::ScenarioKind::None);
 
     rendern::LevelAsset step{};
     AddNode(step, "NPC_Step_Start"); AddNode(step, "RouteTarget");
-    const auto [stepKind, stepView] = detect(step);
-    EXPECT_EQ(stepKind, appDevelopment::ScenarioKind::AIPhysicsStep);
-    EXPECT_TRUE(stepView.canStart);
-    EXPECT_TRUE(stepView.active);
-    EXPECT_TRUE(stepView.canReset);
-    EXPECT_TRUE(stepView.canStop);
-    EXPECT_FALSE(stepView.commandsEnabled);
+    EXPECT_EQ(detect(step).first, appDevelopment::ScenarioKind::None);
     
     rendern::LevelAsset jump{};
     AddNode(jump, "JumpTraversalAgent"); AddNode(jump, "JumpRouteStart");
@@ -90,6 +84,50 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
 
     rendern::LevelAsset none{};
     EXPECT_EQ(detect(none).first, appDevelopment::ScenarioKind::None);
+}
+
+TEST(AppDevelopmentScenarioRuntime, LoadsRemainingRouteScenariosOnlyAsDataDriven)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    for (const char* path : {"levels/demo.level.with_fsm_test.locomotion.phaseB.json",
+                             "levels/ai_character_step_debug.level.json"})
+    {
+        rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(path);
+        ASSERT_FALSE(level.developmentScenario.empty());
+        rendern::test::LevelInstantiateHarness harness{};
+        rendern::LevelInstance instance = harness.Instantiate(level);
+        rendern::Scene& scene = harness.GetScene();
+        rendern::GameplayRuntime runtime{};
+        runtime.Initialize(level, instance, scene);
+        auto context = MakeContext(runtime, level, instance, scene);
+        appDevelopment::AppDevelopmentScenarioRuntime development{};
+        development.OnLevelLoaded(context);
+        EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
+        context.gameplayMode = rendern::GameplayRuntimeMode::Game;
+        rendern::GameplayUpdateContext gameContext{.mode=rendern::GameplayRuntimeMode::Game,
+            .levelAsset=&level, .levelInstance=&instance, .scene=&scene};
+        runtime.BeginFrame();
+        runtime.PrePhysicsUpdate(gameContext);
+        runtime.PostPhysicsUpdate(gameContext);
+        development.Execute(appDevelopment::ScenarioCommand::Start, context);
+        rendern::EntityHandle agent = rendern::kNullEntity;
+        const std::string_view agentName = level.name == "DemoLevel" ? "AI_Move_Agent" : "NPC_Step_Start";
+        const auto authoredAgent = std::ranges::find_if(level.nodes,
+            [&](const rendern::LevelNode& node) { return node.name == agentName; });
+        ASSERT_NE(authoredAgent, level.nodes.end());
+        const int expectedNode = static_cast<int>(std::distance(level.nodes.begin(), authoredAgent));
+        for (const auto entity : runtime.GetNodeBoundEntities())
+            if (const auto* link = runtime.GetWorld().TryGetNodeLink(entity);
+                link && link->nodeIndex == expectedNode) agent = entity;
+        ASSERT_NE(agent, rendern::kNullEntity);
+        EXPECT_FALSE(runtime.GetWorld().HasPlayerControlled(agent));
+        EXPECT_TRUE(runtime.GetWorld().HasAI(agent));
+        EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Running);
+        development.Execute(appDevelopment::ScenarioCommand::Stop, context);
+        EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Cancelled);
+        development.Reset(context);
+        runtime.Shutdown();
+    }
 }
 
 TEST(AppDevelopmentScenarioRuntime, LoadsActualJumpLevelOnlyAsDataDriven)
