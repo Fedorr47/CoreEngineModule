@@ -24,8 +24,7 @@ namespace appDevelopment
     enum class ScenarioKind
     {
         None,
-        DataDriven,
-        AIGOAPAccessKey
+        DataDriven
     };
 
     enum class ScenarioCommand

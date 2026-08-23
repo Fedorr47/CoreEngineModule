@@ -112,6 +112,7 @@
                     continue;
                 }
 
+                CancelAIDecision(entity);
                 world_.DestroyEntity(entity);
                 graphInstances_.erase(entity);
                 UnbindIntentSource(entity);
@@ -138,6 +139,7 @@
 
             if (ctx.mode == GameplayRuntimeMode::Editor)
             {
+                CancelAllAIDecisions_();
                 aiSystem_.Reset();
                 objectReservationSystem_.Reset();
                 // External traversal services belong to one simulation session.

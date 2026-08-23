@@ -26,6 +26,7 @@
             CORE_ASSERT_RUNTIME_THREAD();
 
             LogSyncInstrumentationSample_();
+            CancelAllAIDecisions_();
             aiSystem_.Reset();
             traversalLinkRegistry_.Reset();
             traversalExecutorRegistry_.ResetExternalRegistrations();
@@ -248,6 +249,7 @@
             UpdateGameplayIntentSources(world_, intentBindings_, ctx);
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
             objectReservationSystem_.CleanupInvalidReservations(world_);
+            UpdateActiveAIDecisions_();
             aiSystem_.Update(world_, ctx.deltaSeconds);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_, actionDefinitions_);
             UpdateGameplayInteractionRequests(world_, nodeBoundEntities_, actionDefinitions_);
@@ -531,6 +533,99 @@
             decision.Cancel(aiSystem_);
         }
 
+ bool GameplayRuntime::StartAIDecision(
+            const EntityHandle agentEntity, const std::string_view definitionId)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            if (lastMode_ != GameplayRuntimeMode::Game || activeAIDecisions_.contains(agentEntity) ||
+                !world_.IsEntityValid(agentEntity) || !world_.HasAI(agentEntity) ||
+                !world_.HasTransform(agentEntity) || !world_.HasCharacterCommand(agentEntity) ||
+                !world_.HasCharacterMotor(agentEntity) ||
+                !world_.HasCharacterMovementState(agentEntity) || currentLevelAsset_ == nullptr)
+            {
+                return false;
+            }
+            std::unique_ptr<GameplayAIDecisionInstance> decision =
+                CreateGameplayAIDecision(definitionId, agentEntity, *currentLevelAsset_);
+            if (!decision)
+            {
+                return false;
+            }
+            std::unique_ptr<AIMoveToActionBinding> binding = CreateAIMoveToActionBinding(*decision);
+            if (!binding || !decision->InstallMoveToBinding(std::move(binding)))
+            {
+                return false;
+            }
+            
+            // StartAIDecision is a synchronous start boundary. Perform the
+            // initial observation/planning pass here so a successful start
+            // never exposes NotStarted to callers before the next gameplay tick.
+            decision->Update(aiSystem_, world_);
+            const AIPlanExecutionStatus status = decision->GetStatus();
+            if (status == AIPlanExecutionStatus::NotStarted ||
+                status == AIPlanExecutionStatus::Failed ||
+                status == AIPlanExecutionStatus::Cancelled)
+            {
+                decision->Cancel(aiSystem_);
+                return false;
+            }
+            
+            activeAIDecisions_.emplace(agentEntity, std::move(decision));
+            return true;
+        }
+
+        void GameplayRuntime::CancelAIDecision(const EntityHandle agentEntity) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            const auto found = activeAIDecisions_.find(agentEntity);
+            if (found == activeAIDecisions_.end())
+            {
+                return;
+            }
+            found->second->Cancel(aiSystem_);
+            activeAIDecisions_.erase(found);
+        }
+
+        AIPlanExecutionStatus GameplayRuntime::GetAIDecisionStatus(const EntityHandle agentEntity) const noexcept
+        {
+            const auto found = activeAIDecisions_.find(agentEntity);
+            return found == activeAIDecisions_.end()
+                ? AIPlanExecutionStatus::NotStarted : found->second->GetStatus();
+        }
+
+        const AIAgentWorldState* GameplayRuntime::GetAIDecisionObservedState(
+            const EntityHandle agentEntity) const noexcept
+        {
+            const auto found = activeAIDecisions_.find(agentEntity);
+            return found == activeAIDecisions_.end() ? nullptr : &found->second->GetObservedState();
+        }
+
+        bool GameplayRuntime::HasAIDecisionDefinition(const std::string_view definitionId) const noexcept
+        {
+            return IsGameplayAIDecisionDefinitionRegistered(definitionId);
+        }
+
+        void GameplayRuntime::UpdateActiveAIDecisions_()
+        {
+            for (auto& [entity, decision] : activeAIDecisions_)
+            {
+                if (world_.IsEntityValid(entity))
+                {
+                    decision->Update(aiSystem_, world_);
+                }
+            }
+        }
+
+        void GameplayRuntime::CancelAllAIDecisions_() noexcept
+        {
+            for (auto& [entity, decision] : activeAIDecisions_)
+            {
+                (void)entity;
+                decision->Cancel(aiSystem_);
+            }
+            activeAIDecisions_.clear();
+        }
+
         [[nodiscard]] EntityHandle GameplayRuntime::SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
             const int nodeIndex,
@@ -599,6 +694,7 @@
                 return false;
             }
 
+            CancelAIDecision(entity);
             ClearAIAction(entity);
             UnbindIntentSource(entity);
             graphInstances_.erase(entity);

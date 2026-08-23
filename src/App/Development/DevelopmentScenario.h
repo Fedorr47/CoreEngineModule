@@ -82,6 +82,8 @@ namespace appDevelopment
         bool wantsRun{};
         std::string result;
     };
+    struct StartAIDecisionOperation { std::string entity; std::string decision; std::string result; };
+    struct CancelAIDecisionOperation { std::string entity; };
 
     enum class ScenarioOperationResultStatus
     {
@@ -116,7 +118,9 @@ namespace appDevelopment
         RemoveTraversalLinkOperation,
         StartFollowRouteOperation,
         StartMoveToOperation,
-        StartNavigationPathOperation>;
+        StartNavigationPathOperation,
+        StartAIDecisionOperation,
+        CancelAIDecisionOperation>;
     
     struct DevelopmentScenarioAsset
     {

@@ -589,6 +589,120 @@ TEST(DevelopmentScenarioAsset, ParsesAndValidatesPhysicalSettingsAndNavigationPa
     }
 }
 
+TEST(DevelopmentScenarioAsset, RestrictsDecisionOperationsToOwnedLifecycleSections)
+{
+    constexpr std::string_view cancel = R"({"op":"cancelAIDecision","entity":"agent"})";
+    for (const std::string_view section : {"setup", "update"})
+    {
+        EXPECT_THROW(ParseDevelopmentScenarioAsset(
+            std::string(R"({"id":"decision","title":"Decision","roles":{"agent":"Agent"},")") +
+            std::string(section) + R"(":[)" + std::string(cancel) + "]}"), std::runtime_error);
+    }
+}
+
+TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestarts)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_goap_access_key_development.level.json");
+    const DevelopmentScenarioAsset scenario = LoadDevelopmentScenarioAsset(level.developmentScenario);
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{}; runtime.Initialize(level, instance, scene);
+    rendern::GameplayUpdateContext game{.deltaSeconds=1.0f/60.0f,
+        .mode=rendern::GameplayRuntimeMode::Game, .levelAsset=&level,
+        .levelInstance=&instance, .scene=&scene};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+    ScenarioContext context{runtime,level,instance,scene,rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario,context)); ASSERT_TRUE(runner.CanStart(context));
+    ASSERT_TRUE(runner.Start(context));
+    const rendern::EntityHandle agent=FindRoleEntity(runner,runtime,"agent");
+    ASSERT_NE(agent,rendern::kNullEntity);
+    const int agentNodeIndex=runner.GetResolvedNodeIndex("agent");
+    ASSERT_GE(agentNodeIndex,0);
+    const mathUtils::Vec3 baselinePosition=
+        level.nodes[static_cast<std::size_t>(agentNodeIndex)].transform.position;
+    
+    // Production App ordering runs DevelopmentScenarioRuntime::Update before
+    // GameplayRuntime::PrePhysicsUpdate. A successful StartAIDecision must
+    // therefore already expose an active decision state here.
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),
+        rendern::AIPlanExecutionStatus::ReadyToStartStep);
+    
+    ASSERT_EQ(runner.GetResults().size(),1u);
+    EXPECT_EQ(runner.GetResults()[0].status,ScenarioOperationResultStatus::Running);
+    runner.Update(context);
+    EXPECT_EQ(runner.GetResults()[0].status,ScenarioOperationResultStatus::Running);
+    
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(game);
+    runtime.PostPhysicsUpdate(game);
+    EXPECT_EQ(runtime.GetAIActionStatus(agent),rendern::AIActionExecutionStatus::Running);
+    
+    const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
+    ASSERT_NE(facts,nullptr);
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+   
+    // Reaching the final destination before the key must not satisfy the goal.
+    runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
+    runner.Update(context);
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(game);
+    runtime.PostPhysicsUpdate(game);
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    runtime.GetWorld().TryGetTransform(agent)->position={0,0.35f,-7};
+    runner.Update(context);
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(game);
+    runtime.PostPhysicsUpdate(game);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+    runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
+    runner.Update(context);
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(game);
+    runtime.PostPhysicsUpdate(game);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::Succeeded);
+    
+    // Project the production terminal state on the next scenario update,
+    // matching the real App frame order.
+    runner.Update(context);
+    EXPECT_EQ(runner.GetResults()[0].status,ScenarioOperationResultStatus::Succeeded);
+    
+    runner.Reset(context);
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::NotStarted);
+    EXPECT_EQ(runner.GetResults()[0].status,ScenarioOperationResultStatus::NotStarted);
+    ASSERT_NE(runtime.GetWorld().TryGetTransform(agent),nullptr);
+    EXPECT_EQ(runtime.GetWorld().TryGetTransform(agent)->position,baselinePosition);
+    
+    ASSERT_TRUE(runner.Start(context));
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::ReadyToStartStep);
+    
+    runner.Update(context);
+    EXPECT_EQ(runner.GetResults()[0].status,ScenarioOperationResultStatus::Running);
+    
+    runner.Unload(context); runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioRunner, UnknownDecisionDefinitionDisablesStart)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{}; AddMoveToNode(level,"Agent",{});
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,scene);
+    
+    ScenarioContext context{runtime,level,instance,scene,rendern::GameplayRuntimeMode::Game};
+    const DevelopmentScenarioAsset scenario=ParseDevelopmentScenarioAsset(R"({
+      "id":"unknown","title":"Unknown","roles":{"agent":"Agent"},
+      "setup":[{"op":"ensureNodeBoundEntity","entity":"agent"},{"op":"ensureAI","entity":"agent"}],
+      "start":[{"op":"startAIDecision","entity":"agent","decision":"missing","result":"decision"}]})");
+    DevelopmentScenarioRunner runner{}; ASSERT_TRUE(runner.Load(scenario,context));
+    EXPECT_FALSE(runner.CanStart(context)); EXPECT_FALSE(runner.Start(context));
+    runner.Unload(context); runtime.Shutdown();
+}
+
 TEST(DevelopmentScenarioRunner, NavigationAgentSizeUsesProfilesAndTreatsNoPathAsDomainResult)
 {
     InlineThreadOwnerRolesGuard guard{};

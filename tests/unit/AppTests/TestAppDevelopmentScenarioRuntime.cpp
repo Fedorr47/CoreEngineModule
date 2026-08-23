@@ -73,7 +73,7 @@ TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabi
     rendern::LevelAsset goap{};
     AddNode(goap, "GOAP_Observer_Player"); AddNode(goap, "GOAP_Agent");
     AddNode(goap, "GOAP_Start"); AddNode(goap, "GOAP_Access_Key"); AddNode(goap, "GOAP_Final_Goal");
-    EXPECT_EQ(detect(goap).first, appDevelopment::ScenarioKind::AIGOAPAccessKey);
+    EXPECT_EQ(detect(goap).first, appDevelopment::ScenarioKind::None);
 
     rendern::LevelAsset agentSize{}; agentSize.name = "NavigationSmallLargePassage";
     AddNode(agentSize, "SMALL NPC"); AddNode(agentSize, "LARGE NPC");
@@ -126,6 +126,24 @@ TEST(AppDevelopmentScenarioRuntime, LoadsRemainingRouteScenariosOnlyAsDataDriven
         development.Reset(context);
         runtime.Shutdown();
     }
+}
+
+TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyOnlyAsDataDriven)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_goap_access_key_development.level.json");
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, harness.GetScene());
+    auto context = MakeContext(runtime, level, instance, harness.GetScene());
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
+    EXPECT_EQ(development.GetView(context).title, std::string_view("Stage 5 GOAP: Access Key"));
+    development.Reset(context);
+    runtime.Shutdown();
 }
 
 TEST(AppDevelopmentScenarioRuntime, LoadsActualJumpLevelOnlyAsDataDriven)

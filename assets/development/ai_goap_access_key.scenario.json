@@ -1,0 +1,37 @@
+{
+  "id": "ai-goap-access-key",
+  "title": "Stage 5 GOAP: Access Key",
+  "description": "Production GOAP decision acquires the physical key before reaching the destination.",
+  "roles": {
+    "agent": "GOAP_Agent",
+    "start": "GOAP_Start",
+    "accessKey": "GOAP_Access_Key",
+    "finalGoal": "GOAP_Final_Goal"
+  },
+  "setup": [
+    {"op":"ensureNodeBoundEntity","entity":"agent"},
+    {"op":"captureTransform","entity":"agent","slot":"baseline"},
+    {"op":"ensureAI","entity":"agent"}
+  ],
+  "start": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"},
+    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+    {"op":"resetEntitySimulationState","entity":"agent"},
+    {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"accessKey","visible":true},
+    {"op":"startAIDecision","entity":"agent","decision":"access_key","result":"GOAP decision"}
+  ],
+  "stop": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"}
+  ],
+  "reset": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"},
+    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+    {"op":"resetEntitySimulationState","entity":"agent"},
+    {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"accessKey","visible":true}
+  ]
+}

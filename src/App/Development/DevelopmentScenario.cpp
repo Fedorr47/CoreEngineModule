@@ -230,6 +230,16 @@ namespace appDevelopment
                     path.result = RequiredString(operation, "result", source, section, i);
                     result.emplace_back(std::move(path));
                 }
+                else if (op == "startAIDecision")
+                {
+                    result.emplace_back(StartAIDecisionOperation{entity(),
+                        RequiredString(operation, "decision", source, section, i),
+                        RequiredString(operation, "result", source, section, i)});
+                }
+                else if (op == "cancelAIDecision")
+                {
+                    result.emplace_back(CancelAIDecisionOperation{entity()});
+                }
                 else Invalid(source, section, i, "unknown operation type '" + op + "'");
             }
             return result;
@@ -415,6 +425,24 @@ namespace appDevelopment
                         Invalid(identity, name, i, "duplicate result name '" + path->result + "'");
                     }
                 }
+                if (const auto* decision = std::get_if<StartAIDecisionOperation>(&operation))
+                {
+                    if (std::string_view(name) != "start")
+                    {
+                        Invalid(identity, name, i, "startAIDecision is only valid in start");
+                    }
+                    if (!resultNames.insert(decision->result).second)
+                    {
+                        Invalid(identity, name, i, "duplicate result name '" + decision->result + "'");
+                    }
+                }
+                if (std::holds_alternative<CancelAIDecisionOperation>(operation) &&
+                    std::string_view(name) != "start" && std::string_view(name) != "stop" &&
+                    std::string_view(name) != "reset")
+                {
+                    Invalid(identity, name, i,
+                        "cancelAIDecision is only valid in start, stop, or reset");
+                }
                 if (const auto* capture = std::get_if<CaptureTransformOperation>(&operation))
                 {
                     captured.insert(capture->slot);
@@ -440,6 +468,7 @@ namespace appDevelopment
             std::optional<rendern::GameplayCharacterPhysicalSettingsComponent>> physicalBaselines;
         std::vector<ScenarioOperationResult> results;
         std::unordered_map<std::string, EntityHandle> resultEntities;
+        std::unordered_set<std::string> decisionResults;
         std::unordered_map<int, bool> visibilityBaselines;
         bool running{};
     };
@@ -504,6 +533,30 @@ namespace appDevelopment
                         return true;
                     }
                     else if constexpr (std::is_same_v<T, CancelAIOperation>) { context.gameplayRuntime.CancelAIAction(entity); return true; }
+                    else if constexpr (std::is_same_v<T, CancelAIDecisionOperation>)
+                    {
+                        context.gameplayRuntime.CancelAIDecision(entity);
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, StartAIDecisionOperation>)
+                    {
+                        auto result = std::ranges::find(instance.results, op.result,
+                            &ScenarioOperationResult::name);
+                        if (result == instance.results.end() ||
+                            !context.gameplayRuntime.HasAIDecisionDefinition(op.decision) ||
+                            !context.gameplayRuntime.StartAIDecision(entity, op.decision))
+                        {
+                            if (result != instance.results.end())
+                            {
+                                result->status = ScenarioOperationResultStatus::Failed;
+                            }
+                            return false;
+                        }
+                        result->status = ScenarioOperationResultStatus::Running;
+                        instance.resultEntities[op.result] = entity;
+                        instance.decisionResults.insert(op.result);
+                        return true;
+                    }
                     else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>)
                     {
                         if (instance.spawnedEntities.contains(entity)) world.RemoveCharacterPhysicalSettings(entity);
@@ -703,6 +756,10 @@ namespace appDevelopment
             if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
             {
                 impl_->results.push_back({path->result, ScenarioOperationResultStatus::NotStarted});
+            }AuthoredAccessKeyRunsProductionDecisionAndRestarts
+            if (const auto* decision = std::get_if<StartAIDecisionOperation>(&operation))
+            {
+                impl_->results.push_back({decision->result, ScenarioOperationResultStatus::NotStarted});
             }
         }
         for (const auto& [role, nodeName] : asset.roles)
@@ -769,6 +826,7 @@ namespace appDevelopment
         impl_->asset.reset(); impl_->nodes.clear(); impl_->transforms.clear(); impl_->addedAI.clear();
         impl_->spawnedEntities.clear(); impl_->visibilityBaselines.clear(); impl_->running = false;
         impl_->physicalBaselines.clear(); impl_->results.clear(); impl_->resultEntities.clear();
+        impl_->decisionResults.clear();
     }
     bool DevelopmentScenarioRunner::CanStart(const ScenarioContext& context) const noexcept
     {
@@ -776,10 +834,21 @@ namespace appDevelopment
         {
             return false;
         }
-        return context.navigationProfiles != nullptr ||
-            std::ranges::none_of(impl_->asset->start, [](const ScenarioOperation& operation) {
-                return std::holds_alternative<StartNavigationPathOperation>(operation);
-            });
+        for (const ScenarioOperation& operation : impl_->asset->start)
+        {
+            if (std::holds_alternative<StartNavigationPathOperation>(operation) &&
+                context.navigationProfiles == nullptr)
+            {
+                return false;
+            }
+            if (const auto* decision = std::get_if<StartAIDecisionOperation>(&operation);
+                decision != nullptr &&
+                !context.gameplayRuntime.HasAIDecisionDefinition(decision->decision))
+            {
+                return false;
+            }
+        }
+        return true;
     }
     bool DevelopmentScenarioRunner::Start(ScenarioContext& context)
     {
@@ -789,6 +858,7 @@ namespace appDevelopment
             result.status = ScenarioOperationResultStatus::NotStarted;
         }
         impl_->resultEntities.clear();
+        impl_->decisionResults.clear();
         if (!DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->start, *this, context))
         {
             (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->stop, *this, context);
@@ -800,6 +870,7 @@ namespace appDevelopment
                 }
             }
             impl_->resultEntities.clear();
+            impl_->decisionResults.clear();
             impl_->running = false; return false;
         }
         impl_->running = true; return true;
@@ -817,6 +888,23 @@ namespace appDevelopment
             if (entity == impl_->resultEntities.end())
             {
                 result.status = ScenarioOperationResultStatus::Failed;
+                continue;
+            }
+            if (impl_->decisionResults.contains(result.name))
+            {
+                switch (context.gameplayRuntime.GetAIDecisionStatus(entity->second))
+                {
+                case rendern::AIPlanExecutionStatus::NotStarted:
+                    result.status = ScenarioOperationResultStatus::Failed; break;
+                case rendern::AIPlanExecutionStatus::ReadyToStartStep: [[fallthrough]];
+                case rendern::AIPlanExecutionStatus::RunningStep: break;
+                case rendern::AIPlanExecutionStatus::Succeeded:
+                    result.status = ScenarioOperationResultStatus::Succeeded; break;
+                case rendern::AIPlanExecutionStatus::Cancelled:
+                    result.status = ScenarioOperationResultStatus::Cancelled; break;
+                case rendern::AIPlanExecutionStatus::Failed:
+                    result.status = ScenarioOperationResultStatus::Failed; break;
+                }
                 continue;
             }
             switch (context.gameplayRuntime.GetAIActionStatus(entity->second))
@@ -851,6 +939,7 @@ namespace appDevelopment
             result.status = ScenarioOperationResultStatus::NotStarted;
         }
         impl_->resultEntities.clear();
+        impl_->decisionResults.clear();
     }
     bool DevelopmentScenarioRunner::IsLoaded() const noexcept { return impl_->asset.has_value(); }
     bool DevelopmentScenarioRunner::IsRunning() const noexcept { return impl_->running; }

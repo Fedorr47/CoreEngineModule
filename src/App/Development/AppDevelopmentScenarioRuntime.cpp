@@ -10,24 +10,9 @@ import core;
 
 namespace appDevelopment
 {
-    namespace
-    {
-       [[nodiscard]] rendern::GameplayUpdateContext MakeGameplayContext(
-            const ScenarioContext& context) noexcept
-        {
-            rendern::GameplayUpdateContext result{};
-            result.mode = context.gameplayMode;
-            result.levelAsset = &context.level;
-            result.levelInstance = &context.levelInstance;
-            result.scene = &context.scene;
-            return result;
-        }
-    }
-
     struct AppDevelopmentScenarioRuntime::Impl
     {
         ScenarioKind kind{ScenarioKind::None};
-        rendern::GameplayAIGOAPAccessKeyDevelopmentScenario goapAccessKeyScenario{};
         rendern::GameplayRuntimeMode lastMode{rendern::GameplayRuntimeMode::Editor};
         DevelopmentScenarioAsset dataAsset{};
         DevelopmentScenarioRunner dataRunner{};
@@ -60,10 +45,6 @@ namespace appDevelopment
     void AppDevelopmentScenarioRuntime::Reset(ScenarioContext& context) noexcept
     {
         impl_->dataRunner.Unload(context);
-        if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
-        {
-            (void)impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
-        }
         Reset();
     }
     
@@ -90,16 +71,6 @@ namespace appDevelopment
             impl_->lastMode = context.gameplayMode;
             return;
         }
-        if (rendern::IsGameplayAIGOAPAccessKeyDevelopmentScenario(context.level))
-        {
-            impl_->kind = ScenarioKind::AIGOAPAccessKey;
-        }
-        
-        if (impl_->kind == ScenarioKind::AIGOAPAccessKey)
-        {
-            (void)impl_->goapAccessKeyScenario.Prepare(
-                context.gameplayRuntime, MakeGameplayContext(context));
-        }
         impl_->lastMode = context.gameplayMode;
     }
 
@@ -117,12 +88,6 @@ namespace appDevelopment
                 impl_->dataRunner.Update(context);
             }
         }
-        else if (impl_->kind == ScenarioKind::AIGOAPAccessKey &&
-                 context.gameplayMode == rendern::GameplayRuntimeMode::Game)
-        {
-            impl_->goapAccessKeyScenario.Update(context.gameplayRuntime);
-        }
-
         impl_->lastMode = context.gameplayMode;
     }
 
@@ -148,40 +113,6 @@ namespace appDevelopment
             {
                 impl_->dataRunner.Reset(context);
             }
-            return;
-        }
-
-        switch (impl_->kind)
-        {
-        case ScenarioKind::AIGOAPAccessKey:
-            if (command == ScenarioCommand::Start)
-            {
-                const rendern::EntityHandle entity =
-                    impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
-                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        context.gameplayRuntime, *context.physicsWorld, entity);
-                }
-                (void)impl_->goapAccessKeyScenario.Prepare(
-                    context.gameplayRuntime, MakeGameplayContext(context));
-                (void)impl_->goapAccessKeyScenario.Start(
-                    context.gameplayRuntime, MakeGameplayContext(context));
-            }
-            else if (command == ScenarioCommand::Reset || command == ScenarioCommand::Stop)
-            {
-                const rendern::EntityHandle entity =
-                    impl_->goapAccessKeyScenario.Reset(context.gameplayRuntime);
-                if (context.physicsWorld != nullptr && entity != rendern::kNullEntity)
-                {
-                    (void)appRuntime::TeleportGameplayPhysicsCharacterToGameplayTransform(
-                        context.gameplayRuntime, *context.physicsWorld, entity);
-                }
-            }
-            break;
-
-        default:
-            break;
         }
     }
 
@@ -223,19 +154,6 @@ namespace appDevelopment
                     }
                 }
             }
-            break;
-            
-        case ScenarioKind::AIGOAPAccessKey:
-            view.title = "Stage 5 GOAP: Access Key";
-            view.description = "NPC moves behind itself for the key, then crosses the arena to the final goal.";
-            view.startLabel = "Start / Restart GOAP";
-            view.resetLabel = "Reset Scenario";
-            view.stopLabel = "Stop GOAP";
-            view.canStart = view.canReset = view.canStop = true;
-            view.statuses[0] = {"Has access key", impl_->goapAccessKeyScenario.GetObservedFacts().IsFactSet(rendern::kGOAPHasAccessKeyFact) ? "true" : "false"};
-            view.statuses[1] = {"At destination", impl_->goapAccessKeyScenario.GetObservedFacts().IsFactSet(rendern::kGOAPAtDestinationFact) ? "true" : "false"};
-            view.statuses[2] = {"Player / NPC", impl_->goapAccessKeyScenario.GetPlayerEntity() != impl_->goapAccessKeyScenario.GetAgentEntity() ? "distinct" : "invalid"};
-            view.statusCount = 3;
             break;
 
         default:

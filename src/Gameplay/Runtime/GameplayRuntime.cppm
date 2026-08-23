@@ -28,6 +28,7 @@ import :ai_follow_route_action;
 import :ai_move_to_action;
 import :ai_move_to_action_binding;
 import :ai_decision_runtime;
+import :gameplay_ai_decision;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
@@ -131,6 +132,11 @@ export namespace rendern
             std::span<const AIActionDefinition> actions,
             const AIActionBindingRegistry& bindings);
         void CancelAIDecision(AIDecisionRuntime& decision) noexcept;
+        [[nodiscard]] bool StartAIDecision(EntityHandle agentEntity, std::string_view definitionId);
+        void CancelAIDecision(EntityHandle agentEntity) noexcept;
+        [[nodiscard]] AIPlanExecutionStatus GetAIDecisionStatus(EntityHandle agentEntity) const noexcept;
+        [[nodiscard]] const AIAgentWorldState* GetAIDecisionObservedState(EntityHandle agentEntity) const noexcept;
+        [[nodiscard]] bool HasAIDecisionDefinition(std::string_view definitionId) const noexcept;
         [[nodiscard]] bool RegisterGameplayTraversalLink(GameplayTraversalLink link);
         [[nodiscard]] bool RemoveGameplayTraversalLink(GameplayTraversalLinkHandle handle) noexcept;
         [[nodiscard]] std::optional<GameplayTraversalLink> FindGameplayTraversalLink(
@@ -155,6 +161,8 @@ export namespace rendern
 
     private:
         void ResetEntityFrameState_(const EntityHandle entity);
+        void UpdateActiveAIDecisions_();
+        void CancelAllAIDecisions_() noexcept;
         void UpdateFollowCamera_(const GameplayUpdateContext& ctx, const bool consumeInput);
         void CompactTrackedState_();
         void RebuildIntentBindingIndex_();
@@ -204,6 +212,7 @@ export namespace rendern
         GameplayGraphAsset defaultGraphAsset_{};
         GameplayRuntimeMode lastMode_{ GameplayRuntimeMode::Editor };
         AISystem aiSystem_{};
+        std::unordered_map<EntityHandle, std::unique_ptr<GameplayAIDecisionInstance>> activeAIDecisions_{};
         GameplayTraversalLinkRegistry traversalLinkRegistry_{};
         GameplayTraversalExecutorRegistry traversalExecutorRegistry_{};
         GameplayUnsupportedTraversalExecutor unsupportedTraversalExecutor_{};
