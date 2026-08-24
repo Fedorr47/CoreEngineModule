@@ -536,6 +536,8 @@ set(COMMON_MODULES
         Gameplay/Interaction/InteractionSystem.cppm
         Gameplay/Interaction/GameplayInteractionPoint.cppm
         Gameplay/Interaction/GameplayObjectReservationSystem.cppm
+        Gameplay/Events/GameplayWorldEvent.cppm
+        Gameplay/Pickup/GameplayPickupSystem.cppm
         Gameplay/Animation/GameplayAnimationBridge.cppm
         Gameplay/Animation/GameplayAnimationBridgeSystem.cppm
         Gameplay/Graph/GameplayGraph.cppm

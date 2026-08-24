@@ -157,7 +157,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     development.OnLevelLoaded(context);
     EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
     EXPECT_EQ(development.GetView(context).title,
-        std::string_view("Stage 6 GOAP: Coins and Access Key"));
+        std::string_view("Stage 7 GOAP: Physical Coin Pickups"));
 
     context.gameplayMode = rendern::GameplayRuntimeMode::Game;
     rendern::GameplayUpdateContext gameContext{.mode=rendern::GameplayRuntimeMode::Game,
@@ -167,17 +167,43 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     runtime.PostPhysicsUpdate(gameContext);
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
     const rendern::EntityHandle agent=FindNodeEntity(runtime,level,"GOAP_Agent");
+    const rendern::EntityHandle coinAEntity=FindNodeEntity(runtime,level,"GOAP_Coin_A");
     ASSERT_NE(agent,rendern::kNullEntity);
-    runtime.GetWorld().TryGetTransform(agent)->position={-6,0.35f,-3};
-    runtime.BeginFrame();
-    runtime.PrePhysicsUpdate(gameContext);
+    ASSERT_NE(coinAEntity,rendern::kNullEntity);
+    auto* coinA=runtime.GetWorld().TryGetPickup(coinAEntity);
+    ASSERT_NE(coinA,nullptr);
+    const int coinANode=runtime.GetWorld().TryGetNodeLink(coinAEntity)->nodeIndex;
+    auto* agentTransform=runtime.GetWorld().TryGetTransform(agent);
+    ASSERT_NE(agentTransform,nullptr);
+    const auto coinAPosition=runtime.GetWorld().TryGetTransform(coinAEntity)->position;
     const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
+    
+    // Proximity alone is not observation: suppress pickup production at Coin A.
+    coinA->collected=true;
+    agentTransform->position=coinAPosition;
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    EXPECT_TRUE(runtime.GetCurrentWorldEvents().empty());
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+
+    coinA->collected=false;
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    ASSERT_EQ(runtime.GetCurrentWorldEvents().size(),1u);
+    EXPECT_EQ(runtime.GetCurrentWorldEvents()[0].instigator,agent);
+    EXPECT_EQ(runtime.GetCurrentWorldEvents()[0].subject,coinAEntity);
+    EXPECT_TRUE(coinA->collected);
+    EXPECT_FALSE(instance.IsNodeRuntimeVisible(coinANode));
     EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    
     development.Reset(context);
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
     facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
+    EXPECT_FALSE(coinA->collected);
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
+    EXPECT_TRUE(runtime.GetCurrentWorldEvents().empty());
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));

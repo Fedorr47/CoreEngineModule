@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <set>
+#include <limits>
 
 import core;
 
@@ -862,5 +863,52 @@ TEST(DevelopmentScenarioRunner, NavigationAgentSizeUsesProfilesAndTreatsNoPathAs
     EXPECT_EQ(runtime.GetAIActionStatus(rollbackSmall),
         rendern::AIActionExecutionStatus::Cancelled);
     runner.Unload(context);
+    runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioAsset, RejectsInvalidPickupCollectionRadius)
+{
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({
+        "id":"pickup.invalid", "title":"Invalid pickup",
+        "roles":{"coin":"Coin"},
+        "setup":[{"op":"ensurePickup","entity":"coin","collectionRadius":-10}]
+    })"), std::runtime_error);
+
+    DevelopmentScenarioAsset nonFinite{
+        .id="pickup.nonfinite", .title="Non-finite pickup", .roles={{"coin","Coin"}},
+        .setup={EnsurePickupOperation{"coin",std::numeric_limits<float>::infinity()}}};
+    EXPECT_THROW(ValidateDevelopmentScenarioAsset(nonFinite), std::runtime_error);
+}
+
+TEST(DevelopmentScenarioRunner, EnsurePickupRestoresPreExistingComponentOwnership)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{};
+    rendern::LevelNode node{}; node.name="Coin"; node.alive=true; level.nodes.push_back(node);
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,scene);
+    rendern::GameplayUpdateContext gameplayContext{.mode=rendern::GameplayRuntimeMode::Editor,
+        .levelAsset=&level,.levelInstance=&instance,.scene=&scene};
+    const rendern::EntityHandle coin=runtime.SpawnNodeBoundEntity(gameplayContext,0,false);
+    ASSERT_NE(coin,rendern::kNullEntity);
+    ScenarioContext context{runtime,level,instance,scene,rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioAsset asset{.id="pickup.ownership",.title="Pickup ownership",
+        .roles={{"coin","Coin"}},.setup={EnsurePickupOperation{"coin",0.6f}}};
+
+    runtime.GetWorld().AddPickup(coin,{.collectionRadius=2.5f,.collected=true});
+    DevelopmentScenarioRunner restoreExisting{};
+    ASSERT_TRUE(restoreExisting.Load(asset,context));
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetPickup(coin)->collectionRadius,0.6f);
+    restoreExisting.Unload(context);
+    ASSERT_NE(runtime.GetWorld().TryGetPickup(coin),nullptr);
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetPickup(coin)->collectionRadius,2.5f);
+    EXPECT_TRUE(runtime.GetWorld().TryGetPickup(coin)->collected);
+
+    runtime.GetWorld().RemovePickup(coin);
+    DevelopmentScenarioRunner removeAdded{};
+    ASSERT_TRUE(removeAdded.Load(asset,context));
+    EXPECT_TRUE(runtime.GetWorld().HasPickup(coin));
+    removeAdded.Unload(context);
+    EXPECT_FALSE(runtime.GetWorld().HasPickup(coin));
     runtime.Shutdown();
 }

@@ -38,6 +38,7 @@
             currentScene_ = nullptr;
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
+            currentWorldEvents_.clear();
             intentBindings_.clear();
             intentBindingIndexByEntity_.clear();
             nodeBoundEntities_.clear();
@@ -218,6 +219,7 @@
 
             recentNotifyEvents_.clear();
             recentGameplayEvents_.clear();
+            currentWorldEvents_.clear();
             CompactTrackedState_();
 
             for (const EntityHandle entity : nodeBoundEntities_)
@@ -249,6 +251,22 @@
             UpdateGameplayIntentSources(world_, intentBindings_, ctx);
             BuildGameplayCharacterCommands(world_, nodeBoundEntities_, ctx);
             objectReservationSystem_.CleanupInvalidReservations(world_);
+            std::vector<EntityHandle> pickupCollectors;
+            world_.CollectAIEntities(pickupCollectors);
+            pickupSystem_.Update(world_, pickupCollectors, currentWorldEvents_);
+            for (const GameplayWorldEvent& event : currentWorldEvents_)
+            {
+                if (event.type != GameplayWorldEventType::PickupCollected ||
+                    ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
+                {
+                    continue;
+                }
+                if (const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(event.subject))
+                {
+                    (void)ctx.levelInstance->SetNodeRuntimeVisible(
+                        *ctx.levelAsset, *ctx.scene, link->nodeIndex, false);
+                }
+            }
             UpdateActiveAIDecisions_();
             aiSystem_.Update(world_, ctx.deltaSeconds);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_, actionDefinitions_);
@@ -411,6 +429,16 @@
             return nodeBoundEntities_;
         }
 
+        [[nodiscard]] std::span<const GameplayWorldEvent> GameplayRuntime::GetCurrentWorldEvents() const noexcept
+        {
+            return currentWorldEvents_;
+        }
+
+        void GameplayRuntime::ClearCurrentWorldEvents() noexcept
+        {
+            currentWorldEvents_.clear();
+        }
+
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFollowRoute(
             const EntityHandle agentEntity,
             GameplayRoute route,
@@ -556,7 +584,7 @@
             // StartAIDecision is a synchronous start boundary. Perform the
             // initial observation/planning pass here so a successful start
             // never exposes NotStarted to callers before the next gameplay tick.
-            decision->Update(aiSystem_, world_);
+            decision->Update(aiSystem_, GameplayAIObservationContext{world_, currentWorldEvents_});
             const AIPlanExecutionStatus status = decision->GetStatus();
             if (status == AIPlanExecutionStatus::NotStarted ||
                 status == AIPlanExecutionStatus::Failed ||
@@ -607,7 +635,7 @@
             {
                 if (world_.IsEntityValid(entity))
                 {
-                    decision->Update(aiSystem_, world_);
+                    decision->Update(aiSystem_, GameplayAIObservationContext{world_, currentWorldEvents_});
                 }
             }
         }

@@ -1,6 +1,6 @@
 {
   "id": "ai-goap-access-key",
-  "title": "Stage 6 GOAP: Coins and Access Key",
+  "title": "Stage 7 GOAP: Physical Coin Pickups",
   "description": "Production GOAP decision collects three physical coins before acquiring the key and reaching the destination.",
   "roles": {
     "agent": "GOAP_Agent",
@@ -12,35 +12,171 @@
     "coinC": "GOAP_Coin_C"
   },
   "setup": [
-    {"op":"ensureNodeBoundEntity","entity":"agent"},
-    {"op":"captureTransform","entity":"agent","slot":"baseline"},
-    {"op":"ensureAI","entity":"agent"}
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "agent"
+    },
+    {
+      "op": "captureTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "ensureAI",
+      "entity": "agent"
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinA"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinA",
+      "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinB"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinB",
+      "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinC"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinC",
+      "collectionRadius": 0.6
+    }
   ],
   "start": [
-    {"op":"cancelAIDecision","entity":"agent"},
-    {"op":"cancelAI","entity":"agent"},
-    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
-    {"op":"resetEntitySimulationState","entity":"agent"},
-    {"op":"teleportPhysicsCharacter","entity":"agent"},
-    {"op":"setRuntimeVisibility","entity":"coinA","visible":true},
-    {"op":"setRuntimeVisibility","entity":"coinB","visible":true},
-    {"op":"setRuntimeVisibility","entity":"coinC","visible":true},
-    {"op":"setRuntimeVisibility","entity":"accessKey","visible":true},
-    {"op":"startAIDecision","entity":"agent","decision":"access_key","result":"GOAP decision"}
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinA"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinB"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinC"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinA",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinB",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinC",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "accessKey",
+      "visible": true
+    },
+    {
+      "op": "startAIDecision",
+      "entity": "agent",
+      "decision": "access_key",
+      "result": "GOAP decision"
+    }
   ],
   "stop": [
-    {"op":"cancelAIDecision","entity":"agent"},
-    {"op":"cancelAI","entity":"agent"}
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    }
   ],
   "reset": [
-    {"op":"cancelAIDecision","entity":"agent"},
-    {"op":"cancelAI","entity":"agent"},
-    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
-    {"op":"resetEntitySimulationState","entity":"agent"},
-    {"op":"teleportPhysicsCharacter","entity":"agent"},
-    {"op":"setRuntimeVisibility","entity":"coinA","visible":true},
-    {"op":"setRuntimeVisibility","entity":"coinB","visible":true},
-    {"op":"setRuntimeVisibility","entity":"coinC","visible":true},
-    {"op":"setRuntimeVisibility","entity":"accessKey","visible":true}
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinA"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinB"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinC"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinA",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinB",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinC",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "accessKey",
+      "visible": true
+    }
   ]
 }

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <array>
 #include "TestSupport/TestThreadAffinity.h"
 #include "unit/RenderTests/LevelInstantiateTestHelper.h"
 
@@ -59,6 +60,20 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
             static_cast<int>(std::distance(level.nodes.begin(),node)),false);
     }
     ASSERT_NE(player,kNullEntity); ASSERT_NE(agent,kNullEntity); EXPECT_NE(player,agent);
+    for (const std::string_view coinName : {"GOAP_Coin_A", "GOAP_Coin_B", "GOAP_Coin_C"})
+    {
+        EntityHandle coin = FindNodeEntity(runtime, level, coinName);
+        if (coin == kNullEntity)
+        {
+            const auto node = std::ranges::find_if(level.nodes, [&](const LevelNode& value)
+                { return value.name == coinName; });
+            ASSERT_NE(node, level.nodes.end());
+            coin = runtime.SpawnNodeBoundEntity(game,
+                static_cast<int>(std::distance(level.nodes.begin(), node)), false);
+        }
+        ASSERT_NE(coin, kNullEntity);
+        runtime.GetWorld().SetPickup(coin, {});
+    }
     if (!runtime.GetWorld().HasAI(agent)) { runtime.GetWorld().AddAI(agent); }
     auto moveToRequests=ai_access_key_detail::BuildMoveToProvider(runtime.GetWorld(),{0,0,0},
         {-6,0.35f,-3},{6,0.35f,1},{-5,0.35f,6},{0,0.35f,-7},{0,0.08f,10});
@@ -194,4 +209,52 @@ TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
     EXPECT_FALSE(runtime.StartAIDecision(agent,kAccessKeyAIDecisionId));
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::NotStarted);
     EXPECT_EQ(runtime.GetAIDecisionObservedState(agent),nullptr);
+}
+
+TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    test::LevelInstantiateHarness harness{};
+    LevelAsset level=LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
+    LevelInstance instance=harness.Instantiate(level);
+    GameplayRuntime runtime{}; runtime.Initialize(level,instance,harness.GetScene());
+    auto game=Context(level,instance,harness.GetScene(),GameplayRuntimeMode::Game);
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game);
+    GameplayWorld& world=runtime.GetWorld();
+    const auto spawnNamed = [&](const std::string_view name)
+    {
+        if (const EntityHandle existing=FindNodeEntity(runtime,level,name); existing != kNullEntity)
+            return existing;
+        const auto node=std::ranges::find_if(level.nodes,
+            [&](const LevelNode& value) { return value.name == name; });
+        EXPECT_NE(node,level.nodes.end());
+        return runtime.SpawnNodeBoundEntity(game,
+            static_cast<int>(std::distance(level.nodes.begin(),node)),false);
+    };
+    const EntityHandle agent=spawnNamed("GOAP_Agent");
+    const EntityHandle coinA=spawnNamed("GOAP_Coin_A");
+    const EntityHandle coinB=spawnNamed("GOAP_Coin_B");
+    ASSERT_NE(agent,kNullEntity); ASSERT_NE(coinA,kNullEntity); ASSERT_NE(coinB,kNullEntity);
+    const EntityHandle coinC=spawnNamed("GOAP_Coin_C");
+    ASSERT_NE(coinC,kNullEntity);
+    world.AddPickup(coinA); world.AddPickup(coinB); world.AddPickup(coinC);
+    world.AddAI(agent);
+    const EntityHandle otherAgent=world.CreateEntity();
+    world.AddTransform(otherAgent,{}); world.AddAI(otherAgent);
+    GameplayTraversalLinkRegistry links;
+    GameplayTraversalExecutorRegistry executors;
+    auto decision=CreateAccessKeyAIDecision(agent,level,world,links,executors);
+    ASSERT_NE(decision,nullptr);
+    AISystem ai;
+
+    const std::array coinBEvent{GameplayWorldEvent{GameplayWorldEventType::PickupCollected,
+        agent,coinB}};
+    decision->Update(ai,GameplayAIObservationContext{world,coinBEvent});
+    EXPECT_TRUE(decision->GetObservedState().IsFactSet(kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(decision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
+
+    const std::array otherAgentCoinAEvent{GameplayWorldEvent{
+        GameplayWorldEventType::PickupCollected,otherAgent,coinA}};
+    decision->Update(ai,GameplayAIObservationContext{world,otherAgentCoinAEvent});
+    EXPECT_FALSE(decision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
 }

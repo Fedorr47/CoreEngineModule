@@ -20,4 +20,10 @@ export namespace rendern
         int nodeIndex{ -1 };
         EntityHandle levelEntity{ kNullEntity };
     };
+    
+    struct GameplayPickupComponent
+    {
+        float collectionRadius{ 0.6f };
+        bool collected{ false };
+    };
 }

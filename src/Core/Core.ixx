@@ -29,6 +29,7 @@ export import :level_navigation;
 export import :EnTTHelpers;
 export import :gameplay;
 export import :gameplay_interaction_point;
+export import :gameplay_pickup_system;
 export import :gameplay_object_reservation_system;
 export import :ai_system;
 export import :ai_agent_world_state;

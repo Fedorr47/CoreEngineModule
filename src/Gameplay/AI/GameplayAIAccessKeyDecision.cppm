@@ -174,12 +174,12 @@ export namespace rendern
                 GameplayWorld& world,
                 const GameplayTraversalLinkRegistry& traversalLinkRegistry,
                 const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
-                const mathUtils::Vec3 coinA, const mathUtils::Vec3 coinB,
-                const mathUtils::Vec3 coinC, const mathUtils::Vec3 key,
+                const EntityHandle coinAEntity, const EntityHandle coinBEntity,
+                const EntityHandle coinCEntity, const mathUtils::Vec3 key,
                 const mathUtils::Vec3 goal)
                 : moveToRequests_(std::move(moveToRequests)),
-                  goap_(agent, std::move(definition)), agent_(agent), coinAPosition_(coinA),
-                  coinBPosition_(coinB), coinCPosition_(coinC), accessKeyPosition_(key),
+                  goap_(agent, std::move(definition)), agent_(agent), coinAEntity_(coinAEntity),
+                  coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), accessKeyPosition_(key),
                   finalGoalPosition_(goal)
             {
                 auto binding = std::make_unique<AIMoveToActionBinding>(world,
@@ -193,10 +193,10 @@ export namespace rendern
                 return bindingsInstalled_;
             }
 
-            void Update(AISystem& aiSystem, const GameplayWorld& world) override
+            void Update(AISystem& aiSystem, const GameplayAIObservationContext& observation) override
             {
-                Observe_(world, goap_.GetObservedState());
-                goap_.Update(aiSystem, world);
+                Observe_(observation, goap_.GetObservedState());
+                goap_.Update(aiSystem, observation.world);
             }
 
             void Cancel(AISystem& aiSystem) noexcept override { goap_.Cancel(aiSystem); }
@@ -210,29 +210,29 @@ export namespace rendern
             }
 
         private:
-            void Observe_(const GameplayWorld& world, AIAgentWorldState& facts)
+            void Observe_(const GameplayAIObservationContext& observation, AIAgentWorldState& facts)
             {
-                const auto* transform = world.TryGetTransform(agent_);
-                if (transform == nullptr)
+                // Coin facts are observations of physical world events only.
+                for (const GameplayWorldEvent& event : observation.events)
                 {
-                    return;
+                    if (event.type != GameplayWorldEventType::PickupCollected ||
+                        event.instigator != agent_)
+                    {
+                        continue;
+                    }
+                    if (event.subject == coinAEntity_) facts.SetFact(kGOAPCoinACollectedFact, true);
+                    else if (event.subject == coinBEntity_) facts.SetFact(kGOAPCoinBCollectedFact, true);
+                    else if (event.subject == coinCEntity_) facts.SetFact(kGOAPCoinCCollectedFact, true);
                 }
+
+ 				// Stage 7 temporary key/goal proximity observation; Stage 8 replaces key acquisition.
+                const auto* transform = observation.world.TryGetTransform(agent_);
+                if (transform == nullptr) return;
                 const auto distanceSquared = [&](const mathUtils::Vec3 target)
                 {
                     const mathUtils::Vec3 delta = transform->position - target;
                     return mathUtils::Dot(delta, delta);
                 };
-                const auto observeCoin = [&](const AIWorldFactId fact,
-                    const mathUtils::Vec3 position)
-                {
-                    if (!facts.IsFactSet(fact) && distanceSquared(position) <= 0.36f)
-                    {
-                        facts.SetFact(fact, true);
-                    }
-                };
-                observeCoin(kGOAPCoinACollectedFact, coinAPosition_);
-                observeCoin(kGOAPCoinBCollectedFact, coinBPosition_);
-                observeCoin(kGOAPCoinCCollectedFact, coinCPosition_);
                 const bool hasAllCoins = facts.IsFactSet(kGOAPCoinACollectedFact) &&
                     facts.IsFactSet(kGOAPCoinBCollectedFact) &&
                     facts.IsFactSet(kGOAPCoinCCollectedFact);
@@ -251,9 +251,9 @@ export namespace rendern
             AccessKeyMoveToRequestProvider moveToRequests_;
             GameplayGOAPDecision goap_;
             EntityHandle agent_{};
-            mathUtils::Vec3 coinAPosition_{};
-            mathUtils::Vec3 coinBPosition_{};
-            mathUtils::Vec3 coinCPosition_{};
+            EntityHandle coinAEntity_{ kNullEntity };
+            EntityHandle coinBEntity_{ kNullEntity };
+            EntityHandle coinCEntity_{ kNullEntity };
             mathUtils::Vec3 accessKeyPosition_{};
             mathUtils::Vec3 finalGoalPosition_{};
             bool bindingsInstalled_{};
@@ -269,6 +269,18 @@ export namespace rendern
                 }
             }
             return -1;
+        }
+
+		[[nodiscard]] EntityHandle FindNodeEntity(const GameplayWorld& world, const int nodeIndex)
+        {
+            std::vector<EntityHandle> pickups;
+            world.CollectPickupEntities(pickups);
+            for (const EntityHandle entity : pickups)
+            {
+                const GameplayNodeLinkComponent* link = world.TryGetNodeLink(entity);
+                if (link != nullptr && link->nodeIndex == nodeIndex) return entity;
+            }
+            return kNullEntity;
         }
     }
 
@@ -299,12 +311,19 @@ export namespace rendern
             level.nodes[static_cast<std::size_t>(key)].transform.position;
         const mathUtils::Vec3 goalPosition =
             level.nodes[static_cast<std::size_t>(goal)].transform.position;
+		const EntityHandle coinAEntity = ai_access_key_detail::FindNodeEntity(world, coinA);
+        const EntityHandle coinBEntity = ai_access_key_detail::FindNodeEntity(world, coinB);
+        const EntityHandle coinCEntity = ai_access_key_detail::FindNodeEntity(world, coinC);
+        if (coinAEntity == kNullEntity || coinBEntity == kNullEntity || coinCEntity == kNullEntity)
+        {
+            return nullptr;
+        }
         auto decision = std::make_unique<ai_access_key_detail::AccessKeyDecision>(agent,
             ai_access_key_detail::BuildDefinition(),
             ai_access_key_detail::BuildMoveToProvider(world, startPosition, coinAPosition,
                 coinBPosition, coinCPosition, keyPosition, goalPosition),
-            world, traversalLinkRegistry, traversalExecutorRegistry, coinAPosition,
-            coinBPosition, coinCPosition, keyPosition, goalPosition);
+           	world, traversalLinkRegistry, traversalExecutorRegistry, coinAEntity,
+            coinBEntity, coinCEntity, keyPosition, goalPosition);
         if (!decision->IsConfigured())
         {
             return nullptr;

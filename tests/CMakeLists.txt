@@ -18,6 +18,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayGraph.cpp" 
         "unit/GameplayTests/TestGameplayWorld.cpp"
         "unit/GameplayTests/TestGameplayInteractionPoint.cpp"
+        "unit/GameplayTests/TestGameplayPickupSystem.cpp"
         "unit/GameplayTests/TestGameplayObjectReservationSystem.cpp"
         "unit/GameplayTests/TestGameplayActionPolicy.cpp"
         "unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp"

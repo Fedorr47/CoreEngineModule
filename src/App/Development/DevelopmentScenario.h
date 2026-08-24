@@ -21,6 +21,8 @@ namespace appDevelopment
     struct TeleportPhysicsCharacterOperation { std::string entity; };
     struct SetRuntimeVisibilityOperation { std::string entity; bool visible{}; };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
+    struct EnsurePickupOperation { std::string entity; float collectionRadius{}; };
+    struct ResetPickupOperation { std::string entity; };
     struct RemoveCharacterPhysicalSettingsOperation { std::string entity; };
     struct SetCharacterPhysicalSettingsOperation
     {
@@ -111,6 +113,8 @@ namespace appDevelopment
         TeleportPhysicsCharacterOperation,
         SetRuntimeVisibilityOperation,
         EnsureNodeBoundEntityOperation,
+        EnsurePickupOperation,
+        ResetPickupOperation,
         RemoveCharacterPhysicalSettingsOperation,
         SetCharacterPhysicalSettingsOperation,
         ResetEntitySimulationStateOperation,

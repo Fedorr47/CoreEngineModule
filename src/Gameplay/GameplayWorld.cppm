@@ -57,6 +57,15 @@ export namespace rendern
         [[nodiscard]] const GameplayNodeLinkComponent* TryGetNodeLink(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasNodeLink(EntityHandle entity) const noexcept;
         void RemoveNodeLink(EntityHandle entity);
+        
+        void AddPickup(EntityHandle entity, const GameplayPickupComponent& value = {});
+        void SetPickup(EntityHandle entity, const GameplayPickupComponent& value);
+        [[nodiscard]] GameplayPickupComponent* TryGetPickup(EntityHandle entity) noexcept;
+        [[nodiscard]] const GameplayPickupComponent* TryGetPickup(EntityHandle entity) const noexcept;
+        [[nodiscard]] bool HasPickup(EntityHandle entity) const noexcept;
+        void RemovePickup(EntityHandle entity);
+        // Replaces outEntities with live pickups sorted by handle.
+        void CollectPickupEntities(std::vector<EntityHandle>& outEntities) const;
 
         void AddAnimationLink(EntityHandle entity, const GameplayAnimationLinkComponent& value);
         void SetAnimationLink(EntityHandle entity, const GameplayAnimationLinkComponent& value);

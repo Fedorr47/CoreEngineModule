@@ -1,5 +1,6 @@
 DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(Transform, GameplayTransformComponent)
 DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(NodeLink, GameplayNodeLinkComponent)
+DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(Pickup, GameplayPickupComponent)
 DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(AnimationLink, GameplayAnimationLinkComponent)
 DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(PlayerControlled, GameplayPlayerControlledComponent)
 DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(AI, AIComponent)

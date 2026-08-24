@@ -38,6 +38,7 @@ import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
 import :gameplay_traversal_executor_registry;
 import :gameplay_scene_sync;
+import :gameplay_pickup_system;
 import :gameplay_follow_camera;
 import :character_controller;
 import :character_movement;
@@ -107,6 +108,8 @@ export namespace rendern
         [[nodiscard]] bool IsCurrentLevelAsset(const LevelAsset& levelAsset) const noexcept;
         [[nodiscard]] bool IsCurrentLevelContext(const GameplayUpdateContext& ctx) const noexcept;
         [[nodiscard]] const std::vector<EntityHandle>& GetNodeBoundEntities() const noexcept;
+        [[nodiscard]] std::span<const GameplayWorldEvent> GetCurrentWorldEvents() const noexcept;
+        void ClearCurrentWorldEvents() noexcept;
 
         [[nodiscard]] EntityHandle SpawnNodeBoundEntity(
             const GameplayUpdateContext& ctx,
@@ -217,10 +220,12 @@ export namespace rendern
         GameplayTraversalExecutorRegistry traversalExecutorRegistry_{};
         GameplayUnsupportedTraversalExecutor unsupportedTraversalExecutor_{};
         GameplayObjectReservationSystem objectReservationSystem_{};
+        GameplayPickupSystem pickupSystem_{};
         DoorTraversalExecutor doorTraversalExecutor_{world_, objectReservationSystem_};
         JumpTraversalExecutor jumpTraversalExecutor_{world_, traversalLinkRegistry_};
         std::vector<GameplayAnimationNotifyRecord> recentNotifyEvents_{};
         std::vector<GameplayEventRecord> recentGameplayEvents_{};
+        std::vector<GameplayWorldEvent> currentWorldEvents_{};
         GameplayFollowCameraController followCameraController_{};
         // Profiling zone start
         ProfileUtils::SyncInstrumentationAggregate preSyncInstAggregate_{};
