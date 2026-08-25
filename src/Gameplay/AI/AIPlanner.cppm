@@ -23,6 +23,26 @@ namespace rendern
         {
             return factId.index < AIAgentWorldState::FactCapacity;
         }
+        
+        [[nodiscard]] bool IsIntegerFactIdValid(
+           const AIWorldIntegerFactId factId) noexcept
+        {
+            return factId.index < AIAgentWorldState::IntegerFactCapacity;
+        }
+
+        [[nodiscard]] bool IsNumericConditionOperatorValid(
+            const AINumericConditionOperator comparison) noexcept
+        {
+            return comparison >= AINumericConditionOperator::Equal
+                && comparison <= AINumericConditionOperator::GreaterOrEqual;
+        }
+
+        [[nodiscard]] bool IsNumericEffectOperationValid(
+            const AINumericEffectOperation operation) noexcept
+        {
+            return operation >= AINumericEffectOperation::Set
+                && operation <= AINumericEffectOperation::Add;
+        }
 
         [[nodiscard]] bool IsInputValid(
             const AIGoalDefinition& goal,
@@ -50,6 +70,16 @@ namespace rendern
                     || !std::ranges::all_of(action.effects, [](const AIFactEffect& effect)
                     {
                         return IsFactIdValid(effect.factId);
+                    })
+                    || !std::ranges::all_of(action.numericPreconditions, [](const AINumericCondition& condition)
+                    {
+                        return IsIntegerFactIdValid(condition.factId)
+                            && IsNumericConditionOperatorValid(condition.comparison);
+                    })
+                    || !std::ranges::all_of(action.numericEffects, [](const AINumericEffect& effect)
+                    {
+                        return IsIntegerFactIdValid(effect.factId)
+                            && IsNumericEffectOperationValid(effect.operation);
                     }))
                 {
                     return false;
@@ -136,9 +166,17 @@ export namespace rendern
                 {
                     continue;
                 }
+                if (!AreNumericConditionsSatisfied(current.state, action->numericPreconditions))
+                {
+                    continue;
+                }
 
                 AIAgentWorldState nextState = current.state;
                 ApplyFactEffects(nextState, action->effects);
+                if (!ApplyNumericEffects(nextState, action->numericEffects))
+                {
+                    continue;
+                }
                 const float nextCost = current.cost + action->baseCost;
                 if (!std::isfinite(nextCost))
                 {

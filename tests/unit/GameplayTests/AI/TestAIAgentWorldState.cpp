@@ -95,6 +95,36 @@ TEST(AIAgentWorldState, EqualityAndHashCoverCompleteFactState)
     EXPECT_EQ(AIAgentWorldStateHash{}(first), AIAgentWorldStateHash{}(equivalent));
 }
 
+TEST(AIAgentWorldState, IntegerFactsAreIndependentAndPartOfStateIdentity)
+{
+    constexpr AIWorldFactId booleanFact{ 3u };
+    constexpr AIWorldIntegerFactId coins{ 3u };
+    constexpr AIWorldIntegerFactId unrelatedResource{ 9u };
+    AIAgentWorldState first{};
+    AIAgentWorldState equivalent{};
+
+    EXPECT_EQ(first.GetIntegerFact(coins), 0);
+    EXPECT_EQ(first.GetIntegerFact(unrelatedResource), 0);
+
+    first.SetFact(booleanFact);
+    first.SetIntegerFact(coins, 3);
+    equivalent.SetFact(booleanFact);
+    equivalent.SetIntegerFact(coins, 3);
+
+    EXPECT_TRUE(first.IsFactSet(booleanFact));
+    EXPECT_EQ(first.GetIntegerFact(coins), 3);
+    EXPECT_EQ(first.GetIntegerFact(unrelatedResource), 0);
+    EXPECT_EQ(first, equivalent);
+    EXPECT_EQ(AIAgentWorldStateHash{}(first), AIAgentWorldStateHash{}(equivalent));
+
+    equivalent.SetIntegerFact(coins, 2);
+    EXPECT_NE(first, equivalent);
+
+    first.Clear();
+    EXPECT_FALSE(first.IsFactSet(booleanFact));
+    EXPECT_EQ(first.GetIntegerFact(coins), 0);
+}
+
 // Protects complete snapshot replacement so producers can rebuild an agent's
 // facts without leaving conditions from a previous update in the state.
 TEST(AIAgentWorldState, ClearRemovesEverySetFact)

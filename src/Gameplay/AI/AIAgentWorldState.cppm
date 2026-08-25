@@ -1,5 +1,6 @@
 ﻿module;
 
+#include <array>
 #include <bitset>
 #include <cassert>
 #include <cstddef>
@@ -23,11 +24,26 @@ export namespace rendern
             const AIWorldFactId&,
             const AIWorldFactId&) noexcept = default;
     };
+    
+    struct AIWorldIntegerFactId
+    {
+        using ValueType = std::uint16_t;
+
+        static constexpr ValueType InvalidIndex =
+            std::numeric_limits<ValueType>::max();
+
+        ValueType index{ InvalidIndex };
+
+        friend constexpr bool operator==(
+            const AIWorldIntegerFactId&,
+            const AIWorldIntegerFactId&) noexcept = default;
+    };
 
     class AIAgentWorldState
     {
     public:
         static constexpr std::size_t FactCapacity = 128u;
+        static constexpr std::size_t IntegerFactCapacity = 128u;
 
         [[nodiscard]] bool IsFactSet(
             const AIWorldFactId factId) const noexcept
@@ -62,15 +78,49 @@ export namespace rendern
         {
             SetFact(factId, false);
         }
+        
+        [[nodiscard]] std::int32_t GetIntegerFact(
+            const AIWorldIntegerFactId factId) const noexcept
+        {
+            const bool bIsValidFact = IsIntegerFactValid_(factId);
+            assert(bIsValidFact);
+
+            if (!bIsValidFact)
+            {
+                return 0;
+            }
+
+            return integerFacts_[factId.index];
+        }
+
+        void SetIntegerFact(
+            const AIWorldIntegerFactId factId,
+            const std::int32_t value) noexcept
+        {
+            const bool bIsValidFact = IsIntegerFactValid_(factId);
+            assert(bIsValidFact);
+
+            if (!bIsValidFact)
+            {
+                return;
+            }
+
+            integerFacts_[factId.index] = value;
+        }
 
         void Clear() noexcept
         {
             facts_.reset();
+            integerFacts_.fill(0);
         }
         
         friend bool operator==(
-                    const AIAgentWorldState&,
-                    const AIAgentWorldState&) noexcept = default;
+            const AIAgentWorldState& left,
+            const AIAgentWorldState& right) noexcept
+        {
+            return left.facts_ == right.facts_
+                && left.integerFacts_ == right.integerFacts_;
+        }
 
     private:
         [[nodiscard]] static constexpr bool IsFactValid_(
@@ -78,8 +128,15 @@ export namespace rendern
         {
             return factId.index < FactCapacity;
         }
+        
+        [[nodiscard]] static constexpr bool IsIntegerFactValid_(
+            const AIWorldIntegerFactId factId) noexcept
+        {
+            return factId.index < IntegerFactCapacity;
+        }
 
         std::bitset<FactCapacity> facts_{};
+        std::array<std::int32_t, IntegerFactCapacity> integerFacts_{};
     };
     
     struct AIAgentWorldStateHash
@@ -103,6 +160,20 @@ export namespace rendern
                     ? 1u
                     : 0u;
                 hash *= prime;
+            }
+            
+            for (std::size_t index = 0u;
+                index < AIAgentWorldState::IntegerFactCapacity;
+                ++index)
+            {
+                const std::uint32_t value = static_cast<std::uint32_t>(
+                    state.GetIntegerFact(AIWorldIntegerFactId{
+                        static_cast<AIWorldIntegerFactId::ValueType>(index) }));
+                for (std::size_t byteIndex = 0u; byteIndex < sizeof(value); ++byteIndex)
+                {
+                    hash ^= (value >> (byteIndex * 8u)) & 0xffu;
+                    hash *= prime;
+                }
             }
 
             return hash;

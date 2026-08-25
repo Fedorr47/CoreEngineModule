@@ -224,7 +224,7 @@ TEST(AIPlanner, EqualCostChoiceIsDeterministicByActionId)
         Action(9, {}, { { Fact(0), true } }),
         Action(3, {}, { { Fact(0), true } })
     };
-    for (int run = 0; run < 10; ++run)
+    for (int run = 0; run < 10; run)
     {
         const auto plan = FindAIPlan({}, Goal(1, Fact(0)), actions);
         ASSERT_TRUE(plan.has_value());
@@ -250,4 +250,83 @@ TEST(AIPlanner, RejectsMalformedDefinitionsAndCosts)
     EXPECT_FALSE(FindAIPlan({}, goal, negative).has_value());
     EXPECT_FALSE(FindAIPlan({}, goal, nanCost).has_value());
     EXPECT_FALSE(FindAIPlan({}, goal, infinite).has_value());
+}
+
+// Protects integer world-state identity in the planner. The repeated collect
+// action changes no boolean facts, so reaching the threshold requires the
+// planner to distinguish otherwise-identical states by the Coins value alone.
+TEST(AIPlanner, IntegerValueParticipatesInPlannerStateIdentity)
+{
+    constexpr AIWorldIntegerFactId coins{ 0u };
+   
+    const std::array actions{
+        AIActionDefinition{
+            .actionId = AIActionId{ 1 },
+            .numericPreconditions = {
+                                { coins, AINumericConditionOperator::Less, 3 }
+            },
+             .numericEffects = {
+                                                    { coins, AINumericEffectOperation::Add, 1 }
+             }
+        },
+        AIActionDefinition{
+            .actionId = AIActionId{ 2 },
+            .effects = {
+                                                    { Fact(20), true }
+            },
+            .numericPreconditions = {
+                                                        { coins, AINumericConditionOperator::GreaterOrEqual, 3 }
+            }
+        }
+    };
+
+    const auto plan = FindAIPlan({}, Goal(1, Fact(20)), actions);
+
+    ASSERT_TRUE(plan.has_value());
+    ASSERT_EQ(plan->steps.size(), 4u);
+    EXPECT_EQ(plan->steps[0].actionId, AIActionId{ 1 });
+    EXPECT_EQ(plan->steps[1].actionId, AIActionId{ 1 });
+    EXPECT_EQ(plan->steps[2].actionId, AIActionId{ 1 });
+    EXPECT_EQ(plan->steps[3].actionId, AIActionId{ 2 });
+}
+
+TEST(AIPlanner, RejectsMalformedNumericDefinitions)
+{
+    const auto goal = Goal(1, Fact(0));
+    const std::array invalidConditionFact{ AIActionDefinition{
+        .actionId = AIActionId{ 1 },
+        .numericPreconditions = { { {}, AINumericConditionOperator::Equal, 0 } }
+    } };
+    const std::array invalidConditionOperator{ AIActionDefinition{
+        .actionId = AIActionId{ 1 },
+        .numericPreconditions = {
+                            {
+                                AIWorldIntegerFactId{ 0 },
+                                static_cast<AINumericConditionOperator>(255),
+                                0
+                            }
+        }
+    } };
+    
+    const std::array invalidEffectFact{ AIActionDefinition{
+        .actionId = AIActionId{ 1 },
+        .numericEffects = {
+                            { {}, AINumericEffectOperation::Set, 0 }
+        }
+    } };
+    
+    const std::array invalidEffectOperator{ AIActionDefinition{
+        .numericEffects = {
+                                {
+                                    AIWorldIntegerFactId{ 0 },
+                                    static_cast<AINumericEffectOperation>(255),
+                                    0
+                                }
+        }
+    } };
+
+    EXPECT_FALSE(FindAIPlan({}, goal, invalidConditionFact).has_value());
+    EXPECT_FALSE(FindAIPlan({}, goal, invalidConditionOperator).has_value());
+    EXPECT_FALSE(FindAIPlan({}, goal, invalidEffectFact).has_value());
+    EXPECT_FALSE(FindAIPlan({}, goal, invalidEffectOperator).has_value());
 }

@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <vector>
 
@@ -16,6 +18,9 @@ namespace
     static_assert(!std::is_convertible_v<AIActionId, AIGoalId>);
     static_assert(!std::is_assignable_v<AIGoalId&, AIActionId>);
     static_assert(!std::is_assignable_v<AIActionId&, AIGoalId>);
+    static_assert(!std::is_same_v<AIWorldFactId, AIWorldIntegerFactId>);
+    static_assert(!std::is_convertible_v<AIWorldFactId, AIWorldIntegerFactId>);
+    static_assert(!std::is_convertible_v<AIWorldIntegerFactId, AIWorldFactId>);
 }
 
 // Protects the type boundary between goals and executable actions so later
@@ -257,4 +262,66 @@ TEST(
     EXPECT_EQ(plan.steps[0].actionId, firstActionId);
     EXPECT_EQ(plan.steps[1].actionId, secondActionId);
     EXPECT_EQ(plan.steps[2].actionId, thirdActionId);
+}
+
+TEST(AIDecisionContracts, NumericConditionsSupportEveryComparison)
+{
+    constexpr AIWorldIntegerFactId coins{ 1u };
+    AIAgentWorldState state{};
+    state.SetIntegerFact(coins, 3);
+
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::Equal, 3 } }));
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::NotEqual, 2 } }));
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::Less, 4 } }));
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::LessOrEqual, 3 } }));
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::Greater, 2 } }));
+    EXPECT_TRUE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::GreaterOrEqual, 3 } }));
+    EXPECT_FALSE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins, AINumericConditionOperator::Equal, 2 } }));
+    EXPECT_FALSE(AreNumericConditionsSatisfied(state,
+        std::array{ AINumericCondition{ coins,
+            static_cast<AINumericConditionOperator>(255), 3 } }));
+}
+
+TEST(AIDecisionContracts, NumericEffectsSetAddAndRejectOverflowAtomically)
+{
+    constexpr AIWorldIntegerFactId coins{ 1u };
+    constexpr AIWorldIntegerFactId unrelatedResource{ 2u };
+    constexpr AIWorldFactId unrelatedBoolean{ 1u };
+    AIAgentWorldState state{};
+    state.SetFact(unrelatedBoolean);
+    state.SetIntegerFact(unrelatedResource, 7);
+
+    EXPECT_TRUE(ApplyNumericEffects(state, std::array{
+        AINumericEffect{ coins, AINumericEffectOperation::Set, 3 },
+        AINumericEffect{ coins, AINumericEffectOperation::Add, -2 } }));
+    EXPECT_EQ(state.GetIntegerFact(coins), 1);
+    EXPECT_EQ(state.GetIntegerFact(unrelatedResource), 7);
+    EXPECT_TRUE(state.IsFactSet(unrelatedBoolean));
+
+    state.SetIntegerFact(coins, std::numeric_limits<std::int32_t>::max());
+    const AIAgentWorldState beforeOverflow = state;
+    EXPECT_FALSE(ApplyNumericEffects(state, std::array{
+        AINumericEffect{ unrelatedResource, AINumericEffectOperation::Set, 0 },
+        AINumericEffect{ coins, AINumericEffectOperation::Add, 1 } }));
+    EXPECT_EQ(state, beforeOverflow);
+    
+    state.SetIntegerFact(coins, std::numeric_limits<std::int32_t>::min());
+       const AIAgentWorldState beforeUnderflow = state;
+       EXPECT_FALSE(ApplyNumericEffects(state, std::array{
+           AINumericEffect{
+               coins,
+               AINumericEffectOperation::Add,
+               -1
+           } }));
+       EXPECT_EQ(state, beforeUnderflow);
+
+    EXPECT_FALSE(ApplyNumericEffects(state, std::array{ AINumericEffect{
+        coins, static_cast<AINumericEffectOperation>(255), 0 } }));
 }
