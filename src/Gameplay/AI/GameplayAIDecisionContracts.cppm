@@ -1,6 +1,7 @@
 ﻿module;
 
 #include <span>
+#include <vector>
 
 export module core:gameplay_ai_decision_contracts;
 
@@ -15,6 +16,7 @@ export namespace rendern
     {
         const GameplayWorld& world;
         std::span<const GameplayWorldEvent> events;
+	    std::vector<GameplayWorldEvent>* eventOutput{};
     };
 
     class GameplayAIDecisionInstance

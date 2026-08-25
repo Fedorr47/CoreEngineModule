@@ -254,20 +254,30 @@
             std::vector<EntityHandle> pickupCollectors;
             world_.CollectAIEntities(pickupCollectors);
             pickupSystem_.Update(world_, pickupCollectors, currentWorldEvents_);
-            for (const GameplayWorldEvent& event : currentWorldEvents_)
+            const auto hideWorldEventSubjects = [&](const std::size_t firstEvent)
             {
-                if (event.type != GameplayWorldEventType::PickupCollected ||
-                    ctx.levelAsset == nullptr || ctx.levelInstance == nullptr || ctx.scene == nullptr)
+                for (std::size_t eventIndex = firstEvent;
+                     eventIndex < currentWorldEvents_.size(); ++eventIndex)
                 {
-                    continue;
+                    const GameplayWorldEvent& event = currentWorldEvents_[eventIndex];
+                    if ((event.type != GameplayWorldEventType::PickupCollected &&
+                            event.type != GameplayWorldEventType::AccessKeyPurchased) ||
+                        ctx.levelAsset == nullptr || ctx.levelInstance == nullptr ||
+                        ctx.scene == nullptr)
+                    {
+                        continue;
+                    }
+                    if (const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(event.subject))
+                    {
+                        (void)ctx.levelInstance->SetNodeRuntimeVisible(
+                            *ctx.levelAsset, *ctx.scene, link->nodeIndex, false);
+                    }
                 }
-                if (const GameplayNodeLinkComponent* link = world_.TryGetNodeLink(event.subject))
-                {
-                    (void)ctx.levelInstance->SetNodeRuntimeVisible(
-                        *ctx.levelAsset, *ctx.scene, link->nodeIndex, false);
-                }
-            }
+            };
+            hideWorldEventSubjects(0u);
+            const std::size_t eventCountBeforeAIDecisions = currentWorldEvents_.size();
             UpdateActiveAIDecisions_();
+            hideWorldEventSubjects(eventCountBeforeAIDecisions);
             aiSystem_.Update(world_, ctx.deltaSeconds);
             UpdateGameplayCombatRequests(world_, nodeBoundEntities_, actionDefinitions_);
             UpdateGameplayInteractionRequests(world_, nodeBoundEntities_, actionDefinitions_);
@@ -584,7 +594,8 @@
             // StartAIDecision is a synchronous start boundary. Perform the
             // initial observation/planning pass here so a successful start
             // never exposes NotStarted to callers before the next gameplay tick.
-            decision->Update(aiSystem_, GameplayAIObservationContext{world_, currentWorldEvents_});
+            decision->Update(aiSystem_, GameplayAIObservationContext{
+                 world_, currentWorldEvents_, &currentWorldEvents_});
             const AIPlanExecutionStatus status = decision->GetStatus();
             if (status == AIPlanExecutionStatus::NotStarted ||
                 status == AIPlanExecutionStatus::Failed ||
@@ -635,7 +646,8 @@
             {
                 if (world_.IsEntityValid(entity))
                 {
-                    decision->Update(aiSystem_, GameplayAIObservationContext{world_, currentWorldEvents_});
+                    decision->Update(aiSystem_, GameplayAIObservationContext{
+                        world_, currentWorldEvents_, &currentWorldEvents_});
                 }
             }
         }

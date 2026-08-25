@@ -146,6 +146,17 @@ namespace rendern
         }
         std::sort(outEntities.begin(), outEntities.end());
     }
+    
+    void GameplayWorld::CollectNodeLinkEntities(std::vector<EntityHandle>& outEntities) const
+    {
+        outEntities.clear();
+        const auto view = impl_->registry.view<GameplayNodeLinkComponent>();
+        for (const entt::entity entity : view)
+        {
+            outEntities.push_back(FromEnTT(entity));
+        }
+        std::sort(outEntities.begin(), outEntities.end());
+    }
 
 #define DEFINE_GAMEPLAY_COMPONENT_ACCESSORS(Name, Type) \
     void GameplayWorld::Add##Name(const EntityHandle entity, const Type& value) \

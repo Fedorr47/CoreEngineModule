@@ -1,4 +1,6 @@
-﻿#include <memory>
+﻿#include <cstdint>
+#include <memory>
+#include <span>
 #include <limits>
 #include <optional>
 #include <string_view>
@@ -25,6 +27,10 @@ export namespace rendern
     inline constexpr AIWorldFactId kGOAPCoinACollectedFact{42u};
     inline constexpr AIWorldFactId kGOAPCoinBCollectedFact{43u};
     inline constexpr AIWorldFactId kGOAPCoinCCollectedFact{44u};
+    inline constexpr AIWorldFactId kGOAPAtAccessKeyShopFact{45u};
+    inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
+    inline constexpr std::int32_t kAccessKeyPrice = 3;
+    inline constexpr AIActionId kAIBuyKeyActionId{3u};
     inline constexpr AIActionContextId kGOAPAccessKeyMoveContext{1u};
     inline constexpr AIActionContextId kGOAPFinalGoalMoveContext{2u};
     inline constexpr AIActionContextId kGOAPCoinAMoveContext{3u};
@@ -113,22 +119,36 @@ export namespace rendern
                 AIActionDefinition{.actionId=kAIMoveToActionId,
                     .preconditions={AIFactCondition{kGOAPCoinACollectedFact, false}},
                     .effects={AIFactEffect{kGOAPCoinACollectedFact, true}},
-                    .contextId=kGOAPCoinAMoveContext, .baseCost=1.0f},
+                    .contextId=kGOAPCoinAMoveContext, .baseCost=1.0f,
+                    .numericEffects={{kGOAPCoinCountFact, AINumericEffectOperation::Add, 1}}},
                 AIActionDefinition{.actionId=kAIMoveToActionId,
                     .preconditions={AIFactCondition{kGOAPCoinBCollectedFact, false}},
                     .effects={AIFactEffect{kGOAPCoinBCollectedFact, true}},
-                    .contextId=kGOAPCoinBMoveContext, .baseCost=1.0f},
+                    .contextId=kGOAPCoinBMoveContext, .baseCost=1.0f,
+                    .numericEffects={{kGOAPCoinCountFact, AINumericEffectOperation::Add, 1}}},
                 AIActionDefinition{.actionId=kAIMoveToActionId,
                     .preconditions={AIFactCondition{kGOAPCoinCCollectedFact, false}},
                     .effects={AIFactEffect{kGOAPCoinCCollectedFact, true}},
-                    .contextId=kGOAPCoinCMoveContext, .baseCost=1.0f},
+                    .contextId=kGOAPCoinCMoveContext, .baseCost=1.0f,
+                    .numericEffects={{kGOAPCoinCountFact, AINumericEffectOperation::Add, 1}}},
                 AIActionDefinition{.actionId=kAIMoveToActionId,
                     .preconditions={AIFactCondition{kGOAPCoinACollectedFact, true},
                         AIFactCondition{kGOAPCoinBCollectedFact, true},
                         AIFactCondition{kGOAPCoinCCollectedFact, true},
                         AIFactCondition{kGOAPHasAccessKeyFact, false}},
+                    .effects={AIFactEffect{kGOAPAtAccessKeyShopFact, true}},
+                    .contextId=kGOAPAccessKeyMoveContext, .baseCost=1.0f,
+                    .numericPreconditions={{kGOAPCoinCountFact,
+                        AINumericConditionOperator::GreaterOrEqual, kAccessKeyPrice}}},
+                AIActionDefinition{.actionId=kAIBuyKeyActionId,
+                    .preconditions={AIFactCondition{kGOAPHasAccessKeyFact, false},
+                        AIFactCondition{kGOAPAtAccessKeyShopFact, true}},
                     .effects={AIFactEffect{kGOAPHasAccessKeyFact, true}},
-                    .contextId=kGOAPAccessKeyMoveContext, .baseCost=1.0f},
+                    .baseCost=1.0f,
+                    .numericPreconditions={{kGOAPCoinCountFact,
+                        AINumericConditionOperator::GreaterOrEqual, kAccessKeyPrice}},
+                    .numericEffects={{kGOAPCoinCountFact,
+                        AINumericEffectOperation::Add, -kAccessKeyPrice}}},
                 AIActionDefinition{.actionId=kAIMoveToActionId,
                     .preconditions={AIFactCondition{kGOAPHasAccessKeyFact, true},
                         AIFactCondition{kGOAPAtDestinationFact, false}},
@@ -165,6 +185,97 @@ export namespace rendern
             return AccessKeyMoveToRequestProvider{
                 world, std::move(graph), std::move(targets)};
         }
+        
+        class BuyKeyActionRuntime final : public IAIActionRuntime
+        {
+        public:
+            BuyKeyActionRuntime(AIAgentWorldState& facts, const GameplayWorld& world,
+                std::vector<GameplayWorldEvent>& events, const EntityHandle keyEntity,
+                const mathUtils::Vec3 keyPosition) noexcept
+                : facts_(facts), world_(world), events_(events), keyEntity_(keyEntity),
+                  keyPosition_(keyPosition)
+            {
+            }
+
+            [[nodiscard]] AIActionRuntimeResult Start(
+                const AIActionRuntimeContext& context) override
+            {
+                if (context.actionId != kAIBuyKeyActionId || context.agentEntity == kNullEntity ||
+                    keyEntity_ == kNullEntity || facts_.IsFactSet(kGOAPHasAccessKeyFact) ||
+                    facts_.GetIntegerFact(kGOAPCoinCountFact) < kAccessKeyPrice)
+                {
+                    return AIActionRuntimeResult::Failed;
+                }
+                const GameplayTransformComponent* transform =
+                    world_.TryGetTransform(context.agentEntity);
+                if (transform == nullptr)
+                {
+                    return AIActionRuntimeResult::Failed;
+                }
+                const mathUtils::Vec3 delta = transform->position - keyPosition_;
+                if (mathUtils::Dot(delta, delta) > 0.36f)
+                {
+                    return AIActionRuntimeResult::Failed;
+                }
+                committed_ = true;
+                events_.push_back({GameplayWorldEventType::AccessKeyPurchased,
+                    context.agentEntity, keyEntity_});
+                return AIActionRuntimeResult::Succeeded;
+            }
+
+            [[nodiscard]] AIActionRuntimeResult Tick(
+                const AIActionRuntimeContext&, float) override
+            {
+                return committed_ ? AIActionRuntimeResult::Succeeded
+                                  : AIActionRuntimeResult::Failed;
+            }
+
+            void Cancel(const AIActionRuntimeContext&) noexcept override
+            {
+                // Start commits atomically; cancellation cannot partially purchase the key.
+            }
+
+        private:
+            AIAgentWorldState& facts_;
+            const GameplayWorld& world_;
+            std::vector<GameplayWorldEvent>& events_;
+            EntityHandle keyEntity_{kNullEntity};
+            mathUtils::Vec3 keyPosition_{};
+            bool committed_{};
+        };
+
+        class BuyKeyActionBinding final : public IAIActionBinding
+        {
+        public:
+            BuyKeyActionBinding(AIAgentWorldState& facts, const GameplayWorld& world,
+                const EntityHandle keyEntity, const mathUtils::Vec3 keyPosition) noexcept
+                : facts_(facts), world_(world), keyEntity_(keyEntity), keyPosition_(keyPosition)
+            {
+            }
+
+            void SetEventOutput(std::vector<GameplayWorldEvent>* events) noexcept
+            {
+                events_ = events;
+            }
+
+            [[nodiscard]] std::unique_ptr<IAIActionRuntime> CreateRuntime(
+                const AIActionRuntimeContext& context) override
+            {
+                if (context.actionId != kAIBuyKeyActionId || events_ == nullptr)
+                {
+                    return nullptr;
+                }
+                return std::make_unique<BuyKeyActionRuntime>(
+                    facts_, world_, *events_, keyEntity_, keyPosition_);
+            }
+
+        private:
+            AIAgentWorldState& facts_;
+            const GameplayWorld& world_;
+            EntityHandle keyEntity_{kNullEntity};
+            mathUtils::Vec3 keyPosition_{};
+            std::vector<GameplayWorldEvent>* events_{};
+        };
 
         class AccessKeyDecision final : public GameplayAIDecisionInstance
         {
@@ -175,17 +286,22 @@ export namespace rendern
                 const GameplayTraversalLinkRegistry& traversalLinkRegistry,
                 const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
                 const EntityHandle coinAEntity, const EntityHandle coinBEntity,
-                const EntityHandle coinCEntity, const mathUtils::Vec3 key,
-                const mathUtils::Vec3 goal)
+                const EntityHandle coinCEntity, const EntityHandle keyEntity,
+                const mathUtils::Vec3 key, const mathUtils::Vec3 goal)
                 : moveToRequests_(std::move(moveToRequests)),
-                  goap_(agent, std::move(definition)), agent_(agent), coinAEntity_(coinAEntity),
-                  coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), accessKeyPosition_(key),
-                  finalGoalPosition_(goal)
+                    goap_(agent, std::move(definition)), agent_(agent), coinAEntity_(coinAEntity),
+                    coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), keyEntity_(keyEntity),
+                    accessKeyPosition_(key), finalGoalPosition_(goal)
             {
                 auto binding = std::make_unique<AIMoveToActionBinding>(world,
                     traversalLinkRegistry, traversalExecutorRegistry, moveToRequests_);
                 bindingsInstalled_ = goap_.InstallActionBinding(
                     kAIMoveToActionId, std::move(binding));
+                auto buyKeyBinding = std::make_unique<BuyKeyActionBinding>(
+                    goap_.GetObservedState(), world, keyEntity_, accessKeyPosition_);
+                buyKeyBinding_ = buyKeyBinding.get();
+                bindingsInstalled_ = bindingsInstalled_ && goap_.InstallActionBinding(
+                    kAIBuyKeyActionId, std::move(buyKeyBinding));
             }
 
             [[nodiscard]] bool IsConfigured() const noexcept
@@ -195,8 +311,21 @@ export namespace rendern
 
             void Update(AISystem& aiSystem, const GameplayAIObservationContext& observation) override
             {
-                Observe_(observation, goap_.GetObservedState());
+                {
+                    // Consume input before a runtime can append to and reallocate the same buffer.
+                    const std::span<const GameplayWorldEvent> inputEvents = observation.events;
+                    Observe_(inputEvents, observation.world, goap_.GetObservedState());
+                }
+                const std::size_t eventCountBeforeRuntime = observation.eventOutput == nullptr
+                    ? 0u : observation.eventOutput->size();
+                buyKeyBinding_->SetEventOutput(observation.eventOutput);
                 goap_.Update(aiSystem, observation.world);
+                if (observation.eventOutput != nullptr &&
+                    observation.eventOutput->size() > eventCountBeforeRuntime)
+                {
+                    Observe_(std::span<const GameplayWorldEvent>{*observation.eventOutput}.subspan(
+                        eventCountBeforeRuntime), observation.world, goap_.GetObservedState());
+                }
             }
 
             void Cancel(AISystem& aiSystem) noexcept override { goap_.Cancel(aiSystem); }
@@ -210,37 +339,54 @@ export namespace rendern
             }
 
         private:
-            void Observe_(const GameplayAIObservationContext& observation, AIAgentWorldState& facts)
+            void Observe_(const std::span<const GameplayWorldEvent> events,
+                const GameplayWorld& world, AIAgentWorldState& facts)
             {
-                // Coin facts are observations of physical world events only.
-                for (const GameplayWorldEvent& event : observation.events)
+                const auto collectCoin = [&](const EntityHandle subject,
+                    const EntityHandle coin, const AIWorldFactId collectedFact)
                 {
-                    if (event.type != GameplayWorldEventType::PickupCollected ||
-                        event.instigator != agent_)
+                    if (subject == coin && !facts.IsFactSet(collectedFact))
+                    {
+                        facts.SetFact(collectedFact, true);
+                        facts.SetIntegerFact(kGOAPCoinCountFact,
+                            facts.GetIntegerFact(kGOAPCoinCountFact) + 1);
+                    }
+                };
+                for (const GameplayWorldEvent& event : events)
+                {
+                    if (event.instigator != agent_)
                     {
                         continue;
                     }
-                    if (event.subject == coinAEntity_) facts.SetFact(kGOAPCoinACollectedFact, true);
-                    else if (event.subject == coinBEntity_) facts.SetFact(kGOAPCoinBCollectedFact, true);
-                    else if (event.subject == coinCEntity_) facts.SetFact(kGOAPCoinCCollectedFact, true);
+                    if (event.type == GameplayWorldEventType::PickupCollected)
+                    {
+                        collectCoin(event.subject, coinAEntity_, kGOAPCoinACollectedFact);
+                        collectCoin(event.subject, coinBEntity_, kGOAPCoinBCollectedFact);
+                        collectCoin(event.subject, coinCEntity_, kGOAPCoinCCollectedFact);
+                    }
+                    else if (event.type == GameplayWorldEventType::AccessKeyPurchased &&
+                        event.subject == keyEntity_ &&
+                        !facts.IsFactSet(kGOAPHasAccessKeyFact))
+                    {
+                        const std::int32_t coins = facts.GetIntegerFact(kGOAPCoinCountFact);
+                        if (coins >= kAccessKeyPrice)
+                        {
+                            facts.SetIntegerFact(kGOAPCoinCountFact, coins - kAccessKeyPrice);
+                            facts.SetFact(kGOAPHasAccessKeyFact, true);
+                        }
+                    }
                 }
 
- 				// Stage 7 temporary key/goal proximity observation; Stage 8 replaces key acquisition.
-                const auto* transform = observation.world.TryGetTransform(agent_);
-                if (transform == nullptr) return;
+                const auto* transform = world.TryGetTransform(agent_);
+                if (transform == nullptr)
+                {
+                    return;
+                }
                 const auto distanceSquared = [&](const mathUtils::Vec3 target)
                 {
                     const mathUtils::Vec3 delta = transform->position - target;
                     return mathUtils::Dot(delta, delta);
                 };
-                const bool hasAllCoins = facts.IsFactSet(kGOAPCoinACollectedFact) &&
-                    facts.IsFactSet(kGOAPCoinBCollectedFact) &&
-                    facts.IsFactSet(kGOAPCoinCCollectedFact);
-                if (hasAllCoins && !facts.IsFactSet(kGOAPHasAccessKeyFact) &&
-                    distanceSquared(accessKeyPosition_) <= 0.36f)
-                {
-                    facts.SetFact(kGOAPHasAccessKeyFact, true);
-                }
                 if (facts.IsFactSet(kGOAPHasAccessKeyFact) &&
                     distanceSquared(finalGoalPosition_) <= 0.36f)
                 {
@@ -254,7 +400,9 @@ export namespace rendern
             EntityHandle coinAEntity_{ kNullEntity };
             EntityHandle coinBEntity_{ kNullEntity };
             EntityHandle coinCEntity_{ kNullEntity };
+            EntityHandle keyEntity_{ kNullEntity };
             mathUtils::Vec3 accessKeyPosition_{};
+            BuyKeyActionBinding* buyKeyBinding_{};
             mathUtils::Vec3 finalGoalPosition_{};
             bool bindingsInstalled_{};
         };
@@ -273,12 +421,15 @@ export namespace rendern
 
 		[[nodiscard]] EntityHandle FindNodeEntity(const GameplayWorld& world, const int nodeIndex)
         {
-            std::vector<EntityHandle> pickups;
-            world.CollectPickupEntities(pickups);
-            for (const EntityHandle entity : pickups)
+            std::vector<EntityHandle> entities;
+            world.CollectNodeLinkEntities(entities);
+            for (const EntityHandle entity : entities)
             {
                 const GameplayNodeLinkComponent* link = world.TryGetNodeLink(entity);
-                if (link != nullptr && link->nodeIndex == nodeIndex) return entity;
+                if (link != nullptr && link->nodeIndex == nodeIndex)
+                {
+                    return entity;
+                }
             }
             return kNullEntity;
         }
@@ -311,10 +462,18 @@ export namespace rendern
             level.nodes[static_cast<std::size_t>(key)].transform.position;
         const mathUtils::Vec3 goalPosition =
             level.nodes[static_cast<std::size_t>(goal)].transform.position;
-		const EntityHandle coinAEntity = ai_access_key_detail::FindNodeEntity(world, coinA);
+        const EntityHandle coinAEntity = ai_access_key_detail::FindNodeEntity(world, coinA);
         const EntityHandle coinBEntity = ai_access_key_detail::FindNodeEntity(world, coinB);
         const EntityHandle coinCEntity = ai_access_key_detail::FindNodeEntity(world, coinC);
-        if (coinAEntity == kNullEntity || coinBEntity == kNullEntity || coinCEntity == kNullEntity)
+        const EntityHandle keyEntity = ai_access_key_detail::FindNodeEntity(world, key);
+
+        if (coinAEntity == kNullEntity
+            || coinBEntity == kNullEntity
+            || coinCEntity == kNullEntity
+            || keyEntity == kNullEntity
+            || !world.HasPickup(coinAEntity)
+            || !world.HasPickup(coinBEntity)
+            || !world.HasPickup(coinCEntity))
         {
             return nullptr;
         }
@@ -323,7 +482,7 @@ export namespace rendern
             ai_access_key_detail::BuildMoveToProvider(world, startPosition, coinAPosition,
                 coinBPosition, coinCPosition, keyPosition, goalPosition),
            	world, traversalLinkRegistry, traversalExecutorRegistry, coinAEntity,
-            coinBEntity, coinCEntity, keyPosition, goalPosition);
+           	coinBEntity, coinCEntity, keyEntity, keyPosition, goalPosition);
         if (!decision->IsConfigured())
         {
             return nullptr;

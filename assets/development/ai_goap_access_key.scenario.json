@@ -1,7 +1,7 @@
 {
   "id": "ai-goap-access-key",
-  "title": "Stage 7 GOAP: Physical Coin Pickups",
-  "description": "Production GOAP decision collects three physical coins before acquiring the key and reaching the destination.",
+  "title": "Stage 8B GOAP: Semantic Access-Key Purchase",
+  "description": "Production GOAP decision collects three physical coins, purchases the key at its shop, and reaches the destination.",
   "roles": {
     "agent": "GOAP_Agent",
     "start": "GOAP_Start",
@@ -51,6 +51,10 @@
       "op": "ensurePickup",
       "entity": "coinC",
       "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "accessKey"
     }
   ],
   "start": [

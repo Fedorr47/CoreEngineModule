@@ -157,7 +157,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     development.OnLevelLoaded(context);
     EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
     EXPECT_EQ(development.GetView(context).title,
-        std::string_view("Stage 7 GOAP: Physical Coin Pickups"));
+    std::string_view("Stage 8B GOAP: Semantic Access-Key Purchase"));
 
     context.gameplayMode = rendern::GameplayRuntimeMode::Game;
     rendern::GameplayUpdateContext gameContext{.mode=rendern::GameplayRuntimeMode::Game,
@@ -168,11 +168,15 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
     const rendern::EntityHandle agent=FindNodeEntity(runtime,level,"GOAP_Agent");
     const rendern::EntityHandle coinAEntity=FindNodeEntity(runtime,level,"GOAP_Coin_A");
+    const rendern::EntityHandle keyEntity=FindNodeEntity(runtime,level,"GOAP_Access_Key");
     ASSERT_NE(agent,rendern::kNullEntity);
     ASSERT_NE(coinAEntity,rendern::kNullEntity);
+    ASSERT_NE(keyEntity,rendern::kNullEntity);
     auto* coinA=runtime.GetWorld().TryGetPickup(coinAEntity);
     ASSERT_NE(coinA,nullptr);
     const int coinANode=runtime.GetWorld().TryGetNodeLink(coinAEntity)->nodeIndex;
+    const int keyNode=runtime.GetWorld().TryGetNodeLink(keyEntity)->nodeIndex;
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(keyNode));
     auto* agentTransform=runtime.GetWorld().TryGetTransform(agent);
     ASSERT_NE(agentTransform,nullptr);
     const auto coinAPosition=runtime.GetWorld().TryGetTransform(coinAEntity)->position;
@@ -203,10 +207,12 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     ASSERT_NE(facts,nullptr);
     EXPECT_FALSE(coinA->collected);
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(keyNode));
     EXPECT_TRUE(runtime.GetCurrentWorldEvents().empty());
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 0);
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
     runtime.Shutdown();

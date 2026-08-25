@@ -747,12 +747,29 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
     runtime.PrePhysicsUpdate(game);
     runtime.PostPhysicsUpdate(game);
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    for (const std::string_view role : {"coinA", "coinB", "coinC"})
+    {
+        const int nodeIndex = runner.GetResolvedNodeIndex(role);
+        ASSERT_GE(nodeIndex, 0);
+        runtime.GetWorld().TryGetTransform(agent)->position =
+            level.nodes[static_cast<std::size_t>(nodeIndex)].transform.position;
+        runner.Update(context);
+        runtime.BeginFrame();
+        runtime.PrePhysicsUpdate(game);
+        runtime.PostPhysicsUpdate(game);
+    }
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 3);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.35f,-7};
-    runner.Update(context);
-    runtime.BeginFrame();
-    runtime.PrePhysicsUpdate(game);
-    runtime.PostPhysicsUpdate(game);
+    for (int tick = 0; tick < 5 &&
+        !facts->IsFactSet(rendern::kGOAPHasAccessKeyFact); ++tick)
+    {
+        runner.Update(context);
+        runtime.BeginFrame();
+        runtime.PrePhysicsUpdate(game);
+        runtime.PostPhysicsUpdate(game);
+    }
     EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 0);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
     runner.Update(context);
     runtime.BeginFrame();

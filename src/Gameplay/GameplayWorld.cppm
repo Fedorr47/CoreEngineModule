@@ -57,6 +57,8 @@ export namespace rendern
         [[nodiscard]] const GameplayNodeLinkComponent* TryGetNodeLink(EntityHandle entity) const noexcept;
         [[nodiscard]] bool HasNodeLink(EntityHandle entity) const noexcept;
         void RemoveNodeLink(EntityHandle entity);
+        // Replaces outEntities with live node-bound entities sorted by handle.
+        void CollectNodeLinkEntities(std::vector<EntityHandle>& outEntities) const;
         
         void AddPickup(EntityHandle entity, const GameplayPickupComponent& value = {});
         void SetPickup(EntityHandle entity, const GameplayPickupComponent& value);

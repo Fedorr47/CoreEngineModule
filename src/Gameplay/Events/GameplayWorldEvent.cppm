@@ -12,7 +12,8 @@ export namespace rendern
 
     enum class GameplayWorldEventType : std::uint8_t
     {
-        PickupCollected
+        PickupCollected,
+        AccessKeyPurchased
     };
 
     struct GameplayWorldEvent
