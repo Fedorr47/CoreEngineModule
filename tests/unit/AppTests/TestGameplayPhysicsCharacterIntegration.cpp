@@ -5,6 +5,8 @@
 #include <optional>
 #include <string>
 
+#include "App/Development/DevelopmentScenario.h"
+
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -17,7 +19,6 @@ import core;
 import std;
 
 #include "App/GameplayPhysicsCharacterIntegration.h"
-#include "App/Development/DevelopmentScenario.h"
 #include "App/Development/AppDevelopmentScenarioRuntime.h"
 #include "App/AppLifecycle.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"

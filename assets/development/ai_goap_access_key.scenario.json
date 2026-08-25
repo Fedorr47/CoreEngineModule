@@ -1,7 +1,7 @@
 {
   "id": "ai-goap-access-key",
-  "title": "Stage 8B GOAP: Semantic Access-Key Purchase",
-  "description": "Production GOAP decision collects three physical coins, purchases the key at its shop, and reaches the destination.",
+  "title": "Stage 9A GOAP: Spatial Access-Key Planning",
+  "description": "Production GOAP decision plans directed semantic location transitions while collecting three physical coins, purchasing the key at its shop, and reaching the destination.",
   "roles": {
     "agent": "GOAP_Agent",
     "start": "GOAP_Start",
