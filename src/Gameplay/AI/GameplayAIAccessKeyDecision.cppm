@@ -1,4 +1,6 @@
-﻿#include <cstdint>
+﻿#include <array>
+#include <cmath>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <limits>
@@ -15,6 +17,7 @@ import :gameplay;
 import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
 import :gameplay_route;
+import :gameplay_route_search;
 import :gameplay_traversal_executor_registry;
 import :gameplay_traversal_link_registry;
 import :level;
@@ -34,7 +37,7 @@ export namespace rendern
     inline constexpr AIWorldFactId kGOAPAtCoinCFact{49u};
     inline constexpr AIWorldFactId kGOAPAtGoalFact{50u};
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
-    inline constexpr std::int32_t kAccessKeyPrice = 3;
+    inline constexpr std::int32_t kAccessKeyPrice = 2;
     inline constexpr AIActionId kAIBuyKeyActionId{3u};
     inline constexpr AIGoalId kGOAPReachDestinationGoal{50u};
 
@@ -208,7 +211,8 @@ export namespace rendern
             GameplayRouteGraph routeGraph_{};
         };
 
-        [[nodiscard]] GameplayGOAPDecisionDefinition BuildDefinition()
+        [[nodiscard]] std::optional<GameplayGOAPDecisionDefinition> BuildDefinition(
+            const GameplayRouteGraph& routeGraph)
         {
             GameplayGOAPDecisionDefinition definition{};
             definition.goals = {AIGoalSelectionCandidate{
@@ -216,11 +220,18 @@ export namespace rendern
                     {{kGOAPAtDestinationFact, true}}}, .baseScore=1.0f}};
             for (const MoveTransition& transition : kMoveTransitions)
             {
+                const GameplayRouteSearchResult route = FindWeightedGameplayRoute(
+                    routeGraph, transition.startNodeId, transition.goalNodeId);
+                if (!route.Succeeded() || !route.totalCost.has_value() ||
+                    !std::isfinite(*route.totalCost) || *route.totalCost < 0.0f)
+                {
+                    return std::nullopt;
+                }
                 AIActionDefinition action{.actionId=kAIMoveToActionId,
                     .preconditions={{SpatialFact(transition.source), true}},
                     .effects={{SpatialFact(transition.source), false},
                         {SpatialFact(transition.target), true}},
-                    .contextId=transition.contextId, .baseCost=1.0f};
+                    .contextId=transition.contextId, .baseCost=*route.totalCost};
                 if (transition.target == SpatialLocation::CoinA ||
                     transition.target == SpatialLocation::CoinB ||
                     transition.target == SpatialLocation::CoinC)
@@ -260,7 +271,7 @@ export namespace rendern
             return definition;
         }
 
-        [[nodiscard]] AccessKeyMoveToRequestProvider BuildMoveToProvider(
+        [[nodiscard]] GameplayRouteGraph BuildRouteGraph(
             GameplayWorld& world,
             const mathUtils::Vec3 start, const mathUtils::Vec3 coinA,
             const mathUtils::Vec3 coinB, const mathUtils::Vec3 coinC,
@@ -269,17 +280,21 @@ export namespace rendern
             GameplayRouteGraph graph{};
             graph.nodes = {{kStartNode, start}, {kCoinANode, coinA}, {kCoinBNode, coinB},
                 {kCoinCNode, coinC}, {kAccessKeyNode, key}, {kFinalGoalNode, goal}};
-            for (const GameplayRouteGraphNode& from : graph.nodes)
+            for (const MoveTransition& transition : kMoveTransitions)
             {
-                for (const GameplayRouteGraphNode& to : graph.nodes)
-                {
-                    if (from.nodeId != to.nodeId)
-                    {
-                        graph.edges.push_back({from.nodeId, to.nodeId, 1.0f});
-                    }
-                }
+                const mathUtils::Vec3 delta =
+                    graph.nodes[static_cast<std::size_t>(transition.target)].worldPosition -
+                    graph.nodes[static_cast<std::size_t>(transition.source)].worldPosition;
+                graph.edges.push_back({transition.startNodeId, transition.goalNodeId,
+                    std::sqrt(mathUtils::Dot(delta, delta))});
             }
-            return AccessKeyMoveToRequestProvider{world, std::move(graph)};
+            return graph;
+        }
+        
+        [[nodiscard]] AccessKeyMoveToRequestProvider BuildMoveToProvider(
+            GameplayWorld& world, GameplayRouteGraph routeGraph)
+        {
+            return AccessKeyMoveToRequestProvider{world, std::move(routeGraph)};
         }
         
         class BuyKeyActionRuntime final : public IAIActionRuntime
@@ -590,10 +605,17 @@ export namespace rendern
         {
             return nullptr;
         }
+        GameplayRouteGraph routeGraph = ai_access_key_detail::BuildRouteGraph(startPosition,
+            coinAPosition, coinBPosition, coinCPosition, keyPosition, goalPosition);
+        std::optional<GameplayGOAPDecisionDefinition> definition =
+            ai_access_key_detail::BuildDefinition(routeGraph);
+        if (!definition.has_value())
+        {
+            return nullptr;
+        }
         auto decision = std::make_unique<ai_access_key_detail::AccessKeyDecision>(agent,
-            ai_access_key_detail::BuildDefinition(),
-            ai_access_key_detail::BuildMoveToProvider(world, startPosition, coinAPosition,
-                coinBPosition, coinCPosition, keyPosition, goalPosition),
+        std::move(*definition),
+         ai_access_key_detail::BuildMoveToProvider(world, std::move(routeGraph)),
                 world, traversalLinkRegistry, traversalExecutorRegistry, coinAEntity,
                  coinBEntity, coinCEntity, keyEntity,
                  std::array{startPosition, coinAPosition, coinBPosition, coinCPosition,
