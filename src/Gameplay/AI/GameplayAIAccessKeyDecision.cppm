@@ -272,7 +272,6 @@ export namespace rendern
         }
 
         [[nodiscard]] GameplayRouteGraph BuildRouteGraph(
-            GameplayWorld& world,
             const mathUtils::Vec3 start, const mathUtils::Vec3 coinA,
             const mathUtils::Vec3 coinB, const mathUtils::Vec3 coinC,
             const mathUtils::Vec3 key, const mathUtils::Vec3 goal)
