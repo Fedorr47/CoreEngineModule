@@ -19,10 +19,21 @@ namespace appDevelopment
     struct EnsureAIOperation { std::string entity; };
     struct CancelAIOperation { std::string entity; };
     struct TeleportPhysicsCharacterOperation { std::string entity; };
-    struct SetRuntimeVisibilityOperation { std::string entity; bool visible{}; };
+    struct SetRuntimeVisibilityOperation
+    {
+        std::string entity;
+        bool visible{};
+        std::string whenPickupCollected;
+    };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
     struct EnsurePickupOperation { std::string entity; float collectionRadius{}; };
     struct ResetPickupOperation { std::string entity; };
+    struct SetPickupCollectedOperation
+    {
+        std::string entity;
+        bool collected{};
+        std::string whenPickupCollected;
+    };
     struct RemoveCharacterPhysicalSettingsOperation { std::string entity; };
     struct SetCharacterPhysicalSettingsOperation
     {
@@ -115,6 +126,7 @@ namespace appDevelopment
         EnsureNodeBoundEntityOperation,
         EnsurePickupOperation,
         ResetPickupOperation,
+        SetPickupCollectedOperation,
         RemoveCharacterPhysicalSettingsOperation,
         SetCharacterPhysicalSettingsOperation,
         ResetEntitySimulationStateOperation,

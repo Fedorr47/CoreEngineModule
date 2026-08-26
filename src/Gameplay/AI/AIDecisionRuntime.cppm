@@ -87,7 +87,12 @@ export namespace rendern
                 return status_;
             }
 
-            if (!bGoalChanged && HasValidExecution_())
+            const bool bPlanInvalidated = !bGoalChanged
+                && execution_.has_value()
+                && execution_->IsReadyToStartStep()
+                && !IsRemainingPlanValid_(observedState, *selectedGoal, actions);
+
+            if (!bGoalChanged && !bPlanInvalidated && HasValidExecution_())
             {
                 if (bSynchronizedRunningExecution)
                 {
@@ -97,6 +102,7 @@ export namespace rendern
             }
 
             const bool bNeedsPlan = bGoalChanged
+                || bPlanInvalidated
                 || !execution_.has_value()
                 || execution_->GetStatus() == AIPlanExecutionStatus::Failed
                 || execution_->GetStatus() == AIPlanExecutionStatus::Succeeded;
@@ -106,7 +112,7 @@ export namespace rendern
                 if (!candidatePlan.has_value())
                 {
                     // A goal change must not destroy an otherwise valid running plan.
-                    if (HasValidExecution_())
+                    if (!bPlanInvalidated && HasValidExecution_())
                     {
                         if (bSynchronizedRunningExecution)
                         {
@@ -116,6 +122,7 @@ export namespace rendern
                         return Update(bindings, aiSystem, world);
                     }
                     
+                    CancelActiveExecution_(aiSystem);
                     execution_.reset();
                     selectedGoalId_ = selectedGoal->goalId;
                     status_ = AIPlanExecutionStatus::Failed;
@@ -204,6 +211,45 @@ export namespace rendern
         [[nodiscard]] bool HasValidExecution_() const noexcept
         {
             return execution_.has_value() && !execution_->IsTerminal();
+        }
+        
+        [[nodiscard]] bool IsRemainingPlanValid_(
+            const AIAgentWorldState& observedState,
+            const AIGoalDefinition& goal,
+            const std::span<const AIActionDefinition> actions) const
+        {
+            if (!execution_.has_value())
+            {
+                return false;
+            }
+
+            AIAgentWorldState predicted = observedState;
+            const AIPlan& plan = execution_->GetPlan();
+            for (std::size_t index = execution_->GetCurrentStepIndex();
+                index < plan.steps.size(); ++index)
+            {
+                const AIPlanStep& step = plan.steps[index];
+                const auto definition = std::ranges::find_if(actions,
+                    [&](const AIActionDefinition& action)
+                    {
+                        return action.actionId == step.actionId
+                            && action.contextId == step.contextId;
+                    });
+                if (definition == actions.end()
+                    || !AreFactConditionsSatisfied(predicted, definition->preconditions)
+                    || !AreNumericConditionsSatisfied(predicted, definition->numericPreconditions))
+                {
+                    return false;
+                }
+
+                ApplyFactEffects(predicted, definition->effects);
+                if (!ApplyNumericEffects(predicted, definition->numericEffects))
+                {
+                    return false;
+                }
+            }
+
+            return AreFactConditionsSatisfied(predicted, goal.desiredFacts);
         }
 
         void InstallPlan_(AIPlan plan, AISystem& aiSystem)

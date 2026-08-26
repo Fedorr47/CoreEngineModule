@@ -109,6 +109,96 @@ TEST(DevelopmentScenarioAsset, ParsesTypedOperationsAndRoles)
     EXPECT_TRUE(std::holds_alternative<EnsureAIOperation>(asset.setup[1]));
 }
 
+TEST(DevelopmentScenarioAsset, ParsesPickupCollectedWorldMutation)
+{
+    const DevelopmentScenarioAsset asset=ParseDevelopmentScenarioAsset(R"({
+        "id":"pickup","title":"Pickup mutation",
+        "roles":{"coin":"Coin","trigger":"Trigger"},
+        "update":[{"op":"setPickupCollected","entity":"coin","collected":true,
+                   "whenPickupCollected":"trigger"}]
+    })");
+    ASSERT_EQ(asset.update.size(),1u);
+    const auto* operation=std::get_if<SetPickupCollectedOperation>(&asset.update.front());
+    ASSERT_NE(operation,nullptr);
+    EXPECT_EQ(operation->entity,"coin"); EXPECT_TRUE(operation->collected);
+    EXPECT_EQ(operation->whenPickupCollected,"trigger");
+
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({
+        "id":"pickup","title":"Pickup mutation","roles":{"coin":"Coin"},
+        "update":[{"op":"setPickupCollected","entity":"coin","collected":1}]
+    })"),std::runtime_error);
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({
+        "id":"pickup","title":"Pickup mutation","roles":{"coin":"Coin"},
+        "update":[{"op":"setPickupCollected","entity":"coin","collected":true,
+                   "whenPickupCollected":true}]
+    })"),std::runtime_error);
+    EXPECT_THROW(ParseDevelopmentScenarioAsset(R"({
+        "id":"pickup","title":"Pickup mutation","roles":{"coin":"Coin"},
+        "update":[{"op":"setRuntimeVisibility","entity":"coin","visible":false,
+                   "whenPickupCollected":"missing"}]
+    })"),std::runtime_error);
+}
+
+TEST(DevelopmentScenarioRunner, PickupConditionGatesPickupAndVisibilityMutations)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{};
+    AddMoveToNode(level,"Trigger",{0.0f,0.0f,0.0f});
+    AddMoveToNode(level,"Target",{2.0f,0.0f,0.0f});
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelInstance instance=harness.Instantiate(level);
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,harness.GetScene());
+    rendern::GameplayUpdateContext game{.mode=rendern::GameplayRuntimeMode::Game,
+        .levelAsset=&level,.levelInstance=&instance,.scene=&harness.GetScene()};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(game); runtime.PostPhysicsUpdate(game);
+    ScenarioContext context{runtime,level,instance,harness.GetScene(),
+        rendern::GameplayRuntimeMode::Game};
+    const DevelopmentScenarioAsset scenario=ParseDevelopmentScenarioAsset(R"({
+        "id":"conditional-pickup","title":"Conditional pickup",
+        "roles":{"trigger":"Trigger","target":"Target"},
+        "setup":[
+          {"op":"ensureNodeBoundEntity","entity":"trigger"},
+          {"op":"ensurePickup","entity":"trigger","collectionRadius":0.6},
+          {"op":"ensureNodeBoundEntity","entity":"target"},
+          {"op":"ensurePickup","entity":"target","collectionRadius":0.6}],
+        "update":[
+          {"op":"setPickupCollected","entity":"target","collected":true,
+           "whenPickupCollected":"trigger"},
+          {"op":"setRuntimeVisibility","entity":"target","visible":false,
+           "whenPickupCollected":"trigger"}]
+    })");
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario,context)); ASSERT_TRUE(runner.Start(context));
+    const rendern::EntityHandle trigger=FindRoleEntity(runner,runtime,"trigger");
+    const rendern::EntityHandle target=FindRoleEntity(runner,runtime,"target");
+    ASSERT_NE(trigger,rendern::kNullEntity); ASSERT_NE(target,rendern::kNullEntity);
+    auto* triggerPickup=runtime.GetWorld().TryGetPickup(trigger);
+    auto* targetPickup=runtime.GetWorld().TryGetPickup(target);
+    ASSERT_NE(triggerPickup,nullptr); ASSERT_NE(targetPickup,nullptr);
+    const int targetNode=runner.GetResolvedNodeIndex("target");
+
+    runner.Update(context);
+    EXPECT_TRUE(runner.IsRunning()); EXPECT_FALSE(targetPickup->collected);
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(targetNode));
+    triggerPickup->collected=true;
+    runner.Update(context);
+    EXPECT_TRUE(targetPickup->collected);
+    EXPECT_FALSE(instance.IsNodeRuntimeVisible(targetNode));
+    runner.Update(context);
+    EXPECT_TRUE(targetPickup->collected);
+    EXPECT_FALSE(instance.IsNodeRuntimeVisible(targetNode));
+    runner.Unload(context);
+
+    DevelopmentScenarioAsset missingTriggerPickup=scenario;
+    missingTriggerPickup.setup.erase(missingTriggerPickup.setup.begin()+1);
+    ASSERT_TRUE(runner.Load(missingTriggerPickup,context));
+    ASSERT_TRUE(runner.Start(context));
+    runner.Update(context);
+    EXPECT_FALSE(runner.IsRunning());
+    runner.Unload(context); runtime.Shutdown();
+}
+
 TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreValid)
 {
     namespace fs = std::filesystem;
@@ -128,6 +218,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
 
     const std::set<std::string> expectedScenarios{
         "ai_goap_access_key.scenario.json",
+        "ai_goap_access_key_replanning.scenario.json",
         "ai_jump_traversal.scenario.json",
         "ai_movement.scenario.json",
         "ai_physics_step.scenario.json",

@@ -36,6 +36,9 @@ export namespace rendern
     inline constexpr AIWorldFactId kGOAPAtCoinBFact{48u};
     inline constexpr AIWorldFactId kGOAPAtCoinCFact{49u};
     inline constexpr AIWorldFactId kGOAPAtGoalFact{50u};
+    inline constexpr AIWorldFactId kGOAPCoinAAvailableFact{51u};
+    inline constexpr AIWorldFactId kGOAPCoinBAvailableFact{52u};
+    inline constexpr AIWorldFactId kGOAPCoinCAvailableFact{53u};
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
     inline constexpr std::int32_t kAccessKeyPrice = 2;
     inline constexpr AIActionId kAIBuyKeyActionId{3u};
@@ -240,7 +243,10 @@ export namespace rendern
                         static_cast<std::size_t>(transition.target) - 1u;
                     constexpr std::array collectedFacts{kGOAPCoinACollectedFact,
                         kGOAPCoinBCollectedFact, kGOAPCoinCCollectedFact};
+                    constexpr std::array availableFacts{kGOAPCoinAAvailableFact,
+                        kGOAPCoinBAvailableFact, kGOAPCoinCAvailableFact};
                     action.preconditions.push_back({collectedFacts[coinIndex], false});
+                    action.preconditions.push_back({availableFacts[coinIndex], true});
                     action.effects.push_back({collectedFacts[coinIndex], true});
                     action.numericEffects.push_back(
                         {kGOAPCoinCountFact, AINumericEffectOperation::Add, 1});
@@ -487,6 +493,17 @@ export namespace rendern
                         }
                     }
                 }
+                
+                const auto observeAvailability = [&](const EntityHandle coin,
+                    const AIWorldFactId availableFact)
+                {
+                    const GameplayPickupComponent* pickup = world.TryGetPickup(coin);
+                    facts.SetFact(availableFact,
+                        world.IsEntityValid(coin) && pickup != nullptr && !pickup->collected);
+                };
+                observeAvailability(coinAEntity_, kGOAPCoinAAvailableFact);
+                observeAvailability(coinBEntity_, kGOAPCoinBAvailableFact);
+                observeAvailability(coinCEntity_, kGOAPCoinCAvailableFact);
 
                 const auto* transform = world.TryGetTransform(agent_);
                 if (transform == nullptr)

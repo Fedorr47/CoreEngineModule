@@ -1,0 +1,200 @@
+﻿{
+  "id": "ai-goap-access-key-replanning",
+  "title": "Stage 10 GOAP: Dynamic Access-Key Replanning",
+  "description": "Production GOAP decision replans from observed world state when a required coin becomes unavailable after the original plan has started.",
+  "roles": {
+    "agent": "GOAP_Agent",
+    "start": "GOAP_Start",
+    "accessKey": "GOAP_Access_Key",
+    "finalGoal": "GOAP_Final_Goal",
+    "coinA": "GOAP_Coin_A",
+    "coinB": "GOAP_Coin_B",
+    "coinC": "GOAP_Coin_C"
+  },
+  "setup": [
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "agent"
+    },
+    {
+      "op": "captureTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "ensureAI",
+      "entity": "agent"
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinA"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinA",
+      "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinB"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinB",
+      "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "coinC"
+    },
+    {
+      "op": "ensurePickup",
+      "entity": "coinC",
+      "collectionRadius": 0.6
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "accessKey"
+    }
+  ],
+  "start": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinA"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinB"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinC"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinA",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinB",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinC",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "accessKey",
+      "visible": true
+    },
+    {
+      "op": "startAIDecision",
+      "entity": "agent",
+      "decision": "access_key",
+      "result": "GOAP decision"
+    }
+  ],
+  "stop": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    }
+  ],
+  "reset": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinA"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinB"
+    },
+    {
+      "op": "resetPickup",
+      "entity": "coinC"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinA",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinB",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinC",
+      "visible": true
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "accessKey",
+      "visible": true
+    }
+  ],
+  "update": [
+    {
+      "op": "setPickupCollected",
+      "entity": "coinA",
+      "collected": true,
+      "whenPickupCollected": "coinC"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "coinA",
+      "visible": false,
+      "whenPickupCollected": "coinC"
+    }
+  ]
+}

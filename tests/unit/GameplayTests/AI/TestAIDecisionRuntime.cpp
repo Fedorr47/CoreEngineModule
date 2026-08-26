@@ -277,3 +277,83 @@ TEST(AIDecisionRuntime, SatisfiedOrUnplannableGoalsDoNotStartActions)
     EXPECT_EQ(runtime.Update(observed,candidates,noActions,bindings,system,world),AIPlanExecutionStatus::Failed);
     EXPECT_FALSE(system.HasActiveAction(agent));
 }
+
+TEST(AIDecisionRuntime, RemainingPlanInvalidationReplansSameGoalBeforeStartingNextStep)
+{
+    GameplayWorld world{}; AISystem system{}; AIActionBindingRegistry bindings{};
+    const EntityHandle agent=AddAgent(world); RuntimeState first{},stale{},replacement{};
+    Binding firstBinding(first),staleBinding(stale),replacementBinding(replacement);
+    constexpr AIActionId kReplacementAction{3u};
+    ASSERT_TRUE(bindings.Register(kActionA,firstBinding));
+    ASSERT_TRUE(bindings.Register(kActionB,staleBinding));
+    ASSERT_TRUE(bindings.Register(kReplacementAction,replacementBinding));
+    const std::vector<AIGoalSelectionCandidate> candidates{
+        AIGoalSelectionCandidate{.goal=Goal(),.baseScore=1.0f}};
+    const std::vector<AIActionDefinition> actions{
+        AIActionDefinition{.actionId=kActionA,
+            .preconditions={{kFact0,false}},.effects={{kFact0,true}}},
+        AIActionDefinition{.actionId=kActionB,
+            .preconditions={{kFact0,true},{kScoreFact,true}},.effects={{kGoalFact,true}}},
+        AIActionDefinition{.actionId=kReplacementAction,
+            .preconditions={{kFact0,true},{kScoreFact,false}},.effects={{kGoalFact,true}}}};
+    AIAgentWorldState observed{}; observed.SetFact(kScoreFact);
+    AIDecisionRuntime runtime(agent);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    first.tick=AIActionRuntimeResult::Succeeded; system.Update(world);
+    observed.SetFact(kFact0); observed.ClearFact(kScoreFact);
+
+    EXPECT_EQ(runtime.Update(observed,candidates,actions,bindings,system,world),
+        AIPlanExecutionStatus::ReadyToStartStep);
+    ASSERT_NE(runtime.GetPlanExecution(),nullptr);
+    ASSERT_EQ(runtime.GetPlanExecution()->GetPlan().steps.size(),1u);
+    EXPECT_EQ(runtime.GetPlanExecution()->GetPlan().steps.front().actionId,kReplacementAction);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    EXPECT_EQ(stale.starts,0); EXPECT_EQ(replacement.starts,1);
+}
+
+TEST(AIDecisionRuntime, InvalidatedRemainingPlanWithoutAlternativeFails)
+{
+    GameplayWorld world{}; AISystem system{}; AIActionBindingRegistry bindings{};
+    const EntityHandle agent=AddAgent(world); RuntimeState first{},stale{};
+    Binding firstBinding(first),staleBinding(stale);
+    ASSERT_TRUE(bindings.Register(kActionA,firstBinding));
+    ASSERT_TRUE(bindings.Register(kActionB,staleBinding));
+    const std::vector<AIGoalSelectionCandidate> candidates{
+        AIGoalSelectionCandidate{.goal=Goal(),.baseScore=1.0f}};
+    const std::vector<AIActionDefinition> actions{
+        AIActionDefinition{.actionId=kActionA,
+            .preconditions={{kFact0,false}},.effects={{kFact0,true}}},
+        AIActionDefinition{.actionId=kActionB,
+            .preconditions={{kFact0,true},{kScoreFact,true}},.effects={{kGoalFact,true}}}};
+    AIAgentWorldState observed{}; observed.SetFact(kScoreFact);
+    AIDecisionRuntime runtime(agent);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    first.tick=AIActionRuntimeResult::Succeeded; system.Update(world);
+    observed.SetFact(kFact0); observed.ClearFact(kScoreFact);
+
+    EXPECT_EQ(runtime.Update(observed,candidates,actions,bindings,system,world),
+        AIPlanExecutionStatus::Failed);
+    EXPECT_EQ(stale.starts,0); EXPECT_FALSE(system.HasActiveAction(agent));
+    EXPECT_EQ(runtime.GetPlanExecution(),nullptr);
+}
+
+TEST(AIDecisionRuntime, RunningStepIsNotInvalidatedByStartPreconditionDrift)
+{
+    GameplayWorld world{}; AISystem system{}; AIActionBindingRegistry bindings{};
+    const EntityHandle agent=AddAgent(world); RuntimeState running{}; Binding binding(running);
+    ASSERT_TRUE(bindings.Register(kActionA,binding));
+    const std::vector<AIGoalSelectionCandidate> candidates{
+        AIGoalSelectionCandidate{.goal=Goal(),.baseScore=1.0f}};
+    const std::vector<AIActionDefinition> actions{AIActionDefinition{.actionId=kActionA,
+        .preconditions={{kFact0,true}},.effects={{kGoalFact,true}}}};
+    AIAgentWorldState observed{}; observed.SetFact(kFact0); AIDecisionRuntime runtime(agent);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    runtime.Update(observed,candidates,actions,bindings,system,world);
+    observed.ClearFact(kFact0);
+
+    EXPECT_EQ(runtime.Update(observed,candidates,actions,bindings,system,world),
+        AIPlanExecutionStatus::RunningStep);
+    EXPECT_EQ(running.cancels,0); EXPECT_TRUE(system.HasActiveAction(agent));
+}

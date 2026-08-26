@@ -52,6 +52,37 @@ namespace
         }
         return rendern::kNullEntity;
     }
+    
+    void TickFrame(rendern::GameplayRuntime& runtime,
+        appDevelopment::AppDevelopmentScenarioRuntime& development,
+        appDevelopment::ScenarioContext& scenarioContext,
+        const rendern::GameplayUpdateContext& gameContext)
+    {
+        // Match AppLifecycle: scenario mutations run before the gameplay update.
+        development.Update(scenarioContext);
+        runtime.BeginFrame();
+        runtime.PrePhysicsUpdate(gameContext);
+        runtime.PostPhysicsUpdate(gameContext);
+    }
+
+    template<typename Predicate>
+    bool TickUntil(rendern::GameplayRuntime& runtime,
+        appDevelopment::AppDevelopmentScenarioRuntime& development,
+        appDevelopment::ScenarioContext& scenarioContext,
+        const rendern::GameplayUpdateContext& gameContext,
+        Predicate predicate,
+        const std::size_t maxFrames)
+    {
+        for (std::size_t frame=0;frame<maxFrames;++frame)
+        {
+            TickFrame(runtime,development,scenarioContext,gameContext);
+            if (predicate())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 TEST(AppDevelopmentScenarioRuntime, DetectsSupportedScenarioConventionsAndCapabilities)
@@ -157,7 +188,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     development.OnLevelLoaded(context);
     EXPECT_EQ(development.GetActiveKind(), appDevelopment::ScenarioKind::DataDriven);
     EXPECT_EQ(development.GetView(context).title,
-    std::string_view("Stage 8B GOAP: Semantic Access-Key Purchase"));
+    std::string_view("Stage 9B GOAP: Route-Aware Access-Key Planning"));
 
     context.gameplayMode = rendern::GameplayRuntimeMode::Game;
     rendern::GameplayUpdateContext gameContext{.mode=rendern::GameplayRuntimeMode::Game,
@@ -215,6 +246,123 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 0);
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
     EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    runtime.Shutdown();
+}
+
+TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavailableAndReachesGoal)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelAsset level=rendern::LoadLevelAssetFromJson(
+        "levels/ai_goap_access_key_replanning_development.level.json");
+    EXPECT_EQ(level.developmentScenario,
+        "development/ai_goap_access_key_replanning.scenario.json");
+    rendern::LevelInstance instance=harness.Instantiate(level);
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,harness.GetScene());
+    auto context=MakeContext(runtime,level,instance,harness.GetScene());
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    EXPECT_EQ(development.GetActiveKind(),appDevelopment::ScenarioKind::DataDriven);
+    EXPECT_EQ(development.GetView(context).title,
+        std::string_view("Stage 10 GOAP: Dynamic Access-Key Replanning"));
+
+    context.gameplayMode=rendern::GameplayRuntimeMode::Game;
+    rendern::GameplayUpdateContext gameContext{.deltaSeconds=1.0f/60.0f,
+        .mode=rendern::GameplayRuntimeMode::Game,
+        .levelAsset=&level,.levelInstance=&instance,.scene=&harness.GetScene()};
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameContext); runtime.PostPhysicsUpdate(gameContext);
+    development.Execute(appDevelopment::ScenarioCommand::Start,context);
+    const rendern::EntityHandle agent=FindNodeEntity(runtime,level,"GOAP_Agent");
+    const rendern::EntityHandle coinAEntity=FindNodeEntity(runtime,level,"GOAP_Coin_A");
+    const rendern::EntityHandle coinBEntity=FindNodeEntity(runtime,level,"GOAP_Coin_B");
+    const rendern::EntityHandle coinCEntity=FindNodeEntity(runtime,level,"GOAP_Coin_C");
+    const rendern::EntityHandle keyEntity=FindNodeEntity(runtime,level,"GOAP_Access_Key");
+    const rendern::EntityHandle goalEntity=FindNodeEntity(runtime,level,"GOAP_Final_Goal");
+    ASSERT_NE(agent,rendern::kNullEntity); ASSERT_NE(coinAEntity,rendern::kNullEntity);
+    ASSERT_NE(coinBEntity,rendern::kNullEntity); ASSERT_NE(coinCEntity,rendern::kNullEntity);
+    ASSERT_NE(keyEntity,rendern::kNullEntity); ASSERT_NE(goalEntity,rendern::kNullEntity);
+    rendern::GameplayPickupComponent* coinA=runtime.GetWorld().TryGetPickup(coinAEntity);
+    rendern::GameplayPickupComponent* coinB=runtime.GetWorld().TryGetPickup(coinBEntity);
+    rendern::GameplayPickupComponent* coinC=runtime.GetWorld().TryGetPickup(coinCEntity);
+    ASSERT_NE(coinA,nullptr); ASSERT_NE(coinB,nullptr); ASSERT_NE(coinC,nullptr);
+    EXPECT_FALSE(coinA->collected); EXPECT_FALSE(coinB->collected); EXPECT_FALSE(coinC->collected);
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::ReadyToStartStep);
+    const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
+    ASSERT_NE(facts,nullptr);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
+    const int coinANode=runtime.GetWorld().TryGetNodeLink(coinAEntity)->nodeIndex;
+    const int coinBNode=runtime.GetWorld().TryGetNodeLink(coinBEntity)->nodeIndex;
+    const int coinCNode=runtime.GetWorld().TryGetNodeLink(coinCEntity)->nodeIndex;
+    const int keyNode=runtime.GetWorld().TryGetNodeLink(keyEntity)->nodeIndex;
+
+    // The conditional update must remain a no-op while Start -> Coin C is active.
+    development.Update(context);
+    EXPECT_FALSE(coinA->collected); EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
+    runtime.BeginFrame(); runtime.PrePhysicsUpdate(gameContext); runtime.PostPhysicsUpdate(gameContext);
+    runtime.GetWorld().TryGetTransform(agent)->position=
+        runtime.GetWorld().TryGetTransform(coinCEntity)->position;
+    ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
+        { return facts->IsFactSet(rendern::kGOAPCoinCCollectedFact); },8u))
+        << "Coin C was not collected";
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(coinA->collected); EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
+
+    TickFrame(runtime,development,context,gameContext);
+    EXPECT_TRUE(coinA->collected); EXPECT_FALSE(instance.IsNodeRuntimeVisible(coinANode));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
+
+    // Start the replacement C -> B step, then let physical pickup observation confirm B.
+    TickFrame(runtime,development,context,gameContext);
+    runtime.GetWorld().TryGetTransform(agent)->position=
+        runtime.GetWorld().TryGetTransform(coinBEntity)->position;
+    ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
+        { return facts->IsFactSet(rendern::kGOAPCoinBCollectedFact); },8u))
+        << "Replacement route did not collect Coin B";
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),2);
+
+    TickFrame(runtime,development,context,gameContext);
+    runtime.GetWorld().TryGetTransform(agent)->position=
+        runtime.GetWorld().TryGetTransform(keyEntity)->position;
+    ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
+        { return facts->IsFactSet(rendern::kGOAPHasAccessKeyFact); },8u))
+        << "Access Key purchase did not complete";
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+    EXPECT_FALSE(instance.IsNodeRuntimeVisible(keyNode));
+
+    TickFrame(runtime,development,context,gameContext);
+    runtime.GetWorld().TryGetTransform(agent)->position=
+        runtime.GetWorld().TryGetTransform(goalEntity)->position;
+    ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
+        { return facts->IsFactSet(rendern::kGOAPAtDestinationFact); },8u))
+        << "Final goal did not complete";
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::Succeeded);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+
+    development.Reset(context);
+    EXPECT_FALSE(coinA->collected); EXPECT_FALSE(coinB->collected); EXPECT_FALSE(coinC->collected);
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinBNode));
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinCNode));
+    EXPECT_TRUE(instance.IsNodeRuntimeVisible(keyNode));
+    development.Execute(appDevelopment::ScenarioCommand::Start,context);
+    facts=runtime.GetAIDecisionObservedState(agent);
+    ASSERT_NE(facts,nullptr);
+    development.Update(context);
+    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(coinA->collected); EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
     runtime.Shutdown();
 }
 

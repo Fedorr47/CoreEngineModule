@@ -98,6 +98,20 @@ namespace appDevelopment
                 const std::string& op = RequiredString(operation, "op", source, section, i);
                 const auto entity = [&]() { return RequiredString(operation, "entity", source, section, i); };
                 const auto slot = [&]() { return RequiredString(operation, "slot", source, section, i); };
+                const auto whenPickupCollected = [&]() -> std::string
+                {
+                    const auto condition = operation.find("whenPickupCollected");
+                    if (condition == operation.end())
+                    {
+                        return {};
+                    }
+                    if (!condition->second.IsString() || condition->second.AsString().empty())
+                    {
+                        Invalid(source, section, i,
+                            "field 'whenPickupCollected' must be a non-empty string");
+                    }
+                    return condition->second.AsString();
+                };
                 if (op == "captureTransform") result.emplace_back(CaptureTransformOperation{entity(), slot()});
                 else if (op == "restoreTransform") result.emplace_back(RestoreTransformOperation{entity(), slot()});
                 else if (op == "ensureAI") result.emplace_back(EnsureAIOperation{entity()});
@@ -108,12 +122,23 @@ namespace appDevelopment
                     const auto visible = operation.find("visible");
                     if (visible == operation.end() || !visible->second.IsBool())
                         Invalid(source, section, i, "missing boolean field 'visible'");
-                    result.emplace_back(SetRuntimeVisibilityOperation{entity(), visible->second.AsBool()});
+                    result.emplace_back(SetRuntimeVisibilityOperation{
+                        entity(), visible->second.AsBool(), whenPickupCollected()});
                 }
                 else if (op == "ensureNodeBoundEntity") result.emplace_back(EnsureNodeBoundEntityOperation{entity()});
                 else if (op == "ensurePickup") result.emplace_back(EnsurePickupOperation{entity(),
                     static_cast<float>(RequiredNumber(operation, "collectionRadius", source, section, i))});
                 else if (op == "resetPickup") result.emplace_back(ResetPickupOperation{entity()});
+                else if (op == "setPickupCollected")
+                {
+                    const auto collected = operation.find("collected");
+                    if (collected == operation.end() || !collected->second.IsBool())
+                    {
+                        Invalid(source, section, i, "missing boolean field 'collected'");
+                    }
+                    result.emplace_back(SetPickupCollectedOperation{
+                        entity(), collected->second.AsBool(), whenPickupCollected()});
+                }
                 else if (op == "removeCharacterPhysicalSettings")
                     result.emplace_back(RemoveCharacterPhysicalSettingsOperation{entity()});
                 else if (op == "setCharacterPhysicalSettings")
@@ -267,6 +292,7 @@ namespace appDevelopment
                 else if constexpr (std::is_same_v<T, EnsureNodeBoundEntityOperation>) { return "ensureNodeBoundEntity"; }
                 else if constexpr (std::is_same_v<T, EnsurePickupOperation>) { return "ensurePickup"; }
                 else if constexpr (std::is_same_v<T, ResetPickupOperation>) { return "resetPickup"; }
+                else if constexpr (std::is_same_v<T, SetPickupCollectedOperation>) { return "setPickupCollected"; }
                 else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>) { return "removeCharacterPhysicalSettings"; }
                 else if constexpr (std::is_same_v<T, SetCharacterPhysicalSettingsOperation>) { return "setCharacterPhysicalSettings"; }
                 else if constexpr (std::is_same_v<T, ResetEntitySimulationStateOperation>) { return "resetEntitySimulationState"; }
@@ -286,6 +312,16 @@ namespace appDevelopment
             
         std::vector<std::string> AdditionalOperationRoles(const ScenarioOperation& operation)
         {
+            if (const auto* visibility = std::get_if<SetRuntimeVisibilityOperation>(&operation);
+                visibility != nullptr && !visibility->whenPickupCollected.empty())
+            {
+                return {visibility->whenPickupCollected};
+            }
+            if (const auto* pickup = std::get_if<SetPickupCollectedOperation>(&operation);
+                pickup != nullptr && !pickup->whenPickupCollected.empty())
+            {
+                return {pickup->whenPickupCollected};
+            }
             if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation))
                 return {link->takeoff, link->landing};
             if (const auto* route = std::get_if<StartFollowRouteOperation>(&operation)) return route->points;
@@ -550,8 +586,42 @@ namespace appDevelopment
                 if (nodeIt == instance.nodes.end()) return false;
                 auto& world = context.gameplayRuntime.GetWorld();
                 using T = std::decay_t<decltype(op)>;
+                const auto conditionSatisfied = [&](const std::string& role) -> std::optional<bool>
+                {
+                    if (role.empty())
+                    {
+                        return true;
+                    }
+                    const auto triggerNode = instance.nodes.find(role);
+                    if (triggerNode == instance.nodes.end())
+                    {
+                        return std::nullopt;
+                    }
+                    const EntityHandle triggerEntity = ResolveEntity(triggerNode->second, context);
+                    if (triggerEntity == rendern::kNullEntity)
+                    {
+                        return std::nullopt;
+                    }
+                    const rendern::GameplayPickupComponent* triggerPickup =
+                        world.TryGetPickup(triggerEntity);
+                    if (triggerPickup == nullptr)
+                    {
+                        return std::nullopt;
+                    }
+                    return triggerPickup->collected;
+                };
                 if constexpr (std::is_same_v<T, SetRuntimeVisibilityOperation>)
                 {
+                    const std::optional<bool> condition =
+                        conditionSatisfied(op.whenPickupCollected);
+                    if (!condition.has_value())
+                    {
+                        return false;
+                    }
+                    if (!*condition)
+                    {
+                        return true;
+                    }
                     instance.visibilityBaselines.try_emplace(
                         nodeIt->second, context.levelInstance.IsNodeRuntimeVisible(nodeIt->second));
                     return context.levelInstance.SetNodeRuntimeVisible(context.level, context.scene, nodeIt->second, op.visible);
@@ -593,6 +663,26 @@ namespace appDevelopment
                     {
                         if (auto* pickup = world.TryGetPickup(entity)) pickup->collected = false;
                         return world.HasPickup(entity);
+                    }
+                    else if constexpr (std::is_same_v<T, SetPickupCollectedOperation>)
+                    {
+                        const std::optional<bool> condition =
+                            conditionSatisfied(op.whenPickupCollected);
+                        if (!condition.has_value())
+                        {
+                            return false;
+                        }
+                        if (!*condition)
+                        {
+                            return true;
+                        }
+                        rendern::GameplayPickupComponent* pickup = world.TryGetPickup(entity);
+                        if (pickup == nullptr)
+                        {
+                            return false;
+                        }
+                        pickup->collected = op.collected;
+                        return true;
                     }
                     else if constexpr (std::is_same_v<T, CaptureTransformOperation>)
                     {

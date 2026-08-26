@@ -224,7 +224,7 @@ TEST(AIPlanner, EqualCostChoiceIsDeterministicByActionId)
         Action(9, {}, { { Fact(0), true } }),
         Action(3, {}, { { Fact(0), true } })
     };
-    for (int run = 0; run < 10; run)
+    for (int run = 0; run < 10; ++run)
     {
         const auto plan = FindAIPlan({}, Goal(1, Fact(0)), actions);
         ASSERT_TRUE(plan.has_value());
