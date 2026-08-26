@@ -585,7 +585,8 @@
             }
             std::unique_ptr<GameplayAIDecisionInstance> decision =
                 CreateGameplayAIDecision(definitionId, agentEntity, *currentLevelAsset_,
-                    world_, traversalLinkRegistry_, traversalExecutorRegistry_);
+                 world_, traversalLinkRegistry_, traversalExecutorRegistry_,
+                 objectReservationSystem_);
             if (!decision)
             {
                 return false;
@@ -642,11 +643,23 @@
 
         void GameplayRuntime::UpdateActiveAIDecisions_()
         {
-            for (auto& [entity, decision] : activeAIDecisions_)
+            std::vector<EntityHandle> orderedAgents;
+            orderedAgents.reserve(activeAIDecisions_.size());
+            for (const auto& [entity, decision] : activeAIDecisions_)
             {
+                (void)decision;
                 if (world_.IsEntityValid(entity))
                 {
-                    decision->Update(aiSystem_, GameplayAIObservationContext{
+                    orderedAgents.push_back(entity);
+                }
+            }
+            std::ranges::sort(orderedAgents);
+            for (const EntityHandle entity : orderedAgents)
+            {
+                const auto found = activeAIDecisions_.find(entity);
+                if (found != activeAIDecisions_.end())
+                {
+                    found->second->Update(aiSystem_, GameplayAIObservationContext{
                         world_, currentWorldEvents_, &currentWorldEvents_});
                 }
             }

@@ -439,6 +439,67 @@ TEST(GameplayAIDecision, MissingMovementContractRejectsStartWithoutPartialState)
     EXPECT_EQ(runtime.GetAIDecisionObservedState(incomplete),nullptr);
 }
 
+TEST(GameplayAIDecision, LowerEntityHandleWinsReservedCoinContentionRegardlessOfStartOrder)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    test::LevelInstantiateHarness harness{};
+    LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
+    LevelInstance instance = harness.Instantiate(level);
+    GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, harness.GetScene());
+    const auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
+    Tick(runtime, game);
+
+    const auto ensureNamedEntity = [&](const std::string_view name)
+    {
+        if (const EntityHandle existing = FindNodeEntity(runtime, level, name);
+            existing != kNullEntity)
+        {
+            return existing;
+        }
+        const auto node = std::ranges::find_if(level.nodes,
+            [&](const LevelNode& value) { return value.name == name; });
+        EXPECT_NE(node, level.nodes.end());
+        return runtime.SpawnNodeBoundEntity(game,
+            static_cast<int>(std::distance(level.nodes.begin(), node)), false);
+    };
+    const EntityHandle lowAgent = ensureNamedEntity("GOAP_Agent");
+    const EntityHandle coinA = ensureNamedEntity("GOAP_Coin_A");
+    const EntityHandle coinB = ensureNamedEntity("GOAP_Coin_B");
+    const EntityHandle coinC = ensureNamedEntity("GOAP_Coin_C");
+    (void)ensureNamedEntity("GOAP_Access_Key");
+    ASSERT_NE(lowAgent, kNullEntity);
+    ASSERT_NE(coinA, kNullEntity);
+    ASSERT_NE(coinB, kNullEntity);
+    ASSERT_NE(coinC, kNullEntity);
+    GameplayWorld& world = runtime.GetWorld();
+    world.SetPickup(coinA, {});
+    world.SetPickup(coinB, {});
+    world.SetPickup(coinC, {});
+    world.AddInteractionPoint(coinA, {});
+    world.AddInteractionPoint(coinB, {});
+    world.AddInteractionPoint(coinC, {});
+    if (!world.HasAI(lowAgent))
+    {
+        world.AddAI(lowAgent);
+    }
+    world.TryGetTransform(lowAgent)->position = {};
+
+    const EntityHandle highAgent = world.CreateEntity();
+    world.AddAI(highAgent);
+    world.AddTransform(highAgent, {});
+    world.AddCharacterCommand(highAgent, {});
+    world.AddCharacterMotor(highAgent, {});
+    world.AddCharacterMovementState(highAgent, {});
+    ASSERT_LT(lowAgent, highAgent);
+
+    ASSERT_TRUE(runtime.StartAIDecision(highAgent, kAccessKeyAIDecisionId));
+    ASSERT_TRUE(runtime.StartAIDecision(lowAgent, kAccessKeyAIDecisionId));
+    Tick(runtime, game);
+
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC), lowAgent);
+}
+
 TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
 {
     InlineThreadOwnerRolesGuard guard{};
@@ -494,12 +555,15 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     const EntityHandle key=spawnNamed("GOAP_Access_Key");
     ASSERT_NE(coinC,kNullEntity); ASSERT_NE(key,kNullEntity);
     world.AddPickup(coinA); world.AddPickup(coinB); world.AddPickup(coinC);
+    world.AddInteractionPoint(coinA, {}); world.AddInteractionPoint(coinB, {});
+    world.AddInteractionPoint(coinC, {});
     world.AddAI(agent);
     const EntityHandle otherAgent=world.CreateEntity();
     world.AddTransform(otherAgent,{}); world.AddAI(otherAgent);
     GameplayTraversalLinkRegistry links;
     GameplayTraversalExecutorRegistry executors;
-    auto decision=CreateAccessKeyAIDecision(agent,level,world,links,executors);
+    GameplayObjectReservationSystem reservations;
+    auto decision=CreateAccessKeyAIDecision(agent,level,world,links,executors,&reservations);
     ASSERT_NE(decision,nullptr);
     AISystem ai;
 
@@ -517,6 +581,22 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     EXPECT_EQ(decision->GetObservedState().GetIntegerFact(kGOAPCoinCountFact), 1);
     decision->Update(ai,GameplayAIObservationContext{world,coinBEvent});
     EXPECT_EQ(decision->GetObservedState().GetIntegerFact(kGOAPCoinCountFact), 1);
+    
+    ASSERT_TRUE(reservations.TryReserve(world, coinA, agent));
+    decision->Update(ai, GameplayAIObservationContext{world, {}});
+    EXPECT_TRUE(decision->GetObservedState().IsFactSet(kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(decision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
+    EXPECT_EQ(decision->GetObservedState().GetIntegerFact(kGOAPCoinCountFact), 1);
+    ASSERT_TRUE(reservations.Release(coinA, agent));
+
+    ASSERT_TRUE(reservations.TryReserve(world, coinA, otherAgent));
+    decision->Update(ai, GameplayAIObservationContext{world, {}});
+    EXPECT_FALSE(decision->GetObservedState().IsFactSet(kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(decision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
+    EXPECT_EQ(decision->GetObservedState().GetIntegerFact(kGOAPCoinCountFact), 1);
+    ASSERT_TRUE(reservations.Release(coinA, otherAgent));
+    decision->Update(ai, GameplayAIObservationContext{world, {}});
+    EXPECT_TRUE(decision->GetObservedState().IsFactSet(kGOAPCoinAAvailableFact));
 
     const std::array otherAgentCoinAEvent{GameplayWorldEvent{
         GameplayWorldEventType::PickupCollected,otherAgent,coinA}};
@@ -538,4 +618,16 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     EXPECT_EQ(observed.GetIntegerFact(kGOAPCoinCountFact),
         initialCoinCount - kAccessKeyPrice);
     EXPECT_TRUE(observed.IsFactSet(kGOAPHasAccessKeyFact));
+    decision->Cancel(ai);
+    world.RemoveInteractionPoint(coinB);
+    world.RemoveInteractionPoint(coinC);
+    auto legacyDecision = CreateAccessKeyAIDecision(
+        agent, level, world, links, executors, &reservations);
+    ASSERT_NE(legacyDecision, nullptr);
+    ASSERT_TRUE(reservations.TryReserve(world, coinA, otherAgent));
+    AISystem legacyAI;
+    legacyDecision->Update(legacyAI, GameplayAIObservationContext{world, {}});
+    EXPECT_TRUE(legacyDecision->GetObservedState().IsFactSet(kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(legacyDecision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
+    ASSERT_TRUE(reservations.Release(coinA, otherAgent));
 }

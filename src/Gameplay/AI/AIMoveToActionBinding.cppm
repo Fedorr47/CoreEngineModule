@@ -9,6 +9,7 @@ import :gameplay;
 import :ai_move_to_action;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor_registry;
+import :gameplay_object_reservation_system;
 export import :ai_action_binding;
 
 export namespace rendern
@@ -20,6 +21,105 @@ export namespace rendern
 
         [[nodiscard]] virtual std::optional<AIMoveToActionRequest> ResolveRequest(
             const AIActionRuntimeContext& context) = 0;
+    };
+    
+     class IAIActionReservationTargetProvider
+    {
+    public:
+        virtual ~IAIActionReservationTargetProvider() = default;
+        [[nodiscard]] virtual EntityHandle ResolveReservationTarget(
+            const AIActionRuntimeContext& context) = 0;
+    };
+
+    class ReservedAIMoveToActionRuntime final : public IAIActionRuntime
+    {
+    public:
+        ReservedAIMoveToActionRuntime(GameplayWorld& world,
+            const GameplayTraversalLinkRegistry& links,
+            const GameplayTraversalExecutorRegistry& executors,
+            GameplayObjectReservationSystem& reservations,
+            AIMoveToActionRequest request, const EntityHandle target) noexcept
+            : world_(world), links_(links), executors_(executors), reservations_(reservations),
+              request_(request), target_(target)
+        {
+        }
+
+        [[nodiscard]] AIActionRuntimeResult Start(const AIActionRuntimeContext& context) override
+        {
+            if (started_ || reservations_.IsReserved(target_) ||
+                !reservations_.TryReserve(world_, target_, context.agentEntity))
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+            ownsReservation_ = true;
+            runtime_ = AIMoveToAction::CreateRuntime(context, world_, links_, executors_, request_);
+            if (runtime_ == nullptr)
+            {
+                Release_(context.agentEntity);
+                return AIActionRuntimeResult::Failed;
+            }
+            started_ = true;
+            const AIActionRuntimeResult result = runtime_->Start(context);
+            if (result != AIActionRuntimeResult::Running)
+            {
+                Release_(context.agentEntity);
+                started_ = false;
+            }
+            return result;
+        }
+
+        [[nodiscard]] AIActionRuntimeResult Tick(
+            const AIActionRuntimeContext& context, const float deltaSeconds) override
+        {
+            if (!started_ || runtime_ == nullptr)
+            {
+                return AIActionRuntimeResult::Failed;
+            }
+            if (!ownsReservation_ || !reservations_.IsReservedBy(target_, context.agentEntity))
+            {
+                runtime_->Cancel(context);
+                ownsReservation_ = false;
+                started_ = false;
+                return AIActionRuntimeResult::Failed;
+            }
+            const AIActionRuntimeResult result = runtime_->Tick(context, deltaSeconds);
+            if (result != AIActionRuntimeResult::Running)
+            {
+                Release_(context.agentEntity);
+                started_ = false;
+            }
+            return result;
+        }
+
+        void Cancel(const AIActionRuntimeContext& context) noexcept override
+        {
+            if (started_ && runtime_ != nullptr)
+            {
+                runtime_->Cancel(context);
+            }
+            Release_(context.agentEntity);
+            started_ = false;
+        }
+
+    private:
+        void Release_(const EntityHandle agent) noexcept
+        {
+            if (ownsReservation_ && reservations_.IsReservedBy(target_, agent))
+            {
+                (void)reservations_.Release(target_, agent);
+            }
+            ownsReservation_ = false;
+        }
+
+        GameplayWorld& world_;
+        const GameplayTraversalLinkRegistry& links_;
+        const GameplayTraversalExecutorRegistry& executors_;
+        GameplayObjectReservationSystem& reservations_;
+        AIMoveToActionRequest request_{};
+        EntityHandle target_{kNullEntity};
+        std::unique_ptr<IAIActionRuntime> runtime_{};
+        bool ownsReservation_{};
+        bool started_{};
     };
 
     // All dependencies are non-owning and must outlive runtime creation.
@@ -37,6 +137,20 @@ export namespace rendern
             , requestProvider_(requestProvider)
         {
         }
+        
+        AIMoveToActionBinding(GameplayWorld& world,
+            const GameplayTraversalLinkRegistry& traversalLinkRegistry,
+            const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
+            IAIMoveToActionRequestProvider& requestProvider,
+            GameplayObjectReservationSystem& reservationSystem,
+            IAIActionReservationTargetProvider& reservationTargetProvider) noexcept
+            : AIMoveToActionBinding(world, traversalLinkRegistry, traversalExecutorRegistry,
+                requestProvider)
+        {
+            reservationSystem_ = &reservationSystem;
+            reservationTargetProvider_ = &reservationTargetProvider;
+        }
+
 
         [[nodiscard]] std::unique_ptr<IAIActionRuntime> CreateRuntime(
             const AIActionRuntimeContext& context) override
@@ -51,6 +165,16 @@ export namespace rendern
             {
                 return nullptr;
             }
+            if (reservationSystem_ != nullptr && reservationTargetProvider_ != nullptr)
+            {
+                const EntityHandle target = reservationTargetProvider_->ResolveReservationTarget(context);
+                if (target != kNullEntity)
+                {
+                    return std::make_unique<ReservedAIMoveToActionRuntime>(world_,
+                        traversalLinkRegistry_, traversalExecutorRegistry_, *reservationSystem_,
+                        *request, target);
+                }
+            }
             return AIMoveToAction::CreateRuntime(
                 context,
                 world_,
@@ -64,5 +188,7 @@ export namespace rendern
         const GameplayTraversalLinkRegistry& traversalLinkRegistry_;
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         IAIMoveToActionRequestProvider& requestProvider_;
+        GameplayObjectReservationSystem* reservationSystem_{};
+        IAIActionReservationTargetProvider* reservationTargetProvider_{};
     };
 }

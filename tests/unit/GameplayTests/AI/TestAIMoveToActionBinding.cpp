@@ -60,6 +60,160 @@ namespace
             return it == requests.end() ? std::nullopt : std::optional{it->second};
         }
     };
+    class ReservationProvider final : public IAIActionReservationTargetProvider
+    {
+    public:
+        EntityHandle target{kNullEntity};
+        EntityHandle ResolveReservationTarget(const AIActionRuntimeContext&) override
+        {
+            return target;
+        }
+    };
+}
+
+TEST(AIMoveToActionBinding, ReservedMoveAcquiresBlocksCompetitorAndCancelReleases)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle first = AddMovementAgent(world);
+    const EntityHandle second = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    const AIMoveToActionRequest request{&graph, GameplayRouteNodeId{1u},
+        GameplayRouteNodeId{2u}, {}};
+    provider.requests[first] = request;
+    provider.requests[second] = request;
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext firstContext{first, kAIMoveToActionId};
+    const AIActionRuntimeContext secondContext{second, kAIMoveToActionId};
+    auto firstRuntime = binding.CreateRuntime(firstContext);
+    auto secondRuntime = binding.CreateRuntime(secondContext);
+    ASSERT_NE(firstRuntime, nullptr);
+    ASSERT_NE(secondRuntime, nullptr);
+
+    EXPECT_EQ(firstRuntime->Start(firstContext), AIActionRuntimeResult::Running);
+    EXPECT_TRUE(reservations.IsReservedBy(resource, first));
+    EXPECT_EQ(secondRuntime->Start(secondContext), AIActionRuntimeResult::Failed);
+    EXPECT_TRUE(reservations.IsReservedBy(resource, first));
+    firstRuntime->Cancel(firstContext);
+    firstRuntime->Cancel(firstContext);
+    EXPECT_FALSE(reservations.IsReserved(resource));
+}
+
+TEST(AIMoveToActionBinding, ReservedMoveDoesNotAdoptOrReleasePreExistingSameOwner)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle agent = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    provider.requests[agent] = {&graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    ASSERT_TRUE(reservations.TryReserve(world, resource, agent));
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext context{agent, kAIMoveToActionId};
+    auto runtime = binding.CreateRuntime(context);
+    ASSERT_NE(runtime, nullptr);
+    EXPECT_EQ(runtime->Start(context), AIActionRuntimeResult::Failed);
+    runtime->Cancel(context);
+    EXPECT_TRUE(reservations.IsReservedBy(resource, agent));
+}
+
+TEST(AIMoveToActionBinding, LostOwnershipFailsWithoutReleasingReplacementOwner)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle first = AddMovementAgent(world);
+    const EntityHandle second = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    provider.requests[first] = {&graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext context{first, kAIMoveToActionId};
+    auto runtime = binding.CreateRuntime(context);
+    ASSERT_NE(runtime, nullptr);
+    ASSERT_EQ(runtime->Start(context), AIActionRuntimeResult::Running);
+    ASSERT_TRUE(reservations.Release(resource, first));
+    ASSERT_TRUE(reservations.TryReserve(world, resource, second));
+    EXPECT_EQ(runtime->Tick(context, 0.016f), AIActionRuntimeResult::Failed);
+    EXPECT_TRUE(reservations.IsReservedBy(resource, second));
+}
+
+TEST(AIMoveToActionBinding, SuccessReleasesReservation)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle agent = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    provider.requests[agent] = {&graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext context{agent, kAIMoveToActionId};
+    auto runtime = binding.CreateRuntime(context);
+    ASSERT_NE(runtime, nullptr);
+    ASSERT_EQ(runtime->Start(context), AIActionRuntimeResult::Running);
+    ASSERT_TRUE(reservations.IsReservedBy(resource, agent));
+
+    world.TryGetTransform(agent)->position = {5.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime->Tick(context, 0.016f), AIActionRuntimeResult::Succeeded);
+    EXPECT_FALSE(reservations.IsReserved(resource));
+}
+
+TEST(AIMoveToActionBinding, RuntimeFailureReleasesReservation)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle agent = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    provider.requests[agent] = {&graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext context{agent, kAIMoveToActionId};
+    auto runtime = binding.CreateRuntime(context);
+    ASSERT_NE(runtime, nullptr);
+    ASSERT_EQ(runtime->Start(context), AIActionRuntimeResult::Running);
+    ASSERT_TRUE(reservations.IsReservedBy(resource, agent));
+
+    world.RemoveCharacterMotor(agent);
+    EXPECT_EQ(runtime->Tick(context, 0.016f), AIActionRuntimeResult::Failed);
+    EXPECT_FALSE(reservations.IsReserved(resource));
+}
+
+TEST(AIMoveToActionBinding, StartFailureAfterReservationDoesNotLeak)
+{
+    GameplayWorld world{}; GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{}; Provider provider{};
+    GameplayObjectReservationSystem reservations{}; ReservationProvider targets{};
+    const EntityHandle agent = AddMovementAgent(world);
+    const EntityHandle resource = world.CreateEntity();
+    world.AddInteractionPoint(resource, {});
+    targets.target = resource;
+    const GameplayRouteGraph graph = Graph(5.0f);
+    provider.requests[agent] = {&graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    AIMoveToActionBinding binding(world, links, executors, provider, reservations, targets);
+    const AIActionRuntimeContext context{agent, kAIMoveToActionId};
+    auto runtime = binding.CreateRuntime(context);
+    ASSERT_NE(runtime, nullptr);
+    world.RemoveCharacterMotor(agent);
+
+    EXPECT_EQ(runtime->Start(context), AIActionRuntimeResult::Failed);
+    EXPECT_FALSE(reservations.IsReserved(resource));
+    runtime->Cancel(context);
+    EXPECT_FALSE(reservations.IsReserved(resource));
 }
 
 TEST(AIMoveToActionBinding, SemanticIdIsValidAndDistinctFromFollowRoute)

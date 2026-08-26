@@ -16,6 +16,7 @@ import :ai_system;
 import :gameplay;
 import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
+import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_traversal_executor_registry;
@@ -140,15 +141,39 @@ export namespace rendern
             Transition(SpatialLocation::CoinC, SpatialLocation::AccessKeyShop),
             Transition(SpatialLocation::AccessKeyShop, SpatialLocation::Goal)};
 
-        class AccessKeyMoveToRequestProvider final :
-            public IAIMoveToActionRequestProvider
+        class AccessKeyMoveToRequestProvider final : 
+            public IAIMoveToActionRequestProvider,
+            public IAIActionReservationTargetProvider
         {
         public:
             AccessKeyMoveToRequestProvider(GameplayWorld& world, GameplayRouteGraph routeGraph)
                  : world_(world), routeGraph_(std::move(routeGraph))
             {
             }
+            
+            void SetCoinEntities(const EntityHandle coinA, const EntityHandle coinB,
+                const EntityHandle coinC) noexcept
+            {
+                coinEntities_ = {coinA, coinB, coinC};
+            }
 
+            EntityHandle ResolveReservationTarget(
+                const AIActionRuntimeContext& context) override
+            {
+                const auto transition = std::ranges::find_if(kMoveTransitions,
+                    [&](const MoveTransition& candidate)
+                    {
+                        return candidate.contextId == context.contextId;
+                    });
+                if (transition == kMoveTransitions.end() ||
+                    transition->target < SpatialLocation::CoinA ||
+                    transition->target > SpatialLocation::CoinC)
+                {
+                    return kNullEntity;
+                }
+                return coinEntities_[static_cast<std::size_t>(transition->target) - 1u];
+            }
+            
             std::optional<AIMoveToActionRequest> ResolveRequest(
                 const AIActionRuntimeContext& context) override
             {
@@ -212,6 +237,7 @@ export namespace rendern
         private:
             GameplayWorld& world_;
             GameplayRouteGraph routeGraph_{};
+            std::array<EntityHandle, 3> coinEntities_{};
         };
 
         [[nodiscard]] std::optional<GameplayGOAPDecisionDefinition> BuildDefinition(
@@ -401,6 +427,7 @@ export namespace rendern
                 GameplayWorld& world,
                 const GameplayTraversalLinkRegistry& traversalLinkRegistry,
                 const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
+                GameplayObjectReservationSystem* reservationSystem,
                 const EntityHandle coinAEntity, const EntityHandle coinBEntity,
                 const EntityHandle coinCEntity, const EntityHandle keyEntity,
                 const std::array<mathUtils::Vec3, kSpatialLocationCount>& spatialPositions)
@@ -409,8 +436,24 @@ export namespace rendern
                     coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), keyEntity_(keyEntity),
                     spatialPositions_(spatialPositions)
             {
-                auto binding = std::make_unique<AIMoveToActionBinding>(world,
-                    traversalLinkRegistry, traversalExecutorRegistry, moveToRequests_);
+                moveToRequests_.SetCoinEntities(coinAEntity, coinBEntity, coinCEntity);
+                const bool bReservationsEnabled = reservationSystem != nullptr &&
+                    world.HasInteractionPoint(coinAEntity) &&
+                    world.HasInteractionPoint(coinBEntity) &&
+                    world.HasInteractionPoint(coinCEntity);
+                reservationSystem_ = bReservationsEnabled ? reservationSystem : nullptr;
+                std::unique_ptr<AIMoveToActionBinding> binding;
+                if (bReservationsEnabled)
+                {
+                    binding = std::make_unique<AIMoveToActionBinding>(world,
+                        traversalLinkRegistry, traversalExecutorRegistry, moveToRequests_,
+                        *reservationSystem, moveToRequests_);
+                }
+                else
+                {
+                    binding = std::make_unique<AIMoveToActionBinding>(world,
+                        traversalLinkRegistry, traversalExecutorRegistry, moveToRequests_);
+                }
                 bindingsInstalled_ = goap_.InstallActionBinding(
                     kAIMoveToActionId, std::move(binding));
                 auto buyKeyBinding = std::make_unique<BuyKeyActionBinding>(
@@ -498,8 +541,11 @@ export namespace rendern
                     const AIWorldFactId availableFact)
                 {
                     const GameplayPickupComponent* pickup = world.TryGetPickup(coin);
+                    const bool bReservedByOther = reservationSystem_ != nullptr &&
+                        reservationSystem_->IsReserved(coin) &&
+                        !reservationSystem_->IsReservedBy(coin, agent_);
                     facts.SetFact(availableFact,
-                        world.IsEntityValid(coin) && pickup != nullptr && !pickup->collected);
+                    world.IsEntityValid(coin) && pickup != nullptr && !pickup->collected && !bReservedByOther);
                 };
                 observeAvailability(coinAEntity_, kGOAPCoinAAvailableFact);
                 observeAvailability(coinBEntity_, kGOAPCoinBAvailableFact);
@@ -547,6 +593,7 @@ export namespace rendern
             EntityHandle keyEntity_{ kNullEntity };
             std::array<mathUtils::Vec3, kSpatialLocationCount> spatialPositions_{};
             BuyKeyActionBinding* buyKeyBinding_{};
+            GameplayObjectReservationSystem* reservationSystem_{};
             mathUtils::Vec3 finalGoalPosition_{};
             bool bindingsInstalled_{};
         };
@@ -582,7 +629,8 @@ export namespace rendern
     [[nodiscard]] std::unique_ptr<GameplayAIDecisionInstance> CreateAccessKeyAIDecision(
         const EntityHandle agent, LevelAsset& level, GameplayWorld& world,
         const GameplayTraversalLinkRegistry& traversalLinkRegistry,
-        const GameplayTraversalExecutorRegistry& traversalExecutorRegistry)
+        const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
+        GameplayObjectReservationSystem* reservationSystem = nullptr)
     {
         const int start = ai_access_key_detail::FindNode(level, "GOAP_Start");
         const int coinA = ai_access_key_detail::FindNode(level, "GOAP_Coin_A");
@@ -632,10 +680,9 @@ export namespace rendern
         auto decision = std::make_unique<ai_access_key_detail::AccessKeyDecision>(agent,
         std::move(*definition),
          ai_access_key_detail::BuildMoveToProvider(world, std::move(routeGraph)),
-                world, traversalLinkRegistry, traversalExecutorRegistry, coinAEntity,
-                 coinBEntity, coinCEntity, keyEntity,
-                 std::array{startPosition, coinAPosition, coinBPosition, coinCPosition,
-                     keyPosition, goalPosition});
+         world, traversalLinkRegistry, traversalExecutorRegistry, reservationSystem,
+          coinAEntity, coinBEntity, coinCEntity, keyEntity, 
+          std::array{startPosition, coinAPosition, coinBPosition, coinCPosition, keyPosition, goalPosition});
         if (!decision->IsConfigured())
         {
             return nullptr;
