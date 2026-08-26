@@ -128,6 +128,8 @@ namespace appDevelopment
                 else if (op == "ensureNodeBoundEntity") result.emplace_back(EnsureNodeBoundEntityOperation{entity()});
                 else if (op == "ensurePickup") result.emplace_back(EnsurePickupOperation{entity(),
                     static_cast<float>(RequiredNumber(operation, "collectionRadius", source, section, i))});
+                else if (op == "ensureInteractionPoint")
+                    result.emplace_back(EnsureInteractionPointOperation{entity()});
                 else if (op == "resetPickup") result.emplace_back(ResetPickupOperation{entity()});
                 else if (op == "setPickupCollected")
                 {
@@ -291,6 +293,7 @@ namespace appDevelopment
                 else if constexpr (std::is_same_v<T, SetRuntimeVisibilityOperation>) { return "setRuntimeVisibility"; }
                 else if constexpr (std::is_same_v<T, EnsureNodeBoundEntityOperation>) { return "ensureNodeBoundEntity"; }
                 else if constexpr (std::is_same_v<T, EnsurePickupOperation>) { return "ensurePickup"; }
+                else if constexpr (std::is_same_v<T, EnsureInteractionPointOperation>) { return "ensureInteractionPoint"; }
                 else if constexpr (std::is_same_v<T, ResetPickupOperation>) { return "resetPickup"; }
                 else if constexpr (std::is_same_v<T, SetPickupCollectedOperation>) { return "setPickupCollected"; }
                 else if constexpr (std::is_same_v<T, RemoveCharacterPhysicalSettingsOperation>) { return "removeCharacterPhysicalSettings"; }
@@ -460,6 +463,11 @@ namespace appDevelopment
                             "field 'collectionRadius' must be finite and greater than zero");
                     }
                 }
+                if (std::holds_alternative<EnsureInteractionPointOperation>(operation) &&
+                    std::string_view(name) != "setup")
+                {
+                    Invalid(identity, name, i, "ensureInteractionPoint is only valid in setup");
+                }
                 if (const auto* physical = std::get_if<SetCharacterPhysicalSettingsOperation>(&operation))
                 {
                     if (std::string_view(name) != "setup")
@@ -559,6 +567,8 @@ namespace appDevelopment
             std::optional<rendern::GameplayCharacterPhysicalSettingsComponent>> physicalBaselines;
         std::unordered_map<EntityHandle,
             std::optional<rendern::GameplayPickupComponent>> pickupBaselines;
+        std::unordered_map<EntityHandle,
+            std::optional<rendern::GameplayInteractionPointComponent>> interactionPointBaselines;
         std::vector<ScenarioOperationResult> results;
         std::unordered_map<std::string, EntityHandle> resultEntities;
         std::unordered_set<std::string> decisionResults;
@@ -657,6 +667,17 @@ namespace appDevelopment
                                 ? std::optional{*existing} : std::nullopt);
                         }
                         world.SetPickup(entity, {.collectionRadius=op.collectionRadius, .collected=false});
+                        return true;
+                    }
+                    else if constexpr (std::is_same_v<T, EnsureInteractionPointOperation>)
+                    {
+                        if (!instance.interactionPointBaselines.contains(entity))
+                        {
+                            const auto* existing = world.TryGetInteractionPoint(entity);
+                            instance.interactionPointBaselines.emplace(entity, existing != nullptr
+                                ? std::optional{*existing} : std::nullopt);
+                        }
+                        world.SetInteractionPoint(entity, rendern::GameplayInteractionPointComponent{});
                         return true;
                     }
                     else if constexpr (std::is_same_v<T, ResetPickupOperation>)
@@ -969,6 +990,12 @@ namespace appDevelopment
             if (baseline.has_value()) world.SetPickup(entity, *baseline);
             else if (world.HasPickup(entity)) world.RemovePickup(entity);
         }
+        for (const auto& [entity, baseline] : impl_->interactionPointBaselines)
+        {
+            if (!world.IsEntityValid(entity) || impl_->spawnedEntities.contains(entity)) continue;
+            if (baseline.has_value()) world.SetInteractionPoint(entity, *baseline);
+            else if (world.HasInteractionPoint(entity)) world.RemoveInteractionPoint(entity);
+        }
         for (const auto& [entity, baseline] : impl_->physicalBaselines)
         {
             if (!world.IsEntityValid(entity) || impl_->spawnedEntities.contains(entity))
@@ -1004,7 +1031,8 @@ namespace appDevelopment
         }
         impl_->asset.reset(); impl_->nodes.clear(); impl_->transforms.clear(); impl_->addedAI.clear();
         impl_->spawnedEntities.clear(); impl_->visibilityBaselines.clear(); impl_->running = false;
-        impl_->physicalBaselines.clear(); impl_->pickupBaselines.clear(); impl_->results.clear(); impl_->resultEntities.clear();
+        impl_->physicalBaselines.clear(); impl_->pickupBaselines.clear();
+        impl_->interactionPointBaselines.clear(); impl_->results.clear(); impl_->resultEntities.clear();
         impl_->decisionResults.clear();
     }
     bool DevelopmentScenarioRunner::CanStart(const ScenarioContext& context) const noexcept

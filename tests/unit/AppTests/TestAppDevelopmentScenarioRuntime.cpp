@@ -366,6 +366,126 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     runtime.Shutdown();
 }
 
+TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughReservationAndReplanning)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelAsset level=rendern::LoadLevelAssetFromJson(
+        "levels/ai_goap_access_key_reservation_development.level.json");
+    EXPECT_EQ(level.developmentScenario,
+        "development/ai_goap_access_key_reservation.scenario.json");
+    rendern::LevelInstance instance=harness.Instantiate(level);
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,harness.GetScene());
+    auto context=MakeContext(runtime,level,instance,harness.GetScene());
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+    EXPECT_EQ(development.GetView(context).title,
+        std::string_view("Stage 11 GOAP: Multi-Agent Resource Reservation"));
+    context.gameplayMode=rendern::GameplayRuntimeMode::Game;
+    rendern::GameplayUpdateContext gameContext{.deltaSeconds=1.0f/60.0f,
+        .mode=rendern::GameplayRuntimeMode::Game,.levelAsset=&level,
+        .levelInstance=&instance,.scene=&harness.GetScene()};
+    TickFrame(runtime,development,context,gameContext);
+    development.Execute(appDevelopment::ScenarioCommand::Start,context);
+
+    const rendern::EntityHandle agentA=FindNodeEntity(runtime,level,"GOAP_Agent_A");
+    const rendern::EntityHandle agentB=FindNodeEntity(runtime,level,"GOAP_Agent_B");
+    const rendern::EntityHandle coinA=FindNodeEntity(runtime,level,"GOAP_Coin_A");
+    const rendern::EntityHandle coinB=FindNodeEntity(runtime,level,"GOAP_Coin_B");
+    const rendern::EntityHandle coinC=FindNodeEntity(runtime,level,"GOAP_Coin_C");
+    ASSERT_NE(agentA,rendern::kNullEntity); ASSERT_NE(agentB,rendern::kNullEntity);
+    ASSERT_NE(agentA,agentB); ASSERT_NE(coinA,rendern::kNullEntity);
+    ASSERT_NE(coinB,rendern::kNullEntity); ASSERT_NE(coinC,rendern::kNullEntity);
+    const rendern::EntityHandle firstAgent=std::min(agentA,agentB);
+    const rendern::EntityHandle secondAgent=std::max(agentA,agentB);
+    ASSERT_LT(firstAgent,secondAgent);
+    auto& world=runtime.GetWorld();
+    for (const rendern::EntityHandle coin : {coinA,coinB,coinC})
+    {
+        ASSERT_NE(world.TryGetPickup(coin),nullptr);
+        EXPECT_TRUE(world.HasInteractionPoint(coin));
+        EXPECT_FALSE(world.TryGetPickup(coin)->collected);
+        EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coin),rendern::kNullEntity);
+    }
+    const auto assertCleanFacts=[&](const rendern::EntityHandle agent)
+    {
+        const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
+        ASSERT_NE(facts,nullptr);
+        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
+        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBAvailableFact));
+        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
+        EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+        EXPECT_EQ(runtime.GetAIDecisionStatus(agent),
+            rendern::AIPlanExecutionStatus::ReadyToStartStep);
+    };
+    assertCleanFacts(agentA); assertCleanFacts(agentB);
+    const mathUtils::Vec3 agentABaseline=world.TryGetTransform(agentA)->position;
+    const mathUtils::Vec3 agentBBaseline=world.TryGetTransform(agentB)->position;
+
+    TickFrame(runtime,development,context,gameContext);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC),firstAgent);
+    EXPECT_FALSE(world.TryGetPickup(coinC)->collected);
+    const rendern::AIAgentWorldState* firstFacts=runtime.GetAIDecisionObservedState(firstAgent);
+    const rendern::AIAgentWorldState* secondFacts=runtime.GetAIDecisionObservedState(secondAgent);
+    ASSERT_NE(firstFacts,nullptr); ASSERT_NE(secondFacts,nullptr);
+    EXPECT_TRUE(firstFacts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+
+    TickFrame(runtime,development,context,gameContext);
+    const rendern::EntityHandle alternateCoin =
+        runtime.GetGameplayObjectReservationOwner(coinA)==secondAgent ? coinA : coinB;
+    ASSERT_NE(alternateCoin,coinC);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(alternateCoin),secondAgent);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC),firstAgent);
+
+    world.TryGetTransform(firstAgent)->position=world.TryGetTransform(coinC)->position;
+    world.TryGetTransform(secondAgent)->position=world.TryGetTransform(alternateCoin)->position;
+    ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
+    {
+        return firstFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact) &&
+            secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact)==1;
+    },8u));
+    EXPECT_EQ(firstFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
+    EXPECT_EQ(secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
+    EXPECT_TRUE(firstFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    if (alternateCoin==coinA)
+    {
+        EXPECT_TRUE(secondFacts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+        EXPECT_FALSE(firstFacts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    }
+    else
+    {
+        EXPECT_TRUE(secondFacts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+        EXPECT_FALSE(firstFacts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+    }
+    EXPECT_TRUE(world.TryGetPickup(coinC)->collected);
+    EXPECT_TRUE(world.TryGetPickup(alternateCoin)->collected);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC),rendern::kNullEntity);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(alternateCoin),rendern::kNullEntity);
+
+    development.Execute(appDevelopment::ScenarioCommand::Stop,context);
+    for (const rendern::EntityHandle coin : {coinA,coinB,coinC})
+    {
+        EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coin),rendern::kNullEntity);
+    }
+    development.Reset(context);
+    for (const rendern::EntityHandle coin : {coinA,coinB,coinC})
+    {
+        EXPECT_FALSE(world.TryGetPickup(coin)->collected);
+        EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coin),rendern::kNullEntity);
+    }
+    EXPECT_EQ(world.TryGetTransform(agentA)->position,agentABaseline);
+    EXPECT_EQ(world.TryGetTransform(agentB)->position,agentBBaseline);
+    development.Execute(appDevelopment::ScenarioCommand::Start,context);
+    TickFrame(runtime,development,context,gameContext);
+    EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC),firstAgent);
+    runtime.Shutdown();
+}
+
 TEST(AppDevelopmentScenarioRuntime, LoadsActualJumpLevelOnlyAsDataDriven)
 {
     InlineThreadOwnerRolesGuard guard{};

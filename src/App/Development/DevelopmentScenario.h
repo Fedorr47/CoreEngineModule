@@ -27,6 +27,7 @@ namespace appDevelopment
     };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
     struct EnsurePickupOperation { std::string entity; float collectionRadius{}; };
+    struct EnsureInteractionPointOperation { std::string entity; };
     struct ResetPickupOperation { std::string entity; };
     struct SetPickupCollectedOperation
     {
@@ -125,6 +126,7 @@ namespace appDevelopment
         SetRuntimeVisibilityOperation,
         EnsureNodeBoundEntityOperation,
         EnsurePickupOperation,
+        EnsureInteractionPointOperation,
         ResetPickupOperation,
         SetPickupCollectedOperation,
         RemoveCharacterPhysicalSettingsOperation,

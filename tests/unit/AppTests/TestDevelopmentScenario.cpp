@@ -219,6 +219,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
     const std::set<std::string> expectedScenarios{
         "ai_goap_access_key.scenario.json",
         "ai_goap_access_key_replanning.scenario.json",
+        "ai_goap_access_key_reservation.scenario.json",
         "ai_jump_traversal.scenario.json",
         "ai_movement.scenario.json",
         "ai_physics_step.scenario.json",
@@ -986,6 +987,62 @@ TEST(DevelopmentScenarioAsset, RejectsInvalidPickupCollectionRadius)
         .id="pickup.nonfinite", .title="Non-finite pickup", .roles={{"coin","Coin"}},
         .setup={EnsurePickupOperation{"coin",std::numeric_limits<float>::infinity()}}};
     EXPECT_THROW(ValidateDevelopmentScenarioAsset(nonFinite), std::runtime_error);
+}
+
+TEST(DevelopmentScenarioAsset, EnsureInteractionPointParsesOnlyInSetup)
+{
+    const DevelopmentScenarioAsset asset = ParseDevelopmentScenarioAsset(R"({
+        "id":"interaction.setup", "title":"Interaction setup",
+        "roles":{"coin":"Coin"},
+        "setup":[{"op":"ensureInteractionPoint","entity":"coin"}]
+    })");
+    ASSERT_EQ(asset.setup.size(), 1u);
+    EXPECT_TRUE(std::holds_alternative<EnsureInteractionPointOperation>(asset.setup.front()));
+
+    for (const char* lifecycle : {"start", "update", "stop", "reset"})
+    {
+        const std::string json = std::string{"{\"id\":\"interaction.invalid\","
+            "\"title\":\"Invalid interaction\",\"roles\":{\"coin\":\"Coin\"},\""} +
+            lifecycle + "\":[{\"op\":\"ensureInteractionPoint\",\"entity\":\"coin\"}]}";
+        EXPECT_THROW(ParseDevelopmentScenarioAsset(json), std::runtime_error) << lifecycle;
+    }
+}
+
+TEST(DevelopmentScenarioRunner, EnsureInteractionPointAddsIdempotentlyAndRestoresOwnership)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level{};
+    rendern::LevelNode node{}; node.name="Coin"; node.alive=true; level.nodes.push_back(node);
+    rendern::LevelInstance instance{}; rendern::Scene scene{}; rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level,instance,scene);
+    rendern::GameplayUpdateContext gameplayContext{.mode=rendern::GameplayRuntimeMode::Editor,
+        .levelAsset=&level,.levelInstance=&instance,.scene=&scene};
+    const rendern::EntityHandle coin=runtime.SpawnNodeBoundEntity(gameplayContext,0,false);
+    ASSERT_NE(coin,rendern::kNullEntity);
+    ScenarioContext context{runtime,level,instance,scene,rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioAsset asset{.id="interaction.ownership",.title="Interaction ownership",
+        .roles={{"coin","Coin"}},.setup={EnsureInteractionPointOperation{"coin"},
+            EnsureInteractionPointOperation{"coin"}}};
+
+    runtime.GetWorld().AddInteractionPoint(coin,
+        {.localPosition={1.0f,2.0f,3.0f},.localFacingYawDegrees=25.0f});
+    DevelopmentScenarioRunner restoreExisting{};
+    ASSERT_TRUE(restoreExisting.Load(asset,context));
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetInteractionPoint(coin)->localPosition.x,0.0f);
+    restoreExisting.Reset(context);
+    EXPECT_TRUE(runtime.GetWorld().HasInteractionPoint(coin));
+    restoreExisting.Unload(context);
+    ASSERT_NE(runtime.GetWorld().TryGetInteractionPoint(coin),nullptr);
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetInteractionPoint(coin)->localPosition.z,3.0f);
+    EXPECT_FLOAT_EQ(runtime.GetWorld().TryGetInteractionPoint(coin)->localFacingYawDegrees,25.0f);
+
+    runtime.GetWorld().RemoveInteractionPoint(coin);
+    DevelopmentScenarioRunner removeAdded{};
+    ASSERT_TRUE(removeAdded.Load(asset,context));
+    EXPECT_TRUE(runtime.GetWorld().HasInteractionPoint(coin));
+    removeAdded.Unload(context);
+    EXPECT_FALSE(runtime.GetWorld().HasInteractionPoint(coin));
+    runtime.Shutdown();
 }
 
 TEST(DevelopmentScenarioRunner, EnsurePickupRestoresPreExistingComponentOwnership)
