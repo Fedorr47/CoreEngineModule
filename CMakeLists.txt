@@ -548,6 +548,7 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/AI/GameplayAIDecisionContracts.cppm
         Gameplay/AI/GameplayGOAPDecision.cppm
+        Gameplay/AI/GameplayGOAPDefinitionAsset.cppm
         Gameplay/AI/GameplayAIAccessKeyDecision.cppm
         Gameplay/AI/GameplayAIDecision.cppm
 

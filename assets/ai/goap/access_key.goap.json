@@ -1,0 +1,603 @@
+{
+  "id": "access_key",
+  "facts": [
+    {
+      "name": "hasAccessKey",
+      "type": "bool"
+    },
+    {
+      "name": "atDestination",
+      "type": "bool"
+    },
+    {
+      "name": "coinACollected",
+      "type": "bool"
+    },
+    {
+      "name": "coinBCollected",
+      "type": "bool"
+    },
+    {
+      "name": "coinCCollected",
+      "type": "bool"
+    },
+    {
+      "name": "atAccessKeyShop",
+      "type": "bool"
+    },
+    {
+      "name": "atStart",
+      "type": "bool"
+    },
+    {
+      "name": "atCoinA",
+      "type": "bool"
+    },
+    {
+      "name": "atCoinB",
+      "type": "bool"
+    },
+    {
+      "name": "atCoinC",
+      "type": "bool"
+    },
+    {
+      "name": "atGoal",
+      "type": "bool"
+    },
+    {
+      "name": "coinAAvailable",
+      "type": "bool"
+    },
+    {
+      "name": "coinBAvailable",
+      "type": "bool"
+    },
+    {
+      "name": "coinCAvailable",
+      "type": "bool"
+    },
+    {
+      "name": "coins",
+      "type": "int"
+    }
+  ],
+  "goals": [
+    {
+      "name": "reachDestination",
+      "score": 1.0,
+      "facts": [
+        {
+          "fact": "atDestination",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action": "move_to",
+      "context": "start_to_coin_a",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atStart",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": false
+        },
+        {
+          "fact": "coinAAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atStart",
+          "value": false
+        },
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "start_to_coin_b",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atStart",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": false
+        },
+        {
+          "fact": "coinBAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atStart",
+          "value": false
+        },
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "start_to_coin_c",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atStart",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": false
+        },
+        {
+          "fact": "coinCAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atStart",
+          "value": false
+        },
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_a_to_coin_b",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": false
+        },
+        {
+          "fact": "coinBAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinA",
+          "value": false
+        },
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_a_to_coin_c",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": false
+        },
+        {
+          "fact": "coinCAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinA",
+          "value": false
+        },
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_a_to_access_key_shop",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "hasAccessKey",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinA",
+          "value": false
+        },
+        {
+          "fact": "atAccessKeyShop",
+          "value": true
+        }
+      ],
+      "numericPreconditions": [
+        {
+          "fact": "coins",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_b_to_coin_a",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": false
+        },
+        {
+          "fact": "coinAAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinB",
+          "value": false
+        },
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_b_to_coin_c",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": false
+        },
+        {
+          "fact": "coinCAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinB",
+          "value": false
+        },
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "coinCCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_b_to_access_key_shop",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "hasAccessKey",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinB",
+          "value": false
+        },
+        {
+          "fact": "atAccessKeyShop",
+          "value": true
+        }
+      ],
+      "numericPreconditions": [
+        {
+          "fact": "coins",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_c_to_coin_a",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": false
+        },
+        {
+          "fact": "coinAAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinC",
+          "value": false
+        },
+        {
+          "fact": "atCoinA",
+          "value": true
+        },
+        {
+          "fact": "coinACollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_c_to_coin_b",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": false
+        },
+        {
+          "fact": "coinBAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinC",
+          "value": false
+        },
+        {
+          "fact": "atCoinB",
+          "value": true
+        },
+        {
+          "fact": "coinBCollected",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "coin_c_to_access_key_shop",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atCoinC",
+          "value": true
+        },
+        {
+          "fact": "hasAccessKey",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atCoinC",
+          "value": false
+        },
+        {
+          "fact": "atAccessKeyShop",
+          "value": true
+        }
+      ],
+      "numericPreconditions": [
+        {
+          "fact": "coins",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "action": "move_to",
+      "context": "access_key_shop_to_goal",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "atAccessKeyShop",
+          "value": true
+        },
+        {
+          "fact": "hasAccessKey",
+          "value": true
+        },
+        {
+          "fact": "atDestination",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atAccessKeyShop",
+          "value": false
+        },
+        {
+          "fact": "atGoal",
+          "value": true
+        },
+        {
+          "fact": "atDestination",
+          "value": true
+        }
+      ]
+    },
+    {
+      "action": "buy_key",
+      "context": "buy_key",
+      "cost": 1.0,
+      "preconditions": [
+        {
+          "fact": "hasAccessKey",
+          "value": false
+        },
+        {
+          "fact": "atAccessKeyShop",
+          "value": true
+        }
+      ],
+      "numericPreconditions": [
+        {
+          "fact": "coins",
+          "op": ">=",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "fact": "hasAccessKey",
+          "value": true
+        }
+      ],
+      "numericEffects": [
+        {
+          "fact": "coins",
+          "op": "add",
+          "value": -2
+        }
+      ]
+    }
+  ]
+}

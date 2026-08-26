@@ -1,10 +1,15 @@
-﻿#include <array>
+﻿module;
+
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <span>
 #include <limits>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -16,6 +21,7 @@ import :ai_system;
 import :gameplay;
 import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
+import :gameplay_goap_definition_asset;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
@@ -26,24 +32,24 @@ import :level;
 export namespace rendern
 {
     inline constexpr std::string_view kAccessKeyAIDecisionId{"access_key"};
-    inline constexpr AIWorldFactId kGOAPHasAccessKeyFact{40u};
-    inline constexpr AIWorldFactId kGOAPAtDestinationFact{41u};
-    inline constexpr AIWorldFactId kGOAPCoinACollectedFact{42u};
-    inline constexpr AIWorldFactId kGOAPCoinBCollectedFact{43u};
-    inline constexpr AIWorldFactId kGOAPCoinCCollectedFact{44u};
-    inline constexpr AIWorldFactId kGOAPAtAccessKeyShopFact{45u};
-    inline constexpr AIWorldFactId kGOAPAtStartFact{46u};
-    inline constexpr AIWorldFactId kGOAPAtCoinAFact{47u};
-    inline constexpr AIWorldFactId kGOAPAtCoinBFact{48u};
-    inline constexpr AIWorldFactId kGOAPAtCoinCFact{49u};
-    inline constexpr AIWorldFactId kGOAPAtGoalFact{50u};
-    inline constexpr AIWorldFactId kGOAPCoinAAvailableFact{51u};
-    inline constexpr AIWorldFactId kGOAPCoinBAvailableFact{52u};
-    inline constexpr AIWorldFactId kGOAPCoinCAvailableFact{53u};
+    inline constexpr AIWorldFactId kGOAPHasAccessKeyFact{0u};
+    inline constexpr AIWorldFactId kGOAPAtDestinationFact{1u};
+    inline constexpr AIWorldFactId kGOAPCoinACollectedFact{2u};
+    inline constexpr AIWorldFactId kGOAPCoinBCollectedFact{3u};
+    inline constexpr AIWorldFactId kGOAPCoinCCollectedFact{4u};
+    inline constexpr AIWorldFactId kGOAPAtAccessKeyShopFact{5u};
+    inline constexpr AIWorldFactId kGOAPAtStartFact{6u};
+    inline constexpr AIWorldFactId kGOAPAtCoinAFact{7u};
+    inline constexpr AIWorldFactId kGOAPAtCoinBFact{8u};
+    inline constexpr AIWorldFactId kGOAPAtCoinCFact{9u};
+    inline constexpr AIWorldFactId kGOAPAtGoalFact{10u};
+    inline constexpr AIWorldFactId kGOAPCoinAAvailableFact{11u};
+    inline constexpr AIWorldFactId kGOAPCoinBAvailableFact{12u};
+    inline constexpr AIWorldFactId kGOAPCoinCAvailableFact{13u};
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
     inline constexpr std::int32_t kAccessKeyPrice = 2;
     inline constexpr AIActionId kAIBuyKeyActionId{3u};
-    inline constexpr AIGoalId kGOAPReachDestinationGoal{50u};
+    inline constexpr AIGoalId kGOAPReachDestinationGoal{0u};
 
     namespace ai_access_key_detail
     {
@@ -68,14 +74,7 @@ export namespace rendern
         inline constexpr GameplayRouteNodeId kCoinCNode{4u};
         inline constexpr GameplayRouteNodeId kAccessKeyNode{5u};
         inline constexpr GameplayRouteNodeId kFinalGoalNode{6u};
-
-        [[nodiscard]] constexpr AIWorldFactId SpatialFact(const SpatialLocation location) noexcept
-        {
-            constexpr std::array facts{kGOAPAtStartFact, kGOAPAtCoinAFact, kGOAPAtCoinBFact,
-                kGOAPAtCoinCFact, kGOAPAtAccessKeyShopFact, kGOAPAtGoalFact};
-            return facts[static_cast<std::size_t>(location)];
-        }
-
+        
         [[nodiscard]] constexpr GameplayRouteNodeId SpatialNode(
             const SpatialLocation location) noexcept
         {
@@ -83,31 +82,11 @@ export namespace rendern
                 kAccessKeyNode, kFinalGoalNode};
             return nodes[static_cast<std::size_t>(location)];
         }
-
-        [[nodiscard]] constexpr AIActionContextId MoveContext(
-            const SpatialLocation source, const SpatialLocation target) noexcept
-        {
-            if (source == target ||
-                source == SpatialLocation::Count ||
-                target == SpatialLocation::Count)
-            {
-                return {};
-            }
-
-            const auto sourceIndex = static_cast<std::uint32_t>(source);
-            const auto targetIndex = static_cast<std::uint32_t>(target);
-
-            const auto contextValue = static_cast<AIActionContextId::ValueType>(
-                100u +
-                sourceIndex * static_cast<std::uint32_t>(kSpatialLocationCount) +
-                targetIndex);
-
-            return AIActionContextId{contextValue};
-        }
+        
 
         struct MoveTransition
         {
-            AIActionContextId contextId{};
+            std::string_view contextName{};
             SpatialLocation source{};
             SpatialLocation target{};
             GameplayRouteNodeId startNodeId{};
@@ -115,10 +94,10 @@ export namespace rendern
         };
         
         [[nodiscard]] constexpr MoveTransition Transition(
-            const SpatialLocation source, const SpatialLocation target) noexcept
+        const std::string_view contextName, const SpatialLocation source, const SpatialLocation target) noexcept
         {
             return MoveTransition{
-                .contextId = MoveContext(source, target),
+                .contextName = contextName,
                 .source = source,
                 .target = target,
                 .startNodeId = SpatialNode(source),
@@ -127,27 +106,106 @@ export namespace rendern
         }
 
         inline constexpr std::array kMoveTransitions{
-            Transition(SpatialLocation::Start, SpatialLocation::CoinA),
-            Transition(SpatialLocation::Start, SpatialLocation::CoinB),
-            Transition(SpatialLocation::Start, SpatialLocation::CoinC),
-            Transition(SpatialLocation::CoinA, SpatialLocation::CoinB),
-            Transition(SpatialLocation::CoinA, SpatialLocation::CoinC),
-            Transition(SpatialLocation::CoinA, SpatialLocation::AccessKeyShop),
-            Transition(SpatialLocation::CoinB, SpatialLocation::CoinA),
-            Transition(SpatialLocation::CoinB, SpatialLocation::CoinC),
-            Transition(SpatialLocation::CoinB, SpatialLocation::AccessKeyShop),
-            Transition(SpatialLocation::CoinC, SpatialLocation::CoinA),
-            Transition(SpatialLocation::CoinC, SpatialLocation::CoinB),
-            Transition(SpatialLocation::CoinC, SpatialLocation::AccessKeyShop),
-            Transition(SpatialLocation::AccessKeyShop, SpatialLocation::Goal)};
+            Transition("start_to_coin_a", SpatialLocation::Start, SpatialLocation::CoinA),
+            Transition("start_to_coin_b", SpatialLocation::Start, SpatialLocation::CoinB),
+            Transition("start_to_coin_c", SpatialLocation::Start, SpatialLocation::CoinC),
+            Transition("coin_a_to_coin_b", SpatialLocation::CoinA, SpatialLocation::CoinB),
+            Transition("coin_a_to_coin_c", SpatialLocation::CoinA, SpatialLocation::CoinC),
+            Transition("coin_a_to_access_key_shop", SpatialLocation::CoinA, SpatialLocation::AccessKeyShop),
+            Transition("coin_b_to_coin_a", SpatialLocation::CoinB, SpatialLocation::CoinA),
+            Transition("coin_b_to_coin_c", SpatialLocation::CoinB, SpatialLocation::CoinC),
+            Transition("coin_b_to_access_key_shop", SpatialLocation::CoinB, SpatialLocation::AccessKeyShop),
+            Transition("coin_c_to_coin_a", SpatialLocation::CoinC, SpatialLocation::CoinA),
+            Transition("coin_c_to_coin_b", SpatialLocation::CoinC, SpatialLocation::CoinB),
+            Transition("coin_c_to_access_key_shop", SpatialLocation::CoinC, SpatialLocation::AccessKeyShop),
+            Transition("access_key_shop_to_goal", SpatialLocation::AccessKeyShop, SpatialLocation::Goal)};
+
+        struct ResolvedMoveTransition
+        {
+            AIActionContextId contextId{};
+            SpatialLocation source{};
+            SpatialLocation target{};
+            GameplayRouteNodeId startNodeId{};
+            GameplayRouteNodeId goalNodeId{};
+        };
+
+        [[nodiscard]] std::optional<std::vector<ResolvedMoveTransition>>
+            ResolveMoveTransitions(const GameplayGOAPCompiledDefinition& compiled)
+        {
+            std::vector<ResolvedMoveTransition> resolved;
+            resolved.reserve(kMoveTransitions.size());
+            for (const MoveTransition& transition : kMoveTransitions)
+            {
+                const std::optional<AIActionContextId> context =
+                    compiled.FindActionContext(transition.contextName);
+                if (!context.has_value())
+                {
+                    return std::nullopt;
+                }
+                resolved.push_back({*context, transition.source, transition.target,
+                    transition.startNodeId, transition.goalNodeId});
+            }
+            return resolved;
+        }
+
+        [[nodiscard]] std::optional<AIActionContextId> FindMoveContext(
+            const GameplayGOAPCompiledDefinition& compiled,
+            const SpatialLocation source, const SpatialLocation target)
+        {
+            const auto transition = std::ranges::find_if(kMoveTransitions,
+                [&](const MoveTransition& candidate)
+                {
+                    return candidate.source == source && candidate.target == target;
+                });
+            return transition == kMoveTransitions.end()
+                ? std::nullopt : compiled.FindActionContext(transition->contextName);
+        }
+
+        struct AccessKeyFactBindings
+        {
+            AIWorldFactId hasAccessKey{};
+            AIWorldFactId atDestination{};
+            std::array<AIWorldFactId, 3> collected{};
+            std::array<AIWorldFactId, 3> available{};
+            std::array<AIWorldFactId, kSpatialLocationCount> spatial{};
+            AIWorldIntegerFactId coins{};
+        };
+
+        [[nodiscard]] std::optional<AccessKeyFactBindings> ResolveFactBindings(
+            const GameplayGOAPCompiledDefinition& compiled)
+        {
+            const auto boolean = [&](const std::string_view name)
+            {
+                return compiled.FindBooleanFact(name);
+            };
+            const auto hasKey=boolean("hasAccessKey"), destination=boolean("atDestination");
+            const std::array collected{boolean("coinACollected"), boolean("coinBCollected"), boolean("coinCCollected")};
+            const std::array available{boolean("coinAAvailable"), boolean("coinBAvailable"), boolean("coinCAvailable")};
+            const std::array spatial{boolean("atStart"), boolean("atCoinA"), boolean("atCoinB"),
+                boolean("atCoinC"), boolean("atAccessKeyShop"), boolean("atGoal")};
+            const auto coins=compiled.FindIntegerFact("coins");
+            if (!hasKey || !destination || !coins ||
+                std::ranges::any_of(collected, [](const auto& value){ return !value.has_value(); }) ||
+                std::ranges::any_of(available, [](const auto& value){ return !value.has_value(); }) ||
+                std::ranges::any_of(spatial, [](const auto& value){ return !value.has_value(); }))
+            {
+                return std::nullopt;
+            }
+            AccessKeyFactBindings result{.hasAccessKey=*hasKey,.atDestination=*destination,.coins=*coins};
+            for (std::size_t index=0; index<3; ++index) { result.collected[index]=*collected[index]; result.available[index]=*available[index]; }
+            for (std::size_t index=0; index<spatial.size(); ++index) { result.spatial[index]=*spatial[index]; }
+            return result;
+        }
 
         class AccessKeyMoveToRequestProvider final : 
             public IAIMoveToActionRequestProvider,
             public IAIActionReservationTargetProvider
         {
         public:
-            AccessKeyMoveToRequestProvider(GameplayWorld& world, GameplayRouteGraph routeGraph)
-                 : world_(world), routeGraph_(std::move(routeGraph))
+            AccessKeyMoveToRequestProvider(GameplayWorld& world, GameplayRouteGraph routeGraph,
+                std::vector<ResolvedMoveTransition> transitions)
+                 : world_(world), routeGraph_(std::move(routeGraph)),
+                   transitions_(std::move(transitions))
             {
             }
             
@@ -160,12 +218,12 @@ export namespace rendern
             EntityHandle ResolveReservationTarget(
                 const AIActionRuntimeContext& context) override
             {
-                const auto transition = std::ranges::find_if(kMoveTransitions,
-                    [&](const MoveTransition& candidate)
+                const auto transition = std::ranges::find_if(transitions_,
+                    [&](const ResolvedMoveTransition& candidate)
                     {
                         return candidate.contextId == context.contextId;
                     });
-                if (transition == kMoveTransitions.end() ||
+                if (transition == transitions_.end() ||
                     transition->target < SpatialLocation::CoinA ||
                     transition->target > SpatialLocation::CoinC)
                 {
@@ -177,12 +235,12 @@ export namespace rendern
             std::optional<AIMoveToActionRequest> ResolveRequest(
                 const AIActionRuntimeContext& context) override
             {
-                const auto transition = std::ranges::find_if(kMoveTransitions,
-                     [&](const MoveTransition& candidate)
+                const auto transition = std::ranges::find_if(transitions_,
+                    [&](const ResolvedMoveTransition& candidate)
                      {
                          return candidate.contextId == context.contextId;
                      });
-                if (transition == kMoveTransitions.end())
+                if (transition == transitions_.end())
                 {
                     return std::nullopt;
                 }
@@ -237,70 +295,50 @@ export namespace rendern
         private:
             GameplayWorld& world_;
             GameplayRouteGraph routeGraph_{};
+            std::vector<ResolvedMoveTransition> transitions_{};
             std::array<EntityHandle, 3> coinEntities_{};
         };
 
-        [[nodiscard]] std::optional<GameplayGOAPDecisionDefinition> BuildDefinition(
+        [[nodiscard]] std::optional<GameplayGOAPCompiledDefinition> LoadCompiledDefinition(
             const GameplayRouteGraph& routeGraph)
         {
-            GameplayGOAPDecisionDefinition definition{};
-            definition.goals = {AIGoalSelectionCandidate{
-                .goal=AIGoalDefinition{kGOAPReachDestinationGoal,
-                    {{kGOAPAtDestinationFact, true}}}, .baseScore=1.0f}};
-            for (const MoveTransition& transition : kMoveTransitions)
+            try
             {
-                const GameplayRouteSearchResult route = FindWeightedGameplayRoute(
-                    routeGraph, transition.startNodeId, transition.goalNodeId);
-                if (!route.Succeeded() || !route.totalCost.has_value() ||
-                    !std::isfinite(*route.totalCost) || *route.totalCost < 0.0f)
+                const GameplayGOAPDefinitionAsset asset =
+                    LoadGameplayGOAPDefinitionAsset("ai/goap/access_key.goap.json");
+                const std::array semanticActions{
+                    GameplayGOAPSemanticAction{"move_to", kAIMoveToActionId},
+                    GameplayGOAPSemanticAction{"buy_key", kAIBuyKeyActionId}};
+                std::vector<GameplayGOAPActionCostOverride> costs;
+                costs.reserve(kMoveTransitions.size());
+                for (const MoveTransition& transition : kMoveTransitions)
+                {
+                    const GameplayRouteSearchResult route = FindWeightedGameplayRoute(
+                         routeGraph, transition.startNodeId, transition.goalNodeId);
+                    if (!route.Succeeded() || !route.totalCost.has_value() ||
+                        !std::isfinite(*route.totalCost) || *route.totalCost < 0.0f)
+                    {
+                        return std::nullopt;
+                    }
+                    costs.push_back(GameplayGOAPActionCostOverride{
+                        .action = "move_to",
+                        .context = std::string{transition.contextName},
+                        .cost = *route.totalCost
+                    });
+                }
+                GameplayGOAPCompiledDefinition compiled =
+                   CompileGameplayGOAPDefinition(asset, semanticActions, costs);
+                if (!ResolveMoveTransitions(compiled).has_value() ||
+                    !compiled.FindActionContext("buy_key").has_value())
                 {
                     return std::nullopt;
                 }
-                AIActionDefinition action{.actionId=kAIMoveToActionId,
-                    .preconditions={{SpatialFact(transition.source), true}},
-                    .effects={{SpatialFact(transition.source), false},
-                        {SpatialFact(transition.target), true}},
-                    .contextId=transition.contextId, .baseCost=*route.totalCost};
-                if (transition.target == SpatialLocation::CoinA ||
-                    transition.target == SpatialLocation::CoinB ||
-                    transition.target == SpatialLocation::CoinC)
-                {
-                    const std::size_t coinIndex =
-                        static_cast<std::size_t>(transition.target) - 1u;
-                    constexpr std::array collectedFacts{kGOAPCoinACollectedFact,
-                        kGOAPCoinBCollectedFact, kGOAPCoinCCollectedFact};
-                    constexpr std::array availableFacts{kGOAPCoinAAvailableFact,
-                        kGOAPCoinBAvailableFact, kGOAPCoinCAvailableFact};
-                    action.preconditions.push_back({collectedFacts[coinIndex], false});
-                    action.preconditions.push_back({availableFacts[coinIndex], true});
-                    action.effects.push_back({collectedFacts[coinIndex], true});
-                    action.numericEffects.push_back(
-                        {kGOAPCoinCountFact, AINumericEffectOperation::Add, 1});
-                }
-                else if (transition.target == SpatialLocation::AccessKeyShop)
-                {
-                    action.preconditions.push_back({kGOAPHasAccessKeyFact, false});
-                    action.numericPreconditions.push_back({kGOAPCoinCountFact,
-                        AINumericConditionOperator::GreaterOrEqual, kAccessKeyPrice});
-                }
-                else if (transition.target == SpatialLocation::Goal)
-                {
-                    action.preconditions.push_back({kGOAPHasAccessKeyFact, true});
-                    action.preconditions.push_back({kGOAPAtDestinationFact, false});
-                    action.effects.push_back({kGOAPAtDestinationFact, true});
-                }
-                definition.actions.push_back(std::move(action));
+                return compiled;
             }
-            definition.actions.push_back(AIActionDefinition{.actionId=kAIBuyKeyActionId,
-                .preconditions={AIFactCondition{kGOAPHasAccessKeyFact, false},
-                    AIFactCondition{kGOAPAtAccessKeyShopFact, true}},
-                .effects={AIFactEffect{kGOAPHasAccessKeyFact, true}},
-                .baseCost=1.0f,
-                .numericPreconditions={{kGOAPCoinCountFact,
-                    AINumericConditionOperator::GreaterOrEqual, kAccessKeyPrice}},
-                .numericEffects={{kGOAPCoinCountFact,
-                    AINumericEffectOperation::Add, -kAccessKeyPrice}}});
-            return definition;
+            catch (const std::exception&)
+            {
+                return std::nullopt;
+            }
         }
 
         [[nodiscard]] GameplayRouteGraph BuildRouteGraph(
@@ -323,9 +361,11 @@ export namespace rendern
         }
         
         [[nodiscard]] AccessKeyMoveToRequestProvider BuildMoveToProvider(
-            GameplayWorld& world, GameplayRouteGraph routeGraph)
+            GameplayWorld& world, GameplayRouteGraph routeGraph,
+            std::vector<ResolvedMoveTransition> transitions)
         {
-            return AccessKeyMoveToRequestProvider{world, std::move(routeGraph)};
+            return AccessKeyMoveToRequestProvider{
+                world, std::move(routeGraph), std::move(transitions)};
         }
         
         class BuyKeyActionRuntime final : public IAIActionRuntime
@@ -333,9 +373,11 @@ export namespace rendern
         public:
             BuyKeyActionRuntime(AIAgentWorldState& facts, const GameplayWorld& world,
                 std::vector<GameplayWorldEvent>& events, const EntityHandle keyEntity,
-                const mathUtils::Vec3 keyPosition) noexcept
+                const mathUtils::Vec3 keyPosition, const AIWorldFactId hasAccessKeyFact,
+                const AIWorldIntegerFactId coinsFact) noexcept
                 : facts_(facts), world_(world), events_(events), keyEntity_(keyEntity),
-                  keyPosition_(keyPosition)
+                    keyPosition_(keyPosition), hasAccessKeyFact_(hasAccessKeyFact),
+                    coinsFact_(coinsFact)
             {
             }
 
@@ -343,8 +385,8 @@ export namespace rendern
                 const AIActionRuntimeContext& context) override
             {
                 if (context.actionId != kAIBuyKeyActionId || context.agentEntity == kNullEntity ||
-                    keyEntity_ == kNullEntity || facts_.IsFactSet(kGOAPHasAccessKeyFact) ||
-                    facts_.GetIntegerFact(kGOAPCoinCountFact) < kAccessKeyPrice)
+                    keyEntity_ == kNullEntity || facts_.IsFactSet(hasAccessKeyFact_) ||
+                    facts_.GetIntegerFact(coinsFact_) < kAccessKeyPrice)
                 {
                     return AIActionRuntimeResult::Failed;
                 }
@@ -383,6 +425,8 @@ export namespace rendern
             std::vector<GameplayWorldEvent>& events_;
             EntityHandle keyEntity_{kNullEntity};
             mathUtils::Vec3 keyPosition_{};
+            AIWorldFactId hasAccessKeyFact_{};
+            AIWorldIntegerFactId coinsFact_{};
             bool committed_{};
         };
 
@@ -390,8 +434,11 @@ export namespace rendern
         {
         public:
             BuyKeyActionBinding(AIAgentWorldState& facts, const GameplayWorld& world,
-                const EntityHandle keyEntity, const mathUtils::Vec3 keyPosition) noexcept
-                : facts_(facts), world_(world), keyEntity_(keyEntity), keyPosition_(keyPosition)
+                const EntityHandle keyEntity, const mathUtils::Vec3 keyPosition,
+                 const AIWorldFactId hasAccessKeyFact,
+                const AIWorldIntegerFactId coinsFact) noexcept
+            : facts_(facts), world_(world), keyEntity_(keyEntity), keyPosition_(keyPosition),
+                hasAccessKeyFact_(hasAccessKeyFact), coinsFact_(coinsFact)
             {
             }
 
@@ -408,7 +455,8 @@ export namespace rendern
                     return nullptr;
                 }
                 return std::make_unique<BuyKeyActionRuntime>(
-                    facts_, world_, *events_, keyEntity_, keyPosition_);
+                    facts_, world_, *events_, keyEntity_, keyPosition_,
+                    hasAccessKeyFact_, coinsFact_);
             }
 
         private:
@@ -416,6 +464,8 @@ export namespace rendern
             const GameplayWorld& world_;
             EntityHandle keyEntity_{kNullEntity};
             mathUtils::Vec3 keyPosition_{};
+            AIWorldFactId hasAccessKeyFact_{};
+            AIWorldIntegerFactId coinsFact_{};
             std::vector<GameplayWorldEvent>* events_{};
         };
 
@@ -423,7 +473,7 @@ export namespace rendern
         {
         public:
             AccessKeyDecision(const EntityHandle agent, GameplayGOAPDecisionDefinition definition,
-                AccessKeyMoveToRequestProvider moveToRequests,
+                AccessKeyFactBindings factBindings, AccessKeyMoveToRequestProvider moveToRequests,
                 GameplayWorld& world,
                 const GameplayTraversalLinkRegistry& traversalLinkRegistry,
                 const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
@@ -431,7 +481,7 @@ export namespace rendern
                 const EntityHandle coinAEntity, const EntityHandle coinBEntity,
                 const EntityHandle coinCEntity, const EntityHandle keyEntity,
                 const std::array<mathUtils::Vec3, kSpatialLocationCount>& spatialPositions)
-                : moveToRequests_(std::move(moveToRequests)),
+                : moveToRequests_(std::move(moveToRequests)), factBindings_(factBindings),
                     goap_(agent, std::move(definition)), agent_(agent), coinAEntity_(coinAEntity),
                     coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), keyEntity_(keyEntity),
                     spatialPositions_(spatialPositions)
@@ -458,7 +508,8 @@ export namespace rendern
                     kAIMoveToActionId, std::move(binding));
                 auto buyKeyBinding = std::make_unique<BuyKeyActionBinding>(
                 goap_.GetObservedState(), world, keyEntity_,
-                    spatialPositions_[static_cast<std::size_t>(SpatialLocation::AccessKeyShop)]);
+                    spatialPositions_[static_cast<std::size_t>(SpatialLocation::AccessKeyShop)],
+                    factBindings_.hasAccessKey, factBindings_.coins);
                 buyKeyBinding_ = buyKeyBinding.get();
                 bindingsInstalled_ = bindingsInstalled_ && goap_.InstallActionBinding(
                     kAIBuyKeyActionId, std::move(buyKeyBinding));
@@ -508,8 +559,8 @@ export namespace rendern
                     if (subject == coin && !facts.IsFactSet(collectedFact))
                     {
                         facts.SetFact(collectedFact, true);
-                        facts.SetIntegerFact(kGOAPCoinCountFact,
-                            facts.GetIntegerFact(kGOAPCoinCountFact) + 1);
+                        facts.SetIntegerFact(factBindings_.coins,
+                            facts.GetIntegerFact(factBindings_.coins) + 1);
                     }
                 };
                 for (const GameplayWorldEvent& event : events)
@@ -520,19 +571,19 @@ export namespace rendern
                     }
                     if (event.type == GameplayWorldEventType::PickupCollected)
                     {
-                        collectCoin(event.subject, coinAEntity_, kGOAPCoinACollectedFact);
-                        collectCoin(event.subject, coinBEntity_, kGOAPCoinBCollectedFact);
-                        collectCoin(event.subject, coinCEntity_, kGOAPCoinCCollectedFact);
+                        collectCoin(event.subject, coinAEntity_, factBindings_.collected[0]);
+                        collectCoin(event.subject, coinBEntity_, factBindings_.collected[1]);
+                        collectCoin(event.subject, coinCEntity_, factBindings_.collected[2]);
                     }
                     else if (event.type == GameplayWorldEventType::AccessKeyPurchased &&
                         event.subject == keyEntity_ &&
-                        !facts.IsFactSet(kGOAPHasAccessKeyFact))
+                        !facts.IsFactSet(factBindings_.hasAccessKey))
                     {
-                        const std::int32_t coins = facts.GetIntegerFact(kGOAPCoinCountFact);
+                        const std::int32_t coins = facts.GetIntegerFact(factBindings_.coins);
                         if (coins >= kAccessKeyPrice)
                         {
-                            facts.SetIntegerFact(kGOAPCoinCountFact, coins - kAccessKeyPrice);
-                            facts.SetFact(kGOAPHasAccessKeyFact, true);
+                            facts.SetIntegerFact(factBindings_.coins, coins - kAccessKeyPrice);
+                            facts.SetFact(factBindings_.hasAccessKey, true);
                         }
                     }
                 }
@@ -547,9 +598,9 @@ export namespace rendern
                     facts.SetFact(availableFact,
                     world.IsEntityValid(coin) && pickup != nullptr && !pickup->collected && !bReservedByOther);
                 };
-                observeAvailability(coinAEntity_, kGOAPCoinAAvailableFact);
-                observeAvailability(coinBEntity_, kGOAPCoinBAvailableFact);
-                observeAvailability(coinCEntity_, kGOAPCoinCAvailableFact);
+                observeAvailability(coinAEntity_, factBindings_.available[0]);
+                observeAvailability(coinBEntity_, factBindings_.available[1]);
+                observeAvailability(coinCEntity_, factBindings_.available[2]);
 
                 const auto* transform = world.TryGetTransform(agent_);
                 if (transform == nullptr)
@@ -573,18 +624,19 @@ export namespace rendern
                 {
                     for (std::size_t index = 0; index < kSpatialLocationCount; ++index)
                     {
-                        facts.SetFact(SpatialFact(static_cast<SpatialLocation>(index)),
+                        facts.SetFact(factBindings_.spatial[index],
                             index == static_cast<std::size_t>(*confirmedLocation));
                     }
                     if (*confirmedLocation == SpatialLocation::Goal &&
-                        facts.IsFactSet(kGOAPHasAccessKeyFact))
+                        facts.IsFactSet(factBindings_.hasAccessKey))
                     {
-                        facts.SetFact(kGOAPAtDestinationFact, true);
+                        facts.SetFact(factBindings_.atDestination, true);
                     }
                 }
             }
 
             AccessKeyMoveToRequestProvider moveToRequests_;
+            const AccessKeyFactBindings factBindings_;
             GameplayGOAPDecision goap_;
             EntityHandle agent_{};
             EntityHandle coinAEntity_{ kNullEntity };
@@ -671,15 +723,24 @@ export namespace rendern
         }
         GameplayRouteGraph routeGraph = ai_access_key_detail::BuildRouteGraph(startPosition,
             coinAPosition, coinBPosition, coinCPosition, keyPosition, goalPosition);
-        std::optional<GameplayGOAPDecisionDefinition> definition =
-            ai_access_key_detail::BuildDefinition(routeGraph);
-        if (!definition.has_value())
+        std::optional<GameplayGOAPCompiledDefinition> compiled =
+             ai_access_key_detail::LoadCompiledDefinition(routeGraph);
+        if (!compiled.has_value())
+        {
+            return nullptr;
+        }
+        const std::optional<ai_access_key_detail::AccessKeyFactBindings> factBindings =
+            ai_access_key_detail::ResolveFactBindings(*compiled);
+        std::optional<std::vector<ai_access_key_detail::ResolvedMoveTransition>> transitions =
+            ai_access_key_detail::ResolveMoveTransitions(*compiled);
+        if (!factBindings.has_value() || !transitions.has_value())
         {
             return nullptr;
         }
         auto decision = std::make_unique<ai_access_key_detail::AccessKeyDecision>(agent,
-        std::move(*definition),
-         ai_access_key_detail::BuildMoveToProvider(world, std::move(routeGraph)),
+        std::move(compiled->definition), *factBindings,
+         ai_access_key_detail::BuildMoveToProvider(
+             world, std::move(routeGraph), std::move(*transitions)),
          world, traversalLinkRegistry, traversalExecutorRegistry, reservationSystem,
           coinAEntity, coinBEntity, coinCEntity, keyEntity, 
           std::array{startPosition, coinAPosition, coinBPosition, coinCPosition, keyPosition, goalPosition});

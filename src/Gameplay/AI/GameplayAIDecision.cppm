@@ -9,6 +9,7 @@ export module core:gameplay_ai_decision;
 
 export import :gameplay_ai_decision_contracts;
 export import :gameplay_goap_decision;
+export import :gameplay_goap_definition_asset;
 export import :gameplay_ai_access_key_decision;
 import :gameplay_traversal_executor_registry;
 import :gameplay_traversal_link_registry;
