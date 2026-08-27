@@ -38,6 +38,18 @@ export namespace rendern
             ownedBindings_.push_back(std::move(binding));
             return true;
         }
+        
+        [[nodiscard]] bool HasCompleteActionBindings() const noexcept
+        {
+            for (const AIActionDefinition& action : definition_.actions)
+            {
+                if (action.actionId.IsValid() && !bindings_.Contains(action.actionId))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         void Update(AISystem& aiSystem, const GameplayWorld& world)
         {
@@ -48,8 +60,6 @@ export namespace rendern
         void Cancel(AISystem& aiSystem) noexcept
         {
             decision_.Cancel(aiSystem);
-            bindings_.Reset();
-            ownedBindings_.clear();
         }
 
         [[nodiscard]] AIPlanExecutionStatus GetStatus() const noexcept

@@ -433,40 +433,44 @@ export namespace rendern
         class BuyKeyActionBinding final : public IAIActionBinding
         {
         public:
-            BuyKeyActionBinding(AIAgentWorldState& facts, const GameplayWorld& world,
-                const EntityHandle keyEntity, const mathUtils::Vec3 keyPosition,
-                 const AIWorldFactId hasAccessKeyFact,
+            BuyKeyActionBinding(
+                AIAgentWorldState& facts,
+                const GameplayWorld& world,
+                std::vector<GameplayWorldEvent>& events,
+                const EntityHandle keyEntity,
+                const mathUtils::Vec3 keyPosition,
+                const AIWorldFactId hasAccessKeyFact,
                 const AIWorldIntegerFactId coinsFact) noexcept
-            : facts_(facts), world_(world), keyEntity_(keyEntity), keyPosition_(keyPosition),
-                hasAccessKeyFact_(hasAccessKeyFact), coinsFact_(coinsFact)
+                : facts_(facts),
+                  world_(world),
+                  events_(events),
+                  keyEntity_(keyEntity),
+                  keyPosition_(keyPosition),
+                  hasAccessKeyFact_(hasAccessKeyFact),
+                  coinsFact_(coinsFact)
             {
             }
-
-            void SetEventOutput(std::vector<GameplayWorldEvent>* events) noexcept
-            {
-                events_ = events;
-            }
-
+            
             [[nodiscard]] std::unique_ptr<IAIActionRuntime> CreateRuntime(
                 const AIActionRuntimeContext& context) override
             {
-                if (context.actionId != kAIBuyKeyActionId || events_ == nullptr)
+                if (context.actionId != kAIBuyKeyActionId)
                 {
                     return nullptr;
                 }
                 return std::make_unique<BuyKeyActionRuntime>(
-                    facts_, world_, *events_, keyEntity_, keyPosition_,
+                    facts_, world_, events_, keyEntity_, keyPosition_,
                     hasAccessKeyFact_, coinsFact_);
             }
 
         private:
             AIAgentWorldState& facts_;
             const GameplayWorld& world_;
+            std::vector<GameplayWorldEvent>& events_;
             EntityHandle keyEntity_{kNullEntity};
             mathUtils::Vec3 keyPosition_{};
             AIWorldFactId hasAccessKeyFact_{};
             AIWorldIntegerFactId coinsFact_{};
-            std::vector<GameplayWorldEvent>* events_{};
         };
 
         class AccessKeyDecision final : public GameplayAIDecisionInstance
@@ -507,12 +511,17 @@ export namespace rendern
                 bindingsInstalled_ = goap_.InstallActionBinding(
                     kAIMoveToActionId, std::move(binding));
                 auto buyKeyBinding = std::make_unique<BuyKeyActionBinding>(
-                goap_.GetObservedState(), world, keyEntity_,
-                    spatialPositions_[static_cast<std::size_t>(SpatialLocation::AccessKeyShop)],
-                    factBindings_.hasAccessKey, factBindings_.coins);
-                buyKeyBinding_ = buyKeyBinding.get();
+                    goap_.GetObservedState(),
+                    world,
+                    runtimeEvents_,
+                    keyEntity_,
+                    spatialPositions_[
+                        static_cast<std::size_t>(SpatialLocation::AccessKeyShop)],
+                    factBindings_.hasAccessKey,
+                    factBindings_.coins);
                 bindingsInstalled_ = bindingsInstalled_ && goap_.InstallActionBinding(
                     kAIBuyKeyActionId, std::move(buyKeyBinding));
+                bindingsInstalled_ = bindingsInstalled_ && goap_.HasCompleteActionBindings();
             }
 
             [[nodiscard]] bool IsConfigured() const noexcept
@@ -527,15 +536,13 @@ export namespace rendern
                     const std::span<const GameplayWorldEvent> inputEvents = observation.events;
                     Observe_(inputEvents, observation.world, goap_.GetObservedState());
                 }
-                const std::size_t eventCountBeforeRuntime = observation.eventOutput == nullptr
-                    ? 0u : observation.eventOutput->size();
-                buyKeyBinding_->SetEventOutput(observation.eventOutput);
+                runtimeEvents_.clear();
                 goap_.Update(aiSystem, observation.world);
-                if (observation.eventOutput != nullptr &&
-                    observation.eventOutput->size() > eventCountBeforeRuntime)
+                Observe_(runtimeEvents_, observation.world, goap_.GetObservedState());
+                if (observation.eventOutput != nullptr)
                 {
-                    Observe_(std::span<const GameplayWorldEvent>{*observation.eventOutput}.subspan(
-                        eventCountBeforeRuntime), observation.world, goap_.GetObservedState());
+                    observation.eventOutput->insert(observation.eventOutput->end(),
+                        runtimeEvents_.begin(), runtimeEvents_.end());
                 }
             }
 
@@ -637,6 +644,7 @@ export namespace rendern
 
             AccessKeyMoveToRequestProvider moveToRequests_;
             const AccessKeyFactBindings factBindings_;
+            std::vector<GameplayWorldEvent> runtimeEvents_{};
             GameplayGOAPDecision goap_;
             EntityHandle agent_{};
             EntityHandle coinAEntity_{ kNullEntity };
@@ -644,7 +652,6 @@ export namespace rendern
             EntityHandle coinCEntity_{ kNullEntity };
             EntityHandle keyEntity_{ kNullEntity };
             std::array<mathUtils::Vec3, kSpatialLocationCount> spatialPositions_{};
-            BuyKeyActionBinding* buyKeyBinding_{};
             GameplayObjectReservationSystem* reservationSystem_{};
             mathUtils::Vec3 finalGoalPosition_{};
             bool bindingsInstalled_{};

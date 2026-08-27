@@ -1,7 +1,12 @@
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <array>
+#include <memory>
+#include <span>
 #include <utility>
+#include <vector>
+
 #include "TestSupport/TestThreadAffinity.h"
 #include "unit/RenderTests/LevelInstantiateTestHelper.h"
 
@@ -11,6 +16,22 @@ using namespace rendern;
 
 namespace
 {
+    class LifetimeBinding final : public IAIActionBinding
+    {
+    public:
+        explicit LifetimeBinding(bool& destroyed) noexcept : destroyed_(&destroyed) {}
+        ~LifetimeBinding() override { *destroyed_ = true; }
+
+        [[nodiscard]] std::unique_ptr<IAIActionRuntime> CreateRuntime(
+            const AIActionRuntimeContext&) override
+        {
+            return nullptr;
+        }
+
+    private:
+        bool* destroyed_{};
+    };
+    
     GameplayUpdateContext Context(LevelAsset& level, LevelInstance& instance, Scene& scene,
         const GameplayRuntimeMode mode)
     {
@@ -46,6 +67,71 @@ namespace
     {
         return ai_access_key_detail::FindMoveContext(definition, source, target).value();
     }
+}
+
+TEST(GameplayGOAPDecision, SemanticActionBindingsMustBeComplete)
+{
+    constexpr AIActionId sharedAction{3u};
+    constexpr AIActionId otherAction{7u};
+    GameplayGOAPDecisionDefinition definition{};
+    definition.actions = {
+        AIActionDefinition{.actionId = sharedAction, .contextId = AIActionContextId{10u}},
+        AIActionDefinition{.actionId = sharedAction, .contextId = AIActionContextId{11u}},
+        AIActionDefinition{.actionId = otherAction, .contextId = AIActionContextId{12u}}};
+
+    GameplayGOAPDecision decision{EntityHandle{1u}, std::move(definition)};
+    EXPECT_FALSE(decision.HasCompleteActionBindings());
+
+    bool sharedDestroyed = false;
+    ASSERT_TRUE(decision.InstallActionBinding(
+        sharedAction, std::make_unique<LifetimeBinding>(sharedDestroyed)));
+    EXPECT_FALSE(decision.HasCompleteActionBindings());
+
+    bool otherDestroyed = false;
+    ASSERT_TRUE(decision.InstallActionBinding(
+        otherAction, std::make_unique<LifetimeBinding>(otherDestroyed)));
+    EXPECT_TRUE(decision.HasCompleteActionBindings());
+}
+
+TEST(GameplayGOAPDecision, CancelPreservesInstalledCapabilityLifetime)
+{
+    bool destroyed = false;
+    AISystem aiSystem{};
+    {
+        GameplayGOAPDecision decision{EntityHandle{1u}, {}};
+        ASSERT_TRUE(decision.InstallActionBinding(
+            AIActionId{3u}, std::make_unique<LifetimeBinding>(destroyed)));
+
+        decision.Cancel(aiSystem);
+
+        EXPECT_FALSE(destroyed);
+    }
+    EXPECT_TRUE(destroyed);
+}
+
+TEST(GameplayGOAPDecision, DuplicateBindingDoesNotReplaceInstalledCapability)
+{
+    constexpr AIActionId actionId{3u};
+
+    bool firstDestroyed = false;
+    bool duplicateDestroyed = false;
+
+    {
+        GameplayGOAPDecision decision{EntityHandle{1u}, {}};
+
+        ASSERT_TRUE(decision.InstallActionBinding(
+            actionId, std::make_unique<LifetimeBinding>(firstDestroyed)));
+
+        EXPECT_FALSE(decision.InstallActionBinding(
+            actionId, std::make_unique<LifetimeBinding>(duplicateDestroyed)));
+
+        // Failed duplicate registration owns nothing. The rejected binding is
+        // destroyed immediately while the original capability remains installed.
+        EXPECT_FALSE(firstDestroyed);
+        EXPECT_TRUE(duplicateDestroyed);
+    }
+
+    EXPECT_TRUE(firstDestroyed);
 }
 
 TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
@@ -764,10 +850,151 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
         initialCoinCount - kAccessKeyPrice);
     EXPECT_TRUE(observed.IsFactSet(kGOAPHasAccessKeyFact));
     
+    // ---------------------------------------------------------------------
+    // Runtime-generated purchase event + aliased input/output
+    // ---------------------------------------------------------------------
+    
+    // A fresh decision lets the real BuyKey runtime produce the purchase event.
+    // This exercises runtime -> domain observation -> outward event composition
+    // rather than injecting AccessKeyPurchased as an input event.
+    auto runtimeEventDecision = CreateAccessKeyAIDecision(
+        agent, level, world, links, executors, &reservations);
+    ASSERT_NE(runtimeEventDecision, nullptr);
+
+    AIAgentWorldState& runtimeEventFacts =
+        const_cast<AIAgentWorldState&>(runtimeEventDecision->GetObservedState());
+    runtimeEventFacts.SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
+
+    GameplayTransformComponent* agentTransform = world.TryGetTransform(agent);
+    const GameplayTransformComponent* keyTransform = world.TryGetTransform(key);
+    ASSERT_NE(agentTransform, nullptr);
+    ASSERT_NE(keyTransform, nullptr);
+    agentTransform->position = keyTransform->position;
+
+    AISystem runtimeEventAI{};
+
+    // Deliberately use the same vector as both observation input and output.
+    // AccessKeyDecision must consume the input span before appending runtime
+    // events to the vector, so reallocation cannot invalidate active reads.
+    std::vector<GameplayWorldEvent> aliasedEvents{
+        GameplayWorldEvent{
+            GameplayWorldEventType::PickupCollected,
+            otherAgent,
+            coinA
+        }
+    };
+
+    bool purchaseConfirmed = false;
+
+    for (int updateIndex = 0; updateIndex < 4 && !purchaseConfirmed; ++updateIndex)
+    {
+        // Keep one benign input event for every update. A previous runtime
+        // output must not become an accidental input to the next iteration.
+        aliasedEvents.resize(1u);
+
+        const bool hadAccessKey =
+            runtimeEventFacts.IsFactSet(kGOAPHasAccessKeyFact);
+
+        runtimeEventDecision->Update(
+            runtimeEventAI,
+            GameplayAIObservationContext{
+                world,
+                std::span<const GameplayWorldEvent>{aliasedEvents},
+                &aliasedEvents
+            });
+
+        const bool hasAccessKey =
+            runtimeEventFacts.IsFactSet(kGOAPHasAccessKeyFact);
+
+        if (!hadAccessKey && hasAccessKey)
+        {
+            purchaseConfirmed = true;
+
+            // The purchase is confirmed from the runtime-generated event
+            // during the same decision update that emitted it.
+            EXPECT_EQ(
+                runtimeEventFacts.GetIntegerFact(kGOAPCoinCountFact),
+                0);
+
+            EXPECT_EQ(
+                std::ranges::count_if(
+                    aliasedEvents,
+                    [&](const GameplayWorldEvent& event)
+                    {
+                        return event.type ==
+                                   GameplayWorldEventType::AccessKeyPurchased &&
+                               event.instigator == agent &&
+                               event.subject == key;
+                    }),
+                1);
+
+            // The original aliased input event is preserved and exactly one
+            // new runtime event is appended.
+            ASSERT_EQ(aliasedEvents.size(), 2u);
+            EXPECT_EQ(aliasedEvents.front().instigator, otherAgent);
+            EXPECT_EQ(aliasedEvents.front().subject, coinA);
+        }
+    }
+
+    EXPECT_TRUE(purchaseConfirmed);
+    runtimeEventDecision->Cancel(runtimeEventAI);
     decision->Update(ai,GameplayAIObservationContext{world,purchaseEvent});
     EXPECT_EQ(observed.GetIntegerFact(kGOAPCoinCountFact),
         initialCoinCount - kAccessKeyPrice);
     EXPECT_TRUE(observed.IsFactSet(kGOAPHasAccessKeyFact));
+    
+    // ---------------------------------------------------------------------
+    // Runtime-generated purchase with no outward event sink
+    // ---------------------------------------------------------------------
+    
+    auto nullOutputDecision = CreateAccessKeyAIDecision(
+       agent, level, world, links, executors, &reservations);
+    ASSERT_NE(nullOutputDecision, nullptr);
+
+    AIAgentWorldState& nullOutputFacts =
+        const_cast<AIAgentWorldState&>(nullOutputDecision->GetObservedState());
+    nullOutputFacts.SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
+
+    agentTransform->position = keyTransform->position;
+
+    AISystem nullOutputAI{};
+    bool nullOutputPurchaseConfirmed = false;
+
+    for (int updateIndex = 0;
+         updateIndex < 4 && !nullOutputPurchaseConfirmed;
+         ++updateIndex)
+    {
+        const bool hadAccessKey =
+            nullOutputFacts.IsFactSet(kGOAPHasAccessKeyFact);
+
+        nullOutputDecision->Update(
+            nullOutputAI,
+            GameplayAIObservationContext{
+                world,
+                {},
+                nullptr
+            });
+
+        const bool hasAccessKey =
+            nullOutputFacts.IsFactSet(kGOAPHasAccessKeyFact);
+
+        if (!hadAccessKey && hasAccessKey)
+        {
+            nullOutputPurchaseConfirmed = true;
+
+            EXPECT_EQ(
+                nullOutputFacts.GetIntegerFact(kGOAPCoinCountFact),
+                0);
+        }
+    }
+
+    EXPECT_TRUE(nullOutputPurchaseConfirmed);
+    nullOutputDecision->Cancel(nullOutputAI);
+    
+    // ---------------------------------------------------------------------
+    // Existing cancellation / legacy reservation fallback coverage
+    // ---------------------------------------------------------------------
+    
     decision->Cancel(ai);
     world.RemoveInteractionPoint(coinB);
     world.RemoveInteractionPoint(coinC);
