@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -18,12 +19,14 @@ export namespace rendern
     {
         AIWorldFactId factId{};
         bool value{};
+		std::string name{};
     };
 
     struct AIDebugIntegerFactView
     {
         AIWorldIntegerFactId factId{};
         std::int32_t value{};
+		std::string name{};
     };
 
     struct AIDebugPlanStepView
@@ -32,6 +35,8 @@ export namespace rendern
         AIActionContextId contextId{};
         float cost{};
         bool bCostResolved{};
+		std::string actionName{};
+        std::string contextName{};
     };
 
     struct AIDebugFailedBooleanConditionView
@@ -39,6 +44,7 @@ export namespace rendern
         AIWorldFactId factId{};
         bool expected{};
         bool actual{};
+		std::string factName{};
     };
 
     struct AIDebugFailedNumericConditionView
@@ -47,6 +53,7 @@ export namespace rendern
         AINumericConditionOperator comparison{AINumericConditionOperator::Equal};
         std::int32_t expected{};
         std::int32_t actual{};
+		std::string factName{};
     };
 
     struct AIDebugActionApplicabilityView
@@ -56,6 +63,8 @@ export namespace rendern
         bool applicable{};
         std::vector<AIDebugFailedBooleanConditionView> failedBooleanConditions{};
         std::vector<AIDebugFailedNumericConditionView> failedNumericConditions{};
+		std::string actionName{};
+        std::string contextName{};
     };
 
     struct AIDebugViewModel
@@ -63,6 +72,7 @@ export namespace rendern
         std::vector<AIDebugBooleanFactView> booleanFacts{};
         std::vector<AIDebugIntegerFactView> integerFacts{};
         std::optional<AIGoalId> selectedGoalId{};
+		std::string selectedGoalName{};
         std::vector<AIDebugPlanStepView> selectedPlan{};
         float totalPlanCost{};
         bool bPlanCostComplete{true};
@@ -70,6 +80,24 @@ export namespace rendern
         std::optional<AIPlanExecutionStatus> executionStatus{};
         std::optional<std::size_t> currentStepIndex{};
         std::vector<AIDebugActionApplicabilityView> actionApplicability{};
+    };
+
+	struct AINamedBooleanFact { AIWorldFactId id{}; std::string name{}; };
+    struct AINamedIntegerFact { AIWorldIntegerFactId id{}; std::string name{}; };
+    struct AINamedGoal { AIGoalId id{}; std::string name{}; };
+    struct AINamedAction
+    {
+        AIActionId actionId{};
+        AIActionContextId contextId{};
+        std::string actionName{};
+        std::string contextName{};
+    };
+    struct AIDefinitionMetadata
+    {
+        std::vector<AINamedBooleanFact> booleanFacts{};
+        std::vector<AINamedIntegerFact> integerFacts{};
+        std::vector<AINamedGoal> goals{};
+        std::vector<AINamedAction> actions{};
     };
 
     [[nodiscard]] AIDebugViewModel BuildAIDebugViewModel(

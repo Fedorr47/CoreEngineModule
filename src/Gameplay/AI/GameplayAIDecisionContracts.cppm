@@ -5,6 +5,7 @@
 
 export module core:gameplay_ai_decision_contracts;
 
+export import :ai_debug_view_model;
 import :ai_plan_execution;
 import :ai_system;
 import :gameplay;
@@ -27,5 +28,6 @@ export namespace rendern
         virtual void Cancel(AISystem& aiSystem) noexcept = 0;
         [[nodiscard]] virtual AIPlanExecutionStatus GetStatus() const noexcept = 0;
         [[nodiscard]] virtual const AIAgentWorldState& GetObservedState() const noexcept = 0;
+        [[nodiscard]] virtual AIDebugViewModel BuildDebugViewModel() const = 0;
     };
 }

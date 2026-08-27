@@ -71,6 +71,7 @@ export namespace rendern::ui
         rendern::GameplayRuntime* gameplayRuntime = nullptr);
     
     void DrawInputBindingsUI(rendern::GameplayRuntime* gameplayRuntime);
+    void DrawGOAPDebugUI(rendern::GameplayRuntime* gameplayRuntime);
 }
 
 // Implementation is split into .inl files for readability.
@@ -96,6 +97,7 @@ namespace rendern::ui
 #include "ImGuiDebugUI_Level.inl"
 #include "Animation/ImGuiAnimationUI.inl"
 #include "ImGuiDebugUI_InputBindings.inl"
+#include "ImGuiDebugUI_GOAP.inl"
 
 namespace rendern::ui
 {
@@ -231,6 +233,10 @@ namespace rendern::ui
     }
     
     void DrawInputBindingsUI(rendern::GameplayRuntime* gameplayRuntime [[maybe_unused]])
+    {
+    }
+    
+    void DrawGOAPDebugUI(rendern::GameplayRuntime* gameplayRuntime [[maybe_unused]])
     {
     }
     

@@ -636,6 +636,18 @@
             return found == activeAIDecisions_.end() ? nullptr : &found->second->GetObservedState();
         }
 
+        std::vector<GameplayAIDebugAgentView> GameplayRuntime::BuildAIDebugAgentViews() const
+        {
+            std::vector<GameplayAIDebugAgentView> result;
+            result.reserve(activeAIDecisions_.size());
+            for (const auto& [agent, decision] : activeAIDecisions_)
+            {
+                result.push_back({agent, decision->BuildDebugViewModel()});
+            }
+            std::ranges::sort(result, {}, &GameplayAIDebugAgentView::agent);
+            return result;
+        }
+
         bool GameplayRuntime::HasAIDecisionDefinition(const std::string_view definitionId) const noexcept
         {
             return IsGameplayAIDecisionDefinitionRegistered(definitionId);

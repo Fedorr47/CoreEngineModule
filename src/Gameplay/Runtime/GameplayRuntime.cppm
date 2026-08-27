@@ -63,6 +63,12 @@ namespace ProfileUtils
 
 export namespace rendern
 {
+    struct GameplayAIDebugAgentView
+    {
+        EntityHandle agent{kNullEntity};
+        AIDebugViewModel snapshot{};
+    };
+    
     // TODO: maybe transform to a facade pattern
     class GameplayRuntime
     {
@@ -139,6 +145,7 @@ export namespace rendern
         void CancelAIDecision(EntityHandle agentEntity) noexcept;
         [[nodiscard]] AIPlanExecutionStatus GetAIDecisionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] const AIAgentWorldState* GetAIDecisionObservedState(EntityHandle agentEntity) const noexcept;
+        [[nodiscard]] std::vector<GameplayAIDebugAgentView> BuildAIDebugAgentViews() const;
         [[nodiscard]] bool HasAIDecisionDefinition(std::string_view definitionId) const noexcept;
         [[nodiscard]] bool RegisterGameplayTraversalLink(GameplayTraversalLink link);
         [[nodiscard]] bool RemoveGameplayTraversalLink(GameplayTraversalLinkHandle handle) noexcept;

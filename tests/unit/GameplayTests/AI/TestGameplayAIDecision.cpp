@@ -112,7 +112,12 @@ TEST(GameplayGOAPDecision, BuildsDebugSnapshotFromOwnedStateAndDefinition)
                 .contextId = contextId,
                 .baseCost = 2.0f,
                 .numericPreconditions = {AINumericCondition{integerFact,
-                    AINumericConditionOperator::GreaterOrEqual, 3}}}}}};
+                    AINumericConditionOperator::GreaterOrEqual, 3}}}},
+             .metadata = {
+                 .booleanFacts = {{booleanFact, "enabled"}},
+                 .integerFacts = {{integerFact, "resource"}},
+                 .goals = {{AIGoalId{24u}, "generic_goal"}},
+                 .actions = {{actionId, contextId, "generic_action", "generic_context"}}}}};
     decision.GetObservedState().SetIntegerFact(integerFact, 2);
     AISystem aiSystem{};
     const GameplayWorld world{};
@@ -133,6 +138,20 @@ TEST(GameplayGOAPDecision, BuildsDebugSnapshotFromOwnedStateAndDefinition)
     EXPECT_FALSE(snapshot.actionApplicability[0].applicable);
     EXPECT_EQ(snapshot.selectedGoalId, AIGoalId{24u});
     EXPECT_EQ(snapshot.decisionStatus, AIPlanExecutionStatus::Failed);
+    
+    const AIDebugViewModel namedSnapshot = decision.BuildDebugViewModel();
+    ASSERT_EQ(namedSnapshot.booleanFacts.size(), 1u);
+    EXPECT_EQ(namedSnapshot.booleanFacts[0].name, "enabled");
+    EXPECT_FALSE(namedSnapshot.booleanFacts[0].value);
+    ASSERT_EQ(namedSnapshot.integerFacts.size(), 1u);
+    EXPECT_EQ(namedSnapshot.integerFacts[0].name, "resource");
+    EXPECT_EQ(namedSnapshot.selectedGoalName, "generic_goal");
+    EXPECT_EQ(namedSnapshot.actionApplicability[0].actionName, "generic_action");
+    EXPECT_EQ(namedSnapshot.actionApplicability[0].contextName, "generic_context");
+    EXPECT_EQ(namedSnapshot.actionApplicability[0].failedBooleanConditions[0].factName,
+        "enabled");
+    EXPECT_EQ(namedSnapshot.actionApplicability[0].failedNumericConditions[0].factName,
+        "resource");
     EXPECT_FALSE(snapshot.executionStatus.has_value());
 }
 

@@ -546,6 +546,10 @@ export namespace rendern
             {
                 return goap_.GetObservedState();
             }
+            [[nodiscard]] AIDebugViewModel BuildDebugViewModel() const override
+            {
+                return goap_.BuildDebugViewModel();
+            }
 
         private:
             AccessKeyMoveToRequestProvider moveToRequests_;

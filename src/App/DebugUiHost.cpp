@@ -189,6 +189,7 @@ namespace appUi
         rendern::ui::DrawLevelEditorUI(levelAsset, levelInstance, assets, scene, cameraController);
         rendern::ui::DrawAnimationDebugUI(levelAsset, levelInstance, scene, gameplayRuntime);
         rendern::ui::DrawInputBindingsUI(gameplayRuntime);
+        rendern::ui::DrawGOAPDebugUI(gameplayRuntime);
 
         ImGui::Render();
         return static_cast<const void*>(ImGui::GetDrawData());

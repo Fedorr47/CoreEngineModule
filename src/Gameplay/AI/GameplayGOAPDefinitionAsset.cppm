@@ -381,6 +381,9 @@ namespace rendern
                   "boolean fact capacity exceeded");
         }
         compiled.booleanFacts_.emplace(fact.name, AIWorldFactId{booleanIndex++});
+        compiled.definition.metadata.booleanFacts.push_back(
+            {AIWorldFactId{static_cast<AIWorldFactId::ValueType>(booleanIndex - 1u)},
+                fact.name});
       } else {
         if (integerIndex >= AIAgentWorldState::IntegerFactCapacity) {
           Invalid(asset.source, "facts", fact.name,
@@ -388,6 +391,10 @@ namespace rendern
         }
         compiled.integerFacts_.emplace(fact.name,
                                        AIWorldIntegerFactId{integerIndex++});
+        compiled.definition.metadata.integerFacts.push_back(
+            {AIWorldIntegerFactId{
+                static_cast<AIWorldIntegerFactId::ValueType>(integerIndex - 1u)},
+                fact.name});
       }
     }
     const auto booleanId = [&](const std::string &name,
@@ -441,6 +448,8 @@ namespace rendern
             {booleanId(condition.fact, "goals", authored.name), condition.value});
       }
       compiled.definition.goals.push_back(std::move(goal));
+      compiled.definition.metadata.goals.push_back(
+          {AIGoalId{static_cast<AIGoalId::ValueType>(index)}, authored.name});
     }
     std::unordered_map<std::string, AIActionId> actions;
     std::unordered_set<AIActionId::ValueType> actionIds;
@@ -543,6 +552,8 @@ namespace rendern
              value.value});
       }
       compiled.definition.actions.push_back(std::move(action));
+      compiled.definition.metadata.actions.push_back(
+          {semantic->second, context->second, authored.action, authored.context});
     }
     for (const auto &overrideValue : overrides) {
       const bool matched =
