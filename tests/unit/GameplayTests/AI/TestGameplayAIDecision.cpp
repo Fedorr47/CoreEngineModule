@@ -13,6 +13,7 @@
 import core;
 
 using namespace rendern;
+using namespace ai_access_key_detail;
 
 namespace
 {
@@ -733,6 +734,66 @@ TEST(GameplayAIDecision, LowerEntityHandleWinsReservedCoinContentionRegardlessOf
     Tick(runtime, game);
 
     EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC), lowAgent);
+}
+
+TEST(GameplayAIDecisionSetup, ValidScenarioResolvesCompleteComposition)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    test::LevelInstantiateHarness harness{};
+    LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
+    LevelInstance instance = harness.Instantiate(level);
+    GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, harness.GetScene());
+    const auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
+    Tick(runtime, game);
+
+    const auto ensureNamedEntity = [&](const std::string_view name)
+    {
+        if (const EntityHandle existing = FindNodeEntity(runtime, level, name);
+            existing != kNullEntity)
+        {
+            return existing;
+        }
+        const auto node = std::ranges::find_if(level.nodes,
+            [&](const LevelNode& value) { return value.name == name; });
+        EXPECT_NE(node, level.nodes.end());
+        return runtime.SpawnNodeBoundEntity(game,
+            static_cast<int>(std::distance(level.nodes.begin(), node)), false);
+    };
+    const EntityHandle coinA = ensureNamedEntity("GOAP_Coin_A");
+    const EntityHandle coinB = ensureNamedEntity("GOAP_Coin_B");
+    const EntityHandle coinC = ensureNamedEntity("GOAP_Coin_C");
+    const EntityHandle key = ensureNamedEntity("GOAP_Access_Key");
+    GameplayWorld& world = runtime.GetWorld();
+    world.SetPickup(coinA, {});
+    world.SetPickup(coinB, {});
+    world.SetPickup(coinC, {});
+
+    const auto setup = BuildAccessKeyDecisionSetup(level, world);
+
+    ASSERT_TRUE(setup.has_value());
+    EXPECT_EQ(setup->coinEntities, (std::array{coinA, coinB, coinC}));
+    EXPECT_EQ(setup->keyEntity, key);
+    EXPECT_FALSE(setup->definition.actions.empty());
+    EXPECT_EQ(setup->moveTransitions.size(), ai_access_key_detail::kMoveTransitions.size());
+
+    world.RemovePickup(coinB);
+    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
+    world.SetPickup(coinB, {});
+    world.DestroyEntity(key);
+    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
+}
+
+TEST(GameplayAIDecisionSetup, MissingRequiredNamedNodeFailsTransactionally)
+{
+    LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
+    const auto coinB = std::ranges::find_if(level.nodes,
+        [](const LevelNode& node) { return node.name == "GOAP_Coin_B"; });
+    ASSERT_NE(coinB, level.nodes.end());
+    coinB->alive = false;
+
+    GameplayWorld world{};
+    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
 }
 
 TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
