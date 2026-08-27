@@ -6,7 +6,7 @@
 
 export module core:gameplay_goap_decision;
 
-import :ai_decision_runtime;
+export import :ai_debug_view_model;
 import :ai_action_binding;
 import :ai_system;
 import :gameplay;
@@ -75,6 +75,14 @@ export namespace rendern
         [[nodiscard]] AIAgentWorldState& GetObservedState() noexcept
         {
             return facts_;
+        }
+        
+        [[nodiscard]] AIDebugViewModel BuildDebugViewModel(
+            const std::span<const AIWorldFactId> booleanFactIds,
+            const std::span<const AIWorldIntegerFactId> integerFactIds) const
+        {
+            return BuildAIDebugViewModel(facts_, booleanFactIds, integerFactIds,
+                definition_.actions, decision_);
         }
 
     private:

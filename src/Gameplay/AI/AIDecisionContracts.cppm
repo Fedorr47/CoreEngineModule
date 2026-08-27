@@ -144,13 +144,20 @@ export namespace rendern
 		std::vector<AIPlanStep> steps{};
 	};
 	
+	[[nodiscard]] bool EvaluateFactCondition(
+		const AIAgentWorldState& worldState,
+		const AIFactCondition& condition) noexcept
+	{
+		return worldState.IsFactSet(condition.factId) == condition.bExpectedValue;
+	}
+	
 	[[nodiscard]] bool AreFactConditionsSatisfied(
 		const AIAgentWorldState& worldState,
 		std::span<const AIFactCondition> conditions) noexcept
 	{
 		for (const AIFactCondition& condition : conditions)
 		{
-			if (worldState.IsFactSet(condition.factId) != condition.bExpectedValue)
+			if (!EvaluateFactCondition(worldState, condition))
 			{
 				return false;
 			}

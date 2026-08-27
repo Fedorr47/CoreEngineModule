@@ -94,6 +94,47 @@ TEST(GameplayGOAPDecision, SemanticActionBindingsMustBeComplete)
     EXPECT_TRUE(decision.HasCompleteActionBindings());
 }
 
+TEST(GameplayGOAPDecision, BuildsDebugSnapshotFromOwnedStateAndDefinition)
+{
+    constexpr AIWorldFactId booleanFact{20u};
+    constexpr AIWorldIntegerFactId integerFact{21u};
+    constexpr AIActionId actionId{22u};
+    constexpr AIActionContextId contextId{23u};
+    GameplayGOAPDecision decision{EntityHandle{1u},
+        GameplayGOAPDecisionDefinition{
+            .goals = {AIGoalSelectionCandidate{
+                .goal = AIGoalDefinition{.goalId = AIGoalId{24u},
+                    .desiredFacts = {AIFactCondition{booleanFact, true}}},
+                .baseScore = 1.0f}},
+            .actions = {AIActionDefinition{
+                .actionId = actionId,
+                .preconditions = {AIFactCondition{booleanFact, true}},
+                .contextId = contextId,
+                .baseCost = 2.0f,
+                .numericPreconditions = {AINumericCondition{integerFact,
+                    AINumericConditionOperator::GreaterOrEqual, 3}}}}}};
+    decision.GetObservedState().SetIntegerFact(integerFact, 2);
+    AISystem aiSystem{};
+    const GameplayWorld world{};
+    decision.Update(aiSystem, world);
+    constexpr std::array booleanFacts{booleanFact};
+    constexpr std::array integerFacts{integerFact};
+
+    const AIDebugViewModel snapshot =
+        decision.BuildDebugViewModel(booleanFacts, integerFacts);
+
+    ASSERT_EQ(snapshot.booleanFacts.size(), 1u);
+    EXPECT_FALSE(snapshot.booleanFacts[0].value);
+    ASSERT_EQ(snapshot.integerFacts.size(), 1u);
+    EXPECT_EQ(snapshot.integerFacts[0].value, 2);
+    ASSERT_EQ(snapshot.actionApplicability.size(), 1u);
+    EXPECT_EQ(snapshot.actionApplicability[0].actionId, actionId);
+    EXPECT_EQ(snapshot.actionApplicability[0].contextId, contextId);
+    EXPECT_FALSE(snapshot.actionApplicability[0].applicable);
+    EXPECT_EQ(snapshot.selectedGoalId, AIGoalId{24u});
+    EXPECT_EQ(snapshot.executionStatus, AIPlanExecutionStatus::Failed);
+}
+
 TEST(GameplayGOAPDecision, CancelPreservesInstalledCapabilityLifetime)
 {
     bool destroyed = false;

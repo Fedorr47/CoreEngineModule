@@ -190,6 +190,11 @@ export namespace rendern
         {
             return execution_ ? &*execution_ : nullptr;
         }
+        
+        [[nodiscard]] std::optional<AIGoalId> GetSelectedGoalId() const noexcept
+        {
+            return selectedGoalId_;
+        }
 
     private:
         [[nodiscard]] static const AIGoalDefinition* FindGoalDefinition_(

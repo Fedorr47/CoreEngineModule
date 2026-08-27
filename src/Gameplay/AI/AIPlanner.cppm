@@ -190,7 +190,7 @@ export namespace rendern
                 }
 
                 std::vector<AIPlanStep> nextSteps = current.steps;
-                nextSteps.push_back(AIPlanStep{ action->actionId, action->contextId });
+                nextSteps.push_back(AIPlanStep{action->actionId, action->contextId });
                 bestCosts.insert_or_assign(nextState, nextCost);
                 frontier.push(SearchNode{
                     std::move(nextState), nextCost, nextSequence++, std::move(nextSteps) });

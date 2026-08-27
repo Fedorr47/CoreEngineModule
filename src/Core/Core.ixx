@@ -48,6 +48,7 @@ export import :gameplay_route;
 export import :ai_goal_selection;
 export import :ai_planner;
 export import :ai_plan_execution;
+export import :ai_debug_view_model;
 export import :ai_action_binding;
 export import :ai_plan_execution_bridge;
 export import :ai_decision_runtime;

@@ -509,6 +509,7 @@ set(COMMON_MODULES
         Gameplay/AI/AIActionRuntime.cppm
         Gameplay/AI/AIPlanner.cppm
         Gameplay/AI/AIPlanExecution.cppm
+        Gameplay/AI/AIDebugViewModel.cppm
         Gameplay/AI/AIActionBinding.cppm
         Gameplay/AI/AIPlanExecutionBridge.cppm
         Gameplay/AI/AIDecisionRuntime.cppm
