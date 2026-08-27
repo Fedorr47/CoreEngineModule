@@ -79,7 +79,8 @@ TEST(AIDebugViewModel, CapturesSelectedPlanCostsAndCurrentExecutionStep)
     EXPECT_TRUE(snapshot.bPlanCostComplete);
     ASSERT_TRUE(snapshot.currentStepIndex.has_value());
     EXPECT_EQ(*snapshot.currentStepIndex, 1u);
-    EXPECT_EQ(snapshot.executionStatus, AIPlanExecutionStatus::ReadyToStartStep);
+    ASSERT_TRUE(snapshot.executionStatus.has_value());
+    EXPECT_EQ(*snapshot.executionStatus, AIPlanExecutionStatus::ReadyToStartStep);
 }
 
 TEST(AIDebugViewModel, ReportsBooleanAndNumericFailuresInDefinitionOrder)

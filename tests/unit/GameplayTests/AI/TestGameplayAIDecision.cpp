@@ -132,7 +132,8 @@ TEST(GameplayGOAPDecision, BuildsDebugSnapshotFromOwnedStateAndDefinition)
     EXPECT_EQ(snapshot.actionApplicability[0].contextId, contextId);
     EXPECT_FALSE(snapshot.actionApplicability[0].applicable);
     EXPECT_EQ(snapshot.selectedGoalId, AIGoalId{24u});
-    EXPECT_EQ(snapshot.executionStatus, AIPlanExecutionStatus::Failed);
+    EXPECT_EQ(snapshot.decisionStatus, AIPlanExecutionStatus::Failed);
+    EXPECT_FALSE(snapshot.executionStatus.has_value());
 }
 
 TEST(GameplayGOAPDecision, CancelPreservesInstalledCapabilityLifetime)

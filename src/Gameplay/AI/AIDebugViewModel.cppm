@@ -66,6 +66,7 @@ export namespace rendern
         std::vector<AIDebugPlanStepView> selectedPlan{};
         float totalPlanCost{};
         bool bPlanCostComplete{true};
+		AIPlanExecutionStatus decisionStatus{AIPlanExecutionStatus::NotStarted};
         std::optional<AIPlanExecutionStatus> executionStatus{};
         std::optional<std::size_t> currentStepIndex{};
         std::vector<AIDebugActionApplicabilityView> actionApplicability{};
@@ -162,7 +163,7 @@ export namespace rendern
             observedState, booleanFactIds, integerFactIds, actions,
             runtime.GetPlanExecution());
         result.selectedGoalId = runtime.GetSelectedGoalId();
-        result.executionStatus = runtime.GetStatus();
+        result.decisionStatus = runtime.GetStatus();
         return result;
     }
 }
