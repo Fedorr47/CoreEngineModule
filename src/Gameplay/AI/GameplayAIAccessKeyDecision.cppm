@@ -15,6 +15,7 @@
 #include <vector>
 
 export module core:gameplay_ai_access_key_decision;
+export import :gameplay_ai_access_key_observation;
 
 import :ai_move_to_action_binding;
 import :ai_system;
@@ -47,27 +48,11 @@ export namespace rendern
     inline constexpr AIWorldFactId kGOAPCoinBAvailableFact{12u};
     inline constexpr AIWorldFactId kGOAPCoinCAvailableFact{13u};
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
-    inline constexpr std::int32_t kAccessKeyPrice = 2;
     inline constexpr AIActionId kAIBuyKeyActionId{3u};
     inline constexpr AIGoalId kGOAPReachDestinationGoal{0u};
 
     namespace ai_access_key_detail
     {
-        enum class SpatialLocation : std::uint8_t
-        {
-            Start,
-            CoinA,
-            CoinB,
-            CoinC,
-            AccessKeyShop,
-            Goal,
-            Count
-        };
-
-        inline constexpr std::size_t kSpatialLocationCount =
-            static_cast<std::size_t>(SpatialLocation::Count);
-        inline constexpr float kSpatialArrivalRadius = 0.6f;
-        inline constexpr float kSpatialArrivalRadiusSquared = kSpatialArrivalRadius * kSpatialArrivalRadius;
         inline constexpr GameplayRouteNodeId kStartNode{1u};
         inline constexpr GameplayRouteNodeId kCoinANode{2u};
         inline constexpr GameplayRouteNodeId kCoinBNode{3u};
@@ -160,16 +145,6 @@ export namespace rendern
             return transition == kMoveTransitions.end()
                 ? std::nullopt : compiled.FindActionContext(transition->contextName);
         }
-
-        struct AccessKeyFactBindings
-        {
-            AIWorldFactId hasAccessKey{};
-            AIWorldFactId atDestination{};
-            std::array<AIWorldFactId, 3> collected{};
-            std::array<AIWorldFactId, 3> available{};
-            std::array<AIWorldFactId, kSpatialLocationCount> spatial{};
-            AIWorldIntegerFactId coins{};
-        };
 
         [[nodiscard]] std::optional<AccessKeyFactBindings> ResolveFactBindings(
             const GameplayGOAPCompiledDefinition& compiled)
@@ -485,17 +460,20 @@ export namespace rendern
                 const EntityHandle coinAEntity, const EntityHandle coinBEntity,
                 const EntityHandle coinCEntity, const EntityHandle keyEntity,
                 const std::array<mathUtils::Vec3, kSpatialLocationCount>& spatialPositions)
-                : moveToRequests_(std::move(moveToRequests)), factBindings_(factBindings),
-                    goap_(agent, std::move(definition)), agent_(agent), coinAEntity_(coinAEntity),
-                    coinBEntity_(coinBEntity), coinCEntity_(coinCEntity), keyEntity_(keyEntity),
-                    spatialPositions_(spatialPositions)
+                : moveToRequests_(std::move(moveToRequests)),
+                    observer_(agent, {coinAEntity, coinBEntity, coinCEntity}, keyEntity,
+                    factBindings, spatialPositions,
+                    reservationSystem != nullptr && world.HasInteractionPoint(coinAEntity) &&
+                        world.HasInteractionPoint(coinBEntity) &&
+                        world.HasInteractionPoint(coinCEntity)
+                        ? reservationSystem : nullptr),
+                goap_(agent, std::move(definition))
             {
                 moveToRequests_.SetCoinEntities(coinAEntity, coinBEntity, coinCEntity);
                 const bool bReservationsEnabled = reservationSystem != nullptr &&
                     world.HasInteractionPoint(coinAEntity) &&
                     world.HasInteractionPoint(coinBEntity) &&
                     world.HasInteractionPoint(coinCEntity);
-                reservationSystem_ = bReservationsEnabled ? reservationSystem : nullptr;
                 std::unique_ptr<AIMoveToActionBinding> binding;
                 if (bReservationsEnabled)
                 {
@@ -514,11 +492,10 @@ export namespace rendern
                     goap_.GetObservedState(),
                     world,
                     runtimeEvents_,
-                    keyEntity_,
-                    spatialPositions_[
-                        static_cast<std::size_t>(SpatialLocation::AccessKeyShop)],
-                    factBindings_.hasAccessKey,
-                    factBindings_.coins);
+                    keyEntity,
+                    spatialPositions[static_cast<std::size_t>(SpatialLocation::AccessKeyShop)],
+                    factBindings.hasAccessKey,
+                    factBindings.coins);
                 bindingsInstalled_ = bindingsInstalled_ && goap_.InstallActionBinding(
                     kAIBuyKeyActionId, std::move(buyKeyBinding));
                 bindingsInstalled_ = bindingsInstalled_ && goap_.HasCompleteActionBindings();
@@ -534,11 +511,11 @@ export namespace rendern
                 {
                     // Consume input before a runtime can append to and reallocate the same buffer.
                     const std::span<const GameplayWorldEvent> inputEvents = observation.events;
-                    Observe_(inputEvents, observation.world, goap_.GetObservedState());
+                    observer_.Observe(inputEvents, observation.world, goap_.GetObservedState());
                 }
                 runtimeEvents_.clear();
                 goap_.Update(aiSystem, observation.world);
-                Observe_(runtimeEvents_, observation.world, goap_.GetObservedState());
+                observer_.Observe(runtimeEvents_, observation.world, goap_.GetObservedState());
                 if (observation.eventOutput != nullptr)
                 {
                     observation.eventOutput->insert(observation.eventOutput->end(),
@@ -557,103 +534,12 @@ export namespace rendern
             }
 
         private:
-            void Observe_(const std::span<const GameplayWorldEvent> events,
-                const GameplayWorld& world, AIAgentWorldState& facts)
-            {
-                const auto collectCoin = [&](const EntityHandle subject,
-                    const EntityHandle coin, const AIWorldFactId collectedFact)
-                {
-                    if (subject == coin && !facts.IsFactSet(collectedFact))
-                    {
-                        facts.SetFact(collectedFact, true);
-                        facts.SetIntegerFact(factBindings_.coins,
-                            facts.GetIntegerFact(factBindings_.coins) + 1);
-                    }
-                };
-                for (const GameplayWorldEvent& event : events)
-                {
-                    if (event.instigator != agent_)
-                    {
-                        continue;
-                    }
-                    if (event.type == GameplayWorldEventType::PickupCollected)
-                    {
-                        collectCoin(event.subject, coinAEntity_, factBindings_.collected[0]);
-                        collectCoin(event.subject, coinBEntity_, factBindings_.collected[1]);
-                        collectCoin(event.subject, coinCEntity_, factBindings_.collected[2]);
-                    }
-                    else if (event.type == GameplayWorldEventType::AccessKeyPurchased &&
-                        event.subject == keyEntity_ &&
-                        !facts.IsFactSet(factBindings_.hasAccessKey))
-                    {
-                        const std::int32_t coins = facts.GetIntegerFact(factBindings_.coins);
-                        if (coins >= kAccessKeyPrice)
-                        {
-                            facts.SetIntegerFact(factBindings_.coins, coins - kAccessKeyPrice);
-                            facts.SetFact(factBindings_.hasAccessKey, true);
-                        }
-                    }
-                }
-                
-                const auto observeAvailability = [&](const EntityHandle coin,
-                    const AIWorldFactId availableFact)
-                {
-                    const GameplayPickupComponent* pickup = world.TryGetPickup(coin);
-                    const bool bReservedByOther = reservationSystem_ != nullptr &&
-                        reservationSystem_->IsReserved(coin) &&
-                        !reservationSystem_->IsReservedBy(coin, agent_);
-                    facts.SetFact(availableFact,
-                    world.IsEntityValid(coin) && pickup != nullptr && !pickup->collected && !bReservedByOther);
-                };
-                observeAvailability(coinAEntity_, factBindings_.available[0]);
-                observeAvailability(coinBEntity_, factBindings_.available[1]);
-                observeAvailability(coinCEntity_, factBindings_.available[2]);
-
-                const auto* transform = world.TryGetTransform(agent_);
-                if (transform == nullptr)
-                {
-                    return;
-                }
-                std::optional<SpatialLocation> confirmedLocation;
-                float confirmedDistanceSquared = kSpatialArrivalRadiusSquared;
-                for (std::size_t index = 0; index < kSpatialLocationCount; ++index)
-                {
-                    const mathUtils::Vec3 delta =
-                       transform->position - spatialPositions_[index];
-                    const float distanceSquared = mathUtils::Dot(delta, delta);
-                    if (distanceSquared <= confirmedDistanceSquared)
-                    {
-                        confirmedDistanceSquared = distanceSquared;
-                        confirmedLocation = static_cast<SpatialLocation>(index);
-                    }
-                }
-                if (confirmedLocation.has_value())
-                {
-                    for (std::size_t index = 0; index < kSpatialLocationCount; ++index)
-                    {
-                        facts.SetFact(factBindings_.spatial[index],
-                            index == static_cast<std::size_t>(*confirmedLocation));
-                    }
-                    if (*confirmedLocation == SpatialLocation::Goal &&
-                        facts.IsFactSet(factBindings_.hasAccessKey))
-                    {
-                        facts.SetFact(factBindings_.atDestination, true);
-                    }
-                }
-            }
-
             AccessKeyMoveToRequestProvider moveToRequests_;
-            const AccessKeyFactBindings factBindings_;
+
             std::vector<GameplayWorldEvent> runtimeEvents_{};
+            AccessKeyObservationAdapter observer_;
+            // These objects outlive goap_ bindings that reference them.
             GameplayGOAPDecision goap_;
-            EntityHandle agent_{};
-            EntityHandle coinAEntity_{ kNullEntity };
-            EntityHandle coinBEntity_{ kNullEntity };
-            EntityHandle coinCEntity_{ kNullEntity };
-            EntityHandle keyEntity_{ kNullEntity };
-            std::array<mathUtils::Vec3, kSpatialLocationCount> spatialPositions_{};
-            GameplayObjectReservationSystem* reservationSystem_{};
-            mathUtils::Vec3 finalGoalPosition_{};
             bool bindingsInstalled_{};
         };
 
