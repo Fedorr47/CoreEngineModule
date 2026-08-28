@@ -515,11 +515,11 @@ set(COMMON_MODULES
         Gameplay/AI/AIPlanExecutionBridge.cppm
         Gameplay/AI/AIDecisionRuntime.cppm
         Gameplay/AI/AIActionTask.cppm
-        Gameplay/AI/GameplayRequest.cppm
-        Gameplay/AI/GameplaySteering.cppm
-        Gameplay/AI/GameplayRoute.cppm
-        Gameplay/AI/GameplayRouteFollower.cppm
-        Gameplay/AI/GameplayRouteSearch.cppm
+        Gameplay/Navigation/GameplayRequest.cppm
+        Gameplay/Navigation/GameplaySteering.cppm
+        Gameplay/Navigation/GameplayRoute.cppm
+        Gameplay/Navigation/GameplayRouteFollower.cppm
+        Gameplay/Navigation/GameplayRouteSearch.cppm
         Gameplay/Traversal/GameplayTraversalLink.cppm
         Gameplay/Traversal/GameplayTraversalLinkRegistry.cppm
         Gameplay/Traversal/GameplayTraversalExecutor.cppm
