@@ -8,7 +8,6 @@ module;
 export module core:ai_goal_selection;
 
 export import :ai_decision_contracts;
-export import :gameplay_ai_components;
 
 export namespace rendern
 {
@@ -91,14 +90,5 @@ export namespace rendern
             }
         }
         return selectedGoal;
-    }
-
-    [[nodiscard]] AIGoalSelectionResult UpdateSelectedAIGoal(
-        AIComponent& ai,
-        const std::span<const AIGoalSelectionCandidate> candidates) noexcept
-    {
-        const AIGoalSelectionResult selection = SelectAIGoal(ai.worldState, candidates);
-        ai.selectedGoalId = selection.goalId;
-        return selection;
     }
 }

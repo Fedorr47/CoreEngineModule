@@ -149,52 +149,28 @@ TEST(AIAgentWorldState, ClearRemovesEverySetFact)
     EXPECT_FALSE(worldState.IsFactSet(thirdFact));
 }
 
-// Protects the ECS ownership boundary that each agent's fact snapshot lives in
-// AIComponent and remains accessible without exposing the EnTT registry.
-TEST(AIAgentWorldState, AIComponentOwnsWorldStateThroughGameplayWorld)
+// AIComponent is a membership tag, but it retains the uniform GameplayWorld
+// component-access API used by the rest of the gameplay components.
+TEST(AIAgentWorldState, AIComponentSupportsGameplayWorldMembershipAccess)
 {
     GameplayWorld world{};
     const EntityHandle entity = world.CreateEntity();
-
-    constexpr AIWorldFactId firstFact{ 4u };
-    constexpr AIWorldFactId secondFact{ 5u };
-
-    AIComponent component{};
-    component.worldState.SetFact(firstFact);
-
-    world.AddAI(entity, component);
-
+    
+    EXPECT_FALSE(world.HasAI(entity));
+    
+    world.AddAI(entity);
+    
     EXPECT_TRUE(world.HasAI(entity));
+    std::vector<EntityHandle> aiEntities{};
+    world.CollectAIEntities(aiEntities);
 
-    AIComponent* storedComponent = world.TryGetAI(entity);
-    ASSERT_NE(storedComponent, nullptr);
+    ASSERT_EQ(aiEntities.size(), 1u);
+    EXPECT_EQ(aiEntities.front(), entity);
 
-    EXPECT_TRUE(storedComponent->worldState.IsFactSet(firstFact));
-    EXPECT_FALSE(storedComponent->worldState.IsFactSet(secondFact));
-
-    storedComponent->worldState.SetFact(secondFact);
-
-    const GameplayWorld& constWorld = world;
-    const AIComponent* constStoredComponent =
-        constWorld.TryGetAI(entity);
-
-    ASSERT_NE(constStoredComponent, nullptr);
-    EXPECT_TRUE(
-        constStoredComponent->worldState.IsFactSet(firstFact));
-    EXPECT_TRUE(
-        constStoredComponent->worldState.IsFactSet(secondFact));
-
-    AIComponent replacement{};
-    replacement.worldState.SetFact(secondFact);
-
-    world.SetAI(entity, replacement);
-
-    const AIComponent* replacedComponent =
-        constWorld.TryGetAI(entity);
-
-    ASSERT_NE(replacedComponent, nullptr);
-    EXPECT_FALSE(
-        replacedComponent->worldState.IsFactSet(firstFact));
-    EXPECT_TRUE(
-        replacedComponent->worldState.IsFactSet(secondFact));
+    world.RemoveAI(entity);
+    
+    EXPECT_FALSE(world.HasAI(entity));
+   
+    world.CollectAIEntities(aiEntities);
+    EXPECT_TRUE(aiEntities.empty());
 }

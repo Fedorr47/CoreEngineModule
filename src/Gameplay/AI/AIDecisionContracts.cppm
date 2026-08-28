@@ -1,6 +1,8 @@
 ﻿module;
 
+#include <compare>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <vector>
 

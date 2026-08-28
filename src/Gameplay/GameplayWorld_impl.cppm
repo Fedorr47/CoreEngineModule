@@ -123,6 +123,26 @@ namespace rendern
         return impl_->aliveCount;
     }
     
+    void GameplayWorld::AddAI(const EntityHandle entity)
+    {
+        if (entity == kNullEntity || !impl_->registry.valid(ToEnTT(entity)))
+        {
+            return;
+        }
+    
+        impl_->registry.emplace_or_replace<AIComponent>(ToEnTT(entity));
+    }
+    
+    bool GameplayWorld::HasAI(const EntityHandle entity) const noexcept
+    {
+        return HasComponent_<AIComponent>(impl_->registry, entity);
+    }
+    
+    void GameplayWorld::RemoveAI(const EntityHandle entity)
+    {
+        RemoveComponent_<AIComponent>(impl_->registry, entity);
+    }
+    
     void GameplayWorld::CollectAIEntities(std::vector<EntityHandle>& outEntities) const
     {
         outEntities.clear();

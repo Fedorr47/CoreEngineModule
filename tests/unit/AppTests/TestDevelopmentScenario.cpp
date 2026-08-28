@@ -395,7 +395,7 @@ TEST(DevelopmentScenarioRunner, MoveToUsesAuthoredGraphOrderAndCompletesAtGoal)
     runner.Unload(context); runtime.Shutdown();
 }
 
-TEST(DevelopmentScenarioRunner, MoveToRestartAndResetRestoreStateWithoutClearingAIWorldFacts)
+TEST(DevelopmentScenarioRunner, MoveToRestartAndResetRestoreStateWithoutRemovingAIMembership)
 {
     InlineThreadOwnerRolesGuard guard{};
     auto level = FourNodeMoveToLevel(); auto scenario = FourNodeMoveToScenario();
@@ -415,7 +415,6 @@ TEST(DevelopmentScenarioRunner, MoveToRestartAndResetRestoreStateWithoutClearing
         auto* motor = world.TryGetCharacterMotor(agent); motor->velocity = {4, 3, 2}; motor->desiredVelocity = {3, 2, 1}; motor->desiredMoveWorld = {1, 0, 0};
         auto* movement = world.TryGetCharacterMovementState(agent); movement->facingYawDegrees = movement->desiredFacingYawDegrees = movement->previousFacingYawDegrees = movement->cameraFacingYawDegrees = 123;
     };
-    constexpr rendern::AIWorldFactId fact{7u}; world.TryGetAI(agent)->worldState.SetFact(fact, true);
     mutate(); runner.Stop(context); ASSERT_TRUE(runner.Start(context));
     const auto expectCanonical = [&] {
         EXPECT_EQ(world.TryGetTransform(agent)->position, level.nodes[2].transform.position);
@@ -423,10 +422,10 @@ TEST(DevelopmentScenarioRunner, MoveToRestartAndResetRestoreStateWithoutClearing
         const auto* motor = world.TryGetCharacterMotor(agent); EXPECT_EQ(motor->velocity, mathUtils::Vec3{}); EXPECT_EQ(motor->desiredVelocity, mathUtils::Vec3{}); EXPECT_EQ(motor->desiredMoveWorld, mathUtils::Vec3{});
         const auto* movement = world.TryGetCharacterMovementState(agent); EXPECT_FLOAT_EQ(movement->facingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->desiredFacingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->previousFacingYawDegrees, 35); EXPECT_FLOAT_EQ(movement->cameraFacingYawDegrees, 35);
     };
-    expectCanonical(); EXPECT_TRUE(world.TryGetAI(agent)->worldState.IsFactSet(fact));
+    expectCanonical(); EXPECT_TRUE(world.HasAI(agent));
     EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Running);
     mutate(); runner.Reset(context); expectCanonical();
-    EXPECT_TRUE(world.TryGetAI(agent)->worldState.IsFactSet(fact));
+    EXPECT_TRUE(world.HasAI(agent));
     EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::NotStarted);
     runner.Unload(context); runtime.Shutdown();
 }

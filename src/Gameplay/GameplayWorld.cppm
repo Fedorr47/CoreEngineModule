@@ -83,10 +83,9 @@ export namespace rendern
         [[nodiscard]] bool HasPlayerControlled(EntityHandle entity) const noexcept;
         void RemovePlayerControlled(EntityHandle entity);
         
-        void AddAI(EntityHandle entity, const AIComponent& value = {});
-        void SetAI(EntityHandle entity, const AIComponent& value);
-        [[nodiscard]] AIComponent* TryGetAI(EntityHandle entity) noexcept;
-        [[nodiscard]] const AIComponent* TryGetAI(EntityHandle entity) const noexcept;
+        // AIComponent is a membership tag. Its runtime GOAP state is owned by
+        // the active decision/runtime rather than duplicated in the ECS.
+        void AddAI(EntityHandle entity);
         [[nodiscard]] bool HasAI(EntityHandle entity) const noexcept;
         void RemoveAI(EntityHandle entity);
         
