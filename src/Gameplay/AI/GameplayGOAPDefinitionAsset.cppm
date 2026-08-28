@@ -18,6 +18,7 @@ module;
 
 export module core:gameplay_goap_definition_asset;
 
+import :ai_action_contracts;
 import :file_system;
 import :json_utils;
 export import :gameplay_goap_decision;

@@ -5,6 +5,7 @@ module;
 export module core:ai_move_to_action;
 
 import :gameplay;
+import :ai_action_contracts;
 import :ai_system;
 import :ai_follow_route_action;
 import :ai_action_runtime;

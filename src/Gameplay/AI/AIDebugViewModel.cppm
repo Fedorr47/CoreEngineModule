@@ -11,6 +11,7 @@
 
 export module core:ai_debug_view_model;
 
+import :ai_action_contracts;
 export import :ai_decision_runtime;
 
 export namespace rendern

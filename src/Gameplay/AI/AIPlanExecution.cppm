@@ -7,6 +7,7 @@ module;
 
 export module core:ai_plan_execution;
 
+import :ai_action_contracts;
 export import :ai_decision_contracts;
 
 export namespace rendern

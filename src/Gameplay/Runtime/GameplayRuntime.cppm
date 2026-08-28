@@ -18,6 +18,7 @@ module;
 export module core:gameplay_runtime;
 
 import :gameplay;
+import :ai_action_contracts;
 export import :gameplay_runtime_common;
 import :gameplay_graph;
 import :gameplay_graph_assets;

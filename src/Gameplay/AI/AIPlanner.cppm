@@ -13,6 +13,7 @@ module;
 
 export module core:ai_planner;
 
+import :ai_action_contracts;
 export import :ai_decision_contracts;
 
 namespace rendern

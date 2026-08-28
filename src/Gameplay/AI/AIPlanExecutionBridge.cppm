@@ -6,6 +6,7 @@
 export module core:ai_plan_execution_bridge;
 
 import :gameplay;
+import :ai_action_contracts;
 import :ai_system;
 export import :ai_action_binding;
 export import :ai_plan_execution;

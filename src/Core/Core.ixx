@@ -33,6 +33,7 @@ export import :gameplay_pickup_system;
 export import :gameplay_object_reservation_system;
 export import :ai_system;
 export import :ai_agent_world_state;
+export import :ai_action_contracts;
 export import :ai_action_runtime;
 export import :ai_action_task;
 export import :ai_follow_route_action_runtime;

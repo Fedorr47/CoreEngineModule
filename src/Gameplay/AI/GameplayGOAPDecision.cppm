@@ -10,6 +10,8 @@
 export module core:gameplay_goap_decision;
 
 export import :ai_debug_view_model;
+
+import :ai_action_contracts;
 import :ai_action_binding;
 import :ai_system;
 import :gameplay;

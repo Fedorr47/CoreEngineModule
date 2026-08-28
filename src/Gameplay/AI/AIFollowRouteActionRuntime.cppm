@@ -6,6 +6,7 @@ module;
 export module core:ai_follow_route_action_runtime;
 
 import :gameplay;
+import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_route;
 import :gameplay_route_follower;

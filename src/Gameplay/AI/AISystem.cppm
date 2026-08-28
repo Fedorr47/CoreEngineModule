@@ -9,6 +9,7 @@ module;
 export module core:ai_system;
 
 import :gameplay;
+import :ai_action_contracts;
 import :ai_action_task;
 
 export namespace rendern

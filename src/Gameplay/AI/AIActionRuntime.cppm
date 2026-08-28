@@ -5,7 +5,7 @@ module;
 export module core:ai_action_runtime;
 
 import :EnTTHelpers;
-export import :ai_decision_contracts;
+export import :ai_action_contracts;
 
 export namespace rendern
 {

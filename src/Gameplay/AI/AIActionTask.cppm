@@ -6,8 +6,8 @@ module;
 
 export module core:ai_action_task;
 
+import :ai_action_contracts;
 export import :ai_action_runtime;
-
 
 export namespace rendern
 {

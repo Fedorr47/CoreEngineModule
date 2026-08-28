@@ -571,7 +571,7 @@
             decision.Cancel(aiSystem_);
         }
 
- bool GameplayRuntime::StartAIDecision(
+        bool GameplayRuntime::StartAIDecision(
             const EntityHandle agentEntity, const std::string_view definitionId)
         {
             CORE_ASSERT_RUNTIME_THREAD();

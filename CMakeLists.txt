@@ -493,6 +493,7 @@ set(COMMON_MODULES
 
         Gameplay/Components/GameplayEntityComponents.cppm
         Gameplay/AI/AIAgentWorldState.cppm
+        Gameplay/AI/AIActionContracts.cppm
         Gameplay/AI/GameplayAIComponents.cppm
         Gameplay/Input/GameplayInputComponents.cppm
         Gameplay/Interaction/GameplayInteractionComponents.cppm

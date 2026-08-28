@@ -17,6 +17,7 @@
 export module core:gameplay_ai_access_key_decision;
 export import :gameplay_ai_access_key_observation;
 
+import :ai_action_contracts;
 import :ai_move_to_action_binding;
 import :ai_system;
 import :gameplay;
