@@ -21,7 +21,7 @@ export module core:gameplay_goap_definition_asset;
 import :ai_action_contracts;
 import :file_system;
 import :json_utils;
-export import :gameplay_goap_decision;
+export import :gameplay_goap_definition_contracts;
 
 export namespace rendern {
 enum class GameplayGOAPFactType : std::uint8_t { Boolean, Integer };

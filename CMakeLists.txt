@@ -514,6 +514,7 @@ set(COMMON_MODULES
         Gameplay/AI/Runtime/AIActionBinding.cppm
         Gameplay/AI/GOAP/AIPlanExecutionBridge.cppm
         Gameplay/AI/GOAP/AIDecisionRuntime.cppm
+        Gameplay/AI/GOAP/GameplayGOAPDefinitionContracts.cppm
         Gameplay/AI/Runtime/AIActionTask.cppm
         Gameplay/Navigation/GameplayRequest.cppm
         Gameplay/Navigation/GameplaySteering.cppm

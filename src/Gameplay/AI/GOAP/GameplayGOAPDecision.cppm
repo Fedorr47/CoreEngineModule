@@ -8,6 +8,7 @@
 #include <vector>
 
 export module core:gameplay_goap_decision;
+export import :gameplay_goap_definition_contracts;
 
 export import :ai_debug_view_model;
 
@@ -18,13 +19,6 @@ import :gameplay;
 
 export namespace rendern
 {
-    struct GameplayGOAPDecisionDefinition
-    {
-        std::vector<AIGoalSelectionCandidate> goals{};
-        std::vector<AIActionDefinition> actions{};
-        AIDefinitionMetadata metadata{};
-    };
-
     class GameplayGOAPDecision
     {
     public:
