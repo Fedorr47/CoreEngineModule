@@ -25,6 +25,7 @@ import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
 import :gameplay_goap_inspection;
 import :gameplay_goap_definition_asset;
+import :gameplay_goap_definition_compiler;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;

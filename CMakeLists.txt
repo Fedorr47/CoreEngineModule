@@ -554,6 +554,7 @@ set(COMMON_MODULES
         Gameplay/AI/GOAP/Debug/GameplayGOAPInspection.cppm
         Gameplay/AI/GOAP/GameplayGOAPDecision.cppm
         Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionAsset.cppm
+        Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyObservation.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyDecision.cppm
         Gameplay/AI/Runtime/GameplayAIDecision.cppm

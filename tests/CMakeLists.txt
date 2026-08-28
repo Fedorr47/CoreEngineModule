@@ -83,6 +83,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestGameplayAIDecision.cpp"
         "unit/GameplayTests/AI/TestGameplayAIAccessKeyObservation.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPDefinitionAsset.cpp"
+        "unit/GameplayTests/AI/TestGameplayGOAPDefinitionCompiler.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"
         "unit/PhysicsTests/TestJoltRuntime.cpp"
         "unit/PhysicsTests/TestPhysicsTypes.cpp"

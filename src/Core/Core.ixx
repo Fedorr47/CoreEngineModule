@@ -65,6 +65,7 @@ export import :gameplay_ai_access_key_decision;
 export import :gameplay_ai_decision_composition;
 export import :gameplay_goap_decision;
 export import :gameplay_goap_definition_asset;
+export import :gameplay_goap_definition_compiler;
 export import :gameplay_goap_inspection;
 export import :json_utils;
 export import :hash_utils;
