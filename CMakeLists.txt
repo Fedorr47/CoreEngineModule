@@ -546,6 +546,7 @@ set(COMMON_MODULES
         Gameplay/Graph/GameplayGraphAssets.cppm
         Gameplay/Runtime/GameplayRuntimeCommon.cppm
         Gameplay/Runtime/GameplayBootstrap.cppm
+        Gameplay/Runtime/GameplayAIDecisionComposition.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/AI/GameplayAIDecisionContracts.cppm

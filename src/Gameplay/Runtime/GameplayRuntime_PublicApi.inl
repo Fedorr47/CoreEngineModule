@@ -584,9 +584,10 @@
                 return false;
             }
             std::unique_ptr<GameplayAIDecisionInstance> decision =
-                CreateGameplayAIDecision(definitionId, agentEntity, *currentLevelAsset_,
-                 world_, traversalLinkRegistry_, traversalExecutorRegistry_,
-                 objectReservationSystem_);
+                aiDecisionFactoryRegistry_.Create(definitionId,
+                    GameplayAIDecisionCreationContext{agentEntity, *currentLevelAsset_, world_,
+                        traversalLinkRegistry_, traversalExecutorRegistry_,
+                        objectReservationSystem_});
             if (!decision)
             {
                 return false;
@@ -667,7 +668,7 @@
 
         bool GameplayRuntime::HasAIDecisionDefinition(const std::string_view definitionId) const noexcept
         {
-            return IsGameplayAIDecisionDefinitionRegistered(definitionId);
+            return aiDecisionFactoryRegistry_.Contains(definitionId);
         }
 
         void GameplayRuntime::UpdateActiveAIDecisions_()

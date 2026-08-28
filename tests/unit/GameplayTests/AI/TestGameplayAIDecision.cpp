@@ -106,6 +106,48 @@ TEST(GameplayAIDecisionContracts, SupportsDecisionNeutralLifecycleImplementation
     EXPECT_EQ(decision.GetStatus(), GameplayAIDecisionStatus::Cancelled);
 }
 
+TEST(GameplayAIDecisionFactoryRegistry, RegistersCreatesAndRejectsUnknownAndDuplicateIds)
+{
+    GameplayAIDecisionFactoryRegistry registry;
+    bool originalInvoked = false;
+    bool duplicateInvoked = false;
+    EXPECT_FALSE(registry.Register("",
+        [](const GameplayAIDecisionCreationContext&)
+        {
+            return std::make_unique<LifecycleOnlyDecision>();
+        }));
+    EXPECT_FALSE(registry.Register("empty_factory", {}));
+    ASSERT_TRUE(registry.Register("lifecycle_only",
+        [&originalInvoked](const GameplayAIDecisionCreationContext&)
+        {
+            originalInvoked = true;
+            return std::make_unique<LifecycleOnlyDecision>();
+        }));
+    EXPECT_TRUE(registry.Contains("lifecycle_only"));
+    EXPECT_FALSE(registry.Contains("unknown"));
+
+    EXPECT_FALSE(registry.Register("lifecycle_only",
+        [&duplicateInvoked](const GameplayAIDecisionCreationContext&)
+        {
+            duplicateInvoked = true;
+            return std::make_unique<LifecycleOnlyDecision>();
+        }));
+
+    LevelAsset level;
+    GameplayWorld world;
+    GameplayTraversalLinkRegistry links;
+    GameplayTraversalExecutorRegistry executors;
+    GameplayObjectReservationSystem reservations;
+    const GameplayAIDecisionCreationContext context{
+        kNullEntity, level, world, links, executors, reservations};
+    EXPECT_EQ(registry.Create("unknown", context), nullptr);
+    std::unique_ptr<GameplayAIDecisionInstance> decision =
+        registry.Create("lifecycle_only", context);
+    EXPECT_NE(decision, nullptr);
+    EXPECT_TRUE(originalInvoked);
+    EXPECT_FALSE(duplicateInvoked);
+}
+
 TEST(GameplayGOAPDecision, SemanticActionBindingsMustBeComplete)
 {
     constexpr AIActionId sharedAction{3u};
@@ -571,7 +613,9 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     EXPECT_EQ(level.developmentScenario, "development/ai_goap_access_key.scenario.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
+    EXPECT_TRUE(runtime.HasAIDecisionDefinition(kAccessKeyAIDecisionId));
+    EXPECT_FALSE(runtime.HasAIDecisionDefinition("unknown"));
     runtime.Initialize(level, instance, harness.GetScene());
     auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
     runtime.BeginFrame();
@@ -760,7 +804,7 @@ TEST(GameplayAIDecision, MissingMovementContractRejectsStartWithoutPartialState)
     test::LevelInstantiateHarness harness{};
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level, instance, harness.GetScene());
     auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
     runtime.BeginFrame(); runtime.PrePhysicsUpdate(game);
@@ -778,7 +822,7 @@ TEST(GameplayAIDecision, LowerEntityHandleWinsReservedCoinContentionRegardlessOf
     test::LevelInstantiateHarness harness{};
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level, instance, harness.GetScene());
     const auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
     Tick(runtime, game);
@@ -839,7 +883,7 @@ TEST(GameplayAIDecisionSetup, ValidScenarioResolvesCompleteComposition)
     test::LevelInstantiateHarness harness{};
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level, instance, harness.GetScene());
     const auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
     Tick(runtime, game);
@@ -897,7 +941,8 @@ TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
 {
     InlineThreadOwnerRolesGuard guard{};
     LevelAsset level{}; LevelNode node{}; node.alive=true; node.name="Agent";
-    level.nodes.push_back(node); LevelInstance instance{}; Scene scene{}; GameplayRuntime runtime{};
+    level.nodes.push_back(node); LevelInstance instance{}; Scene scene{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level,instance,scene);
     
     auto editor=Context(level,instance,scene,GameplayRuntimeMode::Editor);
@@ -926,7 +971,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     test::LevelInstantiateHarness harness{};
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{};
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level, instance, harness.GetScene());
     auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
     runtime.BeginFrame(); runtime.PrePhysicsUpdate(game);

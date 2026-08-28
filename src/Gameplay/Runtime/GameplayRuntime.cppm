@@ -75,7 +75,10 @@ export namespace rendern
     class GameplayRuntime
     {
     public:
-        GameplayRuntime()
+        GameplayRuntime() : GameplayRuntime(GameplayAIDecisionFactoryRegistry{}) {}
+
+        explicit GameplayRuntime(GameplayAIDecisionFactoryRegistry decisionFactories)
+            : aiDecisionFactoryRegistry_(std::move(decisionFactories))
         {
             const bool bRegisteredDoor = traversalExecutorRegistry_.RegisterRuntimeOwned(
                 DoorTraversalExecutor::kTypeId, doorTraversalExecutor_);
@@ -224,6 +227,7 @@ export namespace rendern
         GameplayGraphAsset defaultGraphAsset_{};
         GameplayRuntimeMode lastMode_{ GameplayRuntimeMode::Editor };
         AISystem aiSystem_{};
+        GameplayAIDecisionFactoryRegistry aiDecisionFactoryRegistry_{};
         std::unordered_map<EntityHandle, std::unique_ptr<GameplayAIDecisionInstance>> activeAIDecisions_{};
         GameplayTraversalLinkRegistry traversalLinkRegistry_{};
         GameplayTraversalExecutorRegistry traversalExecutorRegistry_{};

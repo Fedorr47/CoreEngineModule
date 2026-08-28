@@ -61,6 +61,8 @@ export import :gameplay_traversal_executor_registry;
 export import :gameplay_graph;
 export import :gameplay_runtime;
 export import :gameplay_ai_decision;
+export import :gameplay_ai_access_key_decision;
+export import :gameplay_ai_decision_composition;
 export import :json_utils;
 export import :hash_utils;
 export import :string_utils;

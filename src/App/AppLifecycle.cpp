@@ -470,7 +470,8 @@ namespace appLifecycle
             mathUtils::Mat4(1.0f)));
         runtimeState.navigationState = AppRuntimeState::NavigationState::Pending;
 
-        runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
+        runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>(
+            rendern::MakeDefaultGameplayAIDecisionFactories());
         runtimeState.gameplayRuntime->Initialize(
             *contentState.levelAsset, *runtimeState.levelInstance, runtimeState.scene);
         appDevelopment::ScenarioContext developmentContext{
@@ -655,7 +656,8 @@ namespace appLifecycle
             // Resources owned only by the previous level can now be released.
             contentState.assets->UnloadUnused();
 
-            runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>();
+            runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>(
+                rendern::MakeDefaultGameplayAIDecisionFactories());
 
             runtimeState.gameplayRuntime->Initialize(
                 *contentState.levelAsset,
