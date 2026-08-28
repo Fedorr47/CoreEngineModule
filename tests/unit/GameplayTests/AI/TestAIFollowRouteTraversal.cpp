@@ -130,6 +130,43 @@ TEST(AIFollowRouteActionRuntime, StartsTraversalExecutorOnlyOnce)
     EXPECT_FLOAT_EQ(world.TryGetCharacterMotor(agent)->velocity.x, 0.0f);
 }
 
+// Traversal executors, rather than generic FollowRoute orchestration, own
+// locomotion from the instant an annotated segment is dispatched.
+TEST(AIFollowRouteActionRuntime, TraversalExecutorOwnsMovementDuringActiveTraversal)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    GameplayTraversalLinkRegistry registry{};
+    RegisterLink(registry, world);
+    FakeTraversalExecutor executor{};
+    GameplayTraversalExecutorRegistry executorRegistry{};
+    ASSERT_TRUE(executorRegistry.Register(kDoorTraversalTypeId, executor));
+    GameplayRoute route{
+        .points = {
+                {.worldPosition = {0.0f, 0.0f, 0.0f}},
+                {.worldPosition = {1.0f, 0.0f, 0.0f}},
+                {.worldPosition = {2.0f, 0.0f, 0.0f}}},
+            .segmentAnnotations = {
+                {}, {.traversalLink = GameplayTraversalLinkHandle{7u}}}};
+    AIFollowRouteActionRuntime runtime{world, registry, executorRegistry, std::move(route)};
+
+    ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agent);
+    GameplayCharacterMotorComponent* motor = world.TryGetCharacterMotor(agent);
+    ASSERT_GT(command->moveMagnitude, 0.0f);
+    ASSERT_GT(motor->desiredMoveWorld.x, 0.0f);
+
+    world.TryGetTransform(agent)->position = {1.0f, 0.0f, 0.0f};
+    motor->velocity = {3.0f, 0.0f, 0.0f};
+
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(executor.startCallCount, 1);
+    EXPECT_GT(command->moveMagnitude, 0.0f);
+    EXPECT_GT(motor->desiredMoveWorld.x, 0.0f);
+    EXPECT_FLOAT_EQ(motor->velocity.x, 3.0f);
+}
+
 // Protects successful traversal completion and bounded next-tick route resumption.
 TEST(AIFollowRouteActionRuntime, SuccessfulTraversalResumesRoute)
 {

@@ -508,6 +508,72 @@ TEST(AppDevelopmentScenarioRuntime, LoadsActualJumpLevelOnlyAsDataDriven)
     runtime.Shutdown();
 }
 
+TEST(AppDevelopmentScenarioRuntime, LoadsAccessKeyJumpAndStartsProductionDecision)
+{
+    InlineThreadOwnerRolesGuard guard{};
+
+    rendern::test::LevelInstantiateHarness harness{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_goap_access_key_jump_development.level.json");
+
+    ASSERT_EQ(
+        level.developmentScenario,
+        "development/ai_goap_access_key_jump.scenario.json");
+
+    rendern::LevelInstance instance = harness.Instantiate(level);
+
+    rendern::GameplayRuntime runtime{
+        rendern::MakeDefaultGameplayAIDecisionFactories()};
+
+    runtime.Initialize(level, instance, harness.GetScene());
+
+    auto context = MakeContext(
+        runtime,
+        level,
+        instance,
+        harness.GetScene());
+
+    appDevelopment::AppDevelopmentScenarioRuntime development{};
+    development.OnLevelLoaded(context);
+
+    context.gameplayMode = rendern::GameplayRuntimeMode::Game;
+
+    rendern::GameplayUpdateContext gameContext{
+        .mode = rendern::GameplayRuntimeMode::Game,
+        .levelAsset = &level,
+        .levelInstance = &instance,
+        .scene = &harness.GetScene()
+    };
+
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    runtime.PostPhysicsUpdate(gameContext);
+
+    ASSERT_EQ(
+        runtime.GetCurrentMode(),
+        rendern::GameplayRuntimeMode::Game);
+
+    development.Execute(
+        appDevelopment::ScenarioCommand::Start,
+        context);
+
+    const rendern::EntityHandle agent =
+        FindNodeEntity(runtime, level, "GOAP_Agent");
+
+    ASSERT_NE(agent, rendern::kNullEntity);
+
+    EXPECT_EQ(
+        runtime.GetAIDecisionStatus(agent),
+        rendern::AIPlanExecutionStatus::ReadyToStartStep);
+
+    development.Execute(
+        appDevelopment::ScenarioCommand::Stop,
+        context);
+
+    development.Reset(context);
+    runtime.Shutdown();
+}
+
 TEST(AppDevelopmentScenarioRuntime, ExplicitInvalidScenarioNeverFallsBackToLegacyDetection)
 {
     InlineThreadOwnerRolesGuard guard{};

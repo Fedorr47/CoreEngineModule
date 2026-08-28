@@ -224,6 +224,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
 
     const std::set<std::string> expectedScenarios{
         "ai_goap_access_key.scenario.json",
+        "ai_goap_access_key_jump.scenario.json",
         "ai_goap_access_key_replanning.scenario.json",
         "ai_goap_access_key_reservation.scenario.json",
         "ai_jump_traversal.scenario.json",
@@ -274,7 +275,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
                << nodeName << "'";
         }
     }
-    EXPECT_EQ(referencedLevelCount, 7u);
+    EXPECT_EQ(referencedLevelCount, 8u);
 }
 
 TEST(DevelopmentScenarioAsset, RejectsDuplicateJsonKeysAndReportsOperationContext)
@@ -868,7 +869,7 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
         runtime.PostPhysicsUpdate(game);
     }
     EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 0);
+    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 1);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
     runner.Update(context);
     runtime.BeginFrame();

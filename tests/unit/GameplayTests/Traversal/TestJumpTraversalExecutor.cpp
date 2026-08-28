@@ -58,6 +58,22 @@ TEST(JumpTraversalExecutor, ApproachesTakeoffWithoutArrivalSlowdown)
         GameplayActionId{});
 }
 
+TEST(JumpTraversalExecutor, PreservesIncomingRunIntentDuringApproach)
+{
+    for (const bool wantsRun : {false, true})
+    {
+        Fixture fixture{};
+        fixture.world.TryGetTransform(fixture.agent)->position = {-1.0f, 0.0f, 0.0f};
+        fixture.world.TryGetCharacterCommand(fixture.agent)->wantsRun = wantsRun;
+        JumpTraversalExecutor executor{fixture.world, fixture.links};
+
+        ASSERT_EQ(executor.Start(fixture.context), GameplayTraversalExecutionResult::Running);
+        ASSERT_EQ(executor.Tick(fixture.context, 0.1f),
+            GameplayTraversalExecutionResult::Running);
+        EXPECT_EQ(fixture.world.TryGetCharacterCommand(fixture.agent)->wantsRun, wantsRun);
+    }
+}
+
 TEST(JumpTraversalExecutor, IssuesJumpOnlyAfterEnteringTakeoffToleranceAndOnlyOnce)
 {
     Fixture fixture{};

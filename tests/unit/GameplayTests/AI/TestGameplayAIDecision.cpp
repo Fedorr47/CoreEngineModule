@@ -403,6 +403,86 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase
     EXPECT_EQ(predicted.GetIntegerFact(kGOAPCoinCountFact), 0);
 }
 
+TEST(GameplayAIDecision, AccessKeyJumpRouteAnnotatesOnlyPhysicalGap)
+{
+    const mathUtils::Vec3 start{0.0f, 0.0f, 0.0f};
+    const mathUtils::Vec3 coinA{-6.0f, 0.35f, -3.0f};
+    const mathUtils::Vec3 coinB{6.0f, 0.35f, 1.0f};
+    const mathUtils::Vec3 coinC{-5.0f, 0.35f, 6.0f};
+    const mathUtils::Vec3 shop{0.0f, 0.35f, -7.0f};
+    const mathUtils::Vec3 goal{0.0f, 0.08f, 13.5f};
+    const mathUtils::Vec3 takeoff{0.0f, 0.03f, 8.7f};
+    const mathUtils::Vec3 landing{0.0f, 0.03f, 10.8f};
+
+    const GameplayRouteGraph jumpGraph = ai_access_key_detail::BuildRouteGraph(
+        start, coinA, coinB, coinC, shop, goal, takeoff, landing);
+    const GameplayRouteSearchResult jumpRoute = FindWeightedGameplayRoute(
+        jumpGraph, ai_access_key_detail::kAccessKeyNode,
+        ai_access_key_detail::kFinalGoalNode);
+    ASSERT_TRUE(jumpRoute.Succeeded());
+    ASSERT_EQ(jumpRoute.route.points.size(), 4u);
+    ASSERT_EQ(jumpRoute.route.segmentAnnotations.size(), 3u);
+    EXPECT_FALSE(jumpRoute.route.segmentAnnotations[0].traversalLink.has_value());
+    EXPECT_EQ(jumpRoute.route.segmentAnnotations[1].traversalLink,
+        kAccessKeyGoalJumpTraversalLink);
+    EXPECT_FALSE(jumpRoute.route.segmentAnnotations[2].traversalLink.has_value());
+
+    const auto jumpDefinition = ai_access_key_detail::LoadCompiledDefinition(jumpGraph);
+    ASSERT_TRUE(jumpDefinition.has_value());
+    auto jumpTransitions = ai_access_key_detail::ResolveMoveTransitions(*jumpDefinition);
+    ASSERT_TRUE(jumpTransitions.has_value());
+    const auto goalTransition = std::ranges::find_if(*jumpTransitions,
+        [](const ai_access_key_detail::ResolvedMoveTransition& transition)
+        {
+            return transition.source == ai_access_key_detail::SpatialLocation::AccessKeyShop &&
+                transition.target == ai_access_key_detail::SpatialLocation::Goal;
+        });
+    ASSERT_NE(goalTransition, jumpTransitions->end());
+    const AIActionContextId goalContextId = goalTransition->contextId;
+    GameplayWorld world{};
+    const EntityHandle agent = world.CreateEntity();
+    world.AddTransform(agent, {.position = shop});
+    ai_access_key_detail::AccessKeyMoveToRequestProvider jumpRequests{
+        world, jumpGraph, std::move(*jumpTransitions)};
+    const auto jumpRequest = jumpRequests.ResolveRequest({
+        .agentEntity = agent,
+        .actionId = kAIMoveToActionId,
+        .contextId = goalContextId});
+    ASSERT_TRUE(jumpRequest.has_value());
+    EXPECT_TRUE(jumpRequest->steeringSettings.wantsRun);
+
+    const GameplayRouteGraph flatGraph = ai_access_key_detail::BuildRouteGraph(
+        start, coinA, coinB, coinC, shop, goal);
+    const GameplayRouteSearchResult flatRoute = FindWeightedGameplayRoute(
+        flatGraph, ai_access_key_detail::kAccessKeyNode,
+        ai_access_key_detail::kFinalGoalNode);
+    ASSERT_TRUE(flatRoute.Succeeded());
+    ASSERT_EQ(flatRoute.route.points.size(), 2u);
+    ASSERT_EQ(flatRoute.route.segmentAnnotations.size(), 1u);
+    EXPECT_FALSE(flatRoute.route.segmentAnnotations[0].traversalLink.has_value());
+
+    const auto flatDefinition = ai_access_key_detail::LoadCompiledDefinition(flatGraph);
+    ASSERT_TRUE(flatDefinition.has_value());
+    auto flatTransitions = ai_access_key_detail::ResolveMoveTransitions(*flatDefinition);
+    ASSERT_TRUE(flatTransitions.has_value());
+    const auto flatGoalTransition = std::ranges::find_if(*flatTransitions,
+        [](const ai_access_key_detail::ResolvedMoveTransition& transition)
+        {
+            return transition.source == ai_access_key_detail::SpatialLocation::AccessKeyShop &&
+                transition.target == ai_access_key_detail::SpatialLocation::Goal;
+        });
+    ASSERT_NE(flatGoalTransition, flatTransitions->end());
+    const AIActionContextId flatGoalContextId = flatGoalTransition->contextId;
+    ai_access_key_detail::AccessKeyMoveToRequestProvider flatRequests{
+        world, flatGraph, std::move(*flatTransitions)};
+    const auto flatRequest = flatRequests.ResolveRequest({
+        .agentEntity = agent,
+        .actionId = kAIMoveToActionId,
+        .contextId = flatGoalContextId});
+    ASSERT_TRUE(flatRequest.has_value());
+    EXPECT_FALSE(flatRequest->steeringSettings.wantsRun);
+}
+
 TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
 {
     const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
