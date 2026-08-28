@@ -37,7 +37,12 @@ export namespace rendern
             {
                 return GameplayTraversalExecutionResult::Failed;
             }
-            activeByAgent_.emplace(context.agentEntity, ActiveJump{context, link->jump});
+            const GameplayCharacterCommandComponent* command =
+                world_.TryGetCharacterCommand(context.agentEntity);
+            activeByAgent_.emplace(context.agentEntity, ActiveJump{
+                .context = context,
+                .data = link->jump,
+                .wantsRun = command->wantsRun});
             return GameplayTraversalExecutionResult::Running;
         }
 
@@ -71,6 +76,7 @@ export namespace rendern
             if (!active.requestIssued)
             {
                 GameplayArrivalSteeringSettings settings = steeringSettings_;
+                settings.wantsRun = active.wantsRun;
                 settings.acceptanceRadius = active.data.takeoffTolerance;
                 // The takeoff is a trigger to cross with momentum, not a destination to stop at.
                 // Collapsing the slowing interval keeps full movement intent until acceptance.
@@ -83,7 +89,7 @@ export namespace rendern
                     return GameplayTraversalExecutionResult::Running;
                 }
 
-                ApplyLandingMovement_(context.agentEntity, transform->position, active.data);
+                ApplyLandingMovement_(context.agentEntity, transform->position, active);
                 if (!movementState->grounded || movementState->jumpPhase != GameplayJumpPhase::None)
                 {
                     return Fail_(it, context.agentEntity);
@@ -105,7 +111,7 @@ export namespace rendern
 
             if (!active.takeoffObserved)
             {
-                ApplyLandingMovement_(context.agentEntity, transform->position, active.data);
+                ApplyLandingMovement_(context.agentEntity, transform->position, active);
                 if (movementState->jumpRequestResult == GameplayJumpRequestResult::Rejected)
                 {
                     return Fail_(it, context.agentEntity);
@@ -160,6 +166,7 @@ export namespace rendern
             float previousVerticalSpeed{0.0f};
             bool requestIssued{false};
             bool takeoffObserved{false};
+            bool wantsRun{false};
         };
         using ActiveIterator = std::unordered_map<EntityHandle, ActiveJump>::iterator;
         static constexpr float kTraversalTimeoutSeconds = 10.0f;
@@ -221,12 +228,12 @@ export namespace rendern
         }
 
         void ApplyLandingMovement_(const EntityHandle agent, const mathUtils::Vec3& position,
-            const GameplayJumpTraversalData& data) noexcept
+            const ActiveJump& active) noexcept
         {
             GameplayArrivalSteeringSettings settings = steeringSettings_;
             settings.acceptanceRadius = 0.0f;
             const GameplaySteeringOutput steering = BuildGameplayArrivalSteering(
-                position, data.landingPosition, settings);
+            position, active.data.landingPosition, settings);
             if (steering.status == GameplaySteeringStatus::Moving)
             {
                 ApplyMovement_(agent, steering.movement);

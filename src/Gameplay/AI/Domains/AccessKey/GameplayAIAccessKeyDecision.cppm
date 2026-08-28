@@ -30,6 +30,7 @@ import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_traversal_executor_registry;
+import :gameplay_traversal_link;
 import :gameplay_traversal_link_registry;
 import :level;
 
@@ -53,6 +54,7 @@ export namespace rendern
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
     inline constexpr AIActionId kAIBuyKeyActionId{3u};
     inline constexpr AIGoalId kGOAPReachDestinationGoal{0u};
+    inline constexpr GameplayTraversalLinkHandle kAccessKeyGoalJumpTraversalLink{9470001u};
 
     namespace ai_access_key_detail
     {
@@ -62,6 +64,8 @@ export namespace rendern
         inline constexpr GameplayRouteNodeId kCoinCNode{4u};
         inline constexpr GameplayRouteNodeId kAccessKeyNode{5u};
         inline constexpr GameplayRouteNodeId kFinalGoalNode{6u};
+        inline constexpr GameplayRouteNodeId kJumpTakeoffNode{7u};
+        inline constexpr GameplayRouteNodeId kJumpLandingNode{8u};
         
         [[nodiscard]] constexpr GameplayRouteNodeId SpatialNode(
             const SpatialLocation location) noexcept
@@ -182,7 +186,13 @@ export namespace rendern
             AccessKeyMoveToRequestProvider(GameplayWorld& world, GameplayRouteGraph routeGraph,
                 std::vector<ResolvedMoveTransition> transitions)
                  : world_(world), routeGraph_(std::move(routeGraph)),
-                   transitions_(std::move(transitions))
+                transitions_(std::move(transitions)),
+                goalRequiresJump_(std::ranges::any_of(routeGraph_.edges,
+                [](const GameplayRouteGraphEdge& edge)
+                    {
+                        return edge.annotation.traversalLink ==
+                            kAccessKeyGoalJumpTraversalLink;
+                    }))
             {
             }
             
@@ -265,6 +275,10 @@ export namespace rendern
                 GameplayArrivalSteeringSettings steering{};
                 steering.acceptanceRadius = 0.35f;
                 steering.slowingRadius = 1.25f;
+                steering.wantsRun = goalRequiresJump_ &&
+                    transition->source == SpatialLocation::AccessKeyShop &&
+                    transition->target == SpatialLocation::Goal;
+                //steering.wantsRun = true;
                 return AIMoveToActionRequest{&routeGraph_, transition->startNodeId,
                     transition->goalNodeId, steering};
             }
@@ -274,6 +288,7 @@ export namespace rendern
             GameplayRouteGraph routeGraph_{};
             std::vector<ResolvedMoveTransition> transitions_{};
             std::array<EntityHandle, 3> coinEntities_{};
+            bool goalRequiresJump_{};
         };
 
         [[nodiscard]] std::optional<GameplayGOAPCompiledDefinition> LoadCompiledDefinition(
@@ -321,13 +336,33 @@ export namespace rendern
         [[nodiscard]] GameplayRouteGraph BuildRouteGraph(
             const mathUtils::Vec3 start, const mathUtils::Vec3 coinA,
             const mathUtils::Vec3 coinB, const mathUtils::Vec3 coinC,
-            const mathUtils::Vec3 key, const mathUtils::Vec3 goal)
+            const mathUtils::Vec3 key, const mathUtils::Vec3 goal,
+            const std::optional<mathUtils::Vec3> jumpTakeoff = std::nullopt,
+            const std::optional<mathUtils::Vec3> jumpLanding = std::nullopt)
         {
             GameplayRouteGraph graph{};
             graph.nodes = {{kStartNode, start}, {kCoinANode, coinA}, {kCoinBNode, coinB},
                 {kCoinCNode, coinC}, {kAccessKeyNode, key}, {kFinalGoalNode, goal}};
+            const bool goalRequiresJump = jumpTakeoff.has_value() && jumpLanding.has_value();
+            if (goalRequiresJump)
+            {
+                graph.nodes.push_back({kJumpTakeoffNode, *jumpTakeoff});
+                graph.nodes.push_back({kJumpLandingNode, *jumpLanding});
+            }
             for (const MoveTransition& transition : kMoveTransitions)
             {
+                if (goalRequiresJump && transition.source == SpatialLocation::AccessKeyShop &&
+                    transition.target == SpatialLocation::Goal)
+                {
+                    graph.edges.push_back({kAccessKeyNode, kJumpTakeoffNode,
+                        mathUtils::Length(*jumpTakeoff - key)});
+                    graph.edges.push_back({kJumpTakeoffNode, kJumpLandingNode,
+                        mathUtils::Length(*jumpLanding - *jumpTakeoff),
+                        {.traversalLink = kAccessKeyGoalJumpTraversalLink}});
+                    graph.edges.push_back({kJumpLandingNode, kFinalGoalNode,
+                        mathUtils::Length(goal - *jumpLanding)});
+                    continue;
+                }
                 const mathUtils::Vec3 delta =
                     graph.nodes[static_cast<std::size_t>(transition.target)].worldPosition -
                     graph.nodes[static_cast<std::size_t>(transition.source)].worldPosition;
@@ -612,6 +647,7 @@ export namespace rendern
         
         [[nodiscard]] std::optional<ai_access_key_detail::AccessKeyDecisionSetup>
        BuildAccessKeyDecisionSetup(const LevelAsset& level, const GameplayWorld& world,
+            const GameplayTraversalLinkRegistry& traversalLinkRegistry,
            const GameplayObjectReservationSystem* reservationSystem = nullptr)
         {
             using namespace ai_access_key_detail;
@@ -640,8 +676,35 @@ export namespace rendern
             {
                 return std::nullopt;
             }
+            const int jumpTakeoffNode = FindNode(level, "GOAP_Jump_Takeoff");
+            const int jumpLandingNode = FindNode(level, "GOAP_Jump_Landing");
+            const bool goalRequiresJump = jumpTakeoffNode >= 0 || jumpLandingNode >= 0;
+            if (goalRequiresJump)
+            {
+                if (jumpTakeoffNode < 0 || jumpLandingNode < 0)
+                {
+                    return std::nullopt;
+                }
+               
+                const EntityHandle landingEntity = FindNodeEntity(world, jumpLandingNode);
+                const std::optional<GameplayTraversalLink> jumpLink =
+                    traversalLinkRegistry.Find(kAccessKeyGoalJumpTraversalLink);
+                if (landingEntity == kNullEntity || !jumpLink.has_value() ||
++                    jumpLink->targetEntity != landingEntity ||
+                    jumpLink->traversalTypeId != kJumpTraversalTypeId)
+                {
+                    return std::nullopt;
+                }
+            }
+            const std::optional<mathUtils::Vec3> jumpTakeoff = goalRequiresJump
+                ? std::optional{level.nodes[static_cast<std::size_t>(jumpTakeoffNode)].transform.position}
+            : std::nullopt;
+            const std::optional<mathUtils::Vec3> jumpLanding = goalRequiresJump
+                ? std::optional{level.nodes[static_cast<std::size_t>(jumpLandingNode)].transform.position}
+            : std::nullopt;
             GameplayRouteGraph routeGraph = BuildRouteGraph(positions[0], positions[1],
-                positions[2], positions[3], positions[4], positions[5]);
+            positions[2], positions[3], positions[4], positions[5],
+                jumpTakeoff, jumpLanding);
             std::optional<GameplayGOAPCompiledDefinition> compiled =
                 LoadCompiledDefinition(routeGraph);
             if (!compiled.has_value())
@@ -672,6 +735,13 @@ export namespace rendern
                 .spatialPositions = positions,
                 .reservationsEnabled = reservationsEnabled};
         }
+        
+        [[nodiscard]] std::optional<ai_access_key_detail::AccessKeyDecisionSetup>
+        BuildAccessKeyDecisionSetup(const LevelAsset& level, const GameplayWorld& world)
+        {
+            const GameplayTraversalLinkRegistry emptyTraversalLinkRegistry{};
+            return BuildAccessKeyDecisionSetup(level, world, emptyTraversalLinkRegistry);
+        }
     }
 
     [[nodiscard]] std::unique_ptr<GameplayAIDecisionInstance> CreateAccessKeyAIDecision(
@@ -681,7 +751,8 @@ export namespace rendern
         GameplayObjectReservationSystem* reservationSystem = nullptr)
     {
         std::optional<ai_access_key_detail::AccessKeyDecisionSetup> setup =
-            ai_access_key_detail::BuildAccessKeyDecisionSetup(level, world, reservationSystem);
+            ai_access_key_detail::BuildAccessKeyDecisionSetup(
+                level, world, traversalLinkRegistry, reservationSystem);
         if (!setup.has_value())
         {
             return nullptr;

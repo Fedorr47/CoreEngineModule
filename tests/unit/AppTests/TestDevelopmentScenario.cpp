@@ -143,8 +143,14 @@ TEST(DevelopmentScenarioRunner, PickupConditionGatesPickupAndVisibilityMutations
 {
     InlineThreadOwnerRolesGuard guard{};
     rendern::LevelAsset level{};
-    AddMoveToNode(level,"Trigger",{0.0f,0.0f,0.0f});
-    AddMoveToNode(level,"Target",{2.0f,0.0f,0.0f});
+    level.meshes.emplace(
+    "marker",
+    rendern::LevelMeshDef{
+        .path = "models/cube.obj",
+        .debugName = "Conditional pickup marker"});
+    AddMoveToNode(level, "Trigger", {0.0f, 0.0f, 0.0f});
+    AddMoveToNode(level, "Target", {2.0f, 0.0f, 0.0f});
+    level.nodes[1].mesh = "marker";
     rendern::test::LevelInstantiateHarness harness{};
     rendern::LevelInstance instance=harness.Instantiate(level);
     rendern::GameplayRuntime runtime{};
@@ -268,7 +274,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
                << nodeName << "'";
         }
     }
-    EXPECT_EQ(referencedLevelCount, 5u);
+    EXPECT_EQ(referencedLevelCount, 7u);
 }
 
 TEST(DevelopmentScenarioAsset, RejectsDuplicateJsonKeysAndReportsOperationContext)
@@ -795,7 +801,9 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
     rendern::test::LevelInstantiateHarness harness{};
     rendern::LevelInstance instance = harness.Instantiate(level);
     rendern::Scene& scene = harness.GetScene();
-    rendern::GameplayRuntime runtime{}; runtime.Initialize(level, instance, scene);
+    rendern::GameplayRuntime runtime{
+        rendern::MakeDefaultGameplayAIDecisionFactories()};
+    runtime.Initialize(level, instance, scene);
     rendern::GameplayUpdateContext game{.deltaSeconds=1.0f/60.0f,
         .mode=rendern::GameplayRuntimeMode::Game, .levelAsset=&level,
         .levelInstance=&instance, .scene=&scene};

@@ -181,7 +181,8 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
         "levels/ai_goap_access_key_development.level.json");
     rendern::LevelInstance instance = harness.Instantiate(level);
-    rendern::GameplayRuntime runtime{};
+    rendern::GameplayRuntime runtime{
+        rendern::MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level, instance, harness.GetScene());
     auto context = MakeContext(runtime, level, instance, harness.GetScene());
     appDevelopment::AppDevelopmentScenarioRuntime development{};
@@ -232,7 +233,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     EXPECT_FALSE(instance.IsNodeRuntimeVisible(coinANode));
     EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
     
-    development.Reset(context);
+    development.Execute(appDevelopment::ScenarioCommand::Reset, context);
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
     facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
@@ -258,7 +259,8 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     EXPECT_EQ(level.developmentScenario,
         "development/ai_goap_access_key_replanning.scenario.json");
     rendern::LevelInstance instance=harness.Instantiate(level);
-    rendern::GameplayRuntime runtime{};
+    rendern::GameplayRuntime runtime{
+        rendern::MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level,instance,harness.GetScene());
     auto context=MakeContext(runtime,level,instance,harness.GetScene());
     appDevelopment::AppDevelopmentScenarioRuntime development{};
@@ -278,10 +280,11 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     const rendern::EntityHandle coinBEntity=FindNodeEntity(runtime,level,"GOAP_Coin_B");
     const rendern::EntityHandle coinCEntity=FindNodeEntity(runtime,level,"GOAP_Coin_C");
     const rendern::EntityHandle keyEntity=FindNodeEntity(runtime,level,"GOAP_Access_Key");
-    const rendern::EntityHandle goalEntity=FindNodeEntity(runtime,level,"GOAP_Final_Goal");
+    const auto goalNode=std::ranges::find_if(level.nodes,
+        [](const rendern::LevelNode& node) { return node.alive && node.name=="GOAP_Final_Goal"; });
     ASSERT_NE(agent,rendern::kNullEntity); ASSERT_NE(coinAEntity,rendern::kNullEntity);
     ASSERT_NE(coinBEntity,rendern::kNullEntity); ASSERT_NE(coinCEntity,rendern::kNullEntity);
-    ASSERT_NE(keyEntity,rendern::kNullEntity); ASSERT_NE(goalEntity,rendern::kNullEntity);
+    ASSERT_NE(keyEntity,rendern::kNullEntity); ASSERT_NE(goalNode,level.nodes.end());
     rendern::GameplayPickupComponent* coinA=runtime.GetWorld().TryGetPickup(coinAEntity);
     rendern::GameplayPickupComponent* coinB=runtime.GetWorld().TryGetPickup(coinBEntity);
     rendern::GameplayPickupComponent* coinC=runtime.GetWorld().TryGetPickup(coinCEntity);
@@ -339,8 +342,7 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     EXPECT_FALSE(instance.IsNodeRuntimeVisible(keyNode));
 
     TickFrame(runtime,development,context,gameContext);
-    runtime.GetWorld().TryGetTransform(agent)->position=
-        runtime.GetWorld().TryGetTransform(goalEntity)->position;
+    runtime.GetWorld().TryGetTransform(agent)->position=goalNode->transform.position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
         { return facts->IsFactSet(rendern::kGOAPAtDestinationFact); },8u))
         << "Final goal did not complete";
@@ -351,7 +353,7 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
     EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
 
-    development.Reset(context);
+    development.Execute(appDevelopment::ScenarioCommand::Reset,context);
     EXPECT_FALSE(coinA->collected); EXPECT_FALSE(coinB->collected); EXPECT_FALSE(coinC->collected);
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinBNode));
@@ -375,7 +377,8 @@ TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughR
     EXPECT_EQ(level.developmentScenario,
         "development/ai_goap_access_key_reservation.scenario.json");
     rendern::LevelInstance instance=harness.Instantiate(level);
-    rendern::GameplayRuntime runtime{};
+    rendern::GameplayRuntime runtime{
+        rendern::MakeDefaultGameplayAIDecisionFactories()};
     runtime.Initialize(level,instance,harness.GetScene());
     auto context=MakeContext(runtime,level,instance,harness.GetScene());
     appDevelopment::AppDevelopmentScenarioRuntime development{};
@@ -472,7 +475,7 @@ TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughR
     {
         EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coin),rendern::kNullEntity);
     }
-    development.Reset(context);
+    development.Execute(appDevelopment::ScenarioCommand::Reset,context);
     for (const rendern::EntityHandle coin : {coinA,coinB,coinC})
     {
         EXPECT_FALSE(world.TryGetPickup(coin)->collected);

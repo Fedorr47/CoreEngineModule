@@ -39,6 +39,13 @@ namespace rendern::test
         void DrainAssetPipeline()
         {
             jobSystem_.Drain();
+            
+            assets_.ProcessUploads(
+        SyncLoadNumberPerCall,
+        SyncLoadNumberPerCall,
+        SyncLoadNumberPerCall,
+        SyncLoadNumberPerCall);
+            
             renderQueue_.Drain();
         }
         

@@ -73,7 +73,6 @@ export namespace rendern
             if (activeTraversal_)
             {
                 physicallyBlocked_ = false;
-                ClearMovementIntentIfAccessible_(context.agentEntity);
                 const GameplayTraversalLinkHandle completedTraversal = activeTraversal_->context.traversalLink;
                 const GameplayTraversalExecutionResult result = activeTraversal_->executor->Tick(activeTraversal_->context, deltaSeconds);
                 if (result == GameplayTraversalExecutionResult::Running)
@@ -191,8 +190,7 @@ export namespace rendern
             {
                 return AIActionRuntimeResult::Failed;
             }
-
-            StopMovementIfAccessible_(entity);
+            
             const GameplayTraversalExecutionResult result = executor->Start(traversalContext);
             if (result == GameplayTraversalExecutionResult::Running)
             {

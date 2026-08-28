@@ -1,0 +1,62 @@
+﻿{
+  "id": "ai-goap-access-key-jump",
+  "title": "GOAP Access Key: Running Jump Gap",
+  "description": "Production Access-Key GOAP reaches its final MoveTo through an authored Jump traversal.",
+  "roles": {
+    "agent": "GOAP_Agent", "start": "GOAP_Start", "accessKey": "GOAP_Access_Key",
+    "finalGoal": "GOAP_Final_Goal", "coinA": "GOAP_Coin_A", "coinB": "GOAP_Coin_B",
+    "coinC": "GOAP_Coin_C", "takeoff": "GOAP_Jump_Takeoff", "landing": "GOAP_Jump_Landing"
+  },
+  "setup": [
+    { "op": "ensureNodeBoundEntity", "entity": "agent" },
+    { "op": "captureTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "ensureAI", "entity": "agent" },
+    { "op": "ensureNodeBoundEntity", "entity": "coinA" },
+    { "op": "ensurePickup", "entity": "coinA", "collectionRadius": 0.6 },
+    { "op": "ensureNodeBoundEntity", "entity": "coinB" },
+    { "op": "ensurePickup", "entity": "coinB", "collectionRadius": 0.6 },
+    { "op": "ensureNodeBoundEntity", "entity": "coinC" },
+    { "op": "ensurePickup", "entity": "coinC", "collectionRadius": 0.6 },
+    { "op": "ensureNodeBoundEntity", "entity": "accessKey" },
+    { "op": "ensureNodeBoundEntity", "entity": "finalGoal" },
+    { "op": "removeCharacterPhysicalSettings", "entity": "finalGoal" },
+    { "op": "ensureNodeBoundEntity", "entity": "landing" },
+    { "op": "removeCharacterPhysicalSettings", "entity": "landing" }
+  ],
+  "start": [
+    { "op": "cancelAIDecision", "entity": "agent" },
+    { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 9470001 },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" },
+    { "op": "resetPickup", "entity": "coinA" }, { "op": "resetPickup", "entity": "coinB" },
+    { "op": "resetPickup", "entity": "coinC" },
+    { "op": "setRuntimeVisibility", "entity": "coinA", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "coinB", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "coinC", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "accessKey", "visible": true },
+    { "op": "registerJumpTraversalLink", "entity": "landing", "handle": 9470001,
+      "takeoff": "takeoff", "landing": "landing", "verticalSpeed": 5.5,
+      "takeoffTolerance": 0.20, "landingHorizontalTolerance": 0.55,
+      "landingVerticalTolerance": 0.30 },
+    { "op": "startAIDecision", "entity": "agent", "decision": "access_key", "result": "GOAP decision" }
+  ],
+  "stop": [
+    { "op": "cancelAIDecision", "entity": "agent" }, { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 9470001 }
+  ],
+  "reset": [
+    { "op": "cancelAIDecision", "entity": "agent" }, { "op": "cancelAI", "entity": "agent" },
+    { "op": "removeTraversalLink", "entity": "landing", "handle": 9470001 },
+    { "op": "restoreTransform", "entity": "agent", "slot": "baseline" },
+    { "op": "resetEntitySimulationState", "entity": "agent" },
+    { "op": "teleportPhysicsCharacter", "entity": "agent" },
+    { "op": "resetPickup", "entity": "coinA" }, { "op": "resetPickup", "entity": "coinB" },
+    { "op": "resetPickup", "entity": "coinC" },
+    { "op": "setRuntimeVisibility", "entity": "coinA", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "coinB", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "coinC", "visible": true },
+    { "op": "setRuntimeVisibility", "entity": "accessKey", "visible": true }
+  ]
+}
