@@ -492,9 +492,9 @@ set(COMMON_MODULES
         ECS/EnTTHelpers.cppm
 
         Gameplay/Components/GameplayEntityComponents.cppm
-        Gameplay/AI/AIAgentWorldState.cppm
-        Gameplay/AI/AIActionContracts.cppm
-        Gameplay/AI/GameplayAIComponents.cppm
+        Gameplay/AI/GOAP/AIAgentWorldState.cppm
+        Gameplay/AI/Runtime/AIActionContracts.cppm
+        Gameplay/AI/Runtime/GameplayAIComponents.cppm
         Gameplay/Input/GameplayInputComponents.cppm
         Gameplay/Interaction/GameplayInteractionComponents.cppm
         Gameplay/Character/GameplayCharacterComponents.cppm
@@ -504,17 +504,17 @@ set(COMMON_MODULES
         Gameplay/Animation/GameplayAnimationComponents.cppm
         Gameplay/GameplayWorld.cppm
         Gameplay/GameplayWorld_impl.cppm
-        Gameplay/AI/AISystem.cppm
-        Gameplay/AI/AIDecisionContracts.cppm
-        Gameplay/AI/AIGoalSelection.cppm
-        Gameplay/AI/AIActionRuntime.cppm
-        Gameplay/AI/AIPlanner.cppm
-        Gameplay/AI/AIPlanExecution.cppm
-        Gameplay/AI/AIDebugViewModel.cppm
-        Gameplay/AI/AIActionBinding.cppm
-        Gameplay/AI/AIPlanExecutionBridge.cppm
-        Gameplay/AI/AIDecisionRuntime.cppm
-        Gameplay/AI/AIActionTask.cppm
+        Gameplay/AI/Runtime/AISystem.cppm
+        Gameplay/AI/GOAP/AIDecisionContracts.cppm
+        Gameplay/AI/GOAP/AIGoalSelection.cppm
+        Gameplay/AI/Runtime/AIActionRuntime.cppm
+        Gameplay/AI/GOAP/AIPlanner.cppm
+        Gameplay/AI/GOAP/AIPlanExecution.cppm
+        Gameplay/AI/GOAP/Debug/AIDebugViewModel.cppm
+        Gameplay/AI/Runtime/AIActionBinding.cppm
+        Gameplay/AI/GOAP/AIPlanExecutionBridge.cppm
+        Gameplay/AI/GOAP/AIDecisionRuntime.cppm
+        Gameplay/AI/Runtime/AIActionTask.cppm
         Gameplay/Navigation/GameplayRequest.cppm
         Gameplay/Navigation/GameplaySteering.cppm
         Gameplay/Navigation/GameplayRoute.cppm
@@ -526,10 +526,10 @@ set(COMMON_MODULES
         Gameplay/Traversal/GameplayTraversalExecutorRegistry.cppm
         Gameplay/Traversal/DoorTraversalExecutor.cppm
         Gameplay/Traversal/JumpTraversalExecutor.cppm
-        Gameplay/AI/AIFollowRouteActionRuntime.cppm
-        Gameplay/AI/AIFollowRouteAction.cppm
-        Gameplay/AI/AIMoveToAction.cppm
-        Gameplay/AI/AIMoveToActionBinding.cppm
+        Gameplay/AI/Navigation/AIFollowRouteActionRuntime.cppm
+        Gameplay/AI/Navigation/AIFollowRouteAction.cppm
+        Gameplay/AI/Navigation/AIMoveToAction.cppm
+        Gameplay/AI/Navigation/AIMoveToActionBinding.cppm
         Gameplay/Input/GameplayInput.cppm
         Gameplay/Camera/GameplayFollowCamera.cppm
         Gameplay/Character/CharacterController.cppm
@@ -549,13 +549,13 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayAIDecisionComposition.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
-        Gameplay/AI/GameplayAIDecisionContracts.cppm
-        Gameplay/AI/GameplayGOAPInspection.cppm
-        Gameplay/AI/GameplayGOAPDecision.cppm
-        Gameplay/AI/GameplayGOAPDefinitionAsset.cppm
-        Gameplay/AI/GameplayAIAccessKeyObservation.cppm
-        Gameplay/AI/GameplayAIAccessKeyDecision.cppm
-        Gameplay/AI/GameplayAIDecision.cppm
+        Gameplay/AI/Runtime/GameplayAIDecisionContracts.cppm
+        Gameplay/AI/GOAP/Debug/GameplayGOAPInspection.cppm
+        Gameplay/AI/GOAP/GameplayGOAPDecision.cppm
+        Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionAsset.cppm
+        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyObservation.cppm
+        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyDecision.cppm
+        Gameplay/AI/Runtime/GameplayAIDecision.cppm
 
         Timer/GameTimer.ixx
         Timer/GameTimer.cppm
