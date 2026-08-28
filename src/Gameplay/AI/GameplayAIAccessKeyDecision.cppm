@@ -23,6 +23,7 @@ import :ai_system;
 import :gameplay;
 import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
+import :gameplay_goap_inspection;
 import :gameplay_goap_definition_asset;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
@@ -462,7 +463,8 @@ export namespace rendern
             bool reservationsEnabled{};
         };
 
-        class AccessKeyDecision final : public GameplayAIDecisionInstance
+        class AccessKeyDecision final : public GameplayAIDecisionInstance,
+            public IGameplayGOAPInspection
         {
         public:
             AccessKeyDecision(const EntityHandle agent, AccessKeyDecisionSetup setup,
@@ -539,7 +541,25 @@ export namespace rendern
             }
 
             void Cancel(AISystem& aiSystem) noexcept override { goap_.Cancel(aiSystem); }
-            [[nodiscard]] AIPlanExecutionStatus GetStatus() const noexcept override
+            [[nodiscard]] GameplayAIDecisionStatus GetStatus() const noexcept override
+            {
+                switch (goap_.GetStatus())
+                {
+                case AIPlanExecutionStatus::NotStarted:
+                    return GameplayAIDecisionStatus::NotStarted;
+                case AIPlanExecutionStatus::ReadyToStartStep: [[fallthrough]];
+                case AIPlanExecutionStatus::RunningStep:
+                    return GameplayAIDecisionStatus::Running;
+                case AIPlanExecutionStatus::Succeeded:
+                    return GameplayAIDecisionStatus::Succeeded;
+                case AIPlanExecutionStatus::Failed:
+                    return GameplayAIDecisionStatus::Failed;
+                case AIPlanExecutionStatus::Cancelled:
+                    return GameplayAIDecisionStatus::Cancelled;
+                }
+                return GameplayAIDecisionStatus::Failed;
+            }
+            [[nodiscard]] AIPlanExecutionStatus GetGOAPStatus() const noexcept override
             {
                 return goap_.GetStatus();
             }

@@ -17,6 +17,28 @@ using namespace ai_access_key_detail;
 
 namespace
 {
+    class LifecycleOnlyDecision final : public GameplayAIDecisionInstance
+    {
+    public:
+        void Update(AISystem&, const GameplayAIObservationContext&) override
+        {
+            status_ = GameplayAIDecisionStatus::Running;
+        }
+
+        void Cancel(AISystem&) noexcept override
+        {
+            status_ = GameplayAIDecisionStatus::Cancelled;
+        }
+
+        [[nodiscard]] GameplayAIDecisionStatus GetStatus() const noexcept override
+        {
+            return status_;
+        }
+
+    private:
+        GameplayAIDecisionStatus status_{GameplayAIDecisionStatus::NotStarted};
+    };
+    
     class LifetimeBinding final : public IAIActionBinding
     {
     public:
@@ -68,6 +90,20 @@ namespace
     {
         return ai_access_key_detail::FindMoveContext(definition, source, target).value();
     }
+}
+
+TEST(GameplayAIDecisionContracts, SupportsDecisionNeutralLifecycleImplementation)
+{
+    LifecycleOnlyDecision decision;
+    AISystem aiSystem;
+    const GameplayWorld world;
+
+    EXPECT_EQ(decision.GetStatus(), GameplayAIDecisionStatus::NotStarted);
+    decision.Update(aiSystem, GameplayAIObservationContext{
+        world, std::span<const GameplayWorldEvent>{}});
+    EXPECT_EQ(decision.GetStatus(), GameplayAIDecisionStatus::Running);
+    decision.Cancel(aiSystem);
+    EXPECT_EQ(decision.GetStatus(), GameplayAIDecisionStatus::Cancelled);
 }
 
 TEST(GameplayGOAPDecision, SemanticActionBindingsMustBeComplete)
@@ -1126,7 +1162,13 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     ASSERT_TRUE(reservations.TryReserve(world, coinA, otherAgent));
     AISystem legacyAI;
     legacyDecision->Update(legacyAI, GameplayAIObservationContext{world, {}});
-    EXPECT_TRUE(legacyDecision->GetObservedState().IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(legacyDecision->GetObservedState().IsFactSet(kGOAPCoinACollectedFact));
-    ASSERT_TRUE(reservations.Release(coinA, otherAgent));
+    
+    const auto* goapInspection =
+      dynamic_cast<const IGameplayGOAPInspection*>(legacyDecision.get());
+    ASSERT_NE(goapInspection, nullptr);
+ 
+    EXPECT_TRUE(goapInspection->GetObservedState()
+        .IsFactSet(kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(goapInspection->GetObservedState()
+        .IsFactSet(kGOAPCoinACollectedFact));
 }

@@ -549,6 +549,7 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/AI/GameplayAIDecisionContracts.cppm
+        Gameplay/AI/GameplayGOAPInspection.cppm
         Gameplay/AI/GameplayGOAPDecision.cppm
         Gameplay/AI/GameplayGOAPDefinitionAsset.cppm
         Gameplay/AI/GameplayAIAccessKeyObservation.cppm

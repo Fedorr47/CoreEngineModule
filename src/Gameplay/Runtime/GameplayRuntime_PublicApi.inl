@@ -597,10 +597,10 @@
             // never exposes NotStarted to callers before the next gameplay tick.
             decision->Update(aiSystem_, GameplayAIObservationContext{
                  world_, currentWorldEvents_, &currentWorldEvents_});
-            const AIPlanExecutionStatus status = decision->GetStatus();
-            if (status == AIPlanExecutionStatus::NotStarted ||
-                status == AIPlanExecutionStatus::Failed ||
-                status == AIPlanExecutionStatus::Cancelled)
+            const GameplayAIDecisionStatus status = decision->GetStatus();
+            if (status == GameplayAIDecisionStatus::NotStarted ||
+                status == GameplayAIDecisionStatus::Failed ||
+                status == GameplayAIDecisionStatus::Cancelled)
             {
                 decision->Cancel(aiSystem_);
                 return false;
@@ -625,15 +625,27 @@
         AIPlanExecutionStatus GameplayRuntime::GetAIDecisionStatus(const EntityHandle agentEntity) const noexcept
         {
             const auto found = activeAIDecisions_.find(agentEntity);
-            return found == activeAIDecisions_.end()
-                ? AIPlanExecutionStatus::NotStarted : found->second->GetStatus();
+            if (found == activeAIDecisions_.end())
+            {
+                return AIPlanExecutionStatus::NotStarted;
+            }
+            const auto* inspection =
+                dynamic_cast<const IGameplayGOAPInspection*>(found->second.get());
+            return inspection == nullptr
+                ? AIPlanExecutionStatus::NotStarted : inspection->GetGOAPStatus();
         }
 
         const AIAgentWorldState* GameplayRuntime::GetAIDecisionObservedState(
             const EntityHandle agentEntity) const noexcept
         {
             const auto found = activeAIDecisions_.find(agentEntity);
-            return found == activeAIDecisions_.end() ? nullptr : &found->second->GetObservedState();
+            if (found == activeAIDecisions_.end())
+            {
+                return nullptr;
+            }
+            const auto* inspection =
+                dynamic_cast<const IGameplayGOAPInspection*>(found->second.get());
+            return inspection == nullptr ? nullptr : &inspection->GetObservedState();
         }
 
         std::vector<GameplayAIDebugAgentView> GameplayRuntime::BuildAIDebugAgentViews() const
@@ -642,7 +654,12 @@
             result.reserve(activeAIDecisions_.size());
             for (const auto& [agent, decision] : activeAIDecisions_)
             {
-                result.push_back({agent, decision->BuildDebugViewModel()});
+                const auto* inspection =
+                    dynamic_cast<const IGameplayGOAPInspection*>(decision.get());
+                if (inspection != nullptr)
+                {
+                    result.push_back({agent, inspection->BuildDebugViewModel()});
+                }
             }
             std::ranges::sort(result, {}, &GameplayAIDebugAgentView::agent);
             return result;

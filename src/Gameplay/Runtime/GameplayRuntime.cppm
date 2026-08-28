@@ -30,6 +30,7 @@ import :ai_move_to_action;
 import :ai_move_to_action_binding;
 import :ai_decision_runtime;
 import :gameplay_ai_decision;
+import :gameplay_goap_inspection;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
