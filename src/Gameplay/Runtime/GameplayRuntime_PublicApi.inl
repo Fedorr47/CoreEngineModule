@@ -666,6 +666,24 @@
             return result;
         }
 
+        std::vector<GameplayAIPlannedPathDebugAgentView>
+            GameplayRuntime::BuildAIPlannedPathDebugAgentViews() const
+        {
+            std::vector<GameplayAIPlannedPathDebugAgentView> result;
+            result.reserve(activeAIDecisions_.size());
+            for (const auto& [agent, decision] : activeAIDecisions_)
+            {
+                const auto* inspection =
+                    dynamic_cast<const IGameplayGOAPPathInspection*>(decision.get());
+                if (inspection != nullptr)
+                {
+                    result.push_back({agent, inspection->BuildPlannedPathDebugView()});
+                }
+            }
+            std::ranges::sort(result, {}, &GameplayAIPlannedPathDebugAgentView::agent);
+            return result;
+        }
+
         bool GameplayRuntime::HasAIDecisionDefinition(const std::string_view definitionId) const noexcept
         {
             return aiDecisionFactoryRegistry_.Contains(definitionId);

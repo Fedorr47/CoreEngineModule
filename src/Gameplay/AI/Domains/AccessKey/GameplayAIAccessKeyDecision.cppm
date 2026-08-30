@@ -24,6 +24,7 @@ import :gameplay;
 import :gameplay_ai_decision_contracts;
 import :gameplay_goap_decision;
 import :gameplay_goap_inspection;
+import :gameplay_goap_path_inspection;
 import :gameplay_goap_definition_asset;
 import :gameplay_goap_definition_compiler;
 import :gameplay_object_reservation_system;
@@ -282,6 +283,27 @@ export namespace rendern
                 return AIMoveToActionRequest{&routeGraph_, transition->startNodeId,
                     transition->goalNodeId, steering};
             }
+            
+            [[nodiscard]] std::optional<GameplayRoute> BuildDebugRoute(
+                const AIActionContextId contextId) const
+            {
+                const auto transition = std::ranges::find_if(transitions_,
+                    [&](const ResolvedMoveTransition& candidate)
+                    {
+                        return candidate.contextId == contextId;
+                    });
+                if (transition == transitions_.end())
+                {
+                    return std::nullopt;
+                }
+                GameplayRouteSearchResult result = FindWeightedGameplayRoute(
+                    routeGraph_, transition->startNodeId, transition->goalNodeId);
+                if (!result.Succeeded())
+                {
+                    return std::nullopt;
+                }
+                return std::move(result.route);
+            }
 
         private:
             GameplayWorld& world_;
@@ -290,6 +312,33 @@ export namespace rendern
             std::array<EntityHandle, 3> coinEntities_{};
             bool goalRequiresJump_{};
         };
+        
+        [[nodiscard]] GameplayAIDebugPlannedPathView BuildPlannedPathDebugView(
+            const std::span<const AIDebugPlanStepView> selectedPlan,
+            const std::optional<std::size_t> currentStepIndex,
+            const AccessKeyMoveToRequestProvider& moveToRequests)
+        {
+            GameplayAIDebugPlannedPathView result{};
+            const std::size_t firstStep = currentStepIndex.value_or(selectedPlan.size());
+            for (std::size_t index = firstStep; index < selectedPlan.size(); ++index)
+            {
+                const AIDebugPlanStepView& step = selectedPlan[index];
+                if (step.actionId != kAIMoveToActionId)
+                {
+                    continue;
+                }
+                std::optional<GameplayRoute> route =
+                    moveToRequests.BuildDebugRoute(step.contextId);
+                if (!route.has_value())
+                {
+                    result.complete = false;
+                }
+                result.routeSteps.push_back({index, step.actionId, step.contextId,
+                    std::move(route)});
+            }
+            return result;
+        }
+
 
         [[nodiscard]] std::optional<GameplayGOAPCompiledDefinition> LoadCompiledDefinition(
             const GameplayRouteGraph& routeGraph)
@@ -499,8 +548,10 @@ export namespace rendern
             bool reservationsEnabled{};
         };
 
-        class AccessKeyDecision final : public GameplayAIDecisionInstance,
-            public IGameplayGOAPInspection
+        class AccessKeyDecision final : 
+            public GameplayAIDecisionInstance,
+            public IGameplayGOAPInspection,
+            public IGameplayGOAPPathInspection
         {
         public:
             AccessKeyDecision(const EntityHandle agent, AccessKeyDecisionSetup setup,
@@ -606,6 +657,13 @@ export namespace rendern
             [[nodiscard]] AIDebugViewModel BuildDebugViewModel() const override
             {
                 return goap_.BuildDebugViewModel();
+            }
+            [[nodiscard]] GameplayAIDebugPlannedPathView
+                BuildPlannedPathDebugView() const override
+            {
+                const AIDebugViewModel plan = goap_.BuildDebugViewModel();
+                return ai_access_key_detail::BuildPlannedPathDebugView(
+                    plan.selectedPlan, plan.currentStepIndex, moveToRequests_);
             }
 
         private:

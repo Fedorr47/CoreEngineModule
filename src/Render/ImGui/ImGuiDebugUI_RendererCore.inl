@@ -375,6 +375,7 @@ namespace rendern::ui
         }
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         ImGui::Checkbox("Navigation Mesh", &rs.drawNavigationMesh);
+        ImGui::Checkbox("AI planned paths", &rs.drawAIPlannedPathDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
         ImGui::Checkbox("Log CPU frame timings", &rs.logCpuFrameTimings);
         ImGui::Checkbox("VSync", &rs.enableVSync);

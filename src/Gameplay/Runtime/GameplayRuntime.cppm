@@ -31,6 +31,7 @@ import :ai_move_to_action_binding;
 import :ai_decision_runtime;
 import :gameplay_ai_decision;
 import :gameplay_goap_inspection;
+import :gameplay_goap_path_inspection;
 import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
@@ -69,6 +70,12 @@ export namespace rendern
     {
         EntityHandle agent{kNullEntity};
         AIDebugViewModel snapshot{};
+    };
+    
+    struct GameplayAIPlannedPathDebugAgentView
+    {
+        EntityHandle agent{kNullEntity};
+        GameplayAIDebugPlannedPathView plannedPath{};
     };
     
     // TODO: maybe transform to a facade pattern
@@ -151,6 +158,8 @@ export namespace rendern
         [[nodiscard]] AIPlanExecutionStatus GetAIDecisionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] const AIAgentWorldState* GetAIDecisionObservedState(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] std::vector<GameplayAIDebugAgentView> BuildAIDebugAgentViews() const;
+        [[nodiscard]] std::vector<GameplayAIPlannedPathDebugAgentView>
+            BuildAIPlannedPathDebugAgentViews() const;
         [[nodiscard]] bool HasAIDecisionDefinition(std::string_view definitionId) const noexcept;
         [[nodiscard]] bool RegisterGameplayTraversalLink(GameplayTraversalLink link);
         [[nodiscard]] bool RemoveGameplayTraversalLink(GameplayTraversalLinkHandle handle) noexcept;

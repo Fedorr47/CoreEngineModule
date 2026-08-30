@@ -20,12 +20,11 @@ export namespace app::debugDraw
         }
     }
 
-    void SetNavigationGeometry(
+    void AppendNavigationGeometry(
         const navigation::DebugGeometry& geometry,
         rendern::Scene& scene)
     {
-        scene.externalDebugLines.clear();
-        scene.externalDebugLines.reserve(geometry.lines.size());
+        scene.externalDebugLines.reserve(scene.externalDebugLines.size() + geometry.lines.size());
         for (const navigation::DebugLine& line : geometry.lines)
         {
             scene.externalDebugLines.push_back({ line.start, line.end, line.rgba });

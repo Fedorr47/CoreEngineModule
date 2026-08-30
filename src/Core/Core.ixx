@@ -67,6 +67,7 @@ export import :gameplay_goap_decision;
 export import :gameplay_goap_definition_asset;
 export import :gameplay_goap_definition_compiler;
 export import :gameplay_goap_inspection;
+export import :gameplay_goap_path_inspection;
 export import :json_utils;
 export import :hash_utils;
 export import :string_utils;

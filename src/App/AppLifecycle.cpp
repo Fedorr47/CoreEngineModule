@@ -257,87 +257,119 @@ namespace appLifecycle
     }
     
     static void UpdateNavigationRuntime(AppState& app)
-	{
-		auto& runtime = app.runtimeState;
-		if (runtime.navigationState == AppRuntimeState::NavigationState::Pending)
-		{
-			const app::navigationRuntime::GeometryResult geometry =
-				app::navigationRuntime::BuildLevelNavigationGeometry(*runtime.levelInstance);
-			if (geometry.status == app::navigationRuntime::GeometryStatus::WaitingForMeshes)
-			{
-				if (!runtime.navigationWaitingLogged)
-				{
-					std::cerr << "[Navigation] Waiting for mesh CPU geometry.\n";
-					runtime.navigationWaitingLogged = true;
-				}
-			}
-			else if (geometry.status == app::navigationRuntime::GeometryStatus::Ready)
-			{
-			    auto profiles = std::make_unique<navigation::ProfileRegistry>();
-			    const navigation::ProfileResolution defaultProfile =
+    {
+        auto& runtime = app.runtimeState;
+        if (runtime.navigationState == AppRuntimeState::NavigationState::Pending)
+        {
+            const app::navigationRuntime::GeometryResult geometry =
+                app::navigationRuntime::BuildLevelNavigationGeometry(*runtime.levelInstance);
+            if (geometry.status == app::navigationRuntime::GeometryStatus::WaitingForMeshes)
+            {
+                if (!runtime.navigationWaitingLogged)
+                {
+                    std::cerr << "[Navigation] Waiting for mesh CPU geometry.\n";
+                    runtime.navigationWaitingLogged = true;
+                }
+            }
+            else if (geometry.status == app::navigationRuntime::GeometryStatus::Ready)
+            {
+                auto profiles = std::make_unique<navigation::ProfileRegistry>();
+                const navigation::ProfileResolution defaultProfile =
                     profiles->Initialize(geometry.geometry, runtime.navigationBuildSettings);
-			    navigation::BuildStatus status = defaultProfile.status;
-			    if (status == navigation::BuildStatus::Succeeded && runtime.gameplayRuntime)
-			    {
-			        const rendern::GameplayWorld& gameplayWorld = runtime.gameplayRuntime->GetWorld();
-			        for (const rendern::EntityHandle entity : runtime.gameplayRuntime->GetNodeBoundEntities())
-			        {
-			            const auto* physicalSettings = gameplayWorld.TryGetCharacterPhysicalSettings(entity);
-			            if (physicalSettings == nullptr)
-			            {
-			                continue;
-			            }
-			            const navigation::AgentSettings agentSettings = 
-			                app::navigationRuntime::BuildAgentSettings(*physicalSettings);
-			            status = profiles->ResolveProfile(agentSettings).status;
-			            if (status != navigation::BuildStatus::Succeeded)
-			            {
-			                std::cerr << "[Navigation] Agent profile build failed: entity=" << entity
+                navigation::BuildStatus status = defaultProfile.status;
+                if (status == navigation::BuildStatus::Succeeded && runtime.gameplayRuntime)
+                {
+                    const rendern::GameplayWorld& gameplayWorld = runtime.gameplayRuntime->GetWorld();
+                    for (const rendern::EntityHandle entity : runtime.gameplayRuntime->GetNodeBoundEntities())
+                    {
+                        const auto* physicalSettings = gameplayWorld.TryGetCharacterPhysicalSettings(entity);
+                        if (physicalSettings == nullptr)
+                        {
+                            continue;
+                        }
+                        const navigation::AgentSettings agentSettings = 
+                            app::navigationRuntime::BuildAgentSettings(*physicalSettings);
+                        status = profiles->ResolveProfile(agentSettings).status;
+                        if (status != navigation::BuildStatus::Succeeded)
+                        {
+                            std::cerr << "[Navigation] Agent profile build failed: entity=" << entity
                                 << ", radius=" << agentSettings.radius
                                 << ", height=" << agentSettings.height
                                 << ", maximumStepHeight=" << agentSettings.maximumStepHeight
                                 << ", maximumSlopeAngleDegrees="
                                 << agentSettings.maximumSlopeAngleDegrees
                                 << ", status=" << static_cast<int>(status) << ".\n";
-			                break;
-			            }
-			        }
-			    }
+                            break;
+                        }
+                    }
+                }
 			    
-				if (status == navigation::BuildStatus::Succeeded)
-				{
-				    const navigation::World* defaultWorld = profiles->TryGetWorld(defaultProfile.profile);
-				    runtime.navigationDebugGeometry = defaultWorld->BuildDebugGeometry();
-				    runtime.navigationProfiles = std::move(profiles);
-					runtime.navigationState = AppRuntimeState::NavigationState::Ready;
-					std::cerr << "[Navigation] Build succeeded: " << geometry.sourceMeshCount
-						<< " meshes, " << geometry.geometry.vertices.size() << " vertices, "
-						<< geometry.geometry.indices.size() / 3 << " triangles.\n";
-				}
-				else
-				{
-					runtime.navigationState = AppRuntimeState::NavigationState::Failed;
-					runtime.navigationDebugGeometry = {};
-					std::cerr << "[Navigation] Build failed with status " << static_cast<int>(status) << ".\n";
-				}
-			}
-			else
-			{
-				runtime.navigationState = AppRuntimeState::NavigationState::Failed;
-				runtime.navigationDebugGeometry = {};
-				std::cerr << "[Navigation] Build failed: invalid static mesh geometry.\n";
-			}
-		}
-
-		runtime.scene.externalDebugLines.clear();
-		if (app.graphicsState.rendererSettings.drawNavigationMesh
-			&& runtime.navigationState == AppRuntimeState::NavigationState::Ready
-			&& runtime.navigationProfiles)
-		{
-			app::debugDraw::SetNavigationGeometry(runtime.navigationDebugGeometry, runtime.scene);
-		}
+                if (status == navigation::BuildStatus::Succeeded)
+                {
+                    const navigation::World* defaultWorld = profiles->TryGetWorld(defaultProfile.profile);
+                    runtime.navigationDebugGeometry = defaultWorld->BuildDebugGeometry();
+                    runtime.navigationProfiles = std::move(profiles);
+                    runtime.navigationState = AppRuntimeState::NavigationState::Ready;
+                    std::cerr << "[Navigation] Build succeeded: " << geometry.sourceMeshCount
+                        << " meshes, " << geometry.geometry.vertices.size() << " vertices, "
+                        << geometry.geometry.indices.size() / 3 << " triangles.\n";
+                }
+                else
+                {
+                    runtime.navigationState = AppRuntimeState::NavigationState::Failed;
+                    runtime.navigationDebugGeometry = {};
+                    std::cerr << "[Navigation] Build failed with status " << static_cast<int>(status) << ".\n";
+                }
+            }
+            else
+            {
+                runtime.navigationState = AppRuntimeState::NavigationState::Failed;
+                runtime.navigationDebugGeometry = {};
+                std::cerr << "[Navigation] Build failed: invalid static mesh geometry.\n";
+            }
+        }
+    }
+        
+    static void ComposeExternalDebugLines(AppState& app)
+	{
+	    auto& runtime = app.runtimeState;
+	    runtime.scene.externalDebugLines.clear();
+	    if (app.graphicsState.rendererSettings.drawNavigationMesh
+               && runtime.navigationState == AppRuntimeState::NavigationState::Ready
+               && runtime.navigationProfiles)
+	    {
+	        app::debugDraw::AppendNavigationGeometry(
+                   runtime.navigationDebugGeometry, runtime.scene);
+	    }
+	    if (app.graphicsState.rendererSettings.drawAIPlannedPathDebug
+               && runtime.gameplayRuntime)
+	    {
+	        constexpr std::uint32_t ordinaryColor = 0xff33ccffu;
+	        constexpr std::uint32_t traversalColor = 0xffff66ffu;
+	        for (const rendern::GameplayAIPlannedPathDebugAgentView& agent :
+                   runtime.gameplayRuntime->BuildAIPlannedPathDebugAgentViews())
+	        {
+	            for (const rendern::GameplayAIDebugPlannedRouteStep& step :
+                       agent.plannedPath.routeSteps)
+	            {
+	                if (!step.route.has_value())
+	                {
+	                    continue;
+	                }
+	                for (std::size_t index = 0; index + 1u < step.route->points.size(); ++index)
+	                {
+	                    const bool traversal = index < step.route->segmentAnnotations.size()
+                               && step.route->segmentAnnotations[index].traversalLink.has_value();
+	                    runtime.scene.externalDebugLines.push_back({
+                               step.route->points[index].worldPosition,
+                               step.route->points[index + 1u].worldPosition,
+                               traversal ? traversalColor : ordinaryColor});
+	                }
+	            }
+	        }
+	    }
 	}
-
+        
     void InitializeApp(AppState& app, int argc, char** argv)
     {
         auto& runtimeState      = app.runtimeState;
@@ -785,6 +817,7 @@ namespace appLifecycle
         const rendern::GameplayUpdateContext gameplayCtx = UpdateGameplayBeforePhysics(app, deltaSeconds);
         UpdatePhysics(app, deltaSeconds);
         UpdateGameplayAfterPhysicsAndAnimation(app, gameplayCtx, deltaSeconds);
+		ComposeExternalDebugLines(app);
         const auto gameplayEnd = Clock::now();
         
         const auto imguiStart = Clock::now();

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <limits>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -481,6 +483,81 @@ TEST(GameplayAIDecision, AccessKeyJumpRouteAnnotatesOnlyPhysicalGap)
         .contextId = flatGoalContextId});
     ASSERT_TRUE(flatRequest.has_value());
     EXPECT_FALSE(flatRequest->steeringSettings.wantsRun);
+}
+TEST(GameplayAIDecision, AccessKeyPlannedPathDebugStartsAtCurrentStepAndPreservesFailures)
+{
+    const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
+        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
+        {0, 0.35f, -7}, {0, 0.08f, 13.5f},
+        mathUtils::Vec3{0, 0.03f, 8.7f}, mathUtils::Vec3{0, 0.03f, 10.8f});
+    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
+    ASSERT_TRUE(definition.has_value());
+    auto transitions = ai_access_key_detail::ResolveMoveTransitions(*definition);
+    ASSERT_TRUE(transitions.has_value());
+    const auto context = [&](const SpatialLocation source, const SpatialLocation target)
+    {
+        const auto found = std::ranges::find_if(*transitions,
+            [&](const auto& value)
+            {
+                return value.source == source && value.target == target;
+            });
+        EXPECT_NE(found, transitions->end());
+        return found == transitions->end() ? AIActionContextId{} : found->contextId;
+    };
+    const AIActionContextId startToA = context(SpatialLocation::Start, SpatialLocation::CoinA);
+    const AIActionContextId aToC = context(SpatialLocation::CoinA, SpatialLocation::CoinC);
+    const AIActionContextId cToShop = context(
+        SpatialLocation::CoinC, SpatialLocation::AccessKeyShop);
+    const AIActionContextId shopToGoal = context(
+        SpatialLocation::AccessKeyShop, SpatialLocation::Goal);
+    GameplayWorld world{};
+    ai_access_key_detail::AccessKeyMoveToRequestProvider requests{
+        world, graph, std::move(*transitions)};
+    const std::array plan{
+        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = startToA},
+        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = aToC},
+        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = cToShop},
+        AIDebugPlanStepView{.actionId = kAIBuyKeyActionId},
+        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
+
+    const GameplayAIDebugPlannedPathView debug =
+        ai_access_key_detail::BuildPlannedPathDebugView(plan, 2u, requests);
+
+    EXPECT_TRUE(debug.complete);
+    ASSERT_EQ(debug.routeSteps.size(), 2u);
+    EXPECT_EQ(debug.routeSteps[0].planStepIndex, 2u);
+    EXPECT_EQ(debug.routeSteps[0].contextId, cToShop);
+    EXPECT_EQ(debug.routeSteps[1].planStepIndex, 4u);
+    EXPECT_EQ(debug.routeSteps[1].contextId, shopToGoal);
+    ASSERT_TRUE(debug.routeSteps[1].route.has_value());
+    ASSERT_EQ(debug.routeSteps[1].route->segmentAnnotations.size(), 3u);
+    EXPECT_EQ(debug.routeSteps[1].route->segmentAnnotations[1].traversalLink,
+        kAccessKeyGoalJumpTraversalLink);
+    const GameplayAIDebugPlannedPathView completedDebug =
+        ai_access_key_detail::BuildPlannedPathDebugView(
+            plan, std::nullopt, requests);
+    EXPECT_TRUE(completedDebug.routeSteps.empty());
+
+    GameplayRouteGraph disconnectedGraph = graph;
+    std::erase_if(disconnectedGraph.edges,
+        [](const GameplayRouteGraphEdge& edge)
+        {
+            return edge.fromNodeId == ai_access_key_detail::kAccessKeyNode;
+        });
+    auto disconnectedTransitions = ai_access_key_detail::ResolveMoveTransitions(*definition);
+    ASSERT_TRUE(disconnectedTransitions.has_value());
+    ai_access_key_detail::AccessKeyMoveToRequestProvider disconnectedRequests{
+        world, std::move(disconnectedGraph), std::move(*disconnectedTransitions)};
+    const std::array failedPlan{
+        AIDebugPlanStepView{.actionId = kAIBuyKeyActionId},
+        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
+    const GameplayAIDebugPlannedPathView failedDebug =
+        ai_access_key_detail::BuildPlannedPathDebugView(failedPlan, 0u, disconnectedRequests);
+    EXPECT_FALSE(failedDebug.complete);
+    ASSERT_EQ(failedDebug.routeSteps.size(), 1u);
+    EXPECT_EQ(failedDebug.routeSteps[0].planStepIndex, 1u);
+    EXPECT_EQ(failedDebug.routeSteps[0].contextId, shopToGoal);
+    EXPECT_FALSE(failedDebug.routeSteps[0].route.has_value());
 }
 
 TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
