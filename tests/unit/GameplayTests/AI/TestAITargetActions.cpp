@@ -1,0 +1,302 @@
+#include <cmath>
+#include <gtest/gtest.h>
+
+import core;
+
+using namespace rendern;
+
+namespace
+{
+    [[nodiscard]] EntityHandle CreateAgent(GameplayWorld& world, const mathUtils::Vec3 position = {})
+    {
+        const EntityHandle entity = world.CreateEntity();
+        world.AddAI(entity);
+        world.AddTransform(entity, GameplayTransformComponent{.position = position});
+        world.AddCharacterCommand(entity, GameplayCharacterCommandComponent{});
+        world.AddCharacterMotor(entity, GameplayCharacterMotorComponent{});
+        world.AddCharacterMovementState(entity, GameplayCharacterMovementStateComponent{});
+        return entity;
+    }
+
+    [[nodiscard]] EntityHandle CreateTarget(GameplayWorld& world, const mathUtils::Vec3 position)
+    {
+        const EntityHandle entity = world.CreateEntity();
+        world.AddTransform(entity, GameplayTransformComponent{.position = position});
+        return entity;
+    }
+
+    [[nodiscard]] AIActionRuntimeContext FollowContext(const EntityHandle agent)
+    {
+        return {.agentEntity = agent, .actionId = kAIFollowTargetActionId};
+    }
+
+    [[nodiscard]] AIActionRuntimeContext FleeContext(const EntityHandle agent)
+    {
+        return {.agentEntity = agent, .actionId = kAIFleeTargetActionId};
+    }
+    
+    static_assert(kAIFollowTargetActionId != kAIBuyKeyActionId);
+    static_assert(kAIFleeTargetActionId != kAIBuyKeyActionId);
+    static_assert(kAIFollowTargetActionId != kAIFleeTargetActionId);
+
+    void ExpectDirection(const GameplayWorld& world, const EntityHandle agent, const float x, const float z)
+    {
+        const GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agent);
+        ASSERT_NE(command, nullptr);
+        EXPECT_NEAR(command->moveWorld.x, x, 0.0001f);
+        EXPECT_NEAR(command->moveWorld.z, z, 0.0001f);
+    }
+}
+
+TEST(AIFollowTargetActionRuntime, StartsImmediatelyAndThrottlesThenResamples)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    AIFollowTargetActionRuntime runtime{world, target};
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 1.0f, 0.0f);
+    world.TryGetTransform(target)->position = {0.0f, 0.0f, 10.0f};
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.02f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.02f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 1.0f, 0.0f);
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.011f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, 1.0f);
+}
+
+TEST(AIFollowTargetActionRuntime, PreservesSteeringCadenceRemainder)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    AIFollowTargetActionRuntime runtime{
+        world,
+        target,
+        {.steeringUpdateIntervalSeconds = 0.05f}};
+   
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 1.0f, 0.0f);
+   
+    world.TryGetTransform(target)->position = {0.0f, 0.0f, 10.0f};
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.033f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 1.0f, 0.0f);
+   
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.033f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, 1.0f);
+   
+    world.TryGetTransform(target)->position = {-10.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.033f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, 1.0f);
+   
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.002f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, -1.0f, 0.0f);
+}
+
+TEST(AIFollowTargetActionRuntime, StopsInsideAcceptanceAndResumesWhenTargetMoves)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle target = CreateTarget(world, {0.1f, 0.0f, 0.0f});
+    AIFollowTargetActionRuntime runtime{world, target};
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    world.TryGetTransform(target)->position = {5.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.05f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+}
+
+TEST(AITargetActions, RejectsAgentWithoutCompleteCharacterMovementPipeline)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+   
+    const EntityHandle agent = world.CreateEntity();
+    world.AddAI(agent);
+    world.AddTransform(agent, GameplayTransformComponent{});
+    world.AddCharacterCommand(agent, GameplayCharacterCommandComponent{});
+    world.AddCharacterMotor(agent, GameplayCharacterMotorComponent{});
+   
+    const EntityHandle target = CreateTarget(world, {5.0f, 0.0f, 0.0f});
+   
+    EXPECT_EQ(
+        AIFollowTargetAction::Start(aiSystem, world, agent, target),
+        AIActionExecutionStatus::Failed);
+    EXPECT_EQ(
+        AIFleeTargetAction::Start(aiSystem, world, agent, target),
+        AIActionExecutionStatus::Failed);
+}
+
+TEST(AIFollowTargetActionRuntime, RefreshUsesCurrentAgentPosition)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    AIFollowTargetActionRuntime runtime{world, target};
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+
+    world.TryGetTransform(agent)->position = {10.0f, 0.0f, -10.0f};
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.05f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, 1.0f);
+}
+
+TEST(AIFollowTargetActionRuntime, InvalidTargetFailsAndCancelClearsMovement)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    AIFollowTargetActionRuntime runtime{world, target};
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    runtime.Cancel(FollowContext(agent));
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    world.DestroyEntity(target);
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.001f), AIActionRuntimeResult::Failed);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+}
+
+TEST(AIFollowTargetActionRuntime, ZeroAndNegativeIntervalsRefreshEveryTick)
+{
+    for (const float interval : {0.0f, -1.0f})
+    {
+        GameplayWorld world{};
+        const EntityHandle agent = CreateAgent(world);
+        const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+        AIFollowTargetActionRuntime runtime{
+            world, target, {.steeringUpdateIntervalSeconds = interval}};
+        ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+        world.TryGetTransform(target)->position = {0.0f, 0.0f, 10.0f};
+        EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.0f), AIActionRuntimeResult::Running);
+        ExpectDirection(world, agent, 0.0f, 1.0f);
+    }
+}
+
+TEST(AIFleeTargetActionRuntime, StartsInsideTriggerAndStaysStationaryOutside)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle threat = CreateTarget(world, {1.0f, 0.0f, 0.0f});
+    AIFleeTargetActionRuntime runtime{world, threat};
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, -1.0f, 0.0f);
+
+    AIFleeTargetActionRuntime safeRuntime{world, CreateTarget(world, {4.0f, 0.0f, 0.0f})};
+    EXPECT_EQ(safeRuntime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+}
+
+TEST(AIFleeTargetActionRuntime, SanitizesMalformedPolicySettings)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle threat = CreateTarget(world, {1.0f, 0.0f, 0.0f});
+    
+    AIFleeTargetActionRuntime clampedRadii{
+        world,
+        threat,
+        {
+            .triggerRadius = 2.0f,
+            .safeRadius = 1.0f,
+            .steeringUpdateIntervalSeconds = 0.0f
+        }};
+    
+    ASSERT_EQ(clampedRadii.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+    
+    world.TryGetTransform(threat)->position = {2.0f, 0.0f, 0.0f};
+    EXPECT_EQ(clampedRadii.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    
+    AIFleeTargetActionRuntime negativeInterval{
+        world,
+        threat,
+        {
+            .triggerRadius = 10.0f,
+            .safeRadius = 10.0f,
+            .steeringUpdateIntervalSeconds = -1.0f
+        }};
+    
+    ASSERT_EQ(negativeInterval.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    world.TryGetTransform(threat)->position = {0.0f, 0.0f, 2.0f};
+    EXPECT_EQ(negativeInterval.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, -1.0f);
+}
+
+TEST(AIFleeTargetActionRuntime, HysteresisStopsAtSafeAndReactivatesAtTrigger)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle threat = CreateTarget(world, {1.0f, 0.0f, 0.0f});
+    AIFleeTargetActionRuntime runtime{
+        world, threat, {.triggerRadius = 2.0f, .safeRadius = 4.0f, .steeringUpdateIntervalSeconds = 0.0f}};
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+
+    world.TryGetTransform(threat)->position = {3.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+    world.TryGetTransform(threat)->position = {4.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    world.TryGetTransform(threat)->position = {3.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    world.TryGetTransform(threat)->position = {2.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+}
+
+TEST(AIFleeTargetActionRuntime, ThrottlesRefreshAndExactOverlapIsFinite)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle threat = CreateTarget(world, {1.0f, 0.0f, 0.0f});
+    AIFleeTargetActionRuntime runtime{world, threat, {.triggerRadius = 20.0f, .safeRadius = 20.0f}};
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    world.TryGetTransform(threat)->position = {0.0f, 0.0f, 1.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.04f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, -1.0f, 0.0f);
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.011f), AIActionRuntimeResult::Running);
+    ExpectDirection(world, agent, 0.0f, -1.0f);
+
+    world.TryGetTransform(threat)->position = world.TryGetTransform(agent)->position;
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.05f), AIActionRuntimeResult::Running);
+    const GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agent);
+    EXPECT_FLOAT_EQ(command->moveMagnitude, 0.0f);
+    EXPECT_TRUE(std::isfinite(command->moveWorld.x));
+    EXPECT_TRUE(std::isfinite(command->moveWorld.z));
+}
+
+TEST(AIFleeTargetActionRuntime, InvalidTargetFailsAndCancelClearsMovement)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle threat = CreateTarget(world, {1.0f, 0.0f, 0.0f});
+    AIFleeTargetActionRuntime runtime{world, threat};
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    runtime.Cancel(FleeContext(agent));
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    world.DestroyEntity(threat);
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.001f), AIActionRuntimeResult::Failed);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+}
+
+TEST(AITargetActions, AISystemOwnsRuntimeAndPassesDeterministicDelta)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    const EntityHandle agent = CreateAgent(world);
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    ASSERT_EQ(
+        AIFollowTargetAction::Start(aiSystem, world, agent, target),
+        AIActionExecutionStatus::Running);
+    world.TryGetTransform(target)->position = {0.0f, 0.0f, 10.0f};
+    EXPECT_EQ(aiSystem.Update(world, 0.02f), 1u);
+    EXPECT_EQ(aiSystem.Update(world, 0.02f), 1u);
+    ExpectDirection(world, agent, 1.0f, 0.0f);
+    EXPECT_EQ(aiSystem.Update(world, 0.011f), 1u);
+    ExpectDirection(world, agent, 0.0f, 1.0f);
+    EXPECT_EQ(aiSystem.GetActionStatus(agent, kAIFollowTargetActionId), AIActionExecutionStatus::Running);
+}
