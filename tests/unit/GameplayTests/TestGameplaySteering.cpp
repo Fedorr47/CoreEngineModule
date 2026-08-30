@@ -166,6 +166,122 @@ TEST(GameplaySteering, NegativeRadiiAreSanitized)
     ExpectFiniteIntent(output.movement);
 }
 
+TEST(GameplaySteering, SeekNormalizesPlanarDirectionTowardTarget)
+{
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {0.0f, 5.0f, 0.0f},
+        {3.0f, 20.0f, 4.0f});
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Moving);
+    ExpectVec3Near(output.movement.moveWorld, {0.6f, 0.0f, 0.8f}, kEpsVec);
+    EXPECT_NEAR(PlanarLength(output.movement.moveWorld), 1.0f, kTolerance);
+    EXPECT_NEAR(output.remainingDistance, 5.0f, kTolerance);
+}
+
+TEST(GameplaySteering, SeekUsesFullMagnitudeWithoutArrivalSlowdown)
+{
+    const GameplaySeekSteeringSettings settings{.acceptanceRadius = 0.25f};
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {0.0f, 0.0f, 0.0f},
+        {0.3f, 0.0f, 0.0f},
+        settings);
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Moving);
+    EXPECT_FLOAT_EQ(output.movement.moveMagnitude, 1.0f);
+}
+
+TEST(GameplaySteering, SeekStopsInsideAcceptanceRadius)
+{
+    const GameplaySeekSteeringSettings settings{.acceptanceRadius = 0.5f};
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {0.0f, 0.0f, 0.0f},
+        {0.25f, 100.0f, 0.0f},
+        settings);
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Arrived);
+    EXPECT_FALSE(output.movement.IsMoving());
+    ExpectFiniteIntent(output.movement);
+}
+
+TEST(GameplaySteering, SeekSanitizesNegativeAcceptanceRadius)
+{
+    const GameplaySeekSteeringSettings settings{.acceptanceRadius = -1.0f};
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 0.0f, 0.0f},
+        settings);
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Moving);
+    EXPECT_FLOAT_EQ(output.movement.moveMagnitude, 1.0f);
+}
+
+TEST(GameplaySteering, SeekPropagatesWantsRun)
+{
+    const GameplaySeekSteeringSettings settings{.acceptanceRadius = 0.0f, .wantsRun = true};
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 0.0f, 0.0f},
+        settings);
+
+    EXPECT_TRUE(output.movement.wantsRun);
+}
+
+TEST(GameplaySteering, SeekZeroLengthPlanarDeltaDoesNotProduceNaN)
+{
+    const GameplaySteeringOutput output = BuildGameplaySeekSteering(
+        {1.0f, 2.0f, 3.0f},
+        {1.0f, 200.0f, 3.0f});
+
+    EXPECT_EQ(output.status, GameplaySteeringStatus::Arrived);
+    ExpectZeroVector(output.movement.moveWorld);
+    ExpectFiniteIntent(output.movement);
+    EXPECT_TRUE(std::isfinite(output.remainingDistance));
+}
+
+TEST(GameplaySteering, FleeNormalizesPlanarDirectionAwayFromThreat)
+{
+    const GameplayMovementIntent movement = BuildGameplayFleeSteering(
+        {0.0f, 5.0f, 0.0f},
+        {3.0f, 20.0f, 4.0f});
+
+    ExpectVec3Near(movement.moveWorld, {-0.6f, 0.0f, -0.8f}, kEpsVec);
+    EXPECT_NEAR(PlanarLength(movement.moveWorld), 1.0f, kTolerance);
+    EXPECT_FLOAT_EQ(movement.moveMagnitude, 1.0f);
+}
+
+TEST(GameplaySteering, FleeDoesNotStopOrSlowBasedOnThreatDistance)
+{
+    const GameplayMovementIntent movement = BuildGameplayFleeSteering(
+        {0.0f, 0.0f, 0.0f},
+        {100.0f, 100.0f, 0.0f});
+
+    EXPECT_TRUE(movement.IsMoving());
+    EXPECT_FLOAT_EQ(movement.moveMagnitude, 1.0f);
+    ExpectVec3Near(movement.moveWorld, {-1.0f, 0.0f, 0.0f}, kEpsVec);
+}
+
+TEST(GameplaySteering, FleePropagatesWantsRun)
+{
+    const GameplayFleeSteeringSettings settings{.wantsRun = true};
+    const GameplayMovementIntent movement = BuildGameplayFleeSteering(
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 0.0f, 0.0f},
+        settings);
+
+    EXPECT_TRUE(movement.wantsRun);
+}
+
+TEST(GameplaySteering, FleeZeroLengthPlanarDeltaDoesNotProduceNaN)
+{
+    const GameplayMovementIntent movement = BuildGameplayFleeSteering(
+        {1.0f, 2.0f, 3.0f},
+        {1.0f, 200.0f, 3.0f});
+
+    EXPECT_FALSE(movement.IsMoving());
+    ExpectZeroVector(movement.moveWorld);
+    ExpectFiniteIntent(movement);
+}
+
 // Protects the explicit command integration boundary and prevents regressions that pass non-canonical movement to the motor.
 TEST(GameplaySteering, AdapterWritesCanonicalCharacterMovementFields)
 {

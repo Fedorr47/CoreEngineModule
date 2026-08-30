@@ -38,12 +38,74 @@ export namespace rendern
         bool wantsRun{false};
     };
     
+    struct GameplaySeekSteeringSettings
+    {
+        float acceptanceRadius{0.25f};
+        bool wantsRun{false};
+    };
+
+    struct GameplayFleeSteeringSettings
+    {
+        bool wantsRun{false};
+    };
+    
     struct GameplaySteeringOutput
     {
         GameplayMovementIntent movement{};
         GameplaySteeringStatus status{GameplaySteeringStatus::Arrived};
         float remainingDistance{0.0f};
     };
+    
+    [[nodiscard]] GameplaySteeringOutput BuildGameplaySeekSteering(
+        const mathUtils::Vec3& currentPosition,
+        const mathUtils::Vec3& targetPosition,
+        const GameplaySeekSteeringSettings& settings = {}) noexcept
+    {
+        constexpr float kAcceptanceTolerance = 0.001f;
+
+        mathUtils::Vec3 planarDelta = targetPosition - currentPosition;
+        planarDelta.y = 0.0f;
+
+        const float planarDistance = mathUtils::Length(planarDelta);
+        const float acceptanceRadius = std::max(settings.acceptanceRadius, 0.0f);
+
+        GameplaySteeringOutput output{};
+        output.remainingDistance = std::max(planarDistance, 0.0f);
+
+        if (planarDistance <= acceptanceRadius + kAcceptanceTolerance ||
+            planarDistance <= mathUtils::kLengthEpsilon)
+        {
+            return output;
+        }
+
+        output.status = GameplaySteeringStatus::Moving;
+        output.movement.moveWorld = planarDelta / planarDistance;
+        output.movement.moveMagnitude = 1.0f;
+        output.movement.wantsRun = settings.wantsRun;
+        return output;
+    }
+
+    [[nodiscard]] GameplayMovementIntent BuildGameplayFleeSteering(
+        const mathUtils::Vec3& currentPosition,
+        const mathUtils::Vec3& threatPosition,
+        const GameplayFleeSteeringSettings& settings = {}) noexcept
+    {
+        mathUtils::Vec3 planarDelta = currentPosition - threatPosition;
+        planarDelta.y = 0.0f;
+
+        const float planarDistance = mathUtils::Length(planarDelta);
+        GameplayMovementIntent movement{};
+
+        if (planarDistance <= mathUtils::kLengthEpsilon)
+        {
+            return movement;
+        }
+
+        movement.moveWorld = planarDelta / planarDistance;
+        movement.moveMagnitude = 1.0f;
+        movement.wantsRun = settings.wantsRun;
+        return movement;
+    }
     
     [[nodiscard]] GameplaySteeringOutput BuildGameplayArrivalSteering(
         const mathUtils::Vec3& currentPosition,
