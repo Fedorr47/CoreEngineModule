@@ -1085,3 +1085,113 @@ TEST(DevelopmentScenarioRunner, EnsurePickupRestoresPreExistingComponentOwnershi
     EXPECT_FALSE(runtime.GetWorld().HasPickup(coin));
     runtime.Shutdown();
 }
+
+TEST(DevelopmentScenarioParser, SteeringPlaygroundDeclaresProductionTargetAndRouteOperations)
+{
+    const DevelopmentScenarioAsset asset = LoadDevelopmentScenarioAsset(
+        "development/ai_steering_playground.scenario.json");
+    EXPECT_EQ(asset.id, "core.ai_steering_playground");
+    EXPECT_EQ(asset.roles.size(), 7u);
+    ASSERT_EQ(asset.start.size(), 3u);
+    EXPECT_TRUE(std::holds_alternative<StartFollowTargetOperation>(asset.start[0]));
+    EXPECT_TRUE(std::holds_alternative<StartFleeTargetOperation>(asset.start[1]));
+    EXPECT_TRUE(std::holds_alternative<StartMoveToOperation>(asset.start[2]));
+}
+
+TEST(DevelopmentScenarioRunner, SteeringPlaygroundLoadsAndStartsProductionActions)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_steering_playground.level.json");
+    const DevelopmentScenarioAsset scenario =
+        LoadDevelopmentScenarioAsset(level.developmentScenario);
+    rendern::test::LevelInstantiateHarness harness{};
+    harness.SetMeshCPU(MakeCubeMesh());
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    harness.DrainAssetPipeline();
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    runtime.SetSteeringDebugEnabled(true);
+    ScenarioContext context{runtime, level, instance, scene,
+        rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    ASSERT_TRUE(runner.Start(context));
+
+    const auto follow = FindRoleEntity(runner, runtime, "followAgent");
+    const auto flee = FindRoleEntity(runner, runtime, "fleeAgent");
+    const auto route = FindRoleEntity(runner, runtime, "routeAgent");
+    ASSERT_NE(follow, rendern::kNullEntity);
+    ASSERT_NE(flee, rendern::kNullEntity);
+    ASSERT_NE(route, rendern::kNullEntity);
+    EXPECT_EQ(runtime.GetAIActionStatus(follow), rendern::AIActionExecutionStatus::Running);
+    EXPECT_EQ(runtime.GetAIActionStatus(flee), rendern::AIActionExecutionStatus::Running);
+    EXPECT_EQ(runtime.GetAIActionStatus(route), rendern::AIActionExecutionStatus::Running);
+    rendern::GameplayUpdateContext gameContext{
+        .mode = rendern::GameplayRuntimeMode::Game,
+        .deltaSeconds = 1.0f / 60.0f,
+        .levelAsset = &level,
+        .levelInstance = &instance,
+        .scene = &scene};
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(gameContext);
+    runtime.PostPhysicsUpdate(gameContext);
+    ASSERT_NE(runtime.GetSteeringDebugRegistry().Find(follow), nullptr);
+    ASSERT_NE(runtime.GetSteeringDebugRegistry().Find(flee), nullptr);
+    ASSERT_NE(runtime.GetSteeringDebugRegistry().Find(route), nullptr);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(follow)->mode,
+        rendern::GameplaySteeringDebugMode::Follow);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(flee)->mode,
+        rendern::GameplaySteeringDebugMode::Flee);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(route)->mode,
+        rendern::GameplaySteeringDebugMode::Route);
+
+    runner.Unload(context);
+    runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioRunner, SteeringPlaygroundResetRestoresScenarioState)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/ai_steering_playground.level.json");
+    const DevelopmentScenarioAsset scenario =
+        LoadDevelopmentScenarioAsset(level.developmentScenario);
+    rendern::test::LevelInstantiateHarness harness{};
+    harness.SetMeshCPU(MakeCubeMesh());
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    harness.DrainAssetPipeline();
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+    runtime.SetSteeringDebugEnabled(true);
+    ScenarioContext context{runtime, level, instance, scene,
+        rendern::GameplayRuntimeMode::Game};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    ASSERT_TRUE(runner.Start(context));
+    const auto follow = FindRoleEntity(runner, runtime, "followAgent");
+    const auto flee = FindRoleEntity(runner, runtime, "fleeAgent");
+    const auto route = FindRoleEntity(runner, runtime, "routeAgent");
+    ASSERT_NE(follow, rendern::kNullEntity);
+    ASSERT_NE(flee, rendern::kNullEntity);
+    ASSERT_NE(route, rendern::kNullEntity);
+    const mathUtils::Vec3 baseline = runtime.GetWorld().TryGetTransform(follow)->position;
+    rendern::GameplayTransformComponent moved = *runtime.GetWorld().TryGetTransform(follow);
+    moved.position.x += 10.0f;
+    runtime.GetWorld().SetTransform(follow, moved);
+
+    runner.Reset(context);
+    EXPECT_FALSE(runner.IsRunning());
+    EXPECT_EQ(runtime.GetWorld().TryGetTransform(follow)->position, baseline);
+    EXPECT_EQ(runtime.GetAIActionStatus(follow), rendern::AIActionExecutionStatus::Cancelled);
+    EXPECT_EQ(runtime.GetAIActionStatus(flee), rendern::AIActionExecutionStatus::Cancelled);
+    EXPECT_EQ(runtime.GetAIActionStatus(route), rendern::AIActionExecutionStatus::Cancelled);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(follow), nullptr);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(flee), nullptr);
+    EXPECT_EQ(runtime.GetSteeringDebugRegistry().Find(route), nullptr);
+
+    runner.Unload(context);
+    runtime.Shutdown();
+}

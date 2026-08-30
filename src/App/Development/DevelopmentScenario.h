@@ -85,6 +85,21 @@ namespace appDevelopment
         float slowingRadius{};
         bool wantsRun{};
     };
+    struct StartFollowTargetOperation
+    {
+        std::string entity;
+        std::string target;
+        float acceptanceRadius{};
+        bool wantsRun{};
+    };
+    struct StartFleeTargetOperation
+    {
+        std::string entity;
+        std::string target;
+        float triggerRadius{};
+        float safeRadius{};
+        bool wantsRun{};
+    };
     
     struct StartNavigationPathOperation
     {
@@ -136,6 +151,8 @@ namespace appDevelopment
         RemoveTraversalLinkOperation,
         StartFollowRouteOperation,
         StartMoveToOperation,
+        StartFollowTargetOperation,
+        StartFleeTargetOperation,
         StartNavigationPathOperation,
         StartAIDecisionOperation,
         CancelAIDecisionOperation>;

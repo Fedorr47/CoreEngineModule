@@ -1,0 +1,511 @@
+{
+  "name": "AISteeringPlayground",
+  "developmentScenario": "development/ai_steering_playground.scenario.json",
+  "meshes": {
+    "cube": {
+      "path": "models/cube.obj",
+      "debugName": "Steering cube"
+    }
+  },
+  "models": {},
+  "skinnedMeshes": {
+    "character": {
+      "path": "models/Character.fbx",
+      "flipUVs": true,
+      "debugName": "Steering agent"
+    }
+  },
+  "animations": {},
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "follow": {
+      "baseColor": [
+        0.2,
+        0.7,
+        1,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "target": {
+      "baseColor": [
+        0.2,
+        1,
+        0.4,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "flee": {
+      "baseColor": [
+        1,
+        0.7,
+        0.2,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "threat": {
+      "baseColor": [
+        1,
+        0.15,
+        0.15,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "route": {
+      "baseColor": [
+        0.7,
+        0.3,
+        1,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "marker": {
+      "baseColor": [
+        1,
+        1,
+        0.1,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "floor": {
+      "baseColor": [
+        0.2,
+        0.22,
+        0.25,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "obstacle": {
+      "baseColor": [
+        0.65,
+        0.2,
+        0.15,
+        1
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    }
+  },
+  "camera": {
+    "position": [
+      0,
+      18,
+      -18
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "fovYDeg": 55,
+    "nearZ": 0.1,
+    "farZ": 100
+  },
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.4,
+        -1,
+        0.25
+      ],
+      "color": [
+        1,
+        1,
+        1
+      ],
+      "intensity": 3
+    }
+  ],
+  "particleEmitters": [],
+  "skybox": null,
+  "nodes": [
+    {
+      "name": "Steering_Follow_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          -8,
+          0,
+          -6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "follow"
+    },
+    {
+      "name": "Steering_Follow_Target",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          8,
+          0,
+          -6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "target"
+    },
+    {
+      "name": "Steering_Flee_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "flee"
+    },
+    {
+      "name": "Steering_Flee_Threat",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          3,
+          0,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "threat"
+    },
+    {
+      "name": "Steering_Route_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          -8,
+          0,
+          6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "route"
+    },
+    {
+      "name": "Steering_Route_Start",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          -8,
+          0.2,
+          6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.2,
+          0.4,
+          0.2
+        ]
+      },
+      "mesh": "cube",
+      "material": "marker"
+    },
+    {
+      "name": "Steering_Route_Goal",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          8,
+          0.2,
+          6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.2,
+          0.4,
+          0.2
+        ]
+      },
+      "mesh": "cube",
+      "material": "marker"
+    },
+    {
+      "name": "Steering_Floor",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          0,
+          -0.25,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          22,
+          0.5,
+          18
+        ]
+      },
+      "mesh": "cube",
+      "material": "floor",
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            11,
+            0.25,
+            9
+          ]
+        },
+        "material": {
+          "friction": 0.8,
+          "restitution": 0
+        },
+        "surfaceId": 70
+      }
+    },
+    {
+      "name": "Steering_Follow_Obstacle",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          0,
+          0.9,
+          -6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1.2,
+          1.8,
+          2
+        ]
+      },
+      "mesh": "cube",
+      "material": "obstacle",
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.6,
+            0.9,
+            1
+          ]
+        },
+        "material": {
+          "friction": 0.8,
+          "restitution": 0
+        },
+        "surfaceId": 70
+      }
+    },
+    {
+      "name": "Steering_Flee_Obstacle",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          -2,
+          0.9,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1.8,
+          2
+        ]
+      },
+      "mesh": "cube",
+      "material": "obstacle",
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.5,
+            0.9,
+            1
+          ]
+        },
+        "material": {
+          "friction": 0.8,
+          "restitution": 0
+        },
+        "surfaceId": 70
+      }
+    },
+    {
+      "name": "Steering_Route_Obstacle",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          0,
+          0.9,
+          6.35
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1.2,
+          1.8,
+          1.5
+        ]
+      },
+      "mesh": "cube",
+      "material": "obstacle",
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.6,
+            0.9,
+            0.75
+          ]
+        },
+        "material": {
+          "friction": 0.8,
+          "restitution": 0
+        },
+        "surfaceId": 70
+      }
+    }
+  ]
+}

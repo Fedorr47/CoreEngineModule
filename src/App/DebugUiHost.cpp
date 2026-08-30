@@ -102,6 +102,69 @@ namespace appUi
                 view.statuses[index].label,
                 view.statuses[index].value);
         }
+        
+        const auto& steeringStates = context.gameplayRuntime.GetSteeringDebugRegistry().States();
+        if (!steeringStates.empty())
+        {
+            const auto sideLabel = [](rendern::GameplayObstacleAvoidanceSide value)
+            {
+                switch (value)
+                {
+                case rendern::GameplayObstacleAvoidanceSide::Left: return "Left";
+                case rendern::GameplayObstacleAvoidanceSide::Right: return "Right";
+                default: return "None";
+                }
+            };
+            const auto drawClearance = [](const char* label,
+                const rendern::GameplayObstacleProbeDebugState& probe,
+                const bool clearAsText)
+            {
+                if (!probe.queried)
+                {
+                    ImGui::Text("%s: N/A", label);
+                }
+                else if (clearAsText && !probe.hit)
+                {
+                    ImGui::Text("%s: Clear", label);
+                }
+                else
+                {
+                    ImGui::Text("%s: %.2f", label, probe.clearance);
+                }
+            };
+            ImGui::SeparatorText("Steering Debug");
+            constexpr std::array orderedModes{
+                std::pair{rendern::GameplaySteeringDebugMode::Follow, "Follow"},
+                std::pair{rendern::GameplaySteeringDebugMode::Flee, "Flee"},
+                std::pair{rendern::GameplaySteeringDebugMode::Route, "Route"}};
+            for (const auto& [mode, label] : orderedModes)
+            {
+                const rendern::GameplaySteeringDebugState* selected = nullptr;
+                rendern::EntityHandle selectedAgent = rendern::kNullEntity;
+                for (const auto& [agent, state] : steeringStates)
+                {
+                    if (state.mode == mode &&
+                        (selected == nullptr || agent < selectedAgent))
+                    {
+                        selected = &state;
+                        selectedAgent = agent;
+                    }
+                }
+                if (selected == nullptr)
+                {
+                    continue;
+                }
+
+                const auto& avoidance = selected->avoidance;
+                ImGui::Text("[%s]", label);
+                ImGui::Text("Avoidance: %s", avoidance.active ? "Active" : "Inactive");
+                ImGui::Text("Chosen side: %s", sideLabel(avoidance.chosenSide));
+                drawClearance("Forward hit", avoidance.forward, true);
+                drawClearance("Left clearance", avoidance.left, false);
+                drawClearance("Right clearance", avoidance.right, false);
+                ImGui::Text("Move magnitude: %.2f", avoidance.finalMovement.moveMagnitude);
+            }
+        }
 
         ImGui::BeginDisabled(!view.commandsEnabled);
         if (view.canStart && ImGui::Button(view.startLabel))

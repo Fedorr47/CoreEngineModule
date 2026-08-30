@@ -10,6 +10,7 @@ import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
+import :gameplay_steering_debug;
 import :math_utils;
 
 export namespace rendern
@@ -32,12 +33,14 @@ export namespace rendern
             const EntityHandle targetEntity,
             AIFleeTargetSettings settings = {},
             const IGameplayObstacleQuery* obstacleQuery = nullptr,
-            GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
+            GameplayObstacleAvoidanceSettings obstacleSettings = {},
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
         : world_(world)
         , targetEntity_(targetEntity)
         , settings_(settings)
         , obstacleQuery_(obstacleQuery)
         , obstacleSettings_(obstacleSettings)
+        , debugRegistry_(debugRegistry)
         {
             settings_.triggerRadius = std::max(settings_.triggerRadius, 0.0f);
             settings_.safeRadius = std::max(settings_.safeRadius, settings_.triggerRadius);
@@ -50,6 +53,10 @@ export namespace rendern
         {
             elapsedSinceSteeringUpdate_ = 0.0f;
             isFleeing_ = false;
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(context.agentEntity);
+            }
             if (!Validate_(context))
             {
                 ClearMovementIfAccessible_(context.agentEntity);
@@ -129,6 +136,13 @@ export namespace rendern
             GameplayMovementIntent movement = isFleeing_
                 ? BuildGameplayFleeSteering(agentPosition, targetPosition, settings_.steering)
                 : GameplayMovementIntent{};
+            GameplayObstacleAvoidanceDebugSnapshot debug{};
+            const bool debugEnabled = debugRegistry_ != nullptr && debugRegistry_->IsEnabled();
+            if (debugEnabled)
+            {
+                debug.baseMovement = movement;
+                debug.finalMovement = movement;
+            }
             if (obstacleQuery_ != nullptr)
             {
                 if (const auto* physical = world_.TryGetCharacterPhysicalSettings(agentEntity))
@@ -136,8 +150,13 @@ export namespace rendern
                     const mathUtils::Vec3 origin = agentPosition +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     movement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                        movement, origin, *obstacleQuery_, obstacleSettings_,
+                        debugEnabled ? &debug : nullptr);
                 }
+            }
+            if (debugEnabled)
+            {
+                debugRegistry_->Publish(agentEntity, GameplaySteeringDebugMode::Flee, debug);
             }
             ApplyGameplayMovementIntent(
                 movement, *world_.TryGetCharacterCommand(agentEntity));
@@ -145,6 +164,10 @@ export namespace rendern
 
         void ClearMovementIfAccessible_(const EntityHandle agentEntity) const noexcept
         {
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(agentEntity);
+            }
             if (world_.IsEntityValid(agentEntity))
             {
                 if (GameplayCharacterCommandComponent* command =
@@ -160,6 +183,7 @@ export namespace rendern
         AIFleeTargetSettings settings_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
+        GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         float elapsedSinceSteeringUpdate_{0.0f};
         bool isFleeing_{false};
     };

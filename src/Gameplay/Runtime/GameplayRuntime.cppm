@@ -26,6 +26,8 @@ import :gameplay_input_system;
 import :gameplay_bootstrap;
 import :ai_system;
 import :ai_follow_route_action;
+import :ai_follow_target_action;
+import :ai_flee_target_action;
 import :ai_move_to_action;
 import :ai_move_to_action_binding;
 import :ai_decision_runtime;
@@ -37,6 +39,7 @@ import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
+import :gameplay_steering_debug;
 import :gameplay_traversal_link;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -129,6 +132,10 @@ export namespace rendern
         [[nodiscard]] bool IsCurrentLevelAsset(const LevelAsset& levelAsset) const noexcept;
         [[nodiscard]] bool IsCurrentLevelContext(const GameplayUpdateContext& ctx) const noexcept;
         [[nodiscard]] const std::vector<EntityHandle>& GetNodeBoundEntities() const noexcept;
+        [[nodiscard]] const GameplaySteeringDebugRegistry& GetSteeringDebugRegistry() const noexcept
+        { return steeringDebugRegistry_; }
+        void SetSteeringDebugEnabled(const bool enabled) noexcept
+        { steeringDebugRegistry_.SetEnabled(enabled); }
         [[nodiscard]] std::span<const GameplayWorldEvent> GetCurrentWorldEvents() const noexcept;
         void ClearCurrentWorldEvents() noexcept;
 
@@ -147,6 +154,12 @@ export namespace rendern
             GameplayRouteNodeId startNodeId,
             GameplayRouteNodeId goalNodeId,
             const GameplayArrivalSteeringSettings& steeringSettings = {});
+        [[nodiscard]] AIActionExecutionStatus StartAIFollowTarget(
+            EntityHandle agentEntity, EntityHandle targetEntity,
+            const AIFollowTargetSettings& settings = {});
+        [[nodiscard]] AIActionExecutionStatus StartAIFleeTarget(
+            EntityHandle agentEntity, EntityHandle targetEntity,
+            const AIFleeTargetSettings& settings = {});
         [[nodiscard]] std::unique_ptr<AIMoveToActionBinding> CreateAIMoveToActionBinding(
            IAIMoveToActionRequestProvider& requestProvider);
         [[nodiscard]] AIPlanExecutionStatus UpdateAIDecision(
@@ -222,6 +235,7 @@ export namespace rendern
     private:
         GameplayWorld world_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplaySteeringDebugRegistry steeringDebugRegistry_{};
         EntityHandle controlledEntity_{ kNullEntity };
         GameplayKeyboardMouseBindings keyboardMouseBindings_{};
         GameplayActionDefinitions actionDefinitions_{ MakeDefaultGameplayActionDefinitions() };

@@ -10,6 +10,7 @@ import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
+import :gameplay_steering_debug;
 
 export namespace rendern
 {
@@ -29,12 +30,14 @@ export namespace rendern
             const EntityHandle targetEntity,
             AIFollowTargetSettings settings = {},
             const IGameplayObstacleQuery* obstacleQuery = nullptr,
-            GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
+            GameplayObstacleAvoidanceSettings obstacleSettings = {},
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
         : world_(world)
         , targetEntity_(targetEntity)
         , settings_(settings)
         , obstacleQuery_(obstacleQuery)
         , obstacleSettings_(obstacleSettings)
+        , debugRegistry_(debugRegistry)
         {
             settings_.steeringUpdateIntervalSeconds =
                 std::max(settings_.steeringUpdateIntervalSeconds, 0.0f);
@@ -88,6 +91,10 @@ export namespace rendern
         {
             ClearMovementIfAccessible_(context.agentEntity);
             elapsedSinceSteeringUpdate_ = 0.0f;
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(context.agentEntity);
+            }
         }
 
     private:
@@ -110,6 +117,13 @@ export namespace rendern
                 world_.TryGetTransform(targetEntity_)->position,
                 settings_.steering);
             GameplayMovementIntent movement = output.movement;
+            GameplayObstacleAvoidanceDebugSnapshot debug{};
+            const bool debugEnabled = debugRegistry_ != nullptr && debugRegistry_->IsEnabled();
+            if (debugEnabled)
+            {
+                debug.baseMovement = movement;
+                debug.finalMovement = movement;
+            }
             if (obstacleQuery_ != nullptr)
             {
                 if (const auto* physical = world_.TryGetCharacterPhysicalSettings(agentEntity))
@@ -117,14 +131,23 @@ export namespace rendern
                     const mathUtils::Vec3 origin = world_.TryGetTransform(agentEntity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     movement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                        movement, origin, *obstacleQuery_, obstacleSettings_,
+                        debugEnabled ? &debug : nullptr);
                 }
+            }
+            if (debugEnabled)
+            {
+                debugRegistry_->Publish(agentEntity, GameplaySteeringDebugMode::Follow, debug);
             }
             ApplyGameplayMovementIntent(movement, *world_.TryGetCharacterCommand(agentEntity));
         }
 
         void ClearMovementIfAccessible_(const EntityHandle agentEntity) const noexcept
         {
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(agentEntity);
+            }
             if (world_.IsEntityValid(agentEntity))
             {
                 if (GameplayCharacterCommandComponent* command =
@@ -140,6 +163,7 @@ export namespace rendern
         AIFollowTargetSettings settings_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
+        GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         float elapsedSinceSteeringUpdate_{0.0f};
     };
 }

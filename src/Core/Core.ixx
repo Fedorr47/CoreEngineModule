@@ -47,6 +47,7 @@ export import :gameplay_request;
 export import :ai_move_to_action_binding;
 export import :gameplay_steering;
 export import :gameplay_obstacle_avoidance;
+export import :gameplay_steering_debug;
 export import :gameplay_route_search;
 export import :gameplay_graph_assets;
 export import :ai_decision_contracts;

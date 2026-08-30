@@ -519,6 +519,7 @@ set(COMMON_MODULES
         Gameplay/Navigation/GameplayRequest.cppm
         Gameplay/Navigation/GameplaySteering.cppm
         Gameplay/Navigation/GameplayObstacleAvoidance.cppm
+        Gameplay/Navigation/GameplaySteeringDebug.cppm
         Gameplay/Navigation/GameplayRoute.cppm
         Gameplay/Navigation/GameplayRouteFollower.cppm
         Gameplay/Navigation/GameplayRouteSearch.cppm

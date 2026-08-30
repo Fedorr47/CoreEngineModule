@@ -20,6 +20,33 @@ export namespace rendern
     struct GameplayObstacleProbeHit
     {
         float distance{0.0f};
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 normal{};
+    };
+
+    enum class GameplayObstacleAvoidanceSide { None, Left, Right };
+
+    struct GameplayObstacleProbeDebugState
+    {
+        GameplayObstacleProbeRequest request{};
+        bool queried{false};
+        bool hit{false};
+        float clearance{0.0f};
+        mathUtils::Vec3 hitPosition{};
+        mathUtils::Vec3 hitNormal{};
+    };
+
+    struct GameplayObstacleAvoidanceDebugSnapshot
+    {
+        bool evaluated{false};
+        bool active{false};
+        mathUtils::Vec3 probeOrigin{};
+        GameplayMovementIntent baseMovement{};
+        GameplayMovementIntent finalMovement{};
+        GameplayObstacleProbeDebugState forward{};
+        GameplayObstacleProbeDebugState left{};
+        GameplayObstacleProbeDebugState right{};
+        GameplayObstacleAvoidanceSide chosenSide{GameplayObstacleAvoidanceSide::None};
     };
 
     class IGameplayObstacleQuery
@@ -43,7 +70,8 @@ export namespace rendern
         const GameplayMovementIntent& baseMovement,
         const mathUtils::Vec3& probeOrigin,
         const IGameplayObstacleQuery& query,
-        const GameplayObstacleAvoidanceSettings& settings = {}) noexcept;
+        const GameplayObstacleAvoidanceSettings& settings = {},
+        GameplayObstacleAvoidanceDebugSnapshot* debugOut = nullptr) noexcept;
 }
 
 namespace
@@ -59,6 +87,8 @@ namespace
     {
         bool hit{false};
         float clearance{0.0f};
+        mathUtils::Vec3 hitPosition{};
+        mathUtils::Vec3 hitNormal{};
     };
 
     [[nodiscard]] float FiniteOrZero(const float value) noexcept
@@ -83,22 +113,41 @@ namespace
         const rendern::IGameplayObstacleQuery& query,
         const mathUtils::Vec3& origin,
         const mathUtils::Vec3& direction,
-        const float maximumDistance) noexcept
+        const float maximumDistance,
+        rendern::GameplayObstacleProbeDebugState* debugOut) noexcept
     {
+        const rendern::GameplayObstacleProbeRequest request{origin, direction, maximumDistance};
+        if (debugOut != nullptr)
+        {
+            *debugOut = {};
+            debugOut->request = request;
+            debugOut->clearance = maximumDistance;
+        }
         if (maximumDistance <= 0.0f)
         {
             return {};
         }
 
         rendern::GameplayObstacleProbeHit hit{};
-        const bool didHit = query.Probe({origin, direction, maximumDistance}, hit);
+        if (debugOut != nullptr) debugOut->queried = true;
+        const bool didHit = query.Probe(request, hit);
         if (!didHit)
         {
             return {.hit = false, .clearance = maximumDistance};
         }
 
         const float distance = std::isfinite(hit.distance) ? hit.distance : 0.0f;
-        return {.hit = true, .clearance = std::clamp(distance, 0.0f, maximumDistance)};
+        const ProbeResult result{.hit = true,
+            .clearance = std::clamp(distance, 0.0f, maximumDistance),
+            .hitPosition = hit.position, .hitNormal = hit.normal};
+        if (debugOut != nullptr)
+        {
+            debugOut->hit = true;
+            debugOut->clearance = result.clearance;
+            debugOut->hitPosition = result.hitPosition;
+            debugOut->hitNormal = result.hitNormal;
+        }
+        return result;
     }
 }
 
@@ -106,8 +155,17 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     const GameplayMovementIntent& baseMovement,
     const mathUtils::Vec3& probeOrigin,
     const IGameplayObstacleQuery& query,
-    const GameplayObstacleAvoidanceSettings& settings) noexcept
+    const GameplayObstacleAvoidanceSettings& settings,
+    GameplayObstacleAvoidanceDebugSnapshot* debugOut) noexcept
 {
+    if (debugOut != nullptr)
+    {
+        *debugOut = {};
+        debugOut->evaluated = true;
+        debugOut->probeOrigin = probeOrigin;
+        debugOut->baseMovement = baseMovement;
+        debugOut->finalMovement = baseMovement;
+    }
     if (!baseMovement.IsMoving())
     {
         return baseMovement;
@@ -137,11 +195,14 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     };
 
     const ProbeResult forwardResult = RunProbe(
-        query, probeOrigin, forward, sanitized.forwardDistance);
+        query, probeOrigin, forward, sanitized.forwardDistance,
+        debugOut != nullptr ? &debugOut->forward : nullptr);
     const ProbeResult leftResult = RunProbe(
-        query, probeOrigin, left, sanitized.sideDistance);
+        query, probeOrigin, left, sanitized.sideDistance,
+        debugOut != nullptr ? &debugOut->left : nullptr);
     const ProbeResult rightResult = RunProbe(
-        query, probeOrigin, right, sanitized.sideDistance);
+        query, probeOrigin, right, sanitized.sideDistance,
+        debugOut != nullptr ? &debugOut->right : nullptr);
 
     if (!forwardResult.hit)
     {
@@ -150,6 +211,19 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
 
     // Equal clearance always selects left, keeping symmetric situations deterministic.
     GameplayMovementIntent corrected = baseMovement;
-    corrected.moveWorld = leftResult.clearance >= rightResult.clearance ? left : right;
+    const bool choseLeft = leftResult.clearance >= rightResult.clearance;
+    corrected.moveWorld = choseLeft ? left : right;
+    if (debugOut != nullptr)
+    {
+        const float directionDot = mathUtils::Dot(forward, corrected.moveWorld);
+        const bool changedDirection = std::isfinite(directionDot) &&
+            directionDot < 1.0f - mathUtils::kLengthEpsilonSq;
+        debugOut->active = changedDirection;
+        debugOut->chosenSide = changedDirection
+            ? (choseLeft ? GameplayObstacleAvoidanceSide::Left
+                         : GameplayObstacleAvoidanceSide::Right)
+            : GameplayObstacleAvoidanceSide::None;
+        debugOut->finalMovement = corrected;
+    }
     return corrected;
 }

@@ -5,6 +5,7 @@ import core;
 #include "Physics/Jolt/JoltPhysicsWorld.h"
 #include "Physics/Jolt/JoltRuntime.h"
 #include "Physics/LevelPhysicsRuntime.h"
+#include "App/GameplayPhysicsObstacleQuery.h"
 
 #include <string>
 #include <type_traits>
@@ -93,6 +94,21 @@ TEST_F(LevelPhysicsRuntime, EnterGameCreatesBindings)
     EXPECT_TRUE(runtime.EnterGame(level, levelInstance, scene, error)) << error;
     EXPECT_TRUE(runtime.IsActive());
     EXPECT_EQ(runtime.GetBindingCount(), 2u);
+}
+
+TEST_F(LevelPhysicsRuntime, SteeringPlaygroundAuthoredObstacleIsQueryableAsStaticWorld)
+{
+    level = rendern::LoadLevelAssetFromJson("levels/ai_steering_playground.level.json");
+    ASSERT_TRUE(runtime.EnterGame(level, levelInstance, scene, error)) << error;
+    appRuntime::GameplayPhysicsObstacleQuery query{world};
+    rendern::GameplayObstacleProbeHit hit{};
+    ASSERT_TRUE(query.Probe({
+        .origin = {-2.0f, 0.9f, -6.0f},
+        .direction = {1.0f, 0.0f, 0.0f},
+        .maximumDistance = 4.0f}, hit));
+    EXPECT_TRUE(std::isfinite(hit.distance));
+    EXPECT_GT(hit.distance, 0.0f);
+    EXPECT_LT(hit.distance, 4.0f);
 }
 
 TEST_F(LevelPhysicsRuntime, NodesWithoutPhysicsAreSkipped)

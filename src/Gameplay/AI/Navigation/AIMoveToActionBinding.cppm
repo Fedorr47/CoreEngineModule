@@ -11,6 +11,7 @@ import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor_registry;
 import :gameplay_object_reservation_system;
 import :gameplay_obstacle_avoidance;
+import :gameplay_steering_debug;
 export import :ai_action_binding;
 
 export namespace rendern
@@ -40,9 +41,11 @@ export namespace rendern
             const GameplayTraversalExecutorRegistry& executors,
             GameplayObjectReservationSystem& reservations,
             AIMoveToActionRequest request, const EntityHandle target,
-            const IGameplayObstacleQuery* obstacleQuery) noexcept
+            const IGameplayObstacleQuery* obstacleQuery,
+            GameplaySteeringDebugRegistry* debugRegistry) noexcept
             : world_(world), links_(links), executors_(executors), reservations_(reservations),
-            request_(request), target_(target), obstacleQuery_(obstacleQuery)
+            request_(request), target_(target), obstacleQuery_(obstacleQuery),
+            debugRegistry_(debugRegistry)
         {
         }
 
@@ -55,7 +58,7 @@ export namespace rendern
             }
             ownsReservation_ = true;
             runtime_ = AIMoveToAction::CreateRuntime(
-                context, world_, links_, executors_, request_, obstacleQuery_);
+                context, world_, links_, executors_, request_, obstacleQuery_, {}, debugRegistry_);
             if (runtime_ == nullptr)
             {
                 Release_(context.agentEntity);
@@ -121,6 +124,7 @@ export namespace rendern
         AIMoveToActionRequest request_{};
         EntityHandle target_{kNullEntity};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         std::unique_ptr<IAIActionRuntime> runtime_{};
         bool ownsReservation_{};
         bool started_{};
@@ -135,12 +139,14 @@ export namespace rendern
             const GameplayTraversalLinkRegistry& traversalLinkRegistry,
             const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
             IAIMoveToActionRequestProvider& requestProvider,
-            const IGameplayObstacleQuery* obstacleQuery = nullptr) noexcept
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
             : world_(world)
             , traversalLinkRegistry_(traversalLinkRegistry)
             , traversalExecutorRegistry_(traversalExecutorRegistry)
             , requestProvider_(requestProvider)
             , obstacleQuery_(obstacleQuery)
+            , debugRegistry_(debugRegistry)
         {
         }
         
@@ -150,9 +156,10 @@ export namespace rendern
             IAIMoveToActionRequestProvider& requestProvider,
             GameplayObjectReservationSystem& reservationSystem,
             IAIActionReservationTargetProvider& reservationTargetProvider,
-            const IGameplayObstacleQuery* obstacleQuery = nullptr) noexcept
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
             : AIMoveToActionBinding(world, traversalLinkRegistry, traversalExecutorRegistry,
-                requestProvider, obstacleQuery)
+            requestProvider, obstacleQuery, debugRegistry)
         {
             reservationSystem_ = &reservationSystem;
             reservationTargetProvider_ = &reservationTargetProvider;
@@ -179,7 +186,7 @@ export namespace rendern
                 {
                     return std::make_unique<ReservedAIMoveToActionRuntime>(world_,
                         traversalLinkRegistry_, traversalExecutorRegistry_, *reservationSystem_,
-                        *request, target, obstacleQuery_);
+                        *request, target, obstacleQuery_, debugRegistry_);
                 }
             }
             return AIMoveToAction::CreateRuntime(
@@ -188,7 +195,7 @@ export namespace rendern
                 traversalLinkRegistry_,
                 traversalExecutorRegistry_,
                 *request,
-                obstacleQuery_);
+                obstacleQuery_, {}, debugRegistry_);
         }
 
     private:
@@ -197,6 +204,7 @@ export namespace rendern
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         IAIMoveToActionRequestProvider& requestProvider_;
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         GameplayObjectReservationSystem* reservationSystem_{};
         IAIActionReservationTargetProvider* reservationTargetProvider_{};
     };

@@ -17,6 +17,8 @@ namespace
     {
         bool hit{false};
         float distance{0.0f};
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 normal{};
     };
 
     class ScriptedObstacleQuery final : public IGameplayObstacleQuery
@@ -36,6 +38,8 @@ namespace
                 ? results_[nextResult_++]
                 : ScriptedResult{};
             hit.distance = result.distance;
+            hit.position = result.position;
+            hit.normal = result.normal;
             return result.hit;
         }
 
@@ -63,6 +67,119 @@ namespace
         EXPECT_EQ(output.wantsRun, input.wantsRun);
     }
 }
+
+TEST(GameplayObstacleAvoidance, ClearPathDebugSnapshot)
+{
+    const GameplayMovementIntent input = MovingIntent();
+    ScriptedObstacleQuery query{};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const auto output = ApplyGameplayObstacleAvoidance(input, {1.0f, 2.0f, 3.0f}, query, {}, &debug);
+
+    EXPECT_TRUE(debug.evaluated);
+    EXPECT_FALSE(debug.active);
+    EXPECT_EQ(debug.chosenSide, GameplayObstacleAvoidanceSide::None);
+    EXPECT_TRUE(debug.forward.queried);
+    EXPECT_FALSE(debug.forward.hit);
+    MathTestHelper::ExpectVec3Near(debug.baseMovement.moveWorld, output.moveWorld, MathTestHelper::kEpsVec);
+    MathTestHelper::ExpectVec3Near(debug.finalMovement.moveWorld, output.moveWorld, MathTestHelper::kEpsVec);
+}
+
+TEST(GameplayObstacleAvoidance, BlockedDebugSnapshotsReportActualDecision)
+{
+    ScriptedObstacleQuery leftQuery{{{true, 0.25f}, {false}, {true, 0.2f}}};
+    GameplayObstacleAvoidanceDebugSnapshot left{};
+    const auto leftOutput = ApplyGameplayObstacleAvoidance(MovingIntent(), {}, leftQuery, {}, &left);
+    EXPECT_TRUE(left.active);
+    EXPECT_EQ(left.chosenSide, GameplayObstacleAvoidanceSide::Left);
+    EXPECT_FLOAT_EQ(left.forward.clearance, 0.25f);
+    EXPECT_FLOAT_EQ(left.left.clearance, 1.0f);
+    EXPECT_FLOAT_EQ(left.right.clearance, 0.2f);
+    MathTestHelper::ExpectVec3Near(left.finalMovement.moveWorld, leftOutput.moveWorld, MathTestHelper::kEpsVec);
+
+    ScriptedObstacleQuery rightQuery{{{true, 0.25f}, {true, 0.2f}, {false}}};
+    GameplayObstacleAvoidanceDebugSnapshot right{};
+    const auto rightOutput = ApplyGameplayObstacleAvoidance(MovingIntent(), {}, rightQuery, {}, &right);
+    EXPECT_TRUE(right.active);
+    EXPECT_EQ(right.chosenSide, GameplayObstacleAvoidanceSide::Right);
+    MathTestHelper::ExpectVec3Near(right.finalMovement.moveWorld, rightOutput.moveWorld, MathTestHelper::kEpsVec);
+}
+
+TEST(GameplayObstacleAvoidance, HitPositionAndNormalArePropagated)
+{
+    const mathUtils::Vec3 position{4.0f, 5.0f, 6.0f};
+    const mathUtils::Vec3 normal{0.0f, 0.0f, -1.0f};
+    ScriptedObstacleQuery query{{{true, 0.5f, position, normal}, {false}, {false}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query, {}, &debug);
+    MathTestHelper::ExpectVec3Near(debug.forward.hitPosition, position, MathTestHelper::kEpsVec);
+    MathTestHelper::ExpectVec3Near(debug.forward.hitNormal, normal, MathTestHelper::kEpsVec);
+}
+
+TEST(GameplayObstacleAvoidance, StationaryDebugSnapshotHasNoStaleProbes)
+{
+    ScriptedObstacleQuery query{};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    ApplyGameplayObstacleAvoidance({}, {}, query, {}, &debug);
+    EXPECT_TRUE(debug.evaluated);
+    EXPECT_FALSE(debug.active);
+    EXPECT_FALSE(debug.forward.queried);
+    EXPECT_EQ(debug.chosenSide, GameplayObstacleAvoidanceSide::None);
+}
+
+TEST(GameplayObstacleAvoidance, DebugOutputDoesNotChangeMovement)
+{
+    ScriptedObstacleQuery withoutQuery{{{true, 0.2f}, {true, 0.1f}, {false}}};
+    ScriptedObstacleQuery withQuery{{{true, 0.2f}, {true, 0.1f}, {false}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const auto without = ApplyGameplayObstacleAvoidance(MovingIntent(), {}, withoutQuery);
+    const auto with = ApplyGameplayObstacleAvoidance(MovingIntent(), {}, withQuery, {}, &debug);
+    MathTestHelper::ExpectVec3Near(without.moveWorld, with.moveWorld, MathTestHelper::kEpsVec);
+    EXPECT_FLOAT_EQ(without.moveMagnitude, with.moveMagnitude);
+    EXPECT_EQ(without.wantsRun, with.wantsRun);
+}
+
+TEST(GameplayObstacleAvoidance, ActiveMeansDirectionActuallyChanged)
+{
+    ScriptedObstacleQuery query{{{true, 0.2f}, {false}, {false}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const GameplayMovementIntent input = MovingIntent();
+    const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+        input, {}, query,
+        {.forwardProbeDistance = 1.5f,
+         .sideProbeDistance = 1.0f,
+         .sideProbeAngleDegrees = 0.0f},
+        &debug);
+
+    MathTestHelper::ExpectVec3Near(output.moveWorld, input.moveWorld, MathTestHelper::kEpsVec);
+    EXPECT_FALSE(debug.active);
+    EXPECT_EQ(debug.chosenSide, GameplayObstacleAvoidanceSide::None);
+}
+
+TEST(GameplaySteeringDebug, DisabledRegistryDoesNotStoreStates)
+{
+    GameplaySteeringDebugRegistry registry{};
+    registry.Publish(1u, GameplaySteeringDebugMode::Follow, {});
+    EXPECT_TRUE(registry.States().empty());
+}
+
+TEST(GameplaySteeringDebug, DisablingClearsAndReenablingAllowsFreshPublication)
+{
+    GameplaySteeringDebugRegistry registry{};
+    registry.SetEnabled(true);
+    registry.Publish(1u, GameplaySteeringDebugMode::Follow, {});
+    ASSERT_NE(registry.Find(1u), nullptr);
+
+    registry.SetEnabled(false);
+    EXPECT_TRUE(registry.States().empty());
+    registry.Publish(1u, GameplaySteeringDebugMode::Flee, {});
+    EXPECT_TRUE(registry.States().empty());
+
+    registry.SetEnabled(true);
+    registry.Publish(1u, GameplaySteeringDebugMode::Route, {});
+    ASSERT_NE(registry.Find(1u), nullptr);
+    EXPECT_EQ(registry.Find(1u)->mode, GameplaySteeringDebugMode::Route);
+}
+
 
 TEST(GameplayObstacleAvoidance, ClearPathPreservesMovement)
 {

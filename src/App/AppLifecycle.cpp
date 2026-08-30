@@ -339,6 +339,11 @@ namespace appLifecycle
 	{
 	    auto& runtime = app.runtimeState;
 	    runtime.scene.externalDebugLines.clear();
+        if (runtime.gameplayRuntime)
+        {
+            runtime.gameplayRuntime->SetSteeringDebugEnabled(
+                app.graphicsState.rendererSettings.drawAIPlannedPathDebug);
+        }
 	    if (app.graphicsState.rendererSettings.drawNavigationMesh
                && runtime.navigationState == AppRuntimeState::NavigationState::Ready
                && runtime.navigationProfiles)
@@ -373,6 +378,57 @@ namespace appLifecycle
 	            }
 	        }
 	    }
+        
+        // Steering telemetry shares the existing optional AI debug toggle and line renderer.
+        if (app.graphicsState.rendererSettings.drawAIPlannedPathDebug && runtime.gameplayRuntime)
+        {
+            constexpr std::uint32_t baseColor = 0xffb0b0b0u;
+            constexpr std::uint32_t feelerColor = 0xff33ccffu;
+            constexpr std::uint32_t blockedColor = 0xff3333ffu;
+            constexpr std::uint32_t normalColor = 0xffffff33u;
+            constexpr std::uint32_t finalColor = 0xff33ff33u;
+            const auto appendProbe = [&](const rendern::GameplayObstacleProbeDebugState& probe)
+            {
+                if (!probe.queried)
+                {
+                    return;
+                }
+                const auto end = probe.request.origin +
+                    probe.request.direction * probe.request.maximumDistance;
+                runtime.scene.externalDebugLines.push_back({probe.request.origin, end,
+                    probe.hit ? blockedColor : feelerColor});
+                if (probe.hit)
+                {
+                    constexpr float marker = 0.08f;
+                    runtime.scene.externalDebugLines.push_back({
+                        probe.hitPosition + mathUtils::Vec3{-marker, 0.0f, 0.0f},
+                        probe.hitPosition + mathUtils::Vec3{marker, 0.0f, 0.0f}, blockedColor});
+                    runtime.scene.externalDebugLines.push_back({probe.hitPosition,
+                        probe.hitPosition + probe.hitNormal * 0.35f, normalColor});
+                }
+            };
+            for (const auto& entry :
+                runtime.gameplayRuntime->GetSteeringDebugRegistry().States())
+            {
+                const rendern::GameplaySteeringDebugState& state = entry.second;
+                const auto& snapshot = state.avoidance;
+                if (!snapshot.evaluated)
+                {
+                    continue;
+                }
+                const float directionLength = snapshot.forward.request.maximumDistance > 0.0f
+                    ? snapshot.forward.request.maximumDistance : 1.0f;
+                runtime.scene.externalDebugLines.push_back({snapshot.probeOrigin,
+                    snapshot.probeOrigin + snapshot.baseMovement.moveWorld * directionLength,
+                    baseColor});
+                appendProbe(snapshot.forward);
+                appendProbe(snapshot.left);
+                appendProbe(snapshot.right);
+                runtime.scene.externalDebugLines.push_back({snapshot.probeOrigin,
+                    snapshot.probeOrigin + snapshot.finalMovement.moveWorld * directionLength,
+                    finalColor});
+            }
+        }
 	}
         
     void InitializeApp(AppState& app, int argc, char** argv)

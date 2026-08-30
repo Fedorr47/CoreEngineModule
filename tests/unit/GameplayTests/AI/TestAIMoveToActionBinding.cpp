@@ -4,6 +4,8 @@
 #include <optional>
 #include <unordered_map>
 
+#include "TestSupport/TestThreadAffinity.h"
+
 import core;
 
 using namespace rendern;
@@ -101,6 +103,31 @@ TEST(AIMoveToActionBinding, ReservedMoveAcquiresBlocksCompetitorAndCancelRelease
     firstRuntime->Cancel(firstContext);
     firstRuntime->Cancel(firstContext);
     EXPECT_FALSE(reservations.IsReserved(resource));
+}
+
+TEST(AIMoveToActionBinding, GameplayRuntimeBindingPublishesRouteSteeringDebug)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    GameplayRuntime gameplayRuntime{};
+    GameplayWorld& world = gameplayRuntime.GetWorld();
+    const EntityHandle agent = AddMovementAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    const GameplayRouteGraph graph = Graph(5.0f);
+    Provider provider{};
+    provider.requests[agent] = {
+        &graph, GameplayRouteNodeId{1u}, GameplayRouteNodeId{2u}, {}};
+    gameplayRuntime.SetSteeringDebugEnabled(true);
+    auto binding = gameplayRuntime.CreateAIMoveToActionBinding(provider);
+    const AIActionRuntimeContext context{agent, kAIMoveToActionId};
+    auto action = binding->CreateRuntime(context);
+    ASSERT_NE(action, nullptr);
+    ASSERT_EQ(action->Start(context), AIActionRuntimeResult::Running);
+    ASSERT_EQ(action->Tick(context, 1.0f / 60.0f), AIActionRuntimeResult::Running);
+
+    const GameplaySteeringDebugState* debug =
+        gameplayRuntime.GetSteeringDebugRegistry().Find(agent);
+    ASSERT_NE(debug, nullptr);
+    EXPECT_EQ(debug->mode, GameplaySteeringDebugMode::Route);
 }
 
 TEST(AIMoveToActionBinding, ReservedMoveDoesNotAdoptOrReleasePreExistingSameOwner)

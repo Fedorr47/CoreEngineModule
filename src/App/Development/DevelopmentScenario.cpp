@@ -229,6 +229,27 @@ namespace appDevelopment
                     move.wantsRun = wantsRun->second.AsBool();
                     result.emplace_back(std::move(move));
                 }
+                else if (op == "startFollowTarget")
+                {
+                    const auto wantsRun = operation.find("wantsRun");
+                    if (wantsRun == operation.end() || !wantsRun->second.IsBool())
+                        Invalid(source, section, i, "missing boolean field 'wantsRun'");
+                    result.emplace_back(StartFollowTargetOperation{entity(),
+                        RequiredString(operation, "target", source, section, i),
+                        static_cast<float>(RequiredNumber(operation, "acceptanceRadius", source, section, i)),
+                        wantsRun->second.AsBool()});
+                }
+                else if (op == "startFleeTarget")
+                {
+                    const auto wantsRun = operation.find("wantsRun");
+                    if (wantsRun == operation.end() || !wantsRun->second.IsBool())
+                        Invalid(source, section, i, "missing boolean field 'wantsRun'");
+                    result.emplace_back(StartFleeTargetOperation{entity(),
+                        RequiredString(operation, "target", source, section, i),
+                        static_cast<float>(RequiredNumber(operation, "triggerRadius", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "safeRadius", source, section, i)),
+                        wantsRun->second.AsBool()});
+                }
                 else if (op == "startNavigationPath")
                 {
                     StartNavigationPathOperation path{};
@@ -303,6 +324,8 @@ namespace appDevelopment
                 else if constexpr (std::is_same_v<T, RemoveTraversalLinkOperation>) { return "removeTraversalLink"; }
                 else if constexpr (std::is_same_v<T, StartFollowRouteOperation>) { return "startFollowRoute"; }
                 else if constexpr (std::is_same_v<T, StartMoveToOperation>) { return "startMoveTo"; }
+                else if constexpr (std::is_same_v<T, StartFollowTargetOperation>) { return "startFollowTarget"; }
+                else if constexpr (std::is_same_v<T, StartFleeTargetOperation>) { return "startFleeTarget"; }
                 else if constexpr (std::is_same_v<T, StartNavigationPathOperation>) { return "startNavigationPath"; }
                 else if constexpr (std::is_same_v<T, StartAIDecisionOperation>) { return "startAIDecision"; }
                 else if constexpr (std::is_same_v<T, CancelAIDecisionOperation>) { return "cancelAIDecision"; }
@@ -336,6 +359,8 @@ namespace appDevelopment
                 for (const auto& edge : move->edges) { result.push_back(edge.from); result.push_back(edge.to); }
                 return result;
             }
+            if (const auto* follow = std::get_if<StartFollowTargetOperation>(&operation)) return {follow->target};
+            if (const auto* flee = std::get_if<StartFleeTargetOperation>(&operation)) return {flee->target};
             if (const auto* path = std::get_if<StartNavigationPathOperation>(&operation))
             {
                 return {path->target};
@@ -451,6 +476,13 @@ namespace appDevelopment
                             !std::isfinite(edge.cost) || edge.cost < 0.0f)
                             Invalid(identity, name, i, "invalid MoveTo graph edge");
                 }
+                if (const auto* follow = std::get_if<StartFollowTargetOperation>(&operation);
+                    follow && (!std::isfinite(follow->acceptanceRadius) || follow->acceptanceRadius < 0.0f))
+                    Invalid(identity, name, i, "invalid FollowTarget parameters");
+                if (const auto* flee = std::get_if<StartFleeTargetOperation>(&operation);
+                    flee && (!std::isfinite(flee->triggerRadius) || !std::isfinite(flee->safeRadius) ||
+                    flee->triggerRadius < 0.0f || flee->safeRadius < flee->triggerRadius))
+                    Invalid(identity, name, i, "invalid FleeTarget parameters");
                 if (const auto* pickup = std::get_if<EnsurePickupOperation>(&operation))
                 {
                     if (std::string_view(name) != "setup")
@@ -852,6 +884,31 @@ namespace appDevelopment
                         steering.wantsRun = op.wantsRun;
                         return context.gameplayRuntime.StartAIMoveTo(
                             entity, graph, ids.at(op.start), ids.at(op.goal), steering) ==
+                            rendern::AIActionExecutionStatus::Running;
+                    }
+                    else if constexpr (std::is_same_v<T, StartFollowTargetOperation>)
+                    {
+                        const auto targetNode = instance.nodes.find(op.target);
+                        if (targetNode == instance.nodes.end()) return false;
+                        const EntityHandle target = ResolveEntity(targetNode->second, context);
+                        if (target == rendern::kNullEntity) return false;
+                        rendern::AIFollowTargetSettings settings{};
+                        settings.steering.acceptanceRadius = op.acceptanceRadius;
+                        settings.steering.wantsRun = op.wantsRun;
+                        return context.gameplayRuntime.StartAIFollowTarget(entity, target, settings) ==
+                            rendern::AIActionExecutionStatus::Running;
+                    }
+                    else if constexpr (std::is_same_v<T, StartFleeTargetOperation>)
+                    {
+                        const auto targetNode = instance.nodes.find(op.target);
+                        if (targetNode == instance.nodes.end()) return false;
+                        const EntityHandle target = ResolveEntity(targetNode->second, context);
+                        if (target == rendern::kNullEntity) return false;
+                        rendern::AIFleeTargetSettings settings{};
+                        settings.triggerRadius = op.triggerRadius;
+                        settings.safeRadius = op.safeRadius;
+                        settings.steering.wantsRun = op.wantsRun;
+                        return context.gameplayRuntime.StartAIFleeTarget(entity, target, settings) ==
                             rendern::AIActionExecutionStatus::Running;
                     }
                     else if constexpr (std::is_same_v<T, StartNavigationPathOperation>)

@@ -12,6 +12,7 @@ import :gameplay_route;
 import :gameplay_route_follower;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
+import :gameplay_steering_debug;
 import :character_controller;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -31,7 +32,8 @@ export namespace rendern
             GameplayRoute route,
             GameplayArrivalSteeringSettings steeringSettings = {},
              const IGameplayObstacleQuery* obstacleQuery = nullptr,
-             GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
+             GameplayObstacleAvoidanceSettings obstacleSettings = {},
+             GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
         : world_(world)
         , traversalLinkRegistry_(traversalLinkRegistry)
         , traversalExecutorRegistry_(traversalExecutorRegistry)
@@ -39,6 +41,7 @@ export namespace rendern
         , steeringSettings_(steeringSettings)
         , obstacleQuery_(obstacleQuery)
         , obstacleSettings_(obstacleSettings)
+        , debugRegistry_(debugRegistry)
         {
         }
         
@@ -77,6 +80,10 @@ export namespace rendern
             
             if (activeTraversal_)
             {
+                if (debugRegistry_ != nullptr)
+                {
+                    debugRegistry_->Clear(context.agentEntity);
+                }
                 physicallyBlocked_ = false;
                 const GameplayTraversalLinkHandle completedTraversal = activeTraversal_->context.traversalLink;
                 const GameplayTraversalExecutionResult result = activeTraversal_->executor->Tick(activeTraversal_->context, deltaSeconds);
@@ -109,6 +116,10 @@ export namespace rendern
             StopMovementIfAccessible_(context.agentEntity);
             follower_.Reset();
             physicallyBlocked_ = false;
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(context.agentEntity);
+            }
         }
         
     private:
@@ -159,6 +170,13 @@ export namespace rendern
             GameplayCharacterMovementStateComponent* movementState =
                 world_.TryGetCharacterMovementState(entity);
             GameplayMovementIntent finalMovement = movement;
+            GameplayObstacleAvoidanceDebugSnapshot debug{};
+            const bool debugEnabled = debugRegistry_ != nullptr && debugRegistry_->IsEnabled();
+            if (debugEnabled)
+            {
+                debug.baseMovement = movement;
+                debug.finalMovement = movement;
+            }
             if (obstacleQuery_ != nullptr)
             {
                 if (const auto* physical = world_.TryGetCharacterPhysicalSettings(entity))
@@ -166,8 +184,13 @@ export namespace rendern
                     const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     finalMovement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                        movement, origin, *obstacleQuery_, obstacleSettings_,
+                        debugEnabled ? &debug : nullptr);
                 }
+            }
+            if (debugEnabled)
+            {
+                debugRegistry_->Publish(entity, GameplaySteeringDebugMode::Route, debug);
             }
             ApplyGameplayMovementIntent(finalMovement, *command);
             motor->desiredMoveWorld = command->moveWorld;
@@ -182,6 +205,10 @@ export namespace rendern
             const EntityHandle entity,
             const std::optional<GameplayTraversalLinkHandle>& requiredLink)
         {
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(entity);
+            }
             if (!requiredLink || !requiredLink->IsValid())
             {
                 return AIActionRuntimeResult::Failed;
@@ -274,6 +301,10 @@ export namespace rendern
         
         void StopMovementIfAccessible_(const EntityHandle entity) const noexcept
         {
+            if (debugRegistry_ != nullptr)
+            {
+                debugRegistry_->Clear(entity);
+            }
             ClearMovementIntentIfAccessible_(entity);
             if (GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity))
             {
@@ -290,6 +321,7 @@ export namespace rendern
         GameplayArrivalSteeringSettings steeringSettings_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
+        GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         bool physicallyBlocked_{ false };
         GameplayRouteFollower follower_{};
         std::optional<ActiveTraversalState> activeTraversal_{};

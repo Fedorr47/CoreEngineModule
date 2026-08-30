@@ -1,0 +1,36 @@
+{
+  "id": "core.ai_steering_playground",
+  "title": "AI Steering Playground",
+  "description": "Production Follow, Flee, and MoveTo steering against StaticWorld obstacles. Enable AI Planned Path Debug for feelers.",
+  "roles": {
+    "followAgent": "Steering_Follow_Agent", "followTarget": "Steering_Follow_Target",
+    "fleeAgent": "Steering_Flee_Agent", "threat": "Steering_Flee_Threat",
+    "routeAgent": "Steering_Route_Agent", "routeStart": "Steering_Route_Start", "routeGoal": "Steering_Route_Goal"
+  },
+  "setup": [
+    {"op":"ensureNodeBoundEntity","entity":"followAgent"},{"op":"ensureNodeBoundEntity","entity":"followTarget"},
+    {"op":"ensureNodeBoundEntity","entity":"fleeAgent"},{"op":"ensureNodeBoundEntity","entity":"threat"},
+    {"op":"ensureNodeBoundEntity","entity":"routeAgent"},
+    {"op":"captureTransform","entity":"followAgent","slot":"follow"},{"op":"captureTransform","entity":"followTarget","slot":"target"},
+    {"op":"captureTransform","entity":"fleeAgent","slot":"flee"},{"op":"captureTransform","entity":"threat","slot":"threat"},
+    {"op":"captureTransform","entity":"routeAgent","slot":"route"},
+    {"op":"ensureAI","entity":"followAgent"},{"op":"ensureAI","entity":"fleeAgent"},{"op":"ensureAI","entity":"routeAgent"},
+    {"op":"setCharacterPhysicalSettings","entity":"followAgent","radius":0.35,"cylinderHeight":1.1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.35,"mass":80},
+    {"op":"setCharacterPhysicalSettings","entity":"fleeAgent","radius":0.35,"cylinderHeight":1.1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.35,"mass":80},
+    {"op":"setCharacterPhysicalSettings","entity":"routeAgent","radius":0.35,"cylinderHeight":1.1,"maximumSlopeAngleDegrees":45,"maximumStepHeight":0.35,"mass":80}
+  ],
+  "start": [
+    {"op":"startFollowTarget","entity":"followAgent","target":"followTarget","acceptanceRadius":0.8,"wantsRun":false},
+    {"op":"startFleeTarget","entity":"fleeAgent","target":"threat","triggerRadius":5.0,"safeRadius":7.0,"wantsRun":false},
+    {"op":"startMoveTo","entity":"routeAgent","nodes":["routeStart","routeGoal"],"edges":[{"from":"routeStart","to":"routeGoal","cost":1}],"start":"routeStart","goal":"routeGoal","acceptanceRadius":0.2,"slowingRadius":2.0,"wantsRun":false}
+  ],
+  "update":[],
+  "stop":[{"op":"cancelAI","entity":"followAgent"},{"op":"cancelAI","entity":"fleeAgent"},{"op":"cancelAI","entity":"routeAgent"}],
+  "reset":[
+    {"op":"cancelAI","entity":"followAgent"},{"op":"cancelAI","entity":"fleeAgent"},{"op":"cancelAI","entity":"routeAgent"},
+    {"op":"restoreTransform","entity":"followAgent","slot":"follow"},{"op":"restoreTransform","entity":"followTarget","slot":"target"},
+    {"op":"restoreTransform","entity":"fleeAgent","slot":"flee"},{"op":"restoreTransform","entity":"threat","slot":"threat"},{"op":"restoreTransform","entity":"routeAgent","slot":"route"},
+    {"op":"resetEntitySimulationState","entity":"followAgent"},{"op":"resetEntitySimulationState","entity":"fleeAgent"},{"op":"resetEntitySimulationState","entity":"routeAgent"},
+    {"op":"teleportPhysicsCharacter","entity":"followAgent"},{"op":"teleportPhysicsCharacter","entity":"fleeAgent"},{"op":"teleportPhysicsCharacter","entity":"routeAgent"}
+  ]
+}

@@ -28,6 +28,7 @@
             LogSyncInstrumentationSample_();
             CancelAllAIDecisions_();
             aiSystem_.Reset();
+            steeringDebugRegistry_.Clear();
             traversalLinkRegistry_.Reset();
             traversalExecutorRegistry_.ResetExternalRegistrations();
             objectReservationSystem_.Reset();
@@ -470,7 +471,7 @@
                 agentEntity,
                 std::move(route),
                 steeringSettings,
-                obstacleQuery_);
+                obstacleQuery_, {}, &steeringDebugRegistry_);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIMoveTo(
@@ -491,7 +492,27 @@
                 startNodeId,
                 goalNodeId,
                 steeringSettings,
-                obstacleQuery_);
+                obstacleQuery_, {}, &steeringDebugRegistry_);
+        }
+
+        [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFollowTarget(
+            const EntityHandle agentEntity, const EntityHandle targetEntity,
+            const AIFollowTargetSettings& settings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return AIFollowTargetAction::Start(
+                aiSystem_, world_, agentEntity, targetEntity, settings, obstacleQuery_, {},
+                &steeringDebugRegistry_);
+        }
+
+        [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFleeTarget(
+            const EntityHandle agentEntity, const EntityHandle targetEntity,
+            const AIFleeTargetSettings& settings)
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            return AIFleeTargetAction::Start(
+                aiSystem_, world_, agentEntity, targetEntity, settings, obstacleQuery_, {},
+                &steeringDebugRegistry_);
         }
 
         [[nodiscard]] bool GameplayRuntime::RegisterGameplayTraversalLink(GameplayTraversalLink link)
@@ -540,12 +561,14 @@
         {
             CORE_ASSERT_RUNTIME_THREAD();
             aiSystem_.CancelAction(agentEntity);
+            steeringDebugRegistry_.Clear(agentEntity);
         }
 
         void GameplayRuntime::ClearAIAction(const EntityHandle agentEntity)
         {
             CORE_ASSERT_RUNTIME_THREAD();
             aiSystem_.ClearAction(agentEntity);
+            steeringDebugRegistry_.Clear(agentEntity);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::GetAIActionStatus(
@@ -561,7 +584,7 @@
             CORE_ASSERT_RUNTIME_THREAD();
             return std::make_unique<AIMoveToActionBinding>(
                 world_, traversalLinkRegistry_, traversalExecutorRegistry_, requestProvider,
-                obstacleQuery_);
+                obstacleQuery_, &steeringDebugRegistry_);
         }
 
         [[nodiscard]] AIPlanExecutionStatus GameplayRuntime::UpdateAIDecision(

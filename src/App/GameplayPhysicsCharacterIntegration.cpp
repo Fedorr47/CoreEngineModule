@@ -49,6 +49,8 @@ bool appRuntime::GameplayPhysicsObstacleQuery::Probe(
         return false;
     }
     hit.distance = physicsHit->distance;
+    hit.position = physicsHit->position;
+    hit.normal = physicsHit->normal;
     return true;
 }
 
