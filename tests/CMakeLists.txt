@@ -45,6 +45,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayRequest.cpp"
         "unit/GameplayTests/TestGameplayRoute.cpp"
         "unit/GameplayTests/TestGameplaySteering.cpp"
+        "unit/GameplayTests/TestGameplayObstacleAvoidance.cpp"
         "unit/GameplayTests/TestGameplayRouteFollower.cpp"
         "unit/GameplayTests/TestGameplayRouteSearch.cpp"
         "unit/GameplayTests/TestGameplayAnimationBridge.cpp"
