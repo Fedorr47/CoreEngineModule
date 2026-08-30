@@ -9,6 +9,18 @@ using namespace rendern;
 
 namespace
 {
+    class CountingObstacleQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest&,
+            GameplayObstacleProbeHit&) const noexcept override
+        {
+            ++calls;
+            return false;
+        }
+        mutable std::size_t calls{0u};
+    };
     class FakeTraversalExecutor final : public IGameplayTraversalExecutor
     {
     public:
@@ -165,6 +177,41 @@ TEST(AIFollowRouteActionRuntime, TraversalExecutorOwnsMovementDuringActiveTraver
     EXPECT_GT(command->moveMagnitude, 0.0f);
     EXPECT_GT(motor->desiredMoveWorld.x, 0.0f);
     EXPECT_FLOAT_EQ(motor->velocity.x, 3.0f);
+}
+
+TEST(AIFollowRouteActionRuntime, TraversalDoesNotProbeAndAvoidanceResumesAfterCompletion)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    GameplayTraversalLinkRegistry registry{};
+    RegisterLink(registry, world);
+    FakeTraversalExecutor executor{};
+    executor.tickResults = {GameplayTraversalExecutionResult::Running,
+        GameplayTraversalExecutionResult::Succeeded};
+    GameplayTraversalExecutorRegistry executorRegistry{};
+    ASSERT_TRUE(executorRegistry.Register(kDoorTraversalTypeId, executor));
+    GameplayRoute route{};
+    route.points = {
+        {.worldPosition = {0.0f, 0.0f, 0.0f}},
+        {.worldPosition = {1.0f, 0.0f, 0.0f}},
+        {.worldPosition = {2.0f, 0.0f, 0.0f}}};
+    route.segmentAnnotations = {
+        {}, {.traversalLink = GameplayTraversalLinkHandle{7u}}};
+    CountingObstacleQuery query{};
+    AIFollowRouteActionRuntime runtime{
+        world, registry, executorRegistry, std::move(route), {}, &query};
+
+    ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    ASSERT_EQ(query.calls, 3u);
+    world.TryGetTransform(agent)->position = {1.0f, 0.0f, 0.0f};
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(query.calls, 3u);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(query.calls, 3u);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 0.016f), AIActionRuntimeResult::Running);
+    EXPECT_GT(query.calls, 3u);
 }
 
 // Protects successful traversal completion and bounded next-tick route resumption.

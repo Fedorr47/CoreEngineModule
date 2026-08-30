@@ -7,6 +7,23 @@ using namespace rendern;
 
 namespace
 {
+    class ForwardBlockedQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest&,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            ++calls;
+            if ((calls % 3u) == 1u)
+            {
+                hit.distance = 0.1f;
+                return true;
+            }
+            return false;
+        }
+        mutable std::size_t calls{0u};
+    };
     [[nodiscard]] GameplayRoute MakeRoute(const float destinationX = 2.0f)
     {
         return GameplayRoute{
@@ -83,4 +100,24 @@ TEST(AIFollowRouteActionRuntime, ExposesPhysicalBlockedFeedbackWithoutAddingRout
     EXPECT_TRUE(runtime.IsPhysicallyBlocked());
     runtime.Cancel(MakeContext(agent));
     EXPECT_FALSE(runtime.IsPhysicallyBlocked());
+}
+
+TEST(AIFollowRouteActionRuntime, AvoidanceCorrectsFollowingAndPreservesArrivalMagnitude)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateMovingAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{};
+    ForwardBlockedQuery query{};
+    AIFollowRouteActionRuntime runtime{
+        world, links, executors, MakeRoute(0.5f),
+        {.acceptanceRadius = 0.1f, .slowingRadius = 1.0f}, &query};
+
+    ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 1.0f / 60.0f), AIActionRuntimeResult::Running);
+    const auto* command = world.TryGetCharacterCommand(agent);
+    EXPECT_LT(command->moveWorld.z, 0.0f);
+    EXPECT_NEAR(command->moveMagnitude, 4.0f / 9.0f, 0.0001f);
+    EXPECT_EQ(query.calls, 3u);
 }

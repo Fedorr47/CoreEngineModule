@@ -11,6 +11,7 @@ import :ai_follow_route_action;
 import :ai_action_runtime;
 import :gameplay_route_search;
 import :gameplay_steering;
+import :gameplay_obstacle_avoidance;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor_registry;
 
@@ -38,7 +39,9 @@ export namespace rendern
             GameplayWorld& world,
             const GameplayTraversalLinkRegistry& traversalLinkRegistry,
             const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
-            const AIMoveToActionRequest& request)
+            const AIMoveToActionRequest& request,
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            const GameplayObstacleAvoidanceSettings& obstacleSettings = {})
         {
             if (context.actionId != kAIMoveToActionId || request.routeGraph == nullptr)
             {
@@ -58,7 +61,9 @@ export namespace rendern
                 traversalExecutorRegistry,
                 context.agentEntity,
                 std::move(searchResult.route),
-                request.steeringSettings);
+                request.steeringSettings,
+                obstacleQuery,
+                obstacleSettings);
         }
         
         [[nodiscard]] static AIActionExecutionStatus Start(
@@ -70,7 +75,9 @@ export namespace rendern
             const GameplayRouteGraph& routeGraph,
             const GameplayRouteNodeId startNodeId,
             const GameplayRouteNodeId goalNodeId,
-            const GameplayArrivalSteeringSettings& steeringSettings = {})
+            const GameplayArrivalSteeringSettings& steeringSettings = {},
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            const GameplayObstacleAvoidanceSettings& obstacleSettings = {})
         {
             const AIActionRuntimeContext context{
                 .agentEntity = agentEntity,
@@ -83,7 +90,8 @@ export namespace rendern
                 .steeringSettings = steeringSettings};
             
             std::unique_ptr<IAIActionRuntime> runtime = CreateRuntime(
-                context, world, traversalLinkRegistry, traversalExecutorRegistry, request);
+                context, world, traversalLinkRegistry, traversalExecutorRegistry, request,
+                obstacleQuery, obstacleSettings);
             if (runtime == nullptr)
             {
                 return AIActionExecutionStatus::Failed;

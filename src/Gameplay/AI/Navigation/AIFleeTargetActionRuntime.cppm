@@ -9,6 +9,7 @@ import :gameplay;
 import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_steering;
+import :gameplay_obstacle_avoidance;
 import :math_utils;
 
 export namespace rendern
@@ -29,10 +30,14 @@ export namespace rendern
         AIFleeTargetActionRuntime(
             GameplayWorld& world,
             const EntityHandle targetEntity,
-            AIFleeTargetSettings settings = {}) noexcept
+            AIFleeTargetSettings settings = {},
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
         : world_(world)
         , targetEntity_(targetEntity)
         , settings_(settings)
+        , obstacleQuery_(obstacleQuery)
+        , obstacleSettings_(obstacleSettings)
         {
             settings_.triggerRadius = std::max(settings_.triggerRadius, 0.0f);
             settings_.safeRadius = std::max(settings_.safeRadius, settings_.triggerRadius);
@@ -121,9 +126,19 @@ export namespace rendern
                 isFleeing_ = distance <= settings_.triggerRadius;
             }
 
-            const GameplayMovementIntent movement = isFleeing_
+            GameplayMovementIntent movement = isFleeing_
                 ? BuildGameplayFleeSteering(agentPosition, targetPosition, settings_.steering)
                 : GameplayMovementIntent{};
+            if (obstacleQuery_ != nullptr)
+            {
+                if (const auto* physical = world_.TryGetCharacterPhysicalSettings(agentEntity))
+                {
+                    const mathUtils::Vec3 origin = agentPosition +
+                        mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    movement = ApplyGameplayObstacleAvoidance(
+                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                }
+            }
             ApplyGameplayMovementIntent(
                 movement, *world_.TryGetCharacterCommand(agentEntity));
         }
@@ -143,6 +158,8 @@ export namespace rendern
         GameplayWorld& world_;
         EntityHandle targetEntity_{kNullEntity};
         AIFleeTargetSettings settings_{};
+        const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplayObstacleAvoidanceSettings obstacleSettings_{};
         float elapsedSinceSteeringUpdate_{0.0f};
         bool isFleeing_{false};
     };

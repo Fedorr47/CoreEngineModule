@@ -449,6 +449,12 @@
             currentWorldEvents_.clear();
         }
 
+        void GameplayRuntime::SetObstacleQuery(const IGameplayObstacleQuery* query) noexcept
+        {
+            CORE_ASSERT_RUNTIME_THREAD();
+            obstacleQuery_ = query;
+        }
+
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFollowRoute(
             const EntityHandle agentEntity,
             GameplayRoute route,
@@ -462,7 +468,8 @@
                 traversalExecutorRegistry_,
                 agentEntity,
                 std::move(route),
-                steeringSettings);
+                steeringSettings,
+                obstacleQuery_);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIMoveTo(
@@ -482,7 +489,8 @@
                 routeGraph,
                 startNodeId,
                 goalNodeId,
-                steeringSettings);
+                steeringSettings,
+                obstacleQuery_);
         }
 
         [[nodiscard]] bool GameplayRuntime::RegisterGameplayTraversalLink(GameplayTraversalLink link)
@@ -551,7 +559,8 @@
         {
             CORE_ASSERT_RUNTIME_THREAD();
             return std::make_unique<AIMoveToActionBinding>(
-                world_, traversalLinkRegistry_, traversalExecutorRegistry_, requestProvider);
+                world_, traversalLinkRegistry_, traversalExecutorRegistry_, requestProvider,
+                obstacleQuery_);
         }
 
         [[nodiscard]] AIPlanExecutionStatus GameplayRuntime::UpdateAIDecision(

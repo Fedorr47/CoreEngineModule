@@ -36,6 +36,7 @@ import :gameplay_object_reservation_system;
 import :gameplay_route;
 import :gameplay_route_search;
 import :gameplay_steering;
+import :gameplay_obstacle_avoidance;
 import :gameplay_traversal_link;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -107,6 +108,8 @@ export namespace rendern
         [[nodiscard]] const GameplayKeyboardMouseBindings& GetKeyboardMouseBindings() const noexcept;
         [[nodiscard]] const GameplayActionDefinitions& GetGameplayActionDefinitions() const noexcept;
         [[nodiscard]] const GameplayActionAnimationBindings& GetGameplayActionAnimationBindings() const noexcept;
+        // Non-owning; the integration owner must outlive this runtime and all active AI actions.
+        void SetObstacleQuery(const IGameplayObstacleQuery* query) noexcept;
         [[nodiscard]] bool ApplyGameplayActionConfiguration(
             const GameplayActionDefinitions& definitions,
             const GameplayActionAnimationBindings& animationBindings,
@@ -218,6 +221,7 @@ export namespace rendern
         // Profiling zone end
     private:
         GameplayWorld world_{};
+        const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         EntityHandle controlledEntity_{ kNullEntity };
         GameplayKeyboardMouseBindings keyboardMouseBindings_{};
         GameplayActionDefinitions actionDefinitions_{ MakeDefaultGameplayActionDefinitions() };

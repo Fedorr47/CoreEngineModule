@@ -18,6 +18,7 @@
 import core;
 import std;
 
+#include "App/GameplayPhysicsObstacleQuery.h"
 #include "App/GameplayPhysicsCharacterIntegration.h"
 #include "App/Development/AppDevelopmentScenarioRuntime.h"
 #include "App/AppLifecycle.h"
@@ -206,6 +207,26 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ScenarioTeleportOperationUsesPro
     ASSERT_TRUE(runner.Load(asset, context));
     EXPECT_TRUE(runner.Start(context));
     runner.Unload(context);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, ObstacleQueryAdapterUsesStaticWorldLayerAndReportsMiss)
+{
+    physics::PhysicsBodyDescriptor obstacle{
+        .shape = physics::BoxShapeDescriptor{.halfExtents = {0.5f, 0.5f, 0.5f}},
+        .transform = {.position = {2.0f, 0.5f, 0.0f}},
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(obstacle).IsValid());
+    appRuntime::GameplayPhysicsObstacleQuery query{physicsWorld};
+    rendern::GameplayObstacleProbeHit hit{};
+    EXPECT_TRUE(query.Probe({{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, 5.0f}, hit));
+    EXPECT_NEAR(hit.distance, 1.5f, 0.001f);
+    EXPECT_FALSE(query.Probe({{0.0f, 0.5f, 0.0f}, {-1.0f, 0.0f, 0.0f}, 5.0f}, hit));
+
+    obstacle.transform.position = {0.0f, 0.5f, 2.0f};
+    obstacle.motionType = physics::PhysicsMotionType::Dynamic;
+    ASSERT_TRUE(physicsWorld.CreateBody(obstacle).IsValid());
+    EXPECT_FALSE(query.Probe({{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 5.0f}, hit));
 }
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, DataDrivenStepResetRestoresGameplayAndPhysicalCharacter)

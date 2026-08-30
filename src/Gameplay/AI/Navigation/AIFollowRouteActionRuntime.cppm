@@ -11,6 +11,7 @@ import :ai_action_runtime;
 import :gameplay_route;
 import :gameplay_route_follower;
 import :gameplay_steering;
+import :gameplay_obstacle_avoidance;
 import :character_controller;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -28,12 +29,16 @@ export namespace rendern
             const GameplayTraversalLinkRegistry& traversalLinkRegistry,
             const GameplayTraversalExecutorRegistry& traversalExecutorRegistry,
             GameplayRoute route,
-            GameplayArrivalSteeringSettings steeringSettings = {}) noexcept
+            GameplayArrivalSteeringSettings steeringSettings = {},
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
         : world_(world)
         , traversalLinkRegistry_(traversalLinkRegistry)
         , traversalExecutorRegistry_(traversalExecutorRegistry)
         , route_(std::move(route))
         , steeringSettings_(steeringSettings)
+        , obstacleQuery_(obstacleQuery)
+        , obstacleSettings_(obstacleSettings)
         {
         }
         
@@ -153,9 +158,20 @@ export namespace rendern
             GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
             GameplayCharacterMovementStateComponent* movementState =
                 world_.TryGetCharacterMovementState(entity);
-            ApplyGameplayMovementIntent(movement, *command);
+            GameplayMovementIntent finalMovement = movement;
+            if (obstacleQuery_ != nullptr)
+            {
+                if (const auto* physical = world_.TryGetCharacterPhysicalSettings(entity))
+                {
+                    const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
+                        mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    finalMovement = ApplyGameplayObstacleAvoidance(
+                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                }
+            }
+            ApplyGameplayMovementIntent(finalMovement, *command);
             motor->desiredMoveWorld = command->moveWorld;
-            if (movement.IsMoving())
+            if (finalMovement.IsMoving())
             {
                 movementState->desiredFacingYawDegrees =
                     ExtractGameplayYawDegreesFromDirection(command->moveWorld);
@@ -272,6 +288,8 @@ export namespace rendern
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         GameplayRoute route_{};
         GameplayArrivalSteeringSettings steeringSettings_{};
+        const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplayObstacleAvoidanceSettings obstacleSettings_{};
         bool physicallyBlocked_{ false };
         GameplayRouteFollower follower_{};
         std::optional<ActiveTraversalState> activeTraversal_{};

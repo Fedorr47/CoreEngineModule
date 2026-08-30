@@ -7,6 +7,27 @@ using namespace rendern;
 
 namespace
 {
+    class ForwardBlockedQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest& request,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            requests[callCount < 3u ? callCount : 2u] = request;
+            ++callCount;
+            if ((callCount % 3u) == 1u)
+            {
+                hit.distance = 0.2f;
+                return true;
+            }
+            return false;
+        }
+
+        mutable GameplayObstacleProbeRequest requests[3]{};
+        mutable std::size_t callCount{0u};
+    };
+
     [[nodiscard]] EntityHandle CreateAgent(GameplayWorld& world, const mathUtils::Vec3 position = {})
     {
         const EntityHandle entity = world.CreateEntity();
@@ -46,6 +67,46 @@ namespace
         EXPECT_NEAR(command->moveWorld.x, x, 0.0001f);
         EXPECT_NEAR(command->moveWorld.z, z, 0.0001f);
     }
+}
+
+TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceCorrectsSeekAtExistingCadence)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    world.AddCharacterPhysicalSettings(agent, {.radius = 0.25f, .cylinderHeight = 1.5f});
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    ForwardBlockedQuery query{};
+    AIFollowTargetActionRuntime runtime{world, target, {}, &query};
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_LT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+    ASSERT_EQ(query.callCount, 3u);
+    EXPECT_FLOAT_EQ(query.requests[0].origin.y, 1.0f);
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.049f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(query.callCount, 3u);
+    EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.001f), AIActionRuntimeResult::Running);
+    EXPECT_EQ(query.callCount, 6u);
+}
+
+TEST(AIFleeTargetActionRuntime, ObstacleAvoidanceCorrectsFleeButSafeStateDoesNotProbe)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    const EntityHandle threat = CreateTarget(world, {-1.0f, 0.0f, 0.0f});
+    ForwardBlockedQuery query{};
+    AIFleeTargetActionRuntime runtime{world, threat, {}, &query};
+
+    ASSERT_EQ(runtime.Start(FleeContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_LT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
+    EXPECT_EQ(query.callCount, 3u);
+
+    world.TryGetTransform(threat)->position = {-4.0f, 0.0f, 0.0f};
+    EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.05f), AIActionRuntimeResult::Running);
+    EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 0.0f);
+    EXPECT_EQ(query.callCount, 3u);
 }
 
 TEST(AIFollowTargetActionRuntime, StartsImmediatelyAndThrottlesThenResamples)

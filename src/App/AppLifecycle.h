@@ -24,6 +24,11 @@ namespace navigation
     struct DebugGeometry;
 }
 
+namespace appRuntime
+{
+    class GameplayPhysicsObstacleQuery;
+}
+
 namespace appLifecycle
 {
     constexpr std::string_view DefaultStartupLevelName = "levels/demo.level.with_fsm_test.locomotion.phaseB.json";
@@ -163,6 +168,8 @@ namespace appLifecycle
 
         std::unique_ptr<physics::JoltRuntime> joltRuntime;
         std::unique_ptr<physics::JoltPhysicsWorld> joltPhysicsWorld;
+        // Outlives GameplayRuntime AI actions and is destroyed before its Jolt world.
+        std::unique_ptr<appRuntime::GameplayPhysicsObstacleQuery> obstacleQuery;
         std::unique_ptr<physics::LevelPhysicsRuntime> levelPhysicsRuntime;
     };
     
