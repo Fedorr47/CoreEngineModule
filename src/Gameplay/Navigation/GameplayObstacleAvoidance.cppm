@@ -61,8 +61,8 @@ export namespace rendern
 
     struct GameplayObstacleAvoidanceSettings
     {
-        float forwardProbeDistance{1.5f};
-        float sideProbeDistance{1.0f};
+        float forwardProbeDistance{3.0f};
+        float sideProbeDistance{2.0f};
         float sideProbeAngleDegrees{30.0f};
     };
 

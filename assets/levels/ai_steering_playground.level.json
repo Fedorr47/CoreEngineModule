@@ -169,31 +169,6 @@
   "skybox": null,
   "nodes": [
     {
-      "name": "Steering_Follow_Agent",
-      "parent": -1,
-      "visible": true,
-      "alive": true,
-      "transform": {
-        "position": [
-          -8,
-          0,
-          -6
-        ],
-        "rotationDegrees": [
-          0,
-          0,
-          0
-        ],
-        "scale": [
-          0.01,
-          0.01,
-          0.01
-        ]
-      },
-      "skinnedMesh": "character",
-      "material": "follow"
-    },
-    {
       "name": "Steering_Follow_Target",
       "parent": -1,
       "visible": true,
@@ -217,6 +192,31 @@
       },
       "skinnedMesh": "character",
       "material": "target"
+    },
+    {
+      "name": "Steering_Follow_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          -8,
+          0,
+          -6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "skinnedMesh": "character",
+      "material": "follow"
     },
     {
       "name": "Steering_Flee_Agent",
