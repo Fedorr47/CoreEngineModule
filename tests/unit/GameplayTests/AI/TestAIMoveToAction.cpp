@@ -11,6 +11,24 @@ using namespace rendern;
 
 namespace
 {
+    class ForwardBlockedQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest&,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            ++calls;
+            if ((calls % 3u) == 1u)
+            {
+                hit.distance = 0.1f;
+                return true;
+            }
+            return false;
+        }
+        mutable std::size_t calls{0u};
+    };
+    
     [[nodiscard]] GameplayRouteNodeId MoveNodeId(const std::uint64_t value) noexcept
     {
         return GameplayRouteNodeId{ value };
@@ -356,4 +374,24 @@ TEST(GameplayRuntime, StartAIMoveToForwardsThroughSpecializedAction)
 
     EXPECT_EQ(runtime.StartAIMoveTo(agent, graph, MoveNodeId(1u), MoveNodeId(2u)), AIActionExecutionStatus::Running);
     EXPECT_EQ(runtime.GetAIActionStatus(agent), AIActionExecutionStatus::Running);
+}
+
+TEST(AIMoveToAction, FacadePropagatesObstacleQueryWithoutDirectRuntimeConstruction)
+{
+    GameplayWorld world{};
+    AISystem aiSystem{};
+    GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{};
+    const EntityHandle agent = CreateMoveToAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    const GameplayRouteGraph graph = MakeLinearMoveToGraph(
+        {0.0f, 0.0f, 0.0f}, {10.0f, 0.0f, 0.0f});
+    ForwardBlockedQuery query{};
+
+    ASSERT_EQ(AIMoveToAction::Start(
+        aiSystem, world, links, executors, agent, graph, MoveNodeId(1u), MoveNodeId(2u),
+        {}, &query), AIActionExecutionStatus::Running);
+    EXPECT_EQ(aiSystem.Update(world, 1.0f / 60.0f), 1u);
+    EXPECT_EQ(query.calls, 3u);
+    EXPECT_LT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
 }

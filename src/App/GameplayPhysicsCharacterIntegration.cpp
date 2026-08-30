@@ -6,6 +6,9 @@
 
 import core;
 
+#include "GameplayPhysicsCharacterIntegration.h"
+#include "GameplayPhysicsObstacleQuery.h"
+
 namespace
 {
     constexpr physics::CharacterColliderDescriptor PlayerCharacterCollider{
@@ -21,6 +24,32 @@ namespace
     constexpr float PlayerMaximumSlopeAngleDegrees = 45.0f;
     constexpr float PlayerMaximumStepHeight = 0.35f;
     constexpr float PlayerMass = 80.0f;
+}
+
+appRuntime::GameplayPhysicsObstacleQuery::GameplayPhysicsObstacleQuery(
+    const physics::JoltPhysicsWorld& physicsWorld,
+    const physics::PhysicsQueryLayerMask layerMask) noexcept
+    : physicsWorld_(physicsWorld)
+    , layerMask_(layerMask)
+{
+}
+
+bool appRuntime::GameplayPhysicsObstacleQuery::Probe(
+    const rendern::GameplayObstacleProbeRequest& request,
+    rendern::GameplayObstacleProbeHit& hit) const noexcept
+{
+    const auto physicsHit = physicsWorld_.RayCastClosest({
+        .origin = request.origin,
+        .direction = request.direction,
+        .maxDistance = request.maximumDistance,
+        .layerMask = layerMask_
+    });
+    if (!physicsHit.has_value())
+    {
+        return false;
+    }
+    hit.distance = physicsHit->distance;
+    return true;
 }
 
 bool appRuntime::EnsureGameplayPhysicsCharacters(

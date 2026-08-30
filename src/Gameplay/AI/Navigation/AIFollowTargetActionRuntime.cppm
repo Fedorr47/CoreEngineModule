@@ -9,6 +9,7 @@ import :gameplay;
 import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_steering;
+import :gameplay_obstacle_avoidance;
 
 export namespace rendern
 {
@@ -26,10 +27,14 @@ export namespace rendern
         AIFollowTargetActionRuntime(
             GameplayWorld& world,
             const EntityHandle targetEntity,
-            AIFollowTargetSettings settings = {}) noexcept
+            AIFollowTargetSettings settings = {},
+            const IGameplayObstacleQuery* obstacleQuery = nullptr,
+            GameplayObstacleAvoidanceSettings obstacleSettings = {}) noexcept
         : world_(world)
         , targetEntity_(targetEntity)
         , settings_(settings)
+        , obstacleQuery_(obstacleQuery)
+        , obstacleSettings_(obstacleSettings)
         {
             settings_.steeringUpdateIntervalSeconds =
                 std::max(settings_.steeringUpdateIntervalSeconds, 0.0f);
@@ -104,8 +109,18 @@ export namespace rendern
                 world_.TryGetTransform(agentEntity)->position,
                 world_.TryGetTransform(targetEntity_)->position,
                 settings_.steering);
-            ApplyGameplayMovementIntent(
-                output.movement, *world_.TryGetCharacterCommand(agentEntity));
+            GameplayMovementIntent movement = output.movement;
+            if (obstacleQuery_ != nullptr)
+            {
+                if (const auto* physical = world_.TryGetCharacterPhysicalSettings(agentEntity))
+                {
+                    const mathUtils::Vec3 origin = world_.TryGetTransform(agentEntity)->position +
+                        mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    movement = ApplyGameplayObstacleAvoidance(
+                        movement, origin, *obstacleQuery_, obstacleSettings_);
+                }
+            }
+            ApplyGameplayMovementIntent(movement, *world_.TryGetCharacterCommand(agentEntity));
         }
 
         void ClearMovementIfAccessible_(const EntityHandle agentEntity) const noexcept
@@ -123,6 +138,8 @@ export namespace rendern
         GameplayWorld& world_;
         EntityHandle targetEntity_{kNullEntity};
         AIFollowTargetSettings settings_{};
+        const IGameplayObstacleQuery* obstacleQuery_{nullptr};
+        GameplayObstacleAvoidanceSettings obstacleSettings_{};
         float elapsedSinceSteeringUpdate_{0.0f};
     };
 }

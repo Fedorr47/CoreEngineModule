@@ -7,6 +7,8 @@
 import core;
 import std;
 
+#include "GameplayPhysicsObstacleQuery.h"
+
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -47,11 +49,14 @@ namespace appLifecycle
         joltRuntime = std::move(newRuntime);
         joltPhysicsWorld = std::move(newPhysicsWorld);
         levelPhysicsRuntime = std::make_unique<physics::LevelPhysicsRuntime>(*joltPhysicsWorld);
+        obstacleQuery = std::make_unique<appRuntime::GameplayPhysicsObstacleQuery>(
+            *joltPhysicsWorld);
     }
     
     void AppPhysicsState::Shutdown() noexcept
     {
         levelPhysicsRuntime.reset();
+        obstacleQuery.reset();
         joltPhysicsWorld.reset();
         joltRuntime.reset();
     }
@@ -504,6 +509,7 @@ namespace appLifecycle
 
         runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>(
             rendern::MakeDefaultGameplayAIDecisionFactories());
+        runtimeState.gameplayRuntime->SetObstacleQuery(physicsState.obstacleQuery.get());
         runtimeState.gameplayRuntime->Initialize(
             *contentState.levelAsset, *runtimeState.levelInstance, runtimeState.scene);
         appDevelopment::ScenarioContext developmentContext{
@@ -690,6 +696,8 @@ namespace appLifecycle
 
             runtimeState.gameplayRuntime = std::make_unique<rendern::GameplayRuntime>(
                 rendern::MakeDefaultGameplayAIDecisionFactories());
+            runtimeState.gameplayRuntime->SetObstacleQuery(
+                app.physicsState.obstacleQuery.get());
 
             runtimeState.gameplayRuntime->Initialize(
                 *contentState.levelAsset,

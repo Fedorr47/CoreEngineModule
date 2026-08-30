@@ -21,6 +21,7 @@ TEST(AppPhysicsStateLifecycle, StartsWithoutPhysicsObjects)
 
     EXPECT_EQ(physicsState.joltRuntime, nullptr);
     EXPECT_EQ(physicsState.joltPhysicsWorld, nullptr);
+    EXPECT_EQ(physicsState.obstacleQuery, nullptr);
     EXPECT_EQ(physicsState.levelPhysicsRuntime, nullptr);
 }
 
@@ -32,6 +33,7 @@ TEST(AppPhysicsStateLifecycle, InitializesRuntimeBeforeWorld)
 
     ASSERT_NE(physicsState.joltRuntime, nullptr);
     ASSERT_NE(physicsState.joltPhysicsWorld, nullptr);
+    ASSERT_NE(physicsState.obstacleQuery, nullptr);
     ASSERT_NE(physicsState.levelPhysicsRuntime, nullptr);
     EXPECT_TRUE(physicsState.joltRuntime->IsInitialized());
     EXPECT_TRUE(physicsState.joltPhysicsWorld->IsInitialized());
@@ -45,6 +47,7 @@ TEST(AppPhysicsStateLifecycle, ShutdownDestroysWorldAndRuntime)
     physicsState.Shutdown();
 
     EXPECT_EQ(physicsState.joltPhysicsWorld, nullptr);
+    EXPECT_EQ(physicsState.obstacleQuery, nullptr);
     EXPECT_EQ(physicsState.joltRuntime, nullptr);
     EXPECT_EQ(physicsState.levelPhysicsRuntime, nullptr);
 
@@ -61,6 +64,7 @@ TEST(AppPhysicsStateLifecycle, RepeatedShutdownIsSafe)
     physicsState.Shutdown();
 
     EXPECT_EQ(physicsState.joltPhysicsWorld, nullptr);
+    EXPECT_EQ(physicsState.obstacleQuery, nullptr);
     EXPECT_EQ(physicsState.joltRuntime, nullptr);
     EXPECT_EQ(physicsState.levelPhysicsRuntime, nullptr);
 }
@@ -75,6 +79,7 @@ TEST(AppPhysicsStateLifecycle, CanInitializeAgainAfterShutdown)
 
     ASSERT_NE(physicsState.joltRuntime, nullptr);
     ASSERT_NE(physicsState.joltPhysicsWorld, nullptr);
+    ASSERT_NE(physicsState.obstacleQuery, nullptr);
     ASSERT_NE(physicsState.levelPhysicsRuntime, nullptr);
     EXPECT_TRUE(physicsState.joltRuntime->IsInitialized());
     EXPECT_TRUE(physicsState.joltPhysicsWorld->IsInitialized());
