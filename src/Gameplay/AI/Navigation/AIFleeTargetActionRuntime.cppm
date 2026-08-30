@@ -64,6 +64,7 @@ export namespace rendern
             }
 
             RefreshSteering_(context.agentEntity);
+            ApplyCurrentMovement_(context.agentEntity);
             return AIActionRuntimeResult::Running;
         }
 
@@ -92,6 +93,10 @@ export namespace rendern
                     : 0.0f;
             }
 
+            // GameplayCharacterCommandComponent is frame-local and is cleared
+            // by GameplayRuntime::BeginFrame(). Keep the steering sample at its
+            // configured cadence while re-issuing the cached intent every tick.
+            ApplyCurrentMovement_(context.agentEntity);
             return AIActionRuntimeResult::Running;
         }
 
@@ -158,12 +163,22 @@ export namespace rendern
             {
                 debugRegistry_->Publish(agentEntity, GameplaySteeringDebugMode::Flee, debug);
             }
-            ApplyGameplayMovementIntent(
-                movement, *world_.TryGetCharacterCommand(agentEntity));
+            
+            currentMovement_ = movement;
         }
 
-        void ClearMovementIfAccessible_(const EntityHandle agentEntity) const noexcept
+        void ApplyCurrentMovement_(const EntityHandle agentEntity) const noexcept
         {
+            if (GameplayCharacterCommandComponent* command =
+                    world_.TryGetCharacterCommand(agentEntity))
+            {
+                ApplyGameplayMovementIntent(currentMovement_, *command);
+            }
+        }
+        
+        void ClearMovementIfAccessible_(const EntityHandle agentEntity) noexcept
+        {
+            currentMovement_ = {};
             if (debugRegistry_ != nullptr)
             {
                 debugRegistry_->Clear(agentEntity);
@@ -184,6 +199,7 @@ export namespace rendern
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
         GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
+        GameplayMovementIntent currentMovement_{};
         float elapsedSinceSteeringUpdate_{0.0f};
         bool isFleeing_{false};
     };

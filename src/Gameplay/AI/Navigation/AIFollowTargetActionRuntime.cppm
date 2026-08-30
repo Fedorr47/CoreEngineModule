@@ -54,6 +54,7 @@ export namespace rendern
             }
 
             RefreshSteering_(context.agentEntity);
+            ApplyCurrentMovement_(context.agentEntity);
             return AIActionRuntimeResult::Running;
         }
 
@@ -83,7 +84,11 @@ export namespace rendern
                         settings_.steeringUpdateIntervalSeconds)
                     : 0.0f;
             }
-
+            // GameplayCharacterCommandComponent is frame-local and is cleared
+            // by GameplayRuntime::BeginFrame(). Steering is intentionally
+            // sampled at a lower cadence, so re-issue the last sampled intent
+            // every AI tick without re-running steering or obstacle probes.
+            ApplyCurrentMovement_(context.agentEntity);
             return AIActionRuntimeResult::Running;
         }
 
@@ -110,7 +115,7 @@ export namespace rendern
                 world_.HasTransform(targetEntity_);
         }
 
-        void RefreshSteering_(const EntityHandle agentEntity) const noexcept
+        void RefreshSteering_(const EntityHandle agentEntity) noexcept
         {
             const GameplaySteeringOutput output = BuildGameplaySeekSteering(
                 world_.TryGetTransform(agentEntity)->position,
@@ -140,10 +145,22 @@ export namespace rendern
                 debugRegistry_->Publish(agentEntity, GameplaySteeringDebugMode::Follow, debug);
             }
             ApplyGameplayMovementIntent(movement, *world_.TryGetCharacterCommand(agentEntity));
+            
+            currentMovement_ = movement;
         }
 
-        void ClearMovementIfAccessible_(const EntityHandle agentEntity) const noexcept
+        void ApplyCurrentMovement_(const EntityHandle agentEntity) const noexcept
         {
+            if (GameplayCharacterCommandComponent* command =
+                     world_.TryGetCharacterCommand(agentEntity))
+            {
+                ApplyGameplayMovementIntent(currentMovement_, *command);
+            }
+        }
+        
+        void ClearMovementIfAccessible_(const EntityHandle agentEntity) noexcept
+        {
+            currentMovement_ = {};
             if (debugRegistry_ != nullptr)
             {
                 debugRegistry_->Clear(agentEntity);
@@ -164,6 +181,7 @@ export namespace rendern
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
         GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
+        GameplayMovementIntent currentMovement_{};
         float elapsedSinceSteeringUpdate_{0.0f};
     };
 }
