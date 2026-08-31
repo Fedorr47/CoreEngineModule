@@ -162,6 +162,14 @@ namespace appUi
                 ImGui::Text("Chosen side: %s", sideLabel(avoidance.chosenSide));
                 ImGui::Text("Hysteresis: %s",
                     avoidance.sideHeldByHysteresis ? "Holding" : "Inactive");
+                ImGui::Text("Safety override: %s",
+                    avoidance.safetyOverride ? "Active" : "Inactive");
+                ImGui::Text("Support: left=%s right=%s",
+                    avoidance.leftSupported ? "yes" : "no",
+                    avoidance.rightSupported ? "yes" : "no");
+                ImGui::Text("Escape L=(%.2f, %.2f) R=(%.2f, %.2f)",
+                    avoidance.leftEscapeCandidate.x, avoidance.leftEscapeCandidate.z,
+                    avoidance.rightEscapeCandidate.x, avoidance.rightEscapeCandidate.z);
                 drawClearance("Forward hit", avoidance.forward, true);
                 drawClearance("Left clearance", avoidance.left, false);
                 drawClearance("Right clearance", avoidance.right, false);

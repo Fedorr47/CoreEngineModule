@@ -187,6 +187,8 @@ export namespace rendern
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     GameplayObstacleAvoidanceSettings settings = obstacleSettings_;
                     settings.characterRadius = physical->radius;
+                    settings.supportOriginVerticalOffset =
+                        physical->GetTotalHeight() * 0.5f;
                     finalMovement = ApplyGameplayObstacleAvoidance(
                         movement, origin, *obstacleQuery_, settings,
                         obstacleAvoidanceState_,

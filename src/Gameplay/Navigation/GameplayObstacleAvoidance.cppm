@@ -24,6 +24,19 @@ export namespace rendern
         mathUtils::Vec3 position{};
         mathUtils::Vec3 normal{};
     };
+    
+    struct GameplaySupportProbeRequest
+    {
+        mathUtils::Vec3 origin{};
+        float maximumDistance{0.0f};
+    };
+
+    struct GameplaySupportProbeHit
+    {
+        float distance{0.0f};
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 normal{};
+    };
 
     enum class GameplayObstacleAvoidanceSide { None, Left, Right };
     
@@ -55,6 +68,11 @@ export namespace rendern
         GameplayObstacleAvoidanceSide preferredSide{GameplayObstacleAvoidanceSide::None};
         GameplayObstacleAvoidanceSide chosenSide{GameplayObstacleAvoidanceSide::None};
         bool sideHeldByHysteresis{false};
+        bool leftSupported{false};
+        bool rightSupported{false};
+        bool safetyOverride{false};
+        mathUtils::Vec3 leftEscapeCandidate{};
+        mathUtils::Vec3 rightEscapeCandidate{};
     };
 
     class IGameplayObstacleQuery
@@ -65,6 +83,14 @@ export namespace rendern
         [[nodiscard]] virtual bool Probe(
             const GameplayObstacleProbeRequest& request,
             GameplayObstacleProbeHit& hit) const noexcept = 0;
+        
+        // Queries may retain the legacy, support-unaware behavior by not overriding this.
+        [[nodiscard]] virtual bool ProbeSupport(
+            const GameplaySupportProbeRequest&,
+            GameplaySupportProbeHit&) const noexcept
+        {
+            return true;
+        }
     };
 
     struct GameplayObstacleAvoidanceSettings
@@ -75,6 +101,10 @@ export namespace rendern
         float sideSwitchClearanceAdvantage{0.15f};
         float characterRadius{0.0f};
         float clearanceMargin{0.02f};
+        float supportProbeForwardDistance{0.75f};
+        float supportProbeUpOffset{0.25f};
+        float maximumSupportDropDistance{0.35f};
+        float supportOriginVerticalOffset{0.0f};
     };
 
     [[nodiscard]] GameplayMovementIntent ApplyGameplayObstacleAvoidance(
@@ -95,8 +125,10 @@ export namespace rendern
 
 namespace
 {
-    // Tangent movement remains dominant while this gently moves the character off the surface.
-    constexpr float ObstacleSeparationBias = 0.2f;
+    // Keep strong lateral escape without cancelling meaningful forward progress.
+    constexpr float SelectedFeelerWeight = 0.60f;
+    constexpr float SurfaceTangentWeight = 0.40f;
+    constexpr float ObstacleSeparationBias = 0.30f;
     
     struct SanitizedSettings
     {
@@ -105,6 +137,10 @@ namespace
         float sideAngleRadians{0.0f};
         float sideSwitchClearanceAdvantage{0.0f};
         float effectiveClearanceRadius{0.0f};
+        float supportForwardDistance{0.0f};
+        float supportUpOffset{0.0f};
+        float maximumSupportDropDistance{0.0f};
+        float supportOriginVerticalOffset{0.0f};
     };
 
     struct ProbeResult
@@ -138,7 +174,11 @@ namespace
             .sideAngleRadians = mathUtils::DegToRad(angleDegrees),
             .sideSwitchClearanceAdvantage =
                 FiniteOrZero(settings.sideSwitchClearanceAdvantage),
-            .effectiveClearanceRadius = effectiveClearanceRadius
+            .effectiveClearanceRadius = effectiveClearanceRadius,
+            .supportForwardDistance = FiniteOrZero(settings.supportProbeForwardDistance),
+            .supportUpOffset = FiniteOrZero(settings.supportProbeUpOffset),
+            .maximumSupportDropDistance = FiniteOrZero(settings.maximumSupportDropDistance),
+            .supportOriginVerticalOffset = FiniteOrZero(settings.supportOriginVerticalOffset)
         };
     }
 
@@ -190,6 +230,64 @@ namespace
             debugOut->hitNormal = result.hitNormal;
         }
         return result;
+    }
+    
+    [[nodiscard]] bool HasSupport(
+        const rendern::IGameplayObstacleQuery& query,
+        const mathUtils::Vec3& probeOrigin,
+        const mathUtils::Vec3& direction,
+        const SanitizedSettings& settings) noexcept
+    {
+        const float maximumDistance = settings.supportUpOffset +
+            settings.maximumSupportDropDistance;
+        const mathUtils::Vec3 supportBase = probeOrigin -
+            mathUtils::Vec3{0.0f, settings.supportOriginVerticalOffset, 0.0f};
+        const mathUtils::Vec3 origin = supportBase +
+            direction * settings.supportForwardDistance +
+            mathUtils::Vec3{0.0f, settings.supportUpOffset, 0.0f};
+        if (!mathUtils::IsFinite(origin) || maximumDistance <= 0.0f ||
+            !std::isfinite(maximumDistance))
+        {
+            return false;
+        }
+        rendern::GameplaySupportProbeHit hit{};
+        if (!query.ProbeSupport({.origin = origin, .maximumDistance = maximumDistance}, hit))
+        {
+            return false;
+        }
+        return std::isfinite(hit.distance) && hit.distance >= 0.0f &&
+            hit.distance <= maximumDistance && mathUtils::IsFinite(hit.position) &&
+            mathUtils::IsFinite(hit.normal);
+    }
+
+    [[nodiscard]] mathUtils::Vec3 BuildEscapeCandidate(
+        const mathUtils::Vec3& selectedFeeler,
+        const mathUtils::Vec3& forwardHitNormal) noexcept
+    {
+        mathUtils::Vec3 planarNormal{
+            forwardHitNormal.x, 0.0f, forwardHitNormal.z};
+        const float normalLengthSquared = mathUtils::Dot(planarNormal, planarNormal);
+        if (!mathUtils::IsFinite(planarNormal) ||
+            normalLengthSquared <= mathUtils::kLengthEpsilonSq)
+        {
+            return selectedFeeler;
+        }
+
+        planarNormal = planarNormal / std::sqrt(normalLengthSquared);
+        mathUtils::Vec3 tangent{-planarNormal.z, 0.0f, planarNormal.x};
+        if (mathUtils::Dot(tangent, selectedFeeler) < 0.0f)
+        {
+            tangent = tangent * -1.0f;
+        }
+        const mathUtils::Vec3 escape = selectedFeeler * SelectedFeelerWeight +
+            tangent * SurfaceTangentWeight + planarNormal * ObstacleSeparationBias;
+        const float escapeLengthSquared = mathUtils::Dot(escape, escape);
+        if (!mathUtils::IsFinite(escape) ||
+            escapeLengthSquared <= mathUtils::kLengthEpsilonSq)
+        {
+            return selectedFeeler;
+        }
+        return escape / std::sqrt(escapeLengthSquared);
     }
 }
 
@@ -269,15 +367,46 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
         state.committedSide = GameplayObstacleAvoidanceSide::None;
         return baseMovement;
     }
+    
+    GameplayMovementIntent corrected = baseMovement;
+    const mathUtils::Vec3 leftEscape = BuildEscapeCandidate(left, forwardResult.hitNormal);
+    const mathUtils::Vec3 rightEscape = BuildEscapeCandidate(right, forwardResult.hitNormal);
+    const bool leftSupported = HasSupport(query, probeOrigin, leftEscape, sanitized);
+    const bool rightSupported = HasSupport(query, probeOrigin, rightEscape, sanitized);
+    if (debugOut != nullptr)
+    {
+        debugOut->leftSupported = leftSupported;
+        debugOut->rightSupported = rightSupported;
+        debugOut->leftEscapeCandidate = leftEscape;
+        debugOut->rightEscapeCandidate = rightEscape;
+    }
+    if (!leftSupported && !rightSupported)
+    {
+        state.committedSide = GameplayObstacleAvoidanceSide::None;
+        corrected.moveWorld = {};
+        corrected.moveMagnitude = 0.0f;
+        if (debugOut != nullptr)
+        {
+            debugOut->active = true;
+            debugOut->finalMovement = corrected;
+        }
+        return corrected;
+    }
 
     // Equal clearance always selects left, keeping symmetric situations deterministic.
-    GameplayMovementIntent corrected = baseMovement;
     const GameplayObstacleAvoidanceSide preferredSide =
         leftResult.clearance >= rightResult.clearance
         ? GameplayObstacleAvoidanceSide::Left
         : GameplayObstacleAvoidanceSide::Right;
     GameplayObstacleAvoidanceSide chosenSide = preferredSide;
-    if (state.committedSide == GameplayObstacleAvoidanceSide::Left)
+    const GameplayObstacleAvoidanceSide previousSide = state.committedSide;
+    if (leftSupported != rightSupported)
+    {
+        chosenSide = leftSupported
+            ? GameplayObstacleAvoidanceSide::Left
+            : GameplayObstacleAvoidanceSide::Right;
+    }
+    else if (state.committedSide == GameplayObstacleAvoidanceSide::Left)
     {
         chosenSide = rightResult.clearance > leftResult.clearance +
                 sanitized.sideSwitchClearanceAdvantage
@@ -292,37 +421,16 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
             : GameplayObstacleAvoidanceSide::Right;
     }
     state.committedSide = chosenSide;
+    const bool preferredUnsupported =
+        (preferredSide == GameplayObstacleAvoidanceSide::Left && !leftSupported) ||
+        (preferredSide == GameplayObstacleAvoidanceSide::Right && !rightSupported);
+    const bool committedUnsupported =
+        (previousSide == GameplayObstacleAvoidanceSide::Left && !leftSupported) ||
+        (previousSide == GameplayObstacleAvoidanceSide::Right && !rightSupported);
+    const bool safetyOverride = leftSupported != rightSupported &&
+        (preferredUnsupported || committedUnsupported);
     const bool choseLeft = chosenSide == GameplayObstacleAvoidanceSide::Left;
-    mathUtils::Vec3 planarNormal{
-        forwardResult.hitNormal.x, 0.0f, forwardResult.hitNormal.z};
-    const float normalLengthSquared = mathUtils::Dot(planarNormal, planarNormal);
-    if (mathUtils::IsFinite(planarNormal) &&
-        normalLengthSquared > mathUtils::kLengthEpsilonSq)
-    {
-        planarNormal = planarNormal / std::sqrt(normalLengthSquared);
-        mathUtils::Vec3 tangent{-planarNormal.z, 0.0f, planarNormal.x};
-        const mathUtils::Vec3& selectedFeeler = choseLeft ? left : right;
-        if (mathUtils::Dot(tangent, selectedFeeler) < 0.0f)
-        {
-            tangent = tangent * -1.0f;
-        }
-
-        const mathUtils::Vec3 escape = tangent + planarNormal * ObstacleSeparationBias;
-        const float escapeLengthSquared = mathUtils::Dot(escape, escape);
-        if (mathUtils::IsFinite(escape) &&
-            escapeLengthSquared > mathUtils::kLengthEpsilonSq)
-        {
-            corrected.moveWorld = escape / std::sqrt(escapeLengthSquared);
-        }
-        else
-        {
-            corrected.moveWorld = selectedFeeler;
-        }
-    }
-    else
-    {
-        corrected.moveWorld = choseLeft ? left : right;
-    }
+    corrected.moveWorld = choseLeft ? leftEscape : rightEscape;
     if (debugOut != nullptr)
     {
         const float directionDot = mathUtils::Dot(forward, corrected.moveWorld);
@@ -335,7 +443,11 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
         debugOut->chosenSide = changedDirection
             ? chosenSide
             : GameplayObstacleAvoidanceSide::None;
-        debugOut->sideHeldByHysteresis = changedDirection && chosenSide != preferredSide;
+        debugOut->sideHeldByHysteresis = changedDirection && !safetyOverride &&
+            leftSupported && rightSupported &&
+            previousSide != GameplayObstacleAvoidanceSide::None &&
+            chosenSide == previousSide && chosenSide != preferredSide;
+        debugOut->safetyOverride = safetyOverride;
         debugOut->finalMovement = corrected;
     }
     return corrected;

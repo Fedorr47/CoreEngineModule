@@ -63,6 +63,26 @@ bool appRuntime::GameplayPhysicsObstacleQuery::Probe(
     return true;
 }
 
+bool appRuntime::GameplayPhysicsObstacleQuery::ProbeSupport(
+    const rendern::GameplaySupportProbeRequest& request,
+    rendern::GameplaySupportProbeHit& hit) const noexcept
+{
+    const auto physicsHit = physicsWorld_.RayCastClosest({
+        .origin = request.origin,
+        .direction = {0.0f, -1.0f, 0.0f},
+        .maxDistance = request.maximumDistance,
+        .layerMask = layerMask_
+    });
+    if (!physicsHit.has_value())
+    {
+        return false;
+    }
+    hit.distance = physicsHit->distance;
+    hit.position = physicsHit->position;
+    hit.normal = physicsHit->normal;
+    return true;
+}
+
 bool appRuntime::EnsureGameplayPhysicsCharacters(
     rendern::GameplayRuntime& gameplayRuntime,
     physics::JoltPhysicsWorld& physicsWorld,

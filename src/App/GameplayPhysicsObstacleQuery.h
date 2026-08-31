@@ -23,6 +23,10 @@ namespace appRuntime
         [[nodiscard]] bool Probe(
             const rendern::GameplayObstacleProbeRequest& request,
             rendern::GameplayObstacleProbeHit& hit) const noexcept override;
+        
+        [[nodiscard]] bool ProbeSupport(
+            const rendern::GameplaySupportProbeRequest& request,
+            rendern::GameplaySupportProbeHit& hit) const noexcept override;
 
     private:
         const physics::JoltPhysicsWorld& physicsWorld_;
