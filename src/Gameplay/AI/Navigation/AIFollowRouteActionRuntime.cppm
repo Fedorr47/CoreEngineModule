@@ -185,8 +185,10 @@ export namespace rendern
                 {
                     const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    GameplayObstacleAvoidanceSettings settings = obstacleSettings_;
+                    settings.characterRadius = physical->radius;
                     finalMovement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, obstacleSettings_,
+                        movement, origin, *obstacleQuery_, settings,
                         obstacleAvoidanceState_,
                         debugEnabled ? &debug : nullptr);
                 }

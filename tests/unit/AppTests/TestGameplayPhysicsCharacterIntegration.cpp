@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -221,12 +222,102 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, ObstacleQueryAdapterUsesStaticWo
     rendern::GameplayObstacleProbeHit hit{};
     EXPECT_TRUE(query.Probe({{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, 5.0f}, hit));
     EXPECT_NEAR(hit.distance, 1.5f, 0.001f);
+    EXPECT_TRUE(query.Probe(
+        {{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, 5.0f, 0.35f}, hit));
+    EXPECT_NEAR(mathUtils::Length(hit.normal), 1.0f, 0.001f);
+    EXPECT_LT(mathUtils::Dot(hit.normal, {1.0f, 0.0f, 0.0f}), 0.0f);
+    EXPECT_LT(hit.normal.x, -0.9f);
     EXPECT_FALSE(query.Probe({{0.0f, 0.5f, 0.0f}, {-1.0f, 0.0f, 0.0f}, 5.0f}, hit));
 
     obstacle.transform.position = {0.0f, 0.5f, 2.0f};
     obstacle.motionType = physics::PhysicsMotionType::Dynamic;
     ASSERT_TRUE(physicsWorld.CreateBody(obstacle).IsValid());
     EXPECT_FALSE(query.Probe({{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 5.0f}, hit));
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, ObstacleQueryUsesCharacterRadiusAtObstacleEdge)
+{
+    physics::PhysicsBodyDescriptor obstacle{
+        .shape = physics::BoxShapeDescriptor{.halfExtents = {0.5f, 0.5f, 0.5f}},
+        .transform = {.position = {2.0f, 0.5f, 0.7f}},
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(obstacle).IsValid());
+    appRuntime::GameplayPhysicsObstacleQuery query{physicsWorld};
+    rendern::GameplayObstacleProbeHit hit{};
+
+    EXPECT_FALSE(query.Probe(
+        {{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, 5.0f, 0.0f}, hit));
+    EXPECT_TRUE(query.Probe(
+        {{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, 5.0f, 0.35f}, hit));
+    EXPECT_LT(hit.distance, 1.5f);
+    EXPECT_TRUE(mathUtils::IsFinite(hit.normal));
+    EXPECT_NEAR(mathUtils::Length(hit.normal), 1.0f, 0.001f);
+    EXPECT_LT(mathUtils::Dot(hit.normal, {1.0f, 0.0f, 0.0f}), 0.0f);
+}
+
+TEST_F(GameplayPhysicsCharacterIntegrationTest, PhysicalCharacterEscapesStaticObstacleEdge)
+{
+    ASSERT_TRUE(physicsWorld.CreateBody(FloorDescriptor()).IsValid());
+    physics::PhysicsBodyDescriptor obstacle{
+        .shape = physics::BoxShapeDescriptor{.halfExtents = {0.5f, 0.5f, 0.5f}},
+        .transform = {.position = {0.5f, 0.5f, 0.0f}},
+        .motionType = physics::PhysicsMotionType::Static
+    };
+    ASSERT_TRUE(physicsWorld.CreateBody(obstacle).IsValid());
+
+    constexpr float characterRadius = 0.22f;
+    const physics::PhysicsCharacterHandle character = physicsWorld.CreateCharacter({
+        .collider = {.radius = characterRadius, .cylinderHeight = 0.86f},
+        .position = {-0.25f, 0.65f, 0.0f},
+        .maximumSlopeAngleDegrees = 38.0f,
+        .maximumStepHeight = 0.18f,
+        .mass = 54.0f,
+        .maximumSpeed = 2.0f
+    });
+    ASSERT_TRUE(character.IsValid());
+
+    appRuntime::GameplayPhysicsObstacleQuery query{physicsWorld};
+    rendern::GameplayObstacleAvoidanceState avoidanceState{};
+    const rendern::GameplayObstacleAvoidanceSettings settings{
+        .forwardProbeDistance = 1.0f,
+        .sideProbeDistance = 1.0f,
+        .characterRadius = characterRadius
+    };
+    const rendern::GameplayMovementIntent baseMovement{
+        .moveWorld = {1.0f, 0.0f, 0.0f},
+        .moveMagnitude = 1.0f
+    };
+    bool avoidanceActivated = false;
+    int consecutiveReleasedSteps = 0;
+    float minimumZ = 0.0f;
+
+    for (int step = 0; step < 120; ++step)
+    {
+        const auto position = physicsWorld.GetCharacterPosition(character);
+        ASSERT_TRUE(position.has_value());
+        const rendern::GameplayMovementIntent movement =
+            rendern::ApplyGameplayObstacleAvoidance(
+                baseMovement, *position, query, settings, avoidanceState);
+        avoidanceActivated = avoidanceActivated ||
+            avoidanceState.committedSide != rendern::GameplayObstacleAvoidanceSide::None;
+        consecutiveReleasedSteps = avoidanceActivated &&
+            avoidanceState.committedSide == rendern::GameplayObstacleAvoidanceSide::None
+            ? consecutiveReleasedSteps + 1
+            : 0;
+        minimumZ = std::min(minimumZ, position->z);
+        ASSERT_TRUE(physicsWorld.SetCharacterDesiredVelocity(
+            character, movement.moveWorld * 1.5f));
+        ASSERT_EQ(physicsWorld.Update(StepSeconds), 1u);
+    }
+
+    const auto finalPosition = physicsWorld.GetCharacterPosition(character);
+    ASSERT_TRUE(finalPosition.has_value());
+    EXPECT_TRUE(avoidanceActivated);
+    EXPECT_LT(minimumZ, -0.5f - characterRadius);
+    EXPECT_GE(consecutiveReleasedSteps, 10);
+    EXPECT_GT(finalPosition->x, 0.5f);
+    EXPECT_LT(finalPosition->z, -0.5f - characterRadius);
 }
 
 TEST_F(GameplayPhysicsCharacterIntegrationTest, DataDrivenStepResetRestoresGameplayAndPhysicalCharacter)

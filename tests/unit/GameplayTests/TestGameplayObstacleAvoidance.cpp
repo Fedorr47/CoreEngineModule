@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <limits>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -48,6 +49,29 @@ namespace
     private:
         std::vector<ScriptedResult> results_{};
         mutable std::size_t nextResult_{0};
+    };
+    
+    class NearWallObstacleQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest& request,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            const bool isForwardProbe = request.direction.x > 0.9f;
+            const bool overlapsWallSpan =
+                std::abs(request.origin.z) < wallHalfExtent + request.clearanceRadius;
+            if (!isForwardProbe || !overlapsWallSpan)
+            {
+                return false;
+            }
+            hit.distance = 0.05f;
+            hit.position = {0.0f, request.origin.y, request.origin.z};
+            hit.normal = {-1.0f, 0.0f, 0.0f};
+            return true;
+        }
+
+        static constexpr float wallHalfExtent = 0.5f;
     };
 
     [[nodiscard]] GameplayMovementIntent MovingIntent() noexcept
@@ -232,6 +256,135 @@ TEST(GameplayObstacleAvoidance, BuildsThreePlanarNormalizedFeelersWithConfigured
     EXPECT_GT(query.requests[2].direction.z, 0.0f);
 }
 
+TEST(GameplayObstacleAvoidance, AppliesCharacterClearanceRadiusToEveryProbe)
+{
+    ScriptedObstacleQuery query{};
+    ApplyGameplayObstacleAvoidance(
+        MovingIntent(), {}, query, {.characterRadius = 0.35f});
+
+    ASSERT_EQ(query.requests.size(), 3u);
+    for (const GameplayObstacleProbeRequest& request : query.requests)
+    {
+        EXPECT_FLOAT_EQ(request.clearanceRadius, 0.37f);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, ZeroRadiusPreservesPointProbesDespiteDefaultMargin)
+{
+    ScriptedObstacleQuery query{};
+    ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query);
+
+    ASSERT_EQ(query.requests.size(), 3u);
+    for (const GameplayObstacleProbeRequest& request : query.requests)
+    {
+        EXPECT_FLOAT_EQ(request.clearanceRadius, 0.0f);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, MalformedClearanceSettingsCannotReachObstacleQuery)
+{
+    constexpr float infinity = std::numeric_limits<float>::infinity();
+    constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+    const GameplayObstacleAvoidanceSettings malformedSettings[]{
+        {.characterRadius = -1.0f, .clearanceMargin = 0.1f},
+        {.characterRadius = infinity, .clearanceMargin = 0.1f},
+        {.characterRadius = nan, .clearanceMargin = 0.1f},
+        {.characterRadius = 0.3f, .clearanceMargin = -1.0f},
+        {.characterRadius = 0.3f, .clearanceMargin = infinity},
+        {.characterRadius = 0.3f, .clearanceMargin = nan}
+    };
+
+    for (std::size_t index = 0; index < std::size(malformedSettings); ++index)
+    {
+        ScriptedObstacleQuery query{};
+        ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query, malformedSettings[index]);
+        ASSERT_EQ(query.requests.size(), 3u);
+        const float expectedRadius = index < 3u ? 0.0f : 0.3f;
+        for (const GameplayObstacleProbeRequest& request : query.requests)
+        {
+            EXPECT_TRUE(std::isfinite(request.clearanceRadius));
+            EXPECT_FLOAT_EQ(request.clearanceRadius, expectedRadius);
+        }
+    }
+}
+
+TEST(GameplayObstacleAvoidance, ValidNormalProducesTangentDominantEscapeForBothSides)
+{
+    for (const GameplayObstacleAvoidanceSide side : {
+             GameplayObstacleAvoidanceSide::Left,
+             GameplayObstacleAvoidanceSide::Right})
+    {
+        GameplayObstacleAvoidanceState state{side};
+        ScriptedObstacleQuery query{
+            {{true, 0.1f, {}, {-1.0f, 0.0f, 0.0f}}, {false}, {false}}};
+        const GameplayMovementIntent input = MovingIntent();
+        const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+            input, {}, query, {}, state);
+
+        EXPECT_EQ(state.committedSide, side);
+        EXPECT_TRUE(mathUtils::IsFinite(output.moveWorld));
+        EXPECT_NEAR(mathUtils::Length(output.moveWorld), 1.0f, MathTestHelper::kTolerance);
+        EXPECT_GT(std::abs(output.moveWorld.z), std::abs(output.moveWorld.x));
+        EXPECT_GE(mathUtils::Dot(output.moveWorld, {-1.0f, 0.0f, 0.0f}), 0.0f);
+        EXPECT_EQ(output.moveWorld.z < 0.0f,
+            side == GameplayObstacleAvoidanceSide::Left);
+        EXPECT_FLOAT_EQ(output.moveMagnitude, input.moveMagnitude);
+        EXPECT_EQ(output.wantsRun, input.wantsRun);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, SurfaceTangentEscapesWallEdgeAndReleasesCommitment)
+{
+    NearWallObstacleQuery query{};
+    GameplayObstacleAvoidanceState state{};
+    const GameplayObstacleAvoidanceSettings settings{.characterRadius = 0.3f};
+    mathUtils::Vec3 position{-0.1f, 0.8f, 0.0f};
+    bool clearedEdge = false;
+    int releasedSteps = 0;
+    float positionAtReleaseX = position.x;
+
+    for (int step = 0; step < 20; ++step)
+    {
+        const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+            MovingIntent(), position, query, settings, state);
+        position = position + output.moveWorld * 0.1f;
+        if (state.committedSide == GameplayObstacleAvoidanceSide::None)
+        {
+            if (!clearedEdge)
+            {
+                clearedEdge = true;
+                positionAtReleaseX = position.x;
+            }
+            ++releasedSteps;
+            EXPECT_GT(output.moveWorld.x, 0.99f);
+            EXPECT_NEAR(output.moveWorld.z, 0.0f, MathTestHelper::kTolerance);
+            if (releasedSteps == 4)
+            {
+                break;
+            }
+            continue;
+        }
+        EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Left);
+        EXPECT_GT(std::abs(output.moveWorld.z), std::abs(output.moveWorld.x));
+    }
+
+    EXPECT_TRUE(clearedEdge);
+    EXPECT_EQ(releasedSteps, 4);
+    EXPECT_LT(position.z, -NearWallObstacleQuery::wallHalfExtent);
+    EXPECT_GT(position.x, positionAtReleaseX);
+}
+
+TEST(GameplayObstacleAvoidance, DegenerateHitNormalFallsBackWithoutNaN)
+{
+    ScriptedObstacleQuery query{
+        {{true, 0.1f, {}, {0.0f, 1.0f, 0.0f}}, {false}, {false}}};
+    const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+        MovingIntent(), {}, query);
+
+    EXPECT_TRUE(mathUtils::IsFinite(output.moveWorld));
+    EXPECT_NEAR(mathUtils::Length(output.moveWorld), 1.0f, MathTestHelper::kTolerance);
+}
+
 TEST(GameplayObstacleAvoidance, ForwardBlockedChoosesClearLeft)
 {
     ScriptedObstacleQuery query{{{true, 0.2f}, {false, 0.0f}, {true, 0.1f}}};
@@ -248,7 +401,7 @@ TEST(GameplayObstacleAvoidance, ForwardBlockedChoosesClearRight)
     const GameplayMovementIntent input = MovingIntent();
     const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(input, {}, query);
 
-    EXPECT_LT(output.moveWorld.z, 0.0f);
+    EXPECT_GT(output.moveWorld.z, 0.0f);
     ExpectValidCorrection(output, input);
 }
 

@@ -104,6 +104,10 @@ TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceCorrectsSeekAtExistingCadence
     EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
     ASSERT_EQ(query.callCount, 3u);
     EXPECT_FLOAT_EQ(query.requests[0].origin.y, 1.0f);
+    for (const GameplayObstacleProbeRequest& request : query.requests)
+    {
+        EXPECT_FLOAT_EQ(request.clearanceRadius, 0.27f);
+    }
     EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.049f), AIActionRuntimeResult::Running);
     EXPECT_EQ(query.callCount, 3u);
     EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.001f), AIActionRuntimeResult::Running);
@@ -159,6 +163,10 @@ TEST(AIFleeTargetActionRuntime, ObstacleAvoidanceCorrectsFleeButSafeStateDoesNot
     EXPECT_LT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
     EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
     EXPECT_EQ(query.callCount, 3u);
+    for (const GameplayObstacleProbeRequest& request : query.requests)
+    {
+        EXPECT_FLOAT_EQ(request.clearanceRadius, 0.32f);
+    }
 
     world.TryGetTransform(threat)->position = {-4.0f, 0.0f, 0.0f};
     EXPECT_EQ(runtime.Tick(FleeContext(agent), 0.05f), AIActionRuntimeResult::Running);

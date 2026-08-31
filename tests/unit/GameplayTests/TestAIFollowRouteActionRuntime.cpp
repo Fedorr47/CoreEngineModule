@@ -11,9 +11,10 @@ namespace
     {
     public:
         [[nodiscard]] bool Probe(
-            const GameplayObstacleProbeRequest&,
+            const GameplayObstacleProbeRequest& request,
             GameplayObstacleProbeHit& hit) const noexcept override
         {
+            requests[calls < 3u ? calls : 2u] = request;
             ++calls;
             if ((calls % 3u) == 1u)
             {
@@ -23,6 +24,7 @@ namespace
             return false;
         }
         mutable std::size_t calls{0u};
+        mutable GameplayObstacleProbeRequest requests[3]{};
     };
     
     [[nodiscard]] GameplayRoute MakeRoute(const float destinationX = 2.0f)
@@ -121,4 +123,9 @@ TEST(AIFollowRouteActionRuntime, AvoidanceCorrectsFollowingAndPreservesArrivalMa
     EXPECT_LT(command->moveWorld.z, 0.0f);
     EXPECT_NEAR(command->moveMagnitude, 4.0f / 9.0f, 0.0001f);
     EXPECT_EQ(query.calls, 3u);
+    
+    for (const GameplayObstacleProbeRequest& request : query.requests)
+    {
+        EXPECT_FLOAT_EQ(request.clearanceRadius, 0.32f);
+    }
 }

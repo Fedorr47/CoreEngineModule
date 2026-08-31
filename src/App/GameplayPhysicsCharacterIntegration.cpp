@@ -38,12 +38,21 @@ bool appRuntime::GameplayPhysicsObstacleQuery::Probe(
     const rendern::GameplayObstacleProbeRequest& request,
     rendern::GameplayObstacleProbeHit& hit) const noexcept
 {
-    const auto physicsHit = physicsWorld_.RayCastClosest({
-        .origin = request.origin,
-        .direction = request.direction,
-        .maxDistance = request.maximumDistance,
-        .layerMask = layerMask_
-    });
+    const auto physicsHit = request.clearanceRadius > 0.0f &&
+        std::isfinite(request.clearanceRadius)
+        ? physicsWorld_.ShapeCastClosest({
+            .shape = physics::SphereShapeDescriptor{.radius = request.clearanceRadius},
+            .startTransform = {.position = request.origin},
+            .direction = request.direction,
+            .maxDistance = request.maximumDistance,
+            .layerMask = layerMask_
+        })
+        : physicsWorld_.RayCastClosest({
+            .origin = request.origin,
+            .direction = request.direction,
+            .maxDistance = request.maximumDistance,
+            .layerMask = layerMask_
+        });
     if (!physicsHit.has_value())
     {
         return false;

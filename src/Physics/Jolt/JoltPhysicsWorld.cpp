@@ -15,6 +15,7 @@ import core;
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/ShapeCast.h>
 #include <Jolt/Physics/Collision/CollideShape.h>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
@@ -844,69 +845,80 @@ namespace physics
         {
             return std::nullopt;
         }
-
-        const auto shapeResult = std::visit([](const auto& descriptor)
-        {
-            return jolt::CreateShape(descriptor);
-        }, request.shape);
-        if (!shapeResult.has_value())
-        {
-            return std::nullopt;
-        }
-
+        
         const float inverseLength = 1.0f / std::sqrt(directionLengthSquared);
         const JPH::Vec3 displacement{
             request.direction.x * inverseLength * request.maxDistance,
             request.direction.y * inverseLength * request.maxDistance,
             request.direction.z * inverseLength * request.maxDistance
         };
-        const JPH::ShapeRefC& shape = shapeResult.value();
-        const JPH::RShapeCast cast{
-            shape.GetPtr(),
-            JPH::Vec3::sReplicate(1.0f),
-            ToCenterOfMassTransform(*transform, *shape),
-            displacement
-        };
-        const QueryObjectLayerFilter layerFilter{ request.layerMask };
-        const IgnoredBodyFilter bodyFilter{ impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
-        JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
-        impl_->physicsSystem.GetNarrowPhaseQuery().CastShape(
-            cast,
-            JPH::ShapeCastSettings{},
-            JPH::RVec3::sZero(),
-            collector,
-            JPH::BroadPhaseLayerFilter{},
-            layerFilter,
-            bodyFilter);
-        if (!collector.HadHit())
+        
+        const auto castShape = [&](const JPH::Shape& shape) -> std::optional<PhysicsHit>
         {
-            return std::nullopt;
+            const JPH::RShapeCast cast{
+                &shape,
+                JPH::Vec3::sReplicate(1.0f),
+                ToCenterOfMassTransform(*transform, shape),
+                displacement
+            };
+            const QueryObjectLayerFilter layerFilter{ request.layerMask };
+            const IgnoredBodyFilter bodyFilter{
+                impl_->bodyRegistry.ResolveBodyID(request.ignoredBody) };
+            JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+            impl_->physicsSystem.GetNarrowPhaseQuery().CastShape(
+                cast,
+                JPH::ShapeCastSettings{},
+                JPH::RVec3::sZero(),
+                collector,
+                JPH::BroadPhaseLayerFilter{},
+                layerFilter,
+                bodyFilter);
+            if (!collector.HadHit())
+            {
+                return std::nullopt;
+            }
+            
+            const JPH::ShapeCastResult& result = collector.mHit;
+            const auto handle = impl_->bodyRegistry.ResolveHandle(result.mBodyID2);
+            if (!handle.has_value())
+            {
+                return std::nullopt;
+            }
+            const auto surface = impl_->bodyRegistry.ResolveSurface(*handle);
+            if (!surface.has_value())
+            {
+                return std::nullopt;
+            }
+
+            const JPH::Vec3 normal =
+                (-result.mPenetrationAxis).NormalizedOr(JPH::Vec3::sZero());
+            return PhysicsHit{
+                .body = *handle,
+                .position = {
+                    result.mContactPointOn2.GetX(),
+                    result.mContactPointOn2.GetY(),
+                    result.mContactPointOn2.GetZ()
+                },
+                .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
+                .distance = result.mFraction * request.maxDistance,
+                .surface = *surface
+            };
+        };
+
+        if (const auto* sphere = std::get_if<SphereShapeDescriptor>(&request.shape))
+        {
+            // Jolt's direct SphereShape is stack-resident for this synchronous cast.
+            JPH::SphereShape sphereShape{sphere->radius};
+            return castShape(sphereShape);
         }
 
-        const JPH::ShapeCastResult& result = collector.mHit;
-        const auto handle = impl_->bodyRegistry.ResolveHandle(result.mBodyID2);
-        if (!handle.has_value())
+        const auto shapeResult = std::visit([](const auto& descriptor)
         {
-            return std::nullopt;
-        }
-        const auto surface = impl_->bodyRegistry.ResolveSurface(*handle);
-        if (!surface.has_value())
-        {
-            return std::nullopt;
-        }
-
-        const JPH::Vec3 normal = (-result.mPenetrationAxis).NormalizedOr(JPH::Vec3::sZero());
-        return PhysicsHit{
-            .body = *handle,
-            .position = {
-                result.mContactPointOn2.GetX(),
-                result.mContactPointOn2.GetY(),
-                result.mContactPointOn2.GetZ()
-            },
-            .normal = { normal.GetX(), normal.GetY(), normal.GetZ() },
-            .distance = result.mFraction * request.maxDistance,
-            .surface = *surface
-        };
+            return jolt::CreateShape(descriptor);
+        }, request.shape);
+        return shapeResult.has_value()
+            ? castShape(*shapeResult.value())
+            : std::nullopt;
     }
 
     std::vector<PhysicsBodyHandle> JoltPhysicsWorld::OverlapShape(
