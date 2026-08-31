@@ -262,6 +262,8 @@ namespace
 
     [[nodiscard]] mathUtils::Vec3 BuildEscapeCandidate(
         const mathUtils::Vec3& selectedFeeler,
+        const mathUtils::Vec3& forward,
+        const rendern::GameplayObstacleAvoidanceSide side,
         const mathUtils::Vec3& forwardHitNormal) noexcept
     {
         mathUtils::Vec3 planarNormal{
@@ -274,13 +276,35 @@ namespace
         }
 
         planarNormal = planarNormal / std::sqrt(normalLengthSquared);
-        mathUtils::Vec3 tangent{-planarNormal.z, 0.0f, planarNormal.x};
-        if (mathUtils::Dot(tangent, selectedFeeler) < 0.0f)
+        
+        // Orient the surface tangent against the stable steering right axis,
+        // not against the rotating side feeler. Using the feeler here creates
+        // a discontinuity when Dot(tangent, feeler) crosses zero and can make
+        // a committed side suddenly reverse its actual escape direction.
+        const mathUtils::Vec3 rightAxis{
+            -forward.z,
+            0.0f,
+            forward.x
+        };
+        mathUtils::Vec3 rightTangent{
+            -planarNormal.z,
+            0.0f,
+            planarNormal.x
+        };
+        if (mathUtils::Dot(rightTangent, rightAxis) < 0.0f)
         {
-            tangent = tangent * -1.0f;
+            rightTangent = rightTangent * -1.0f;
         }
+        
+        const mathUtils::Vec3 sideTangent =
+            side == rendern::GameplayObstacleAvoidanceSide::Left
+            ? rightTangent * -1.0f
+            : rightTangent;
+        
         const mathUtils::Vec3 escape = selectedFeeler * SelectedFeelerWeight +
-            tangent * SurfaceTangentWeight + planarNormal * ObstacleSeparationBias;
+           sideTangent * SurfaceTangentWeight +
+           planarNormal * ObstacleSeparationBias;
+        
         const float escapeLengthSquared = mathUtils::Dot(escape, escape);
         if (!mathUtils::IsFinite(escape) ||
             escapeLengthSquared <= mathUtils::kLengthEpsilonSq)
@@ -369,8 +393,16 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     }
     
     GameplayMovementIntent corrected = baseMovement;
-    const mathUtils::Vec3 leftEscape = BuildEscapeCandidate(left, forwardResult.hitNormal);
-    const mathUtils::Vec3 rightEscape = BuildEscapeCandidate(right, forwardResult.hitNormal);
+    const mathUtils::Vec3 leftEscape = BuildEscapeCandidate(
+        left,
+        forward,
+        GameplayObstacleAvoidanceSide::Left,
+        forwardResult.hitNormal);
+    const mathUtils::Vec3 rightEscape = BuildEscapeCandidate(
+        right,
+        forward,
+        GameplayObstacleAvoidanceSide::Right,
+        forwardResult.hitNormal);
     const bool leftSupported = HasSupport(query, probeOrigin, leftEscape, sanitized);
     const bool rightSupported = HasSupport(query, probeOrigin, rightEscape, sanitized);
     if (debugOut != nullptr)
