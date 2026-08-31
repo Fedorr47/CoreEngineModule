@@ -5,7 +5,8 @@
   "roles": {
     "followAgent": "Steering_Follow_Agent", "followTarget": "Steering_Follow_Target",
     "fleeAgent": "Steering_Flee_Agent", "threat": "Steering_Flee_Threat",
-    "routeAgent": "Steering_Route_Agent", "routeStart": "Steering_Route_Start", "routeGoal": "Steering_Route_Goal"
+    "routeAgent": "Steering_Route_Agent", "routeStart": "Steering_Route_Start",
+    "routeCorner": "Steering_Route_Corner", "routeGoal": "Steering_Route_Goal"
   },
   "setup": [
     {"op":"ensureNodeBoundEntity","entity":"followAgent"},{"op":"ensureNodeBoundEntity","entity":"followTarget"},
@@ -22,7 +23,7 @@
   "start": [
     {"op":"startFollowTarget","entity":"followAgent","target":"followTarget","acceptanceRadius":0.8,"wantsRun":false},
     {"op":"startFleeTarget","entity":"fleeAgent","target":"threat","triggerRadius":5.0,"safeRadius":7.0,"wantsRun":false},
-    {"op":"startMoveTo","entity":"routeAgent","nodes":["routeStart","routeGoal"],"edges":[{"from":"routeStart","to":"routeGoal","cost":1}],"start":"routeStart","goal":"routeGoal","acceptanceRadius":0.2,"slowingRadius":2.0,"wantsRun":false}
+    {"op":"startMoveTo","entity":"routeAgent","nodes":["routeStart","routeCorner","routeGoal"],"edges":[{"from":"routeStart","to":"routeCorner","cost":1},{"from":"routeCorner","to":"routeGoal","cost":1}],"start":"routeStart","goal":"routeGoal","acceptanceRadius":0.2,"slowingRadius":2.0,"wantsRun":false}
   ],
   "update":[],
   "stop":[{"op":"cancelAI","entity":"followAgent"},{"op":"cancelAI","entity":"fleeAgent"},{"op":"cancelAI","entity":"routeAgent"}],

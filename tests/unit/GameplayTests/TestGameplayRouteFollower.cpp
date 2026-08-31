@@ -1,4 +1,6 @@
 #include <initializer_list>
+#include <cmath>
+#include <limits>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -32,6 +34,123 @@ namespace
         EXPECT_FLOAT_EQ(movement.moveMagnitude, 0.0f);
         EXPECT_FALSE(movement.wantsRun);
         EXPECT_FALSE(movement.IsMoving());
+    }
+}
+
+EST(GameplayRouteFollower, DisabledLookAheadPreservesWaypointDirectedMovement)
+{
+    GameplayRouteFollower follower{};
+    ASSERT_EQ(follower.Start(OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f),
+        MakeRoutePoint(10.0f, 0.0f, 10.0f) }), {}, { .cornerLookAheadDistance = 0.0f }),
+        GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput output = follower.Tick({9.0f, 0.0f, 0.0f});
+    ExpectVec3Near(output.movement.moveWorld, {1.0f, 0.0f, 0.0f}, kEpsVec);
+}
+
+TEST(GameplayRouteFollower, LookAheadBendsProgressivelyNearOrdinaryCorner)
+{
+    const GameplayRoute route = OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f),
+        MakeRoutePoint(10.0f, 0.0f, 10.0f) });
+    GameplayRouteFollower fartherFollower{};
+    GameplayRouteFollower closerFollower{};
+    ASSERT_EQ(fartherFollower.Start(route, {}, { .cornerLookAheadDistance = 2.0f }), GameplayRouteFollowerStatus::Following);
+    ASSERT_EQ(closerFollower.Start(
+        route,
+        GameplayArrivalSteeringSettings{ .minimumMoveMagnitude = 0.25f, .wantsRun = true },
+        { .cornerLookAheadDistance = 2.0f }), GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput far = fartherFollower.Tick({0.0f, 0.0f, 0.0f});
+    const GameplayRouteFollowerOutput near = closerFollower.Tick({9.0f, 0.0f, 0.0f});
+    ExpectVec3Near(far.movement.moveWorld, {1.0f, 0.0f, 0.0f}, kEpsVec);
+    EXPECT_GT(near.movement.moveWorld.x, 0.0f);
+    EXPECT_GT(near.movement.moveWorld.z, 0.0f);
+    EXPECT_GT(near.movement.moveWorld.z, far.movement.moveWorld.z);
+    EXPECT_NEAR(mathUtils::Length(near.movement.moveWorld), 1.0f, kTolerance);
+    EXPECT_TRUE(std::isfinite(near.movement.moveWorld.x));
+    EXPECT_TRUE(std::isfinite(near.movement.moveWorld.z));
+    EXPECT_FLOAT_EQ(near.movement.moveMagnitude, 1.0f);
+    EXPECT_TRUE(near.movement.wantsRun);
+}
+
+TEST(GameplayRouteFollower, LookAheadPassThroughAdvancesAtMostOneCornerPerTick)
+{
+    GameplayRouteFollower follower{};
+    ASSERT_EQ(follower.Start(OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(1.0f, 0.0f, 0.0f),
+        MakeRoutePoint(2.0f, 0.0f, 0.0f), MakeRoutePoint(3.0f, 0.0f, 0.0f) }),
+        GameplayArrivalSteeringSettings{ .acceptanceRadius = 0.1f },
+        { .cornerLookAheadDistance = 10.0f }), GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput output = follower.Tick({3.0f, 0.0f, 0.0f});
+
+    EXPECT_EQ(output.status, GameplayRouteFollowerStatus::Following);
+    EXPECT_TRUE(output.movement.IsMoving());
+    ExpectVec3Near(output.movement.moveWorld, {-1.0f, 0.0f, 0.0f}, kEpsVec);
+}
+
+TEST(GameplayRouteFollower, LookAheadDoesNotCrossTraversalBoundary)
+{
+    const GameplayTraversalLinkHandle link = MakeTraversalLink(42u);
+    GameplayRouteFollower follower{};
+    ASSERT_EQ(follower.Start(GameplayRoute{
+        .points = { MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 10.0f) },
+        .segmentAnnotations = { GameplayRouteSegmentAnnotation{}, GameplayRouteSegmentAnnotation{ .traversalLink = link } }
+    }, {}, { .cornerLookAheadDistance = 2.0f }), GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput approaching = follower.Tick({9.0f, 0.0f, 0.0f});
+    ExpectVec3Near(approaching.movement.moveWorld, {1.0f, 0.0f, 0.0f}, kEpsVec);
+    const GameplayRouteFollowerOutput pending = follower.Tick({10.0f, 0.0f, 0.0f});
+    EXPECT_EQ(pending.status, GameplayRouteFollowerStatus::TraversalRequired);
+    ASSERT_TRUE(pending.requiredTraversalLink.has_value());
+    EXPECT_EQ(*pending.requiredTraversalLink, link);
+}
+
+TEST(GameplayRouteFollower, BoundedPassThroughAdvancesCornerCutWithoutSkippingFarCorner)
+{
+    const GameplayRoute route = OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f),
+        MakeRoutePoint(10.0f, 0.0f, 10.0f) });
+    const GameplayArrivalSteeringSettings steering{ .acceptanceRadius = 0.1f };
+    GameplayRouteFollower nearFollower{};
+    GameplayRouteFollower farFollower{};
+    ASSERT_EQ(nearFollower.Start(route, steering, { .cornerLookAheadDistance = 2.0f }), GameplayRouteFollowerStatus::Following);
+    ASSERT_EQ(farFollower.Start(route, steering, { .cornerLookAheadDistance = 2.0f }), GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput passed = nearFollower.Tick({10.1f, 0.0f, 1.0f});
+    EXPECT_LT(passed.movement.moveWorld.x, 0.0f);
+    EXPECT_GT(passed.movement.moveWorld.z, 0.0f);
+    const GameplayRouteFollowerOutput far = farFollower.Tick({20.0f, 0.0f, 1.0f});
+    EXPECT_LT(far.movement.moveWorld.x, 0.0f);
+    EXPECT_LT(far.movement.moveWorld.z, 0.0f);
+}
+
+TEST(GameplayRouteFollower, ShortOutgoingSegmentClampsVirtualTarget)
+{
+    GameplayRouteFollower follower{};
+    ASSERT_EQ(follower.Start(OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f),
+        MakeRoutePoint(10.0f, 0.0f, 0.5f) }), {}, { .cornerLookAheadDistance = 4.0f }),
+        GameplayRouteFollowerStatus::Following);
+
+    const GameplayRouteFollowerOutput output = follower.Tick({9.0f, 0.0f, 0.0f});
+    EXPECT_NEAR(output.movement.moveWorld.x / output.movement.moveWorld.z, 2.0f, kTolerance);
+    EXPECT_TRUE(std::isfinite(output.movement.moveWorld.z));
+}
+
+TEST(GameplayRouteFollower, MalformedLookAheadSettingsDisableLookAhead)
+{
+    const GameplayRoute route = OrdinaryRoute({
+        MakeRoutePoint(0.0f, 0.0f, 0.0f), MakeRoutePoint(10.0f, 0.0f, 0.0f),
+        MakeRoutePoint(10.0f, 0.0f, 10.0f) });
+    for (const float malformed : {-1.0f, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()})
+    {
+        GameplayRouteFollower follower{};
+        ASSERT_EQ(follower.Start(route, {}, { .cornerLookAheadDistance = malformed }), GameplayRouteFollowerStatus::Following);
+        const GameplayRouteFollowerOutput output = follower.Tick({9.0f, 0.0f, 0.0f});
+        ExpectVec3Near(output.movement.moveWorld, {1.0f, 0.0f, 0.0f}, kEpsVec);
     }
 }
 

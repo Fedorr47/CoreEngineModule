@@ -1,6 +1,8 @@
 module;
 
 #include <cassert>
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstddef>
 #include <optional>
@@ -30,6 +32,12 @@ export namespace rendern
         std::optional<GameplayTraversalLinkHandle> requiredTraversalLink{};
     };
     
+    struct GameplayRouteFollowerSettings
+    {
+        // Zero explicitly preserves waypoint-directed route following.
+        float cornerLookAheadDistance{0.75f};
+    };
+    
     class GameplayRouteFollower
     {
     public:
@@ -37,7 +45,8 @@ export namespace rendern
         // anchor; the follower never prepends a segment from currentPosition.
         [[nodiscard]] GameplayRouteFollowerStatus Start(
             GameplayRoute route,
-            const GameplayArrivalSteeringSettings& steeringSettings = {})
+            const GameplayArrivalSteeringSettings& steeringSettings = {},
+            const GameplayRouteFollowerSettings& followerSettings = {})
         {
             if (status_ != GameplayRouteFollowerStatus::NotStarted)
             {
@@ -46,6 +55,12 @@ export namespace rendern
             
             route_ = std::move(route);
             steeringSettings_ = steeringSettings;
+            followerSettings_ = followerSettings;
+            if (!std::isfinite(followerSettings_.cornerLookAheadDistance) ||
+                followerSettings_.cornerLookAheadDistance < 0.0f)
+            {
+                followerSettings_.cornerLookAheadDistance = 0.0f;
+            }
             currentSegmentIndex_ = 0u;
             
             if (!route_.IsValid())
@@ -81,6 +96,8 @@ export namespace rendern
                 return output;
             }
             
+            bool bAdvancedByLookAhead = false;
+            
             while (currentSegmentIndex_ < route_.segmentAnnotations.size())
             {
                 const GameplayRouteSegmentAnnotation& annotation = 
@@ -101,11 +118,40 @@ export namespace rendern
                     ? steeringSettings_.slowingRadius
                     : steeringSettings_.acceptanceRadius;
                 
-                const mathUtils::Vec3& targetPosition = route_.points[currentSegmentIndex_ + 1u].worldPosition;
-                const GameplaySteeringOutput steering = BuildGameplayArrivalSteering(
+                const mathUtils::Vec3& cornerPosition = route_.points[currentSegmentIndex_ + 1u].worldPosition;
+                const GameplaySteeringOutput cornerSteering = BuildGameplayArrivalSteering(
                     currentPosition,
-                    targetPosition,
+                    cornerPosition,
                     segmentSteeringSettings);
+                
+                if (cornerSteering.status == GameplaySteeringStatus::Arrived)
+                {
+                    ++currentSegmentIndex_;
+                    continue;
+                }
+
+                mathUtils::Vec3 steeringTarget = cornerPosition;
+                const bool bCanLookAhead = TryBuildLookAheadTarget_(
+                    currentPosition,
+                    steeringTarget);
+
+                if (!bAdvancedByLookAhead &&
+                    bCanLookAhead &&
+                    HasPassedCurrentCorner_(currentPosition))
+                {
+                    bAdvancedByLookAhead = true;
+                    ++currentSegmentIndex_;
+                    continue;
+                }
+
+                const GameplaySteeringOutput steering = bCanLookAhead
+                    ? BuildGameplaySeekSteering(
+                        currentPosition,
+                        steeringTarget,
+                        GameplaySeekSteeringSettings{
+                            .acceptanceRadius = 0.0f,
+                            .wantsRun = steeringSettings_.wantsRun })
+                    : cornerSteering;
                 
                 if (steering.status == GameplaySteeringStatus::Moving)
                 {
@@ -116,7 +162,11 @@ export namespace rendern
                     return output;
                 }
                 
-                ++currentSegmentIndex_;
+                // A degenerate virtual target cannot provide a direction. Keep
+                // the authoritative segment and fall back to its corner intent.
+                output.status = GameplayRouteFollowerStatus::Following;
+                output.movement = cornerSteering.movement;
+                return output;
             }
             
             status_ = GameplayRouteFollowerStatus::Succeeded;
@@ -154,6 +204,7 @@ export namespace rendern
         {
             route_ = GameplayRoute{};
             steeringSettings_ = GameplayArrivalSteeringSettings{};
+            followerSettings_ = GameplayRouteFollowerSettings{};
             currentSegmentIndex_ = 0u;
             status_ = GameplayRouteFollowerStatus::NotStarted;
         }
@@ -164,6 +215,72 @@ export namespace rendern
         }
     
     private:
+         [[nodiscard]] bool TryBuildLookAheadTarget_(
+            const mathUtils::Vec3& currentPosition,
+            mathUtils::Vec3& steeringTarget) const noexcept
+        {
+            const float lookAheadDistance = followerSettings_.cornerLookAheadDistance;
+            const std::size_t nextSegmentIndex = currentSegmentIndex_ + 1u;
+            if (lookAheadDistance <= 0.0f ||
+                nextSegmentIndex >= route_.segmentAnnotations.size() ||
+                route_.segmentAnnotations[nextSegmentIndex].traversalLink.has_value())
+            {
+                return false;
+            }
+
+            const mathUtils::Vec3& corner = route_.points[currentSegmentIndex_ + 1u].worldPosition;
+            const mathUtils::Vec3& next = route_.points[currentSegmentIndex_ + 2u].worldPosition;
+            mathUtils::Vec3 incoming = corner - route_.points[currentSegmentIndex_].worldPosition;
+            incoming.y = 0.0f;
+            mathUtils::Vec3 outgoing = next - corner;
+            outgoing.y = 0.0f;
+            const float incomingLength = mathUtils::Length(incoming);
+            const float outgoingLength = mathUtils::Length(outgoing);
+            if (!std::isfinite(incomingLength) || incomingLength <= mathUtils::kLengthEpsilon ||
+                !std::isfinite(outgoingLength) || outgoingLength <= mathUtils::kLengthEpsilon)
+            {
+                return false;
+            }
+
+            mathUtils::Vec3 toCorner = corner - currentPosition;
+            toCorner.y = 0.0f;
+            const float cornerDistance = mathUtils::Length(toCorner);
+            if (!std::isfinite(cornerDistance) || cornerDistance >= lookAheadDistance)
+            {
+                return false;
+            }
+
+            const float distanceAlongNext = std::min(
+                lookAheadDistance - cornerDistance,
+                outgoingLength);
+            steeringTarget = corner + outgoing * (distanceAlongNext / outgoingLength);
+            steeringTarget.y = corner.y;
+            return true;
+        }
+
+        [[nodiscard]] bool HasPassedCurrentCorner_(
+            const mathUtils::Vec3& currentPosition) const noexcept
+        {
+            const mathUtils::Vec3& start = route_.points[currentSegmentIndex_].worldPosition;
+            const mathUtils::Vec3& corner = route_.points[currentSegmentIndex_ + 1u].worldPosition;
+            mathUtils::Vec3 incoming = corner - start;
+            incoming.y = 0.0f;
+            const float incomingLength = mathUtils::Length(incoming);
+            if (!std::isfinite(incomingLength) || incomingLength <= mathUtils::kLengthEpsilon)
+            {
+                return false;
+            }
+
+            mathUtils::Vec3 fromCorner = currentPosition - corner;
+            fromCorner.y = 0.0f;
+            const float cornerDistance = mathUtils::Length(fromCorner);
+            const bool bInsideEnvelope = std::isfinite(cornerDistance) &&
+                cornerDistance <= followerSettings_.cornerLookAheadDistance;
+            const bool bCrossedEndPlane =
+                mathUtils::Dot(fromCorner, incoming / incomingLength) >= 0.0f;
+            return bInsideEnvelope && bCrossedEndPlane;
+        }
+        
         [[nodiscard]] std::optional<GameplayTraversalLinkHandle> GetCurrentTraversalLink() const noexcept
         {
             if (currentSegmentIndex_ >= route_.segmentAnnotations.size())
@@ -175,6 +292,7 @@ export namespace rendern
         }
         
         GameplayArrivalSteeringSettings steeringSettings_{};
+        GameplayRouteFollowerSettings followerSettings_{};
         GameplayRouteFollowerStatus status_{GameplayRouteFollowerStatus::NotStarted};
         GameplayRoute route_{};
         std::size_t currentSegmentIndex_{0u};

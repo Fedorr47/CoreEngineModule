@@ -319,7 +319,7 @@
       "material": "marker"
     },
     {
-      "name": "Steering_Route_Goal",
+      "name": "Steering_Route_Corner",
       "parent": -1,
       "visible": true,
       "alive": true,
@@ -328,6 +328,31 @@
           8,
           0.2,
           6
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.2,
+          0.4,
+          0.2
+        ]
+      },
+      "mesh": "cube",
+      "material": "marker"
+    },
+    {
+      "name": "Steering_Route_Goal",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "transform": {
+        "position": [
+          4,
+          0.2,
+          10
         ],
         "rotationDegrees": [
           0,
