@@ -158,7 +158,10 @@ namespace appUi
                 const auto& avoidance = selected->avoidance;
                 ImGui::Text("[%s]", label);
                 ImGui::Text("Avoidance: %s", avoidance.active ? "Active" : "Inactive");
+                ImGui::Text("Preferred side: %s", sideLabel(avoidance.preferredSide));
                 ImGui::Text("Chosen side: %s", sideLabel(avoidance.chosenSide));
+                ImGui::Text("Hysteresis: %s",
+                    avoidance.sideHeldByHysteresis ? "Holding" : "Inactive");
                 drawClearance("Forward hit", avoidance.forward, true);
                 drawClearance("Left clearance", avoidance.left, false);
                 drawClearance("Right clearance", avoidance.right, false);
@@ -173,15 +176,24 @@ namespace appUi
         }
         if (view.canReset)
         {
-            if (view.canStart) ImGui::SameLine();
+            if (view.canStart)
+            {
+                ImGui::SameLine();
+            }
             if (ImGui::Button(view.resetLabel))
+            {
                 runtime.Execute(appDevelopment::ScenarioCommand::Reset, context);
+            }
         }
         if (view.canStop)
         {
-            if (view.canStart || view.canReset) ImGui::SameLine();
+            {
+                ImGui::SameLine();
+            }
             if (ImGui::Button(view.stopLabel))
+            {
                 runtime.Execute(appDevelopment::ScenarioCommand::Stop, context);
+            }
         }
         
         ImGui::EndDisabled();

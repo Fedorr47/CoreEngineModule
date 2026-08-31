@@ -48,6 +48,7 @@ export namespace rendern
         [[nodiscard]] AIActionRuntimeResult Start(const AIActionRuntimeContext& context) override
         {
             physicallyBlocked_ = false;
+            obstacleAvoidanceState_ = {};
             if (!ValidateContextAndAgent_(context) || !route_.IsValid())
             {
                 StopMovementIfAccessible_(context.agentEntity);
@@ -80,6 +81,7 @@ export namespace rendern
             
             if (activeTraversal_)
             {
+                obstacleAvoidanceState_ = {};
                 if (debugRegistry_ != nullptr)
                 {
                     debugRegistry_->Clear(context.agentEntity);
@@ -163,7 +165,7 @@ export namespace rendern
 
         void ApplyFollowerMovement_(
             const EntityHandle entity,
-            const GameplayMovementIntent& movement) const noexcept
+            const GameplayMovementIntent& movement) noexcept
         {
             GameplayCharacterCommandComponent* command = world_.TryGetCharacterCommand(entity);
             GameplayCharacterMotorComponent* motor = world_.TryGetCharacterMotor(entity);
@@ -185,6 +187,7 @@ export namespace rendern
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     finalMovement = ApplyGameplayObstacleAvoidance(
                         movement, origin, *obstacleQuery_, obstacleSettings_,
+                        obstacleAvoidanceState_,
                         debugEnabled ? &debug : nullptr);
                 }
             }
@@ -205,6 +208,7 @@ export namespace rendern
             const EntityHandle entity,
             const std::optional<GameplayTraversalLinkHandle>& requiredLink)
         {
+            obstacleAvoidanceState_ = {};
             if (debugRegistry_ != nullptr)
             {
                 debugRegistry_->Clear(entity);
@@ -299,8 +303,9 @@ export namespace rendern
             }
         }
         
-        void StopMovementIfAccessible_(const EntityHandle entity) const noexcept
+        void StopMovementIfAccessible_(const EntityHandle entity) noexcept
         {
+            obstacleAvoidanceState_ = {};
             if (debugRegistry_ != nullptr)
             {
                 debugRegistry_->Clear(entity);
@@ -321,6 +326,7 @@ export namespace rendern
         GameplayArrivalSteeringSettings steeringSettings_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
+        GameplayObstacleAvoidanceState obstacleAvoidanceState_{};
         GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         bool physicallyBlocked_{ false };
         GameplayRouteFollower follower_{};

@@ -47,6 +47,7 @@ export namespace rendern
             const AIActionRuntimeContext& context) override
         {
             elapsedSinceSteeringUpdate_ = 0.0f;
+            obstacleAvoidanceState_ = {};
             if (!Validate_(context))
             {
                 ClearMovementIfAccessible_(context.agentEntity);
@@ -137,6 +138,7 @@ export namespace rendern
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
                     movement = ApplyGameplayObstacleAvoidance(
                         movement, origin, *obstacleQuery_, obstacleSettings_,
+                        obstacleAvoidanceState_,
                         debugEnabled ? &debug : nullptr);
                 }
             }
@@ -161,6 +163,7 @@ export namespace rendern
         void ClearMovementIfAccessible_(const EntityHandle agentEntity) noexcept
         {
             currentMovement_ = {};
+            obstacleAvoidanceState_ = {};
             if (debugRegistry_ != nullptr)
             {
                 debugRegistry_->Clear(agentEntity);
@@ -182,6 +185,7 @@ export namespace rendern
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
         GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         GameplayMovementIntent currentMovement_{};
+        GameplayObstacleAvoidanceState obstacleAvoidanceState_{};
         float elapsedSinceSteeringUpdate_{0.0f};
     };
 }

@@ -270,6 +270,90 @@ TEST(GameplayObstacleAvoidance, EqualClearanceUsesDeterministicLeftTieBreak)
     }
 }
 
+TEST(GameplayObstacleAvoidance, StatefulInitialDecisionCommitsGreaterClearanceAndLeftTie)
+{
+    GameplayObstacleAvoidanceState state{};
+    ScriptedObstacleQuery rightQuery{{{true, 0.1f}, {true, 0.2f}, {true, 0.8f}}};
+    const GameplayMovementIntent right =
+        ApplyGameplayObstacleAvoidance(MovingIntent(), {}, rightQuery, {}, state);
+    EXPECT_GT(right.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Right);
+
+    state = {};
+    ScriptedObstacleQuery tieQuery{{{true, 0.1f}, {true, 0.5f}, {true, 0.5f}}};
+    const GameplayMovementIntent tie =
+        ApplyGameplayObstacleAvoidance(MovingIntent(), {}, tieQuery, {}, state);
+    EXPECT_LT(tie.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Left);
+}
+
+TEST(GameplayObstacleAvoidance, HysteresisHoldsUntilOppositeSideIsStrictlyBetter)
+{
+    const GameplayObstacleAvoidanceSettings settings{
+        .sideSwitchClearanceAdvantage = 0.15f};
+    GameplayObstacleAvoidanceState state{GameplayObstacleAvoidanceSide::Left};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    ScriptedObstacleQuery smallAdvantage{
+        {{true, 0.1f}, {true, 0.8f}, {true, 0.85f}}};
+
+    const GameplayMovementIntent held = ApplyGameplayObstacleAvoidance(
+        MovingIntent(), {}, smallAdvantage, settings, state, &debug);
+
+    EXPECT_LT(held.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Left);
+    EXPECT_EQ(debug.preferredSide, GameplayObstacleAvoidanceSide::Right);
+    EXPECT_EQ(debug.chosenSide, GameplayObstacleAvoidanceSide::Left);
+    EXPECT_TRUE(debug.sideHeldByHysteresis);
+
+    ScriptedObstacleQuery exactThreshold{
+        {{true, 0.1f}, {true, 0.4f}, {true, 0.55f}}};
+    const GameplayMovementIntent threshold = ApplyGameplayObstacleAvoidance(
+        MovingIntent(), {}, exactThreshold, settings, state);
+    EXPECT_LT(threshold.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Left);
+
+    ScriptedObstacleQuery largeAdvantage{
+        {{true, 0.1f}, {true, 0.4f}, {true, 0.8f}}};
+    const GameplayMovementIntent switched = ApplyGameplayObstacleAvoidance(
+        MovingIntent(), {}, largeAdvantage, settings, state);
+    EXPECT_GT(switched.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Right);
+}
+
+TEST(GameplayObstacleAvoidance, ClearAndStationaryEvaluationsResetCommitment)
+{
+    const GameplayMovementIntent input = MovingIntent();
+    GameplayObstacleAvoidanceState state{GameplayObstacleAvoidanceSide::Right};
+    ScriptedObstacleQuery clearQuery{};
+    const GameplayMovementIntent clear = ApplyGameplayObstacleAvoidance(
+        input, {}, clearQuery, {}, state);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::None);
+    MathTestHelper::ExpectVec3Near(clear.moveWorld, input.moveWorld, MathTestHelper::kEpsVec);
+
+    state.committedSide = GameplayObstacleAvoidanceSide::Left;
+    ScriptedObstacleQuery stationaryQuery{};
+    const GameplayMovementIntent stationary = ApplyGameplayObstacleAvoidance(
+        {}, {}, stationaryQuery, {}, state);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::None);
+    EXPECT_TRUE(stationaryQuery.requests.empty());
+    EXPECT_FALSE(stationary.IsMoving());
+}
+
+TEST(GameplayObstacleAvoidance, MalformedHysteresisAdvantageUsesDeterministicZero)
+{
+    for (const float advantage : {-1.0f, std::numeric_limits<float>::infinity(),
+             std::numeric_limits<float>::quiet_NaN()})
+    {
+        GameplayObstacleAvoidanceState state{GameplayObstacleAvoidanceSide::Left};
+        ScriptedObstacleQuery query{{{true, 0.1f}, {true, 0.4f}, {true, 0.41f}}};
+        const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+            MovingIntent(), {}, query,
+            {.sideSwitchClearanceAdvantage = advantage}, state);
+        EXPECT_GT(output.moveWorld.z, 0.0f);
+        EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Right);
+    }
+}
+
 TEST(GameplayObstacleAvoidance, SideHitDoesNotModifyClearForwardMovement)
 {
     ScriptedObstacleQuery query{{{false, 0.0f}, {true, 0.0f}, {false, 0.0f}}};

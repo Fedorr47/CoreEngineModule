@@ -1,4 +1,5 @@
 #include <cmath>
+#include <algorithm>
 #include <gtest/gtest.h>
 
 import core;
@@ -25,6 +26,26 @@ namespace
         }
 
         mutable GameplayObstacleProbeRequest requests[3]{};
+        mutable std::size_t callCount{0u};
+    };
+    
+    class FollowHysteresisQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest&,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            constexpr float clearances[3][3]{
+                {0.1f, 0.8f, 0.7f},
+                {0.1f, 0.8f, 0.85f},
+                {0.1f, 0.8f, 0.85f}};
+            const std::size_t evaluation = std::min(callCount / 3u, 2u);
+            hit.distance = clearances[evaluation][callCount % 3u];
+            ++callCount;
+            return true;
+        }
+
         mutable std::size_t callCount{0u};
     };
     
@@ -87,6 +108,42 @@ TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceCorrectsSeekAtExistingCadence
     EXPECT_EQ(query.callCount, 3u);
     EXPECT_EQ(runtime.Tick(FollowContext(agent), 0.001f), AIActionRuntimeResult::Running);
     EXPECT_EQ(query.callCount, 6u);
+}
+
+TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceHysteresisPersistsAndRestartResets)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    world.AddCharacterPhysicalSettings(agent);
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    FollowHysteresisQuery query{};
+    GameplaySteeringDebugRegistry debugRegistry{};
+    debugRegistry.SetEnabled(true);
+    AIFollowTargetActionRuntime runtime{
+        world, target, {.steeringUpdateIntervalSeconds = 0.0f}, &query, {}, &debugRegistry};
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_NE(debugRegistry.Find(agent), nullptr);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.preferredSide,
+        GameplayObstacleAvoidanceSide::Left);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.chosenSide,
+        GameplayObstacleAvoidanceSide::Left);
+
+    ASSERT_EQ(runtime.Tick(FollowContext(agent), 0.0f), AIActionRuntimeResult::Running);
+    ASSERT_NE(debugRegistry.Find(agent), nullptr);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.preferredSide,
+        GameplayObstacleAvoidanceSide::Right);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.chosenSide,
+        GameplayObstacleAvoidanceSide::Left);
+    EXPECT_TRUE(debugRegistry.Find(agent)->avoidance.sideHeldByHysteresis);
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_NE(debugRegistry.Find(agent), nullptr);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.preferredSide,
+        GameplayObstacleAvoidanceSide::Right);
+    EXPECT_EQ(debugRegistry.Find(agent)->avoidance.chosenSide,
+        GameplayObstacleAvoidanceSide::Right);
+    EXPECT_FALSE(debugRegistry.Find(agent)->avoidance.sideHeldByHysteresis);
 }
 
 TEST(AIFleeTargetActionRuntime, ObstacleAvoidanceCorrectsFleeButSafeStateDoesNotProbe)

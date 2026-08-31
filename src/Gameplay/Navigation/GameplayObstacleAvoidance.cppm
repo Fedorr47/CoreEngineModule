@@ -25,6 +25,11 @@ export namespace rendern
     };
 
     enum class GameplayObstacleAvoidanceSide { None, Left, Right };
+    
+    struct GameplayObstacleAvoidanceState
+    {
+        GameplayObstacleAvoidanceSide committedSide{GameplayObstacleAvoidanceSide::None};
+    };
 
     struct GameplayObstacleProbeDebugState
     {
@@ -46,7 +51,9 @@ export namespace rendern
         GameplayObstacleProbeDebugState forward{};
         GameplayObstacleProbeDebugState left{};
         GameplayObstacleProbeDebugState right{};
+        GameplayObstacleAvoidanceSide preferredSide{GameplayObstacleAvoidanceSide::None};
         GameplayObstacleAvoidanceSide chosenSide{GameplayObstacleAvoidanceSide::None};
+        bool sideHeldByHysteresis{false};
     };
 
     class IGameplayObstacleQuery
@@ -64,6 +71,7 @@ export namespace rendern
         float forwardProbeDistance{3.0f};
         float sideProbeDistance{2.0f};
         float sideProbeAngleDegrees{30.0f};
+        float sideSwitchClearanceAdvantage{0.15f};
     };
 
     [[nodiscard]] GameplayMovementIntent ApplyGameplayObstacleAvoidance(
@@ -71,6 +79,14 @@ export namespace rendern
         const mathUtils::Vec3& probeOrigin,
         const IGameplayObstacleQuery& query,
         const GameplayObstacleAvoidanceSettings& settings = {},
+        GameplayObstacleAvoidanceDebugSnapshot* debugOut = nullptr) noexcept;
+    
+    [[nodiscard]] GameplayMovementIntent ApplyGameplayObstacleAvoidance(
+        const GameplayMovementIntent& baseMovement,
+        const mathUtils::Vec3& probeOrigin,
+        const IGameplayObstacleQuery& query,
+        const GameplayObstacleAvoidanceSettings& settings,
+        GameplayObstacleAvoidanceState& state,
         GameplayObstacleAvoidanceDebugSnapshot* debugOut = nullptr) noexcept;
 }
 
@@ -81,6 +97,7 @@ namespace
         float forwardDistance{0.0f};
         float sideDistance{0.0f};
         float sideAngleRadians{0.0f};
+        float sideSwitchClearanceAdvantage{0.0f};
     };
 
     struct ProbeResult
@@ -105,7 +122,9 @@ namespace
         return {
             .forwardDistance = FiniteOrZero(settings.forwardProbeDistance),
             .sideDistance = FiniteOrZero(settings.sideProbeDistance),
-            .sideAngleRadians = mathUtils::DegToRad(angleDegrees)
+            .sideAngleRadians = mathUtils::DegToRad(angleDegrees),
+            .sideSwitchClearanceAdvantage =
+                FiniteOrZero(settings.sideSwitchClearanceAdvantage)
         };
     }
 
@@ -158,6 +177,19 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     const GameplayObstacleAvoidanceSettings& settings,
     GameplayObstacleAvoidanceDebugSnapshot* debugOut) noexcept
 {
+    GameplayObstacleAvoidanceState state{};
+    return ApplyGameplayObstacleAvoidance(
+        baseMovement, probeOrigin, query, settings, state, debugOut);
+}
+
+rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
+    const GameplayMovementIntent& baseMovement,
+    const mathUtils::Vec3& probeOrigin,
+    const IGameplayObstacleQuery& query,
+    const GameplayObstacleAvoidanceSettings& settings,
+    GameplayObstacleAvoidanceState& state,
+    GameplayObstacleAvoidanceDebugSnapshot* debugOut) noexcept
+{
     if (debugOut != nullptr)
     {
         *debugOut = {};
@@ -168,6 +200,7 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     }
     if (!baseMovement.IsMoving())
     {
+        state.committedSide = GameplayObstacleAvoidanceSide::None;
         return baseMovement;
     }
 
@@ -175,6 +208,7 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
     const float forwardLengthSquared = mathUtils::Dot(forward, forward);
     if (!mathUtils::IsFinite(forward) || forwardLengthSquared <= mathUtils::kLengthEpsilonSq)
     {
+        state.committedSide = GameplayObstacleAvoidanceSide::None;
         return baseMovement;
     }
     forward = forward / std::sqrt(forwardLengthSquared);
@@ -206,12 +240,33 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
 
     if (!forwardResult.hit)
     {
+        state.committedSide = GameplayObstacleAvoidanceSide::None;
         return baseMovement;
     }
 
     // Equal clearance always selects left, keeping symmetric situations deterministic.
     GameplayMovementIntent corrected = baseMovement;
-    const bool choseLeft = leftResult.clearance >= rightResult.clearance;
+    const GameplayObstacleAvoidanceSide preferredSide =
+        leftResult.clearance >= rightResult.clearance
+        ? GameplayObstacleAvoidanceSide::Left
+        : GameplayObstacleAvoidanceSide::Right;
+    GameplayObstacleAvoidanceSide chosenSide = preferredSide;
+    if (state.committedSide == GameplayObstacleAvoidanceSide::Left)
+    {
+        chosenSide = rightResult.clearance > leftResult.clearance +
+                sanitized.sideSwitchClearanceAdvantage
+            ? GameplayObstacleAvoidanceSide::Right
+            : GameplayObstacleAvoidanceSide::Left;
+    }
+    else if (state.committedSide == GameplayObstacleAvoidanceSide::Right)
+    {
+        chosenSide = leftResult.clearance > rightResult.clearance +
+                sanitized.sideSwitchClearanceAdvantage
+            ? GameplayObstacleAvoidanceSide::Left
+            : GameplayObstacleAvoidanceSide::Right;
+    }
+    state.committedSide = chosenSide;
+    const bool choseLeft = chosenSide == GameplayObstacleAvoidanceSide::Left;
     corrected.moveWorld = choseLeft ? left : right;
     if (debugOut != nullptr)
     {
@@ -219,10 +274,13 @@ rendern::GameplayMovementIntent rendern::ApplyGameplayObstacleAvoidance(
         const bool changedDirection = std::isfinite(directionDot) &&
             directionDot < 1.0f - mathUtils::kLengthEpsilonSq;
         debugOut->active = changedDirection;
-        debugOut->chosenSide = changedDirection
-            ? (choseLeft ? GameplayObstacleAvoidanceSide::Left
-                         : GameplayObstacleAvoidanceSide::Right)
+        debugOut->preferredSide = changedDirection
+            ? preferredSide
             : GameplayObstacleAvoidanceSide::None;
+        debugOut->chosenSide = changedDirection
+            ? chosenSide
+            : GameplayObstacleAvoidanceSide::None;
+        debugOut->sideHeldByHysteresis = changedDirection && chosenSide != preferredSide;
         debugOut->finalMovement = corrected;
     }
     return corrected;
