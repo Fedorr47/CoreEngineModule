@@ -164,7 +164,8 @@ export namespace rendern
                         .probeOrigin = origin,
                         .characterRadius = physical->radius,
                         .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f,
-                        .currentPlanarSpeed = mathUtils::Length(planarVelocity)
+                        .currentPlanarSpeed = mathUtils::Length(planarVelocity),
+                        .maximumWalkableSlopeAngleDegrees = physical->maximumSlopeAngleDegrees
                     };
                     movement = ApplyGameplayObstacleAvoidance(
                         avoidanceInput, *obstacleQuery_, obstacleSettings_,

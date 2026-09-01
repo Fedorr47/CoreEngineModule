@@ -49,6 +49,36 @@ namespace
         mutable std::size_t callCount{0u};
     };
     
+    class SlopeAwareFollowQuery final : public IGameplayObstacleQuery
+    {
+    public:
+        [[nodiscard]] bool Probe(
+            const GameplayObstacleProbeRequest&,
+            GameplayObstacleProbeHit& hit) const noexcept override
+        {
+            constexpr float clearances[]{0.1f, 0.9f, 0.2f};
+            hit.distance = clearances[probeCalls++];
+            return true;
+        }
+
+        [[nodiscard]] bool ProbeSupport(
+            const GameplaySupportProbeRequest& request,
+            GameplaySupportProbeHit& hit) const noexcept override
+        {
+            hit = {
+                .distance = 0.0f,
+                .position = request.origin,
+                .normal = supportCalls++ == 0u
+                    ? mathUtils::Vec3{0.70710678f, 0.70710678f, 0.0f}
+                : mathUtils::Vec3{0.0f, 1.0f, 0.0f}
+            };
+            return true;
+        }
+
+        mutable std::size_t probeCalls{0u};
+        mutable std::size_t supportCalls{0u};
+    };
+    
     [[nodiscard]] EntityHandle CreateAgent(GameplayWorld& world, const mathUtils::Vec3 position = {})
     {
         const EntityHandle entity = world.CreateEntity();
@@ -152,6 +182,20 @@ TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceHysteresisPersistsAndRestartR
     EXPECT_EQ(debugRegistry.Find(agent)->avoidance.chosenSide,
         GameplayObstacleAvoidanceSide::Right);
     EXPECT_FALSE(debugRegistry.Find(agent)->avoidance.sideHeldByHysteresis);
+}
+
+TEST(AIFollowTargetActionRuntime, PhysicalMaximumSlopeReachesAvoidanceWalkability)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateAgent(world);
+    world.AddCharacterPhysicalSettings(agent, {.maximumSlopeAngleDegrees = 30.0f});
+    const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
+    SlopeAwareFollowQuery query{};
+    AIFollowTargetActionRuntime runtime{world, target, {}, &query};
+
+    ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
+    EXPECT_GT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
+    EXPECT_EQ(query.supportCalls, 2u);
 }
 
 TEST(AIFleeTargetActionRuntime, ObstacleAvoidanceCorrectsFleeButSafeStateDoesNotProbe)

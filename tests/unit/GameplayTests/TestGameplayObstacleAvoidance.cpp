@@ -25,8 +25,11 @@ namespace
     class ScriptedObstacleQuery final : public IGameplayObstacleQuery
     {
     public:
-        explicit ScriptedObstacleQuery(std::vector<ScriptedResult> results = {})
+        explicit ScriptedObstacleQuery(
+            std::vector<ScriptedResult> results = {},
+            std::vector<ScriptedResult> supportResults = {})
             : results_(std::move(results))
+            , supportResults_(std::move(supportResults))
         {
         }
 
@@ -49,14 +52,19 @@ namespace
             GameplaySupportProbeHit& hit) const noexcept override
         {
             supportRequests.push_back(request);
-            hit.distance = 0.0f;
-            hit.position = request.origin;
-            hit.normal = {0.0f, 1.0f, 0.0f};
-            return true;
+            const ScriptedResult result = nextSupportResult_ < supportResults_.size()
+                 ? supportResults_[nextSupportResult_++]
+                 : ScriptedResult{true, 0.0f, request.origin, {0.0f, 1.0f, 0.0f}};
+            hit.distance = result.distance;
+            hit.position = supportResults_.empty() ? request.origin : result.position;
+            hit.normal = result.normal;
+            return result.hit;
         }
 
         mutable std::vector<GameplayObstacleProbeRequest> requests{};
+        std::vector<ScriptedResult> supportResults_{};
         mutable std::vector<GameplaySupportProbeRequest> supportRequests{};
+        mutable std::size_t nextSupportResult_{0};
 
     private:
         std::vector<ScriptedResult> results_{};
@@ -102,6 +110,148 @@ namespace
         EXPECT_FLOAT_EQ(output.moveMagnitude, input.moveMagnitude);
         EXPECT_EQ(output.wantsRun, input.wantsRun);
     }
+}
+
+TEST(GameplayObstacleAvoidance, WalkableSupportClassifiesNormalizedAndScaledNormals)
+{
+    struct Case
+    {
+        float maximumSlope;
+        mathUtils::Vec3 normal;
+        bool expectedSupported;
+    };
+    constexpr float sqrtHalf = 0.70710678f;
+    const Case cases[]{
+        {38.0f, {0.0f, 1.0f, 0.0f}, true},
+        {45.0f, {0.5f, 0.8660254f, 0.0f}, true},
+        {38.0f, {0.819152f, 0.573576f, 0.0f}, false},
+        {45.0f, {sqrtHalf, sqrtHalf, 0.0f}, true},
+        {45.0f, {5.0f, 8.660254f, 0.0f}, true}
+    };
+
+    for (const Case& testCase : cases)
+    {
+        ScriptedObstacleQuery query{
+            {{true, 0.1f}, {false}, {false}},
+            {{true, 0.0f, {}, testCase.normal}, {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+        GameplayObstacleAvoidanceDebugSnapshot debug{};
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(),
+             .maximumWalkableSlopeAngleDegrees = testCase.maximumSlope},
+            query, {}, &debug);
+        EXPECT_EQ(debug.leftSupported, testCase.expectedSupported);
+        EXPECT_TRUE(debug.rightSupported);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, WalkabilityRejectsDegenerateNormals)
+{
+    const float infinity = std::numeric_limits<float>::infinity();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const mathUtils::Vec3 normals[]{{}, {nan, 1.0f, 0.0f}, {infinity, 1.0f, 0.0f}};
+    for (const mathUtils::Vec3& normal : normals)
+    {
+        ScriptedObstacleQuery query{
+            {{true, 0.1f}, {false}, {false}},
+            {{true, 0.0f, {}, normal}, {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+        GameplayObstacleAvoidanceDebugSnapshot debug{};
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(), .maximumWalkableSlopeAngleDegrees = 45.0f},
+            query, {}, &debug);
+        EXPECT_FALSE(debug.leftSupported);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, MalformedExplicitSlopeIsConservative)
+{
+    const float malformed[]{-10.0f, std::numeric_limits<float>::quiet_NaN(),
+        std::numeric_limits<float>::infinity()};
+    for (const float slope : malformed)
+    {
+        ScriptedObstacleQuery query{
+            {{true, 0.1f}, {false}, {false}},
+            {{true, 0.0f, {}, {0.5f, 0.8660254f, 0.0f}},
+             {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+        GameplayObstacleAvoidanceDebugSnapshot debug{};
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(), .maximumWalkableSlopeAngleDegrees = slope},
+            query, {}, &debug);
+        EXPECT_FALSE(debug.leftSupported);
+        EXPECT_TRUE(debug.rightSupported);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, AbsentSlopePreservesSupportExistenceSemantics)
+{
+    ScriptedObstacleQuery query{
+        {{true, 0.1f}, {false}, {false}},
+        {{true, 0.0f, {}, {}}, {true, 0.0f, {}, {0.0f, -1.0f, 0.0f}}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    ApplyGameplayObstacleAvoidance({.baseMovement = MovingIntent()}, query, {}, &debug);
+    EXPECT_TRUE(debug.leftSupported);
+    EXPECT_TRUE(debug.rightSupported);
+}
+
+TEST(GameplayObstacleAvoidance, LegacySupportUnawareQueryRemainsWalkable)
+{
+    NearWallObstacleQuery query{};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(),
+         .probeOrigin = {-0.1f, 0.8f, 0.0f},
+         .maximumWalkableSlopeAngleDegrees = 0.0f},
+        query, {}, &debug);
+    EXPECT_TRUE(debug.leftSupported);
+    EXPECT_TRUE(debug.rightSupported);
+}
+
+TEST(GameplayObstacleAvoidance, WalkabilitySafetyOverridesClearanceAndHysteresis)
+{
+    GameplayObstacleAvoidanceState state{GameplayObstacleAvoidanceSide::Left};
+    ScriptedObstacleQuery query{
+        {{true, 0.1f}, {false}, {true, 0.2f}},
+        {{true, 0.0f, {}, {0.8660254f, 0.5f, 0.0f}},
+         {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .maximumWalkableSlopeAngleDegrees = 38.0f},
+        query, {}, state, &debug);
+    EXPECT_GT(output.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Right);
+    EXPECT_TRUE(debug.safetyOverride);
+    EXPECT_FALSE(debug.sideHeldByHysteresis);
+}
+
+TEST(GameplayObstacleAvoidance, BothWalkablePreservesHysteresisDecision)
+{
+    GameplayObstacleAvoidanceState state{GameplayObstacleAvoidanceSide::Left};
+    ScriptedObstacleQuery query{
+        {{true, 0.1f}, {true, 0.8f}, {true, 0.85f}},
+        {{true, 0.0f, {}, {0.5f, 0.8660254f, 0.0f}},
+         {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .maximumWalkableSlopeAngleDegrees = 45.0f},
+        query, {.sideSwitchClearanceAdvantage = 0.15f}, state, &debug);
+    EXPECT_LT(output.moveWorld.z, 0.0f);
+    EXPECT_EQ(state.committedSide, GameplayObstacleAvoidanceSide::Left);
+    EXPECT_TRUE(debug.leftSupported);
+    EXPECT_TRUE(debug.rightSupported);
+    EXPECT_TRUE(debug.sideHeldByHysteresis);
+}
+
+TEST(GameplayObstacleAvoidance, MissingSupportRemainsUnsafe)
+{
+    ScriptedObstacleQuery query{
+        {{true, 0.1f}, {false}, {false}},
+        {{false}, {true, 0.0f, {}, {0.0f, 1.0f, 0.0f}}}};
+    GameplayObstacleAvoidanceDebugSnapshot debug{};
+    const GameplayMovementIntent output = ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .maximumWalkableSlopeAngleDegrees = 45.0f},
+        query, {}, &debug);
+    EXPECT_FALSE(debug.leftSupported);
+    EXPECT_TRUE(debug.rightSupported);
+    EXPECT_GT(output.moveWorld.z, 0.0f);
 }
 
 TEST(GameplayObstacleAvoidance, ClearPathDebugSnapshot)

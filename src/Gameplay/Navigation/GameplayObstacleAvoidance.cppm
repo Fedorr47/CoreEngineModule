@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 export module core:gameplay_obstacle_avoidance;
 
@@ -86,9 +87,14 @@ export namespace rendern
         
         // Queries may retain the legacy, support-unaware behavior by not overriding this.
         [[nodiscard]] virtual bool ProbeSupport(
-            const GameplaySupportProbeRequest&,
-            GameplaySupportProbeHit&) const noexcept
+        const GameplaySupportProbeRequest& request,
+         GameplaySupportProbeHit& hit) const noexcept
         {
+            hit = {
+                .distance = 0.0f,
+                .position = request.origin,
+                .normal = {0.0f, 1.0f, 0.0f}
+            };
             return true;
         }
     };
@@ -113,6 +119,7 @@ export namespace rendern
         float characterRadius{0.0f};
         float supportOriginVerticalOffset{0.0f};
         float currentPlanarSpeed{0.0f};
+        std::optional<float> maximumWalkableSlopeAngleDegrees{};
     };
     
     [[nodiscard]] GameplayMovementIntent ApplyGameplayObstacleAvoidance(
@@ -162,6 +169,8 @@ namespace
         float supportUpOffset{0.0f};
         float maximumSupportDropDistance{0.0f};
         float supportOriginVerticalOffset{0.0f};
+        bool validateWalkability{false};
+        float minimumWalkableUpDot{0.0f};
     };
 
     struct ProbeResult
@@ -197,6 +206,11 @@ namespace
         const float forwardDistance = std::isfinite(speedDistance)
             ? std::max(baselineForwardDistance, speedDistance)
             : baselineForwardDistance;
+        const bool validateWalkability = input.maximumWalkableSlopeAngleDegrees.has_value();
+        const float suppliedSlope = input.maximumWalkableSlopeAngleDegrees.value_or(0.0f);
+        const float maximumWalkableSlopeDegrees = std::isfinite(suppliedSlope)
+            ? std::clamp(suppliedSlope, 0.0f, 90.0f)
+            : 0.0f;
         return {
             .forwardDistance = forwardDistance,
             .sideDistance = FiniteOrZero(settings.sideProbeDistance),
@@ -207,7 +221,10 @@ namespace
             .supportForwardDistance = FiniteOrZero(settings.supportProbeForwardDistance),
             .supportUpOffset = FiniteOrZero(settings.supportProbeUpOffset),
             .maximumSupportDropDistance = FiniteOrZero(settings.maximumSupportDropDistance),
-            .supportOriginVerticalOffset = FiniteOrZero(input.supportOriginVerticalOffset)
+            .supportOriginVerticalOffset = FiniteOrZero(input.supportOriginVerticalOffset),
+            .validateWalkability = validateWalkability,
+            .minimumWalkableUpDot = std::cos(
+                mathUtils::DegToRad(maximumWalkableSlopeDegrees))
         };
     }
 
@@ -284,9 +301,23 @@ namespace
         {
             return false;
         }
-        return std::isfinite(hit.distance) && hit.distance >= 0.0f &&
+        const bool validHit = std::isfinite(hit.distance) && hit.distance >= 0.0f &&
             hit.distance <= maximumDistance && mathUtils::IsFinite(hit.position) &&
             mathUtils::IsFinite(hit.normal);
+        if (!validHit || !settings.validateWalkability)
+        {
+            return validHit;
+        }
+
+        const float normalLengthSquared = mathUtils::Dot(hit.normal, hit.normal);
+        if (!std::isfinite(normalLengthSquared) ||
+            normalLengthSquared <= mathUtils::kLengthEpsilonSq)
+        {
+            return false;
+        }
+        const mathUtils::Vec3 normalizedNormal = hit.normal / std::sqrt(normalLengthSquared);
+        return mathUtils::IsFinite(normalizedNormal) &&
+            normalizedNormal.y >= settings.minimumWalkableUpDot - mathUtils::kLengthEpsilonSq;
     }
 
     [[nodiscard]] mathUtils::Vec3 BuildEscapeCandidate(
