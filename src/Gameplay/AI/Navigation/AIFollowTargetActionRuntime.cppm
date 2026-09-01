@@ -10,6 +10,7 @@ import :ai_action_contracts;
 import :ai_action_runtime;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
+import :gameplay_agent_obstacle_avoidance;
 import :gameplay_steering_debug;
 
 export namespace rendern
@@ -132,27 +133,9 @@ export namespace rendern
             }
             if (obstacleQuery_ != nullptr)
             {
-                if (const auto* physical = world_.TryGetCharacterPhysicalSettings(agentEntity))
-                {
-                    const mathUtils::Vec3 origin = world_.TryGetTransform(agentEntity)->position +
-                        mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
-                    const GameplayCharacterMotorComponent* motor =
-                        world_.TryGetCharacterMotor(agentEntity);
-                    const mathUtils::Vec3 planarVelocity{
-                        motor->velocity.x, 0.0f, motor->velocity.z};
-                    const GameplayObstacleAvoidanceInput avoidanceInput{
-                        .baseMovement = movement,
-                        .probeOrigin = origin,
-                        .characterRadius = physical->radius,
-                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f,
-                        .currentPlanarSpeed = mathUtils::Length(planarVelocity),
-                        .maximumWalkableSlopeAngleDegrees = physical->maximumSlopeAngleDegrees
-                    };
-                    movement = ApplyGameplayObstacleAvoidance(
-                        avoidanceInput, *obstacleQuery_, obstacleSettings_,
-                        obstacleAvoidanceState_,
-                        debugEnabled ? &debug : nullptr);
-                }
+                movement = ApplyGameplayAgentObstacleAvoidance(
+                    world_, agentEntity, movement, *obstacleQuery_, obstacleSettings_,
+                    obstacleAvoidanceState_, debugEnabled ? &debug : nullptr);
             }
             if (debugEnabled)
             {

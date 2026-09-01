@@ -15,7 +15,109 @@
       "debugName": "Steering agent"
     }
   },
-  "animations": {},
+  "animations": {
+    "breathing_idle": {
+      "path": "animations/Breathing Idle.fbx",
+      "flipUVs": true,
+      "debugName": "Breathing Idle"
+    },
+    "idle": {
+      "path": "animations/idle.fbx",
+      "flipUVs": true,
+      "debugName": "idle"
+    },
+    "jump": {
+      "path": "animations/jump.fbx",
+      "flipUVs": true,
+      "debugName": "jump"
+    },
+    "left_strafe": {
+      "path": "animations/left strafe.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe"
+    },
+    "left_strafe_walking": {
+      "path": "animations/left strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe walking"
+    },
+    "left_turn": {
+      "path": "animations/left turn.fbx",
+      "flipUVs": true,
+      "debugName": "left turn"
+    },
+    "left_turn_90": {
+      "path": "animations/left turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "left turn 90"
+    },
+    "punching_attack": {
+      "path": "animations/Punching.fbx",
+      "flipUVs": true,
+      "debugName": "Punching Attack"
+    },
+    "right_strafe": {
+      "path": "animations/right strafe.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe"
+    },
+    "right_strafe_walking": {
+      "path": "animations/right strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe walking"
+    },
+    "right_turn": {
+      "path": "animations/right turn.fbx",
+      "flipUVs": true,
+      "debugName": "right turn"
+    },
+    "right_turn_90": {
+      "path": "animations/right turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "right turn 90"
+    },
+    "running": {
+      "path": "animations/running.fbx",
+      "flipUVs": true,
+      "debugName": "running"
+    },
+    "running_backward": {
+      "path": "animations/Running Backward.fbx",
+      "flipUVs": true,
+      "debugName": "Running Backward"
+    },
+    "running_jump": {
+      "path": "animations/Running Jump.fbx",
+      "flipUVs": true,
+      "debugName": "Running Jump"
+    },
+    "swing_dancing": {
+      "path": "animations/Swing Dancing.fbx",
+      "flipUVs": true,
+      "debugName": "Swing Dancing"
+    },
+    "walking": {
+      "path": "animations/walking.fbx",
+      "flipUVs": true,
+      "debugName": "walking"
+    },
+    "walking_backward": {
+      "path": "animations/Walking Backwards.fbx",
+      "flipUVs": true,
+      "debugName": "Walking Backwards"
+    }
+  },
+  "animationProfileAssets": {
+    "human": {
+      "path": "animProfiles/human.animationprofile.json"
+    }
+  },
+  "animationProfiles": {},
+  "animationControllerAssets": {
+    "fsm_test_locomotion_action": {
+      "path": "animControllers/fsm_test_locomotion_action.phaseB.json"
+    }
+  },
   "animationControllers": {},
   "textures": {},
   "materials": {
@@ -191,7 +293,10 @@
         ]
       },
       "skinnedMesh": "character",
-      "material": "target"
+      "material": "target",
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+
     },
     {
       "name": "Steering_Follow_Agent",
@@ -216,7 +321,10 @@
         ]
       },
       "skinnedMesh": "character",
-      "material": "follow"
+      "material": "follow",
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+
     },
     {
       "name": "Steering_Flee_Agent",
@@ -241,7 +349,9 @@
         ]
       },
       "skinnedMesh": "character",
-      "material": "flee"
+      "material": "flee",
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
     },
     {
       "name": "Steering_Flee_Threat",
@@ -266,7 +376,9 @@
         ]
       },
       "skinnedMesh": "character",
-      "material": "threat"
+      "material": "threat",
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
     },
     {
       "name": "Steering_Route_Agent",
@@ -291,7 +403,9 @@
         ]
       },
       "skinnedMesh": "character",
-      "material": "route"
+      "material": "route",
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
     },
     {
       "name": "Steering_Route_Start",

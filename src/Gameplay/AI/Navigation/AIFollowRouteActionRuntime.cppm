@@ -17,6 +17,7 @@ import :character_controller;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
 import :gameplay_traversal_executor_registry;
+import :gameplay_agent_obstacle_avoidance;
 
 export namespace rendern
 {
@@ -184,25 +185,9 @@ export namespace rendern
             }
             if (obstacleQuery_ != nullptr)
             {
-                if (const auto* physical = world_.TryGetCharacterPhysicalSettings(entity))
-                {
-                    const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
-                        mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
-                    const mathUtils::Vec3 planarVelocity{
-                        motor->velocity.x, 0.0f, motor->velocity.z};
-                    const GameplayObstacleAvoidanceInput avoidanceInput{
-                        .baseMovement = finalMovement,
-                        .probeOrigin = origin,
-                        .characterRadius = physical->radius,
-                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f,
-                        .currentPlanarSpeed = mathUtils::Length(planarVelocity),
-                        .maximumWalkableSlopeAngleDegrees = physical->maximumSlopeAngleDegrees
-                    };
-                    finalMovement = ApplyGameplayObstacleAvoidance(
-                        avoidanceInput, *obstacleQuery_, obstacleSettings_,
-                        obstacleAvoidanceState_,
-                        debugEnabled ? &debug : nullptr);
-                }
+                finalMovement = ApplyGameplayAgentObstacleAvoidance(
+                    world_, entity, finalMovement, *obstacleQuery_, obstacleSettings_,
+                    obstacleAvoidanceState_, debugEnabled ? &debug : nullptr);
             }
             if (debugEnabled)
             {
