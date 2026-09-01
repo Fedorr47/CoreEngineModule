@@ -146,7 +146,8 @@ TEST(GameplayObstacleAvoidance, HitPositionAndNormalArePropagated)
     const mathUtils::Vec3 normal{0.0f, 0.0f, -1.0f};
     ScriptedObstacleQuery query{{{true, 0.5f, position, normal}, {false}, {false}}};
     GameplayObstacleAvoidanceDebugSnapshot debug{};
-    ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query, {}, &debug);
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query, {}, &debug);
     MathTestHelper::ExpectVec3Near(debug.forward.hitPosition, position, MathTestHelper::kEpsVec);
     MathTestHelper::ExpectVec3Near(debug.forward.hitNormal, normal, MathTestHelper::kEpsVec);
 }
@@ -155,7 +156,8 @@ TEST(GameplayObstacleAvoidance, StationaryDebugSnapshotHasNoStaleProbes)
 {
     ScriptedObstacleQuery query{};
     GameplayObstacleAvoidanceDebugSnapshot debug{};
-    ApplyGameplayObstacleAvoidance({}, {}, query, {}, &debug);
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance({}, {}, query, {}, &debug);
     EXPECT_TRUE(debug.evaluated);
     EXPECT_FALSE(debug.active);
     EXPECT_FALSE(debug.forward.queried);
@@ -246,7 +248,9 @@ TEST(GameplayObstacleAvoidance, BuildsThreePlanarNormalizedFeelersWithConfigured
         .sideProbeDistance = 1.25f,
         .sideProbeAngleDegrees = 30.0f
     };
-    ApplyGameplayObstacleAvoidance(MovingIntent(), {4.0f, 2.0f, 3.0f}, query, settings);
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance(
+            MovingIntent(), {4.0f, 2.0f, 3.0f}, query, settings);
 
     ASSERT_EQ(query.requests.size(), 3u);
     EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 2.5f);
@@ -268,11 +272,12 @@ TEST(GameplayObstacleAvoidance, BuildsThreePlanarNormalizedFeelersWithConfigured
     EXPECT_GT(query.requests[2].direction.z, 0.0f);
 }
 
+TEST(GameplayObstacleAvoidance, ForwardProbeUsesBaselineUntilSpeedHorizonExceedsIt)
 {
     const GameplayObstacleAvoidanceSettings settings{
         .forwardProbeDistance = 1.0f,
+        .sideProbeDistance = 1.25f,
         .forwardProbeTimeHorizonSeconds = 0.5f,
-        .sideProbeDistance = 1.25f
     };
     ScriptedObstacleQuery stationaryQuery{};
     ScriptedObstacleQuery slowQuery{};
@@ -330,12 +335,13 @@ TEST(GameplayObstacleAvoidance, MalformedSpeedHorizonFallsBackToFiniteBaseline)
 TEST(GameplayObstacleAvoidance, OverflowingSpeedHorizonFallsBackToBaseline)
 {
     ScriptedObstacleQuery query{};
-    ApplyGameplayObstacleAvoidance(
-        {.baseMovement = MovingIntent(),
-         .currentPlanarSpeed = std::numeric_limits<float>::max()},
-        query,
-        {.forwardProbeDistance = 1.5f,
-         .forwardProbeTimeHorizonSeconds = std::numeric_limits<float>::max()});
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(),
+             .currentPlanarSpeed = std::numeric_limits<float>::max()},
+            query,
+            {.forwardProbeDistance = 1.5f,
+             .forwardProbeTimeHorizonSeconds = std::numeric_limits<float>::max()});
 
     ASSERT_EQ(query.requests.size(), 3u);
     EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 1.5f);
@@ -344,8 +350,9 @@ TEST(GameplayObstacleAvoidance, OverflowingSpeedHorizonFallsBackToBaseline)
 TEST(GameplayObstacleAvoidance, AppliesCharacterClearanceRadiusToEveryProbe)
 {
     ScriptedObstacleQuery query{};
-    ApplyGameplayObstacleAvoidance(
-    {.baseMovement = MovingIntent(), .characterRadius = 0.35f}, query);
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(), .characterRadius = 0.35f}, query);
 
     ASSERT_EQ(query.requests.size(), 3u);
     for (const GameplayObstacleProbeRequest& request : query.requests)
@@ -377,7 +384,8 @@ TEST(GameplayObstacleAvoidance, SharedSettingsDoNotContaminatePerEvaluationRadiu
 TEST(GameplayObstacleAvoidance, ZeroRadiusPreservesPointProbesDespiteDefaultMargin)
 {
     ScriptedObstacleQuery query{};
-    ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query);
+    [[maybe_unused]] const GameplayMovementIntent output =
+        ApplyGameplayObstacleAvoidance(MovingIntent(), {}, query);
 
     ASSERT_EQ(query.requests.size(), 3u);
     for (const GameplayObstacleProbeRequest& request : query.requests)
@@ -410,8 +418,9 @@ TEST(GameplayObstacleAvoidance, MalformedClearanceSettingsCannotReachObstacleQue
     for (std::size_t index = 0; index < std::size(malformedSettings); ++index)
     {
         ScriptedObstacleQuery query{};
-        ApplyGameplayObstacleAvoidance(
-            malformedInputs[index], query, malformedSettings[index]);
+        [[maybe_unused]] const GameplayMovementIntent output =
+            ApplyGameplayObstacleAvoidance(
+                malformedInputs[index], query, malformedSettings[index]);
         ASSERT_EQ(query.requests.size(), 3u);
         const float expectedRadius = index < 3u ? 0.0f : 0.3f;
         for (const GameplayObstacleProbeRequest& request : query.requests)

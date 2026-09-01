@@ -37,7 +37,7 @@ namespace
     }
 }
 
-EST(GameplayRouteFollower, DisabledLookAheadPreservesWaypointDirectedMovement)
+TEST(GameplayRouteFollower, DisabledLookAheadPreservesWaypointDirectedMovement)
 {
     GameplayRouteFollower follower{};
     ASSERT_EQ(follower.Start(OrdinaryRoute({

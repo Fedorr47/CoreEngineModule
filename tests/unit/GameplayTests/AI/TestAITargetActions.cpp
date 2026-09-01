@@ -40,7 +40,7 @@ namespace
                 {0.1f, 0.8f, 0.7f},
                 {0.1f, 0.8f, 0.85f},
                 {0.1f, 0.8f, 0.85f}};
-            const std::size_t evaluation = std::min(callCount / 3u, 2u);
+            const std::size_t evaluation = std::min(callCount / 3u, std::size_t{2u});
             hit.distance = clearances[evaluation][callCount % 3u];
             ++callCount;
             return true;

@@ -1129,8 +1129,8 @@ TEST(DevelopmentScenarioRunner, SteeringPlaygroundLoadsAndStartsProductionAction
     EXPECT_EQ(runtime.GetAIActionStatus(flee), rendern::AIActionExecutionStatus::Running);
     EXPECT_EQ(runtime.GetAIActionStatus(route), rendern::AIActionExecutionStatus::Running);
     rendern::GameplayUpdateContext gameContext{
-        .mode = rendern::GameplayRuntimeMode::Game,
         .deltaSeconds = 1.0f / 60.0f,
+        .mode = rendern::GameplayRuntimeMode::Game,
         .levelAsset = &level,
         .levelInstance = &instance,
         .scene = &scene};
