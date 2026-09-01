@@ -136,12 +136,14 @@ export namespace rendern
                 {
                     const mathUtils::Vec3 origin = world_.TryGetTransform(agentEntity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
-                    GameplayObstacleAvoidanceSettings settings = obstacleSettings_;
-                    settings.characterRadius = physical->radius;
-                    settings.supportOriginVerticalOffset =
-                        physical->GetTotalHeight() * 0.5f;
+                    const GameplayObstacleAvoidanceInput avoidanceInput{
+                        .baseMovement = movement,
+                        .probeOrigin = origin,
+                        .characterRadius = physical->radius,
+                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f
+                    };
                     movement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, settings,
+                        avoidanceInput, *obstacleQuery_, obstacleSettings_,
                         obstacleAvoidanceState_,
                         debugEnabled ? &debug : nullptr);
                 }

@@ -281,8 +281,7 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, PhysicalCharacterEscapesStaticOb
     rendern::GameplayObstacleAvoidanceState avoidanceState{};
     const rendern::GameplayObstacleAvoidanceSettings settings{
         .forwardProbeDistance = 1.0f,
-        .sideProbeDistance = 1.0f,
-        .characterRadius = characterRadius
+        .sideProbeDistance = 1.0f
     };
     const rendern::GameplayMovementIntent baseMovement{
         .moveWorld = {1.0f, 0.0f, 0.0f},
@@ -298,7 +297,8 @@ TEST_F(GameplayPhysicsCharacterIntegrationTest, PhysicalCharacterEscapesStaticOb
         ASSERT_TRUE(position.has_value());
         const rendern::GameplayMovementIntent movement =
             rendern::ApplyGameplayObstacleAvoidance(
-                baseMovement, *position, query, settings, avoidanceState);
+    {.baseMovement = baseMovement, .probeOrigin = *position, .characterRadius = characterRadius},
+            query, settings, avoidanceState);
         avoidanceActivated = avoidanceActivated ||
             avoidanceState.committedSide != rendern::GameplayObstacleAvoidanceSide::None;
         consecutiveReleasedSteps = avoidanceActivated &&

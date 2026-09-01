@@ -33,12 +33,14 @@ export namespace rendern
             GameplayArrivalSteeringSettings steeringSettings = {},
              const IGameplayObstacleQuery* obstacleQuery = nullptr,
              GameplayObstacleAvoidanceSettings obstacleSettings = {},
-             GameplaySteeringDebugRegistry* debugRegistry = nullptr) noexcept
+             GameplaySteeringDebugRegistry* debugRegistry = nullptr,
+             GameplayRouteFollowerSettings followerSettings = {}) noexcept
         : world_(world)
         , traversalLinkRegistry_(traversalLinkRegistry)
         , traversalExecutorRegistry_(traversalExecutorRegistry)
         , route_(std::move(route))
         , steeringSettings_(steeringSettings)
+        , followerSettings_(followerSettings)
         , obstacleQuery_(obstacleQuery)
         , obstacleSettings_(obstacleSettings)
         , debugRegistry_(debugRegistry)
@@ -55,7 +57,8 @@ export namespace rendern
                 return AIActionRuntimeResult::Failed;
             }
             
-            const GameplayRouteFollowerStatus followerStatus = follower_.Start(std::move(route_), steeringSettings_);
+            const GameplayRouteFollowerStatus followerStatus = follower_.Start(
+                std::move(route_), steeringSettings_, followerSettings_);
             if (followerStatus == GameplayRouteFollowerStatus::Following)
             {
                 return AIActionRuntimeResult::Running;
@@ -185,12 +188,14 @@ export namespace rendern
                 {
                     const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
-                    GameplayObstacleAvoidanceSettings settings = obstacleSettings_;
-                    settings.characterRadius = physical->radius;
-                    settings.supportOriginVerticalOffset =
-                        physical->GetTotalHeight() * 0.5f;
+                    const GameplayObstacleAvoidanceInput avoidanceInput{
+                        .baseMovement = finalMovement,
+                        .probeOrigin = origin,
+                        .characterRadius = physical->radius,
+                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f
+                    };
                     finalMovement = ApplyGameplayObstacleAvoidance(
-                        movement, origin, *obstacleQuery_, settings,
+                        avoidanceInput, *obstacleQuery_, obstacleSettings_,
                         obstacleAvoidanceState_,
                         debugEnabled ? &debug : nullptr);
                 }
@@ -328,6 +333,7 @@ export namespace rendern
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry_;
         GameplayRoute route_{};
         GameplayArrivalSteeringSettings steeringSettings_{};
+        GameplayRouteFollowerSettings followerSettings_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
         GameplayObstacleAvoidanceState obstacleAvoidanceState_{};

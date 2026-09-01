@@ -37,6 +37,19 @@ namespace
             .segmentAnnotations = {GameplayRouteSegmentAnnotation{}}
         };
     }
+    
+    [[nodiscard]] GameplayRoute MakeCornerRoute()
+    {
+        return GameplayRoute{
+            .points = {
+                GameplayRoutePoint{.worldPosition = {0.0f, 0.0f, 0.0f}},
+                GameplayRoutePoint{.worldPosition = {1.0f, 0.0f, 0.0f}},
+                GameplayRoutePoint{.worldPosition = {1.0f, 0.0f, 1.0f}}
+            },
+            .segmentAnnotations = {
+                GameplayRouteSegmentAnnotation{}, GameplayRouteSegmentAnnotation{}}
+        };
+    }
 
     [[nodiscard]] AIActionRuntimeContext MakeContext(const EntityHandle entity)
     {
@@ -128,4 +141,22 @@ TEST(AIFollowRouteActionRuntime, AvoidanceCorrectsFollowingAndPreservesArrivalMa
     {
         EXPECT_FLOAT_EQ(request.clearanceRadius, 0.32f);
     }
+}
+
+TEST(AIFollowRouteActionRuntime, PropagatesExplicitRouteFollowerSettings)
+{
+    GameplayWorld world{};
+    const EntityHandle agent = CreateMovingAgent(world);
+    GameplayTraversalLinkRegistry links{};
+    GameplayTraversalExecutorRegistry executors{};
+    AIFollowRouteActionRuntime runtime{
+        world, links, executors, MakeCornerRoute(), {}, nullptr, {}, nullptr,
+        {.cornerLookAheadDistance = 0.0f}};
+
+    ASSERT_EQ(runtime.Start(MakeContext(agent)), AIActionRuntimeResult::Running);
+    ASSERT_EQ(runtime.Tick(MakeContext(agent), 1.0f / 60.0f), AIActionRuntimeResult::Running);
+    const GameplayCharacterCommandComponent* command = world.TryGetCharacterCommand(agent);
+    ASSERT_NE(command, nullptr);
+    EXPECT_GT(command->moveWorld.x, 0.99f);
+    EXPECT_NEAR(command->moveWorld.z, 0.0f, 0.001f);
 }
