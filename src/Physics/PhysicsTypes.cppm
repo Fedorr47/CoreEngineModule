@@ -172,6 +172,16 @@ export namespace physics
         SurfaceTypeId surface{ InvalidSurfaceType };
     };
     
+    // Read-only, engine-facing state used by runtime diagnostics.
+    struct PhysicsCharacterDebugState
+    {
+        CharacterColliderDescriptor collider{};
+        mathUtils::Vec3 position{};
+        mathUtils::Vec3 desiredVelocity{};
+        mathUtils::Vec3 actualVelocity{};
+        CharacterGroundState ground{};
+    };
+    
     struct CharacterMotionStepObservation
     {
         mathUtils::Vec3 displacement{};

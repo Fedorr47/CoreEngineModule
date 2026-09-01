@@ -1050,7 +1050,8 @@ namespace physics
         JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
             &settings, basePosition, rotation, &impl_->physicsSystem);
         return impl_->characterRegistry.AllocateHandle(
-            std::move(character), descriptor.maximumSpeed, descriptor.maximumStepHeight);
+            std::move(character), descriptor.collider,
+            descriptor.maximumSpeed, descriptor.maximumStepHeight);
     }
 
     bool JoltPhysicsWorld::DestroyCharacter(const PhysicsCharacterHandle handle)
@@ -1198,5 +1199,27 @@ namespace physics
             result.surface = impl_->bodyRegistry.ResolveSurface(*body).value_or(InvalidSurfaceType);
         }
         return result;
+    }
+    
+    std::optional<PhysicsCharacterDebugState> JoltPhysicsWorld::GetCharacterDebugState(
+        const PhysicsCharacterHandle handle) const noexcept
+    {
+        const auto collider = impl_ ? impl_->characterRegistry.GetCollider(handle) : std::nullopt;
+        const auto desiredVelocity = impl_
+            ? impl_->characterRegistry.GetDesiredVelocity(handle) : std::nullopt;
+        const auto position = GetCharacterPosition(handle);
+        const auto velocity = GetCharacterVelocity(handle);
+        const auto ground = GetCharacterGroundState(handle);
+        if (!collider || !desiredVelocity || !position || !velocity || !ground)
+        {
+            return std::nullopt;
+        }
+        return PhysicsCharacterDebugState{
+            .collider = *collider,
+            .position = *position,
+            .desiredVelocity = *desiredVelocity,
+            .actualVelocity = *velocity,
+            .ground = *ground
+        };
     }
 }

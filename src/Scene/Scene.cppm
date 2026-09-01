@@ -29,6 +29,21 @@ export namespace rendern
 		std::uint32_t rgba{};
 	};
 	
+	struct ExternalDebugCapsule
+	{
+		mathUtils::Vec3 center{};
+		float radius{};
+		float cylinderHeight{};
+		std::uint32_t rgba{};
+	};
+
+	struct ExternalDebugArrow
+	{
+		mathUtils::Vec3 start{};
+		mathUtils::Vec3 end{};
+		std::uint32_t rgba{};
+	};
+	
 	// High-level transform used by the CPU side.
 	// Convention: rotationDegrees is applied as Z * Y * X after translation.
 	struct Transform
@@ -451,6 +466,8 @@ export namespace rendern
 		GameplayMovementDebugState gameplayMovementDebug{};
 		AnimationRuntimeDebugState animationRuntimeDebug{};
 		std::vector<ExternalDebugLine> externalDebugLines{};
+		std::vector<ExternalDebugCapsule> externalDebugCapsules{};
+		std::vector<ExternalDebugArrow> externalDebugArrows{};
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };

@@ -54,6 +54,8 @@ namespace physics
         [[nodiscard]] bool SetCharacterDesiredVelocity(PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity);
         [[nodiscard]] bool RequestCharacterJump(PhysicsCharacterHandle handle, float verticalSpeed);
         [[nodiscard]] std::optional<CharacterGroundState> GetCharacterGroundState(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<PhysicsCharacterDebugState> GetCharacterDebugState(
+            PhysicsCharacterHandle handle) const noexcept;
         
     private:
         struct Implementation;

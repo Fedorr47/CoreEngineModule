@@ -312,5 +312,53 @@ export namespace rendern::debugDraw
 			AddCircle3D(center, mathUtils::Vec3(1.0f, 0.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), radius, rgba, segments, overlay);
 			AddCircle3D(center, mathUtils::Vec3(0.0f, 1.0f, 0.0f), mathUtils::Vec3(0.0f, 0.0f, 1.0f), radius, rgba, segments, overlay);
 		}
+		
+		void AddWireCapsuleY(const mathUtils::Vec3& center,
+			float radius,
+			float cylinderHeight,
+			std::uint32_t rgba,
+			std::uint32_t segments = 24,
+			bool overlay = false)
+		{
+			if (radius <= 1e-5f || cylinderHeight < 0.0f || segments < 6)
+			{
+				return;
+			}
+			const float halfCylinder = cylinderHeight * 0.5f;
+			const mathUtils::Vec3 top = center + mathUtils::Vec3(0.0f, halfCylinder, 0.0f);
+			const mathUtils::Vec3 bottom = center - mathUtils::Vec3(0.0f, halfCylinder, 0.0f);
+			AddWireCircle(top, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, radius, rgba, segments, overlay);
+			if (cylinderHeight > 1e-5f)
+			{
+				AddWireCircle(bottom, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, radius, rgba, segments, overlay);
+				for (std::uint32_t side = 0u; side < 4u; ++side)
+				{
+					const float angle = static_cast<float>(side) * mathUtils::Pi * 0.5f;
+					const mathUtils::Vec3 radial{std::cos(angle), 0.0f, std::sin(angle)};
+					AddLine(bottom + radial * radius, top + radial * radius, rgba, overlay);
+				}
+			}
+
+			const std::uint32_t arcSegments = std::max(3u, segments / 2u);
+			const auto addHemisphereArc = [&](const mathUtils::Vec3& capCenter,
+				const mathUtils::Vec3& horizontalAxis, const float verticalSign)
+			{
+				mathUtils::Vec3 previous = capCenter + horizontalAxis * radius;
+				for (std::uint32_t segment = 1u; segment <= arcSegments; ++segment)
+				{
+					const float angle = static_cast<float>(segment) /
+						static_cast<float>(arcSegments) * mathUtils::Pi;
+					const mathUtils::Vec3 point = capCenter
+						+ horizontalAxis * (std::cos(angle) * radius)
+						+ mathUtils::Vec3{0.0f, verticalSign * std::sin(angle) * radius, 0.0f};
+					AddLine(previous, point, rgba, overlay);
+					previous = point;
+				}
+			};
+			addHemisphereArc(top, {1.0f, 0.0f, 0.0f}, 1.0f);
+			addHemisphereArc(top, {0.0f, 0.0f, 1.0f}, 1.0f);
+			addHemisphereArc(bottom, {1.0f, 0.0f, 0.0f}, -1.0f);
+			addHemisphereArc(bottom, {0.0f, 0.0f, 1.0f}, -1.0f);
+		}
 	};
 }

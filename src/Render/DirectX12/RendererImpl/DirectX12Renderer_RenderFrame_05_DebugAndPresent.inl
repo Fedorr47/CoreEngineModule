@@ -5,6 +5,15 @@ for (const ExternalDebugLine& line : frameView.GetScene().externalDebugLines)
 {
 	debugList.AddLine(line.start, line.end, line.rgba);
 }
+for (const ExternalDebugCapsule& capsule : frameView.GetScene().externalDebugCapsules)
+{
+	debugList.AddWireCapsuleY(
+		capsule.center, capsule.radius, capsule.cylinderHeight, capsule.rgba);
+}
+for (const ExternalDebugArrow& arrow : frameView.GetScene().externalDebugArrows)
+{
+	debugList.AddArrow(arrow.start, arrow.end, arrow.rgba);
+}
 const AnimationRuntimeOverlaySnapshot& animationRuntimeOverlaySnapshot = frameView.GetAnimationRuntimeOverlaySnapshot();
 
 const auto animOverlayStart = std::chrono::steady_clock::now();

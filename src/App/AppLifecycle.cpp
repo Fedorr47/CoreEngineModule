@@ -339,11 +339,89 @@ namespace appLifecycle
 	{
 	    auto& runtime = app.runtimeState;
 	    runtime.scene.externalDebugLines.clear();
+        runtime.scene.externalDebugCapsules.clear();
+        runtime.scene.externalDebugArrows.clear();
         if (runtime.gameplayRuntime)
         {
             runtime.gameplayRuntime->SetSteeringDebugEnabled(
                 app.graphicsState.rendererSettings.drawAIPlannedPathDebug);
         }
+        const auto& physicsDebug = app.graphicsState.rendererSettings;
+	    const bool drawAnyCharacterPhysics = physicsDebug.drawPhysicsCharacters
+	        || physicsDebug.drawPhysicsCharacterGround
+	        || physicsDebug.drawPhysicsCharacterVelocity
+	        || physicsDebug.drawPhysicsCharacterBlocked;
+	    if (drawAnyCharacterPhysics && runtime.gameplayRuntime && app.physicsState.joltPhysicsWorld)
+	    {
+	        constexpr std::uint32_t capsuleColor = 0xffe0b060u;
+	        constexpr std::uint32_t walkableColor = 0xff55dd55u;
+	        constexpr std::uint32_t steepColor = 0xff44aaffu;
+	        constexpr std::uint32_t desiredColor = 0xff33ccffu;
+	        constexpr std::uint32_t actualColor = 0xffffcc33u;
+	        constexpr std::uint32_t blockedColor = 0xff3333ffu;
+	        constexpr float pointHalfSize = 0.08f;
+	        constexpr float normalLength = 0.5f;
+	        constexpr float zeroVectorEpsilon = 1e-4f;
+	        rendern::GameplayWorld& world = runtime.gameplayRuntime->GetWorld();
+	        for (const rendern::EntityHandle entity : runtime.gameplayRuntime->GetNodeBoundEntities())
+	        {
+	            const auto* binding = world.TryGetPhysicsCharacter(entity);
+	            if (binding == nullptr)
+	            {
+	                continue;
+	            }
+	            const auto state = app.physicsState.joltPhysicsWorld->GetCharacterDebugState(
+	                binding->character);
+	            if (!state)
+	            {
+	                continue;
+	            }
+	            if (physicsDebug.drawPhysicsCharacters)
+	            {
+	                runtime.scene.externalDebugCapsules.push_back({
+	                    state->position, state->collider.radius,
+	                    state->collider.cylinderHeight, capsuleColor});
+	            }
+	            if (physicsDebug.drawPhysicsCharacterGround && state->ground.bIsSupported)
+	            {
+	                const std::uint32_t color = state->ground.bIsWalkable
+	                    ? walkableColor : steepColor;
+	                const auto& point = state->ground.position;
+	                runtime.scene.externalDebugLines.push_back({
+	                    point - mathUtils::Vec3{pointHalfSize, 0.0f, 0.0f},
+	                    point + mathUtils::Vec3{pointHalfSize, 0.0f, 0.0f}, color});
+	                runtime.scene.externalDebugLines.push_back({
+	                    point - mathUtils::Vec3{0.0f, 0.0f, pointHalfSize},
+	                    point + mathUtils::Vec3{0.0f, 0.0f, pointHalfSize}, color});
+	                runtime.scene.externalDebugLines.push_back({
+	                    point, point + state->ground.normal * normalLength, color});
+	            }
+	            if (physicsDebug.drawPhysicsCharacterVelocity)
+	            {
+	                const float scale = physicsDebug.physicsCharacterVelocityScale;
+	                if (mathUtils::Length(state->desiredVelocity) > zeroVectorEpsilon)
+	                {
+	                    runtime.scene.externalDebugArrows.push_back({state->position,
+	                        state->position + state->desiredVelocity * scale, desiredColor});
+	                }
+	                if (mathUtils::Length(state->actualVelocity) > zeroVectorEpsilon)
+	                {
+	                    runtime.scene.externalDebugArrows.push_back({state->position,
+	                        state->position + state->actualVelocity * scale, actualColor});
+	                }
+	            }
+	            if (physicsDebug.drawPhysicsCharacterBlocked)
+	            {
+	                const auto* movement = world.TryGetCharacterMovementState(entity);
+	                if (movement != nullptr && movement->physicallyBlocked)
+	                {
+	                    const float markerRadius = state->collider.radius * 1.25f;
+	                    runtime.scene.externalDebugCapsules.push_back({state->position,
+	                        markerRadius, state->collider.cylinderHeight, blockedColor});
+	                }
+	            }
+	        }
+	    }
 	    if (app.graphicsState.rendererSettings.drawNavigationMesh
                && runtime.navigationState == AppRuntimeState::NavigationState::Ready
                && runtime.navigationProfiles)

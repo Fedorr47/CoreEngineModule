@@ -19,7 +19,8 @@ export namespace physics::jolt
     {
     public:
         [[nodiscard]] PhysicsCharacterHandle AllocateHandle(
-            JPH::Ref<JPH::CharacterVirtual> character, float maximumSpeed, float maximumStepHeight);
+            JPH::Ref<JPH::CharacterVirtual> character, CharacterColliderDescriptor collider,
+            float maximumSpeed, float maximumStepHeight);
         [[nodiscard]] JPH::CharacterVirtual* ResolveCharacter(PhysicsCharacterHandle handle) noexcept;
         [[nodiscard]] const JPH::CharacterVirtual* ResolveCharacter(PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] bool ReleaseHandle(PhysicsCharacterHandle handle);
@@ -27,6 +28,10 @@ export namespace physics::jolt
         [[nodiscard]] bool SetDesiredVelocity(PhysicsCharacterHandle handle, const mathUtils::Vec3& velocity) noexcept;
         [[nodiscard]] bool RequestJump(PhysicsCharacterHandle handle, float verticalSpeed) noexcept;
         [[nodiscard]] std::optional<mathUtils::Vec3> GetObservedVelocity(PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<mathUtils::Vec3> GetDesiredVelocity(
+            PhysicsCharacterHandle handle) const noexcept;
+        [[nodiscard]] std::optional<CharacterColliderDescriptor> GetCollider(
+            PhysicsCharacterHandle handle) const noexcept;
         [[nodiscard]] std::optional<CharacterMotionObservation> ConsumeMotionObservation(
             PhysicsCharacterHandle handle) noexcept;
         void ResetObservedVelocity(PhysicsCharacterHandle handle) noexcept;
@@ -66,6 +71,7 @@ export namespace physics::jolt
             mathUtils::Vec3 desiredHorizontalVelocity{};
             mathUtils::Vec3 observedVelocity{};
             CharacterMotionObservation motionObservation{};
+            CharacterColliderDescriptor collider{};
             float maximumSpeed{ 0.0f };
             float maximumStepHeight{ 0.0f };
             PhysicsCharacterHandle::GenerationType generation{ 1u };
@@ -87,6 +93,7 @@ namespace
 
 physics::PhysicsCharacterHandle physics::jolt::JoltCharacterRegistry::AllocateHandle(
     JPH::Ref<JPH::CharacterVirtual> character,
+    const CharacterColliderDescriptor collider,
     const float maximumSpeed,
     const float maximumStepHeight)
 {
@@ -120,6 +127,7 @@ physics::PhysicsCharacterHandle physics::jolt::JoltCharacterRegistry::AllocateHa
     slot.desiredHorizontalVelocity = {};
     slot.observedVelocity = {};
     slot.motionObservation = {};
+    slot.collider = collider;
     slot.maximumSpeed = maximumSpeed;
     slot.maximumStepHeight = maximumStepHeight;
     slot.bOccupied = true;
@@ -128,6 +136,16 @@ physics::PhysicsCharacterHandle physics::jolt::JoltCharacterRegistry::AllocateHa
         .index = index,
         .generation = slot.generation
     };
+}
+
+std::optional<physics::CharacterColliderDescriptor>
+physics::jolt::JoltCharacterRegistry::GetCollider(const PhysicsCharacterHandle handle) const noexcept
+{
+    if (ResolveCharacter(handle) == nullptr)
+    {
+        return std::nullopt;
+    }
+    return slots_[handle.index].collider;
 }
 
 std::optional<physics::CharacterMotionObservation>
@@ -152,6 +170,16 @@ std::optional<mathUtils::Vec3> physics::jolt::JoltCharacterRegistry::GetObserved
         return std::nullopt;
     }
     return slots_[handle.index].observedVelocity;
+}
+
+std::optional<mathUtils::Vec3> physics::jolt::JoltCharacterRegistry::GetDesiredVelocity(
+    const PhysicsCharacterHandle handle) const noexcept
+{
+    if (ResolveCharacter(handle) == nullptr)
+    {
+        return std::nullopt;
+    }
+    return slots_[handle.index].desiredHorizontalVelocity;
 }
 
 void physics::jolt::JoltCharacterRegistry::ResetObservedVelocity(
@@ -237,6 +265,7 @@ bool physics::jolt::JoltCharacterRegistry::ReleaseHandle(const PhysicsCharacterH
     slot.desiredHorizontalVelocity = {};
     slot.observedVelocity = {};
     slot.motionObservation = {};
+    slot.collider = {};
     slot.bOccupied = false;
     AdvanceGeneration(slot.generation);
     freeSlotIndices_.push_back(handle.index);
@@ -258,6 +287,7 @@ void physics::jolt::JoltCharacterRegistry::Reset() noexcept
         slot.desiredHorizontalVelocity = {};
         slot.observedVelocity = {};
         slot.motionObservation = {};
+        slot.collider = {};
         slot.maximumSpeed = 0.0f;
         slot.maximumStepHeight = 0.0f;
         slot.bOccupied = false;

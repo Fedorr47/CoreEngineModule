@@ -145,6 +145,11 @@ export namespace rendern
 		bool drawGameplayMovementDebugOnlyControlled{ false };
 		bool drawGameplayMovementDebugLabels{ false };
 		bool drawGameplayMovementDebugText{ false };
+		bool drawPhysicsCharacters{ false };
+		bool drawPhysicsCharacterGround{ false };
+		bool drawPhysicsCharacterVelocity{ false };
+		bool drawPhysicsCharacterBlocked{ false };
+		float physicsCharacterVelocityScale{ 0.35f };
 
 		bool drawAnimationRuntimeOverlay{ false };
 		bool drawAnimationRuntimeOverlayOnlyControlled{ false };
