@@ -11,6 +11,7 @@ import :ai_action_runtime;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
 import :gameplay_agent_obstacle_avoidance;
+import :character_controller;
 import :gameplay_steering_debug;
 
 export namespace rendern
@@ -141,7 +142,20 @@ export namespace rendern
             {
                 debugRegistry_->Publish(agentEntity, GameplaySteeringDebugMode::Follow, debug);
             }
-            ApplyGameplayMovementIntent(movement, *world_.TryGetCharacterCommand(agentEntity));
+            GameplayCharacterCommandComponent* command =
+                world_.TryGetCharacterCommand(agentEntity);
+            GameplayCharacterMovementStateComponent* movementState =
+                world_.TryGetCharacterMovementState(agentEntity);
+
+            ApplyGameplayMovementIntent(movement, *command);
+
+            if (command->moveMagnitude > mathUtils::kMoveEpsilon &&
+                mathUtils::Dot(command->moveWorld, command->moveWorld) >
+                    mathUtils::kLengthEpsilonSq)
+            {
+                movementState->desiredFacingYawDegrees =
+                    ExtractGameplayYawDegreesFromDirection(command->moveWorld);
+            }
             
             currentMovement_ = movement;
         }
@@ -152,6 +166,14 @@ export namespace rendern
                      world_.TryGetCharacterCommand(agentEntity))
             {
                 ApplyGameplayMovementIntent(currentMovement_, *command);
+
+                if (command->moveMagnitude > mathUtils::kMoveEpsilon &&
+                    mathUtils::Dot(command->moveWorld, command->moveWorld) >
+                        mathUtils::kLengthEpsilonSq)
+                {
+                    world_.TryGetCharacterMovementState(agentEntity)->desiredFacingYawDegrees =
+                        ExtractGameplayYawDegreesFromDirection(command->moveWorld);
+                }
             }
         }
         

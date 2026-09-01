@@ -195,7 +195,10 @@ export namespace rendern
             }
             ApplyGameplayMovementIntent(finalMovement, *command);
             motor->desiredMoveWorld = command->moveWorld;
-            if (finalMovement.IsMoving())
+
+            if (command->moveMagnitude > mathUtils::kMoveEpsilon &&
+                mathUtils::Dot(command->moveWorld, command->moveWorld) >
+                    mathUtils::kLengthEpsilonSq)
             {
                 movementState->desiredFacingYawDegrees =
                     ExtractGameplayYawDegreesFromDirection(command->moveWorld);
