@@ -155,11 +155,16 @@ export namespace rendern
                 {
                     const mathUtils::Vec3 origin = agentPosition +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    const GameplayCharacterMotorComponent* motor =
+                        world_.TryGetCharacterMotor(agentEntity);
+                    const mathUtils::Vec3 planarVelocity{
+                        motor->velocity.x, 0.0f, motor->velocity.z};
                     const GameplayObstacleAvoidanceInput avoidanceInput{
                         .baseMovement = movement,
                         .probeOrigin = origin,
                         .characterRadius = physical->radius,
-                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f
+                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f,
+                        .currentPlanarSpeed = mathUtils::Length(planarVelocity)
                     };
                     movement = ApplyGameplayObstacleAvoidance(
                         avoidanceInput, *obstacleQuery_, obstacleSettings_,

@@ -103,6 +103,7 @@ export namespace rendern
         float supportProbeForwardDistance{0.75f};
         float supportProbeUpOffset{0.25f};
         float maximumSupportDropDistance{0.35f};
+        float forwardProbeTimeHorizonSeconds{0.75f};
     };
 
     struct GameplayObstacleAvoidanceInput
@@ -111,6 +112,7 @@ export namespace rendern
         mathUtils::Vec3 probeOrigin{};
         float characterRadius{0.0f};
         float supportOriginVerticalOffset{0.0f};
+        float currentPlanarSpeed{0.0f};
     };
     
     [[nodiscard]] GameplayMovementIntent ApplyGameplayObstacleAvoidance(
@@ -188,8 +190,15 @@ namespace
             std::isfinite(characterRadius + clearanceMargin)
             ? characterRadius + clearanceMargin
             : characterRadius;
+        const float baselineForwardDistance = FiniteOrZero(settings.forwardProbeDistance);
+        const float currentPlanarSpeed = FiniteOrZero(input.currentPlanarSpeed);
+        const float timeHorizon = FiniteOrZero(settings.forwardProbeTimeHorizonSeconds);
+        const float speedDistance = currentPlanarSpeed * timeHorizon;
+        const float forwardDistance = std::isfinite(speedDistance)
+            ? std::max(baselineForwardDistance, speedDistance)
+            : baselineForwardDistance;
         return {
-            .forwardDistance = FiniteOrZero(settings.forwardProbeDistance),
+            .forwardDistance = forwardDistance,
             .sideDistance = FiniteOrZero(settings.sideProbeDistance),
             .sideAngleRadians = mathUtils::DegToRad(angleDegrees),
             .sideSwitchClearanceAdvantage =

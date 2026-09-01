@@ -268,6 +268,79 @@ TEST(GameplayObstacleAvoidance, BuildsThreePlanarNormalizedFeelersWithConfigured
     EXPECT_GT(query.requests[2].direction.z, 0.0f);
 }
 
+{
+    const GameplayObstacleAvoidanceSettings settings{
+        .forwardProbeDistance = 1.0f,
+        .forwardProbeTimeHorizonSeconds = 0.5f,
+        .sideProbeDistance = 1.25f
+    };
+    ScriptedObstacleQuery stationaryQuery{};
+    ScriptedObstacleQuery slowQuery{};
+    ScriptedObstacleQuery fastQuery{};
+
+    ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .currentPlanarSpeed = 0.0f}, stationaryQuery, settings);
+    ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .currentPlanarSpeed = 1.0f}, slowQuery, settings);
+    ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(), .currentPlanarSpeed = 4.0f}, fastQuery, settings);
+
+    ASSERT_EQ(stationaryQuery.requests.size(), 3u);
+    ASSERT_EQ(slowQuery.requests.size(), 3u);
+    ASSERT_EQ(fastQuery.requests.size(), 3u);
+    EXPECT_FLOAT_EQ(stationaryQuery.requests[0].maximumDistance, 1.0f);
+    EXPECT_FLOAT_EQ(slowQuery.requests[0].maximumDistance, 1.0f);
+    EXPECT_FLOAT_EQ(fastQuery.requests[0].maximumDistance, 2.0f);
+    EXPECT_FLOAT_EQ(fastQuery.requests[1].maximumDistance, 1.25f);
+    EXPECT_FLOAT_EQ(fastQuery.requests[2].maximumDistance, 1.25f);
+}
+
+TEST(GameplayObstacleAvoidance, MalformedSpeedHorizonFallsBackToFiniteBaseline)
+{
+    constexpr float infinity = std::numeric_limits<float>::infinity();
+    constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+    constexpr float malformedValues[]{-1.0f, nan, infinity};
+
+    for (const float malformedSpeed : malformedValues)
+    {
+        ScriptedObstacleQuery query{};
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(), .currentPlanarSpeed = malformedSpeed}, query,
+            {.forwardProbeDistance = 1.5f, .forwardProbeTimeHorizonSeconds = 2.0f});
+        ASSERT_EQ(query.requests.size(), 3u);
+        for (const GameplayObstacleProbeRequest& request : query.requests)
+        {
+            EXPECT_TRUE(std::isfinite(request.maximumDistance));
+        }
+        EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 1.5f);
+    }
+
+    for (const float malformedHorizon : malformedValues)
+    {
+        ScriptedObstacleQuery query{};
+        ApplyGameplayObstacleAvoidance(
+            {.baseMovement = MovingIntent(), .currentPlanarSpeed = 4.0f}, query,
+            {.forwardProbeDistance = 1.5f,
+             .forwardProbeTimeHorizonSeconds = malformedHorizon});
+        ASSERT_EQ(query.requests.size(), 3u);
+        EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 1.5f);
+    }
+}
+
+TEST(GameplayObstacleAvoidance, OverflowingSpeedHorizonFallsBackToBaseline)
+{
+    ScriptedObstacleQuery query{};
+    ApplyGameplayObstacleAvoidance(
+        {.baseMovement = MovingIntent(),
+         .currentPlanarSpeed = std::numeric_limits<float>::max()},
+        query,
+        {.forwardProbeDistance = 1.5f,
+         .forwardProbeTimeHorizonSeconds = std::numeric_limits<float>::max()});
+
+    ASSERT_EQ(query.requests.size(), 3u);
+    EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 1.5f);
+}
+
 TEST(GameplayObstacleAvoidance, AppliesCharacterClearanceRadiusToEveryProbe)
 {
     ScriptedObstacleQuery query{};

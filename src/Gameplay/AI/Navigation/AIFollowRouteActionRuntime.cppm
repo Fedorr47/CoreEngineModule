@@ -188,11 +188,14 @@ export namespace rendern
                 {
                     const mathUtils::Vec3 origin = world_.TryGetTransform(entity)->position +
                         mathUtils::Vec3{0.0f, physical->GetTotalHeight() * 0.5f, 0.0f};
+                    const mathUtils::Vec3 planarVelocity{
+                        motor->velocity.x, 0.0f, motor->velocity.z};
                     const GameplayObstacleAvoidanceInput avoidanceInput{
                         .baseMovement = finalMovement,
                         .probeOrigin = origin,
                         .characterRadius = physical->radius,
-                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f
+                        .supportOriginVerticalOffset = physical->GetTotalHeight() * 0.5f,
+                        .currentPlanarSpeed = mathUtils::Length(planarVelocity)
                     };
                     finalMovement = ApplyGameplayObstacleAvoidance(
                         avoidanceInput, *obstacleQuery_, obstacleSettings_,

@@ -97,12 +97,16 @@ TEST(AIFollowTargetActionRuntime, ObstacleAvoidanceCorrectsSeekAtExistingCadence
     world.AddCharacterPhysicalSettings(agent, {.radius = 0.25f, .cylinderHeight = 1.5f});
     const EntityHandle target = CreateTarget(world, {10.0f, 0.0f, 0.0f});
     ForwardBlockedQuery query{};
-    AIFollowTargetActionRuntime runtime{world, target, {}, &query};
+    world.TryGetCharacterMotor(agent)->velocity = {3.0f, 100.0f, 4.0f};
+    AIFollowTargetActionRuntime runtime{
+        world, target, {}, &query,
+        {.forwardProbeDistance = 1.0f, .forwardProbeTimeHorizonSeconds = 0.5f}};
 
     ASSERT_EQ(runtime.Start(FollowContext(agent)), AIActionRuntimeResult::Running);
     EXPECT_LT(world.TryGetCharacterCommand(agent)->moveWorld.z, 0.0f);
     EXPECT_FLOAT_EQ(world.TryGetCharacterCommand(agent)->moveMagnitude, 1.0f);
     ASSERT_EQ(query.callCount, 3u);
+    EXPECT_FLOAT_EQ(query.requests[0].maximumDistance, 2.5f);
     EXPECT_FLOAT_EQ(query.requests[0].origin.y, 1.0f);
     for (const GameplayObstacleProbeRequest& request : query.requests)
     {
