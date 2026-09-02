@@ -388,6 +388,7 @@ namespace rendern::ui
                 0.05f, 3.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         }
         ImGui::Checkbox("Navigation Mesh", &rs.drawNavigationMesh);
+        ImGui::Checkbox("Navigation paths", &rs.drawNavigationPathDebug);
         ImGui::Checkbox("AI planned paths", &rs.drawAIPlannedPathDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);
         ImGui::Checkbox("Log CPU frame timings", &rs.logCpuFrameTimings);

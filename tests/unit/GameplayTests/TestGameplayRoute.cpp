@@ -291,3 +291,48 @@ TEST(GameplayRoute, RouteWithMakeTraversalLinkIsValid)
 
     EXPECT_TRUE(route.IsValid());
 }
+
+TEST(GameplayNavigationDebug, ReplacingAndClearingRouteUsesPerOwnerState)
+{
+    GameplayNavigationDebugRegistry debug{};
+    constexpr EntityHandle firstOwner = static_cast<EntityHandle>(1u);
+    constexpr EntityHandle secondOwner = static_cast<EntityHandle>(2u);
+    const GameplayRoute firstRoute{
+        .points = {MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f), MakeRoutePoint(2.0f, 0.0f, 1.0f)},
+        .segmentAnnotations = {{}, {}}};
+    const GameplayRoute replacementRoute{
+        .points = {MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(3.0f, 0.0f, 2.0f)},
+        .segmentAnnotations = {{}}};
+
+    debug.Publish(firstOwner, firstRoute);
+    debug.Publish(secondOwner, firstRoute);
+    debug.Publish(firstOwner, replacementRoute);
+
+    ASSERT_NE(debug.Find(firstOwner), nullptr);
+    EXPECT_EQ(debug.Find(firstOwner)->points.size(), 2u);
+    EXPECT_EQ(debug.Routes().size(), 2u);
+
+    debug.Clear(firstOwner);
+    EXPECT_EQ(debug.Find(firstOwner), nullptr);
+    EXPECT_NE(debug.Find(secondOwner), nullptr);
+}
+
+TEST(GameplayNavigationDebug, InvalidOrDegenerateRouteClearsOwner)
+{
+    GameplayNavigationDebugRegistry debug{};
+    constexpr EntityHandle owner = static_cast<EntityHandle>(1u);
+    const GameplayRoute route{
+        .points = {MakeRoutePoint(0.0f, 0.0f, 0.0f),
+            MakeRoutePoint(1.0f, 0.0f, 0.0f)},
+        .segmentAnnotations = {{}}};
+
+    debug.Publish(owner, route);
+    ASSERT_NE(debug.Find(owner), nullptr);
+
+    debug.Publish(owner, GameplayRoute{});
+
+    EXPECT_EQ(debug.Find(owner), nullptr);
+    EXPECT_TRUE(debug.Routes().empty());
+}

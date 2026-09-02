@@ -29,6 +29,7 @@
             CancelAllAIDecisions_();
             aiSystem_.Reset();
             steeringDebugRegistry_.Clear();
+            navigationDebugRegistry_.Clear();
             traversalLinkRegistry_.Reset();
             traversalExecutorRegistry_.ResetExternalRegistrations();
             objectReservationSystem_.Reset();
@@ -471,7 +472,7 @@
                 agentEntity,
                 std::move(route),
                 steeringSettings,
-                obstacleQuery_, {}, &steeringDebugRegistry_);
+                obstacleQuery_, {}, &steeringDebugRegistry_, {}, &navigationDebugRegistry_);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIMoveTo(
@@ -492,7 +493,7 @@
                 startNodeId,
                 goalNodeId,
                 steeringSettings,
-                obstacleQuery_, {}, &steeringDebugRegistry_);
+                obstacleQuery_, {}, &steeringDebugRegistry_, &navigationDebugRegistry_);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::StartAIFollowTarget(
@@ -562,6 +563,7 @@
             CORE_ASSERT_RUNTIME_THREAD();
             aiSystem_.CancelAction(agentEntity);
             steeringDebugRegistry_.Clear(agentEntity);
+            navigationDebugRegistry_.Clear(agentEntity);
         }
 
         void GameplayRuntime::ClearAIAction(const EntityHandle agentEntity)
@@ -569,6 +571,7 @@
             CORE_ASSERT_RUNTIME_THREAD();
             aiSystem_.ClearAction(agentEntity);
             steeringDebugRegistry_.Clear(agentEntity);
+            navigationDebugRegistry_.Clear(agentEntity);
         }
 
         [[nodiscard]] AIActionExecutionStatus GameplayRuntime::GetAIActionStatus(
@@ -584,7 +587,7 @@
             CORE_ASSERT_RUNTIME_THREAD();
             return std::make_unique<AIMoveToActionBinding>(
                 world_, traversalLinkRegistry_, traversalExecutorRegistry_, requestProvider,
-                obstacleQuery_, &steeringDebugRegistry_);
+                obstacleQuery_, &steeringDebugRegistry_, &navigationDebugRegistry_);
         }
 
         [[nodiscard]] AIPlanExecutionStatus GameplayRuntime::UpdateAIDecision(

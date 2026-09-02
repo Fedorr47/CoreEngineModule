@@ -15,6 +15,7 @@ import :gameplay_route_follower;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
 import :gameplay_steering_debug;
+import :gameplay_navigation_debug;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor_registry;
 
@@ -33,7 +34,8 @@ export namespace rendern
 			const IGameplayObstacleQuery* obstacleQuery = nullptr,
 			const GameplayObstacleAvoidanceSettings& obstacleSettings = {},
 			GameplaySteeringDebugRegistry* debugRegistry = nullptr,
-			const GameplayRouteFollowerSettings& followerSettings = {})
+			const GameplayRouteFollowerSettings& followerSettings = {},
+			GameplayNavigationDebugRegistry* navigationDebugRegistry = nullptr)
 		{
 			if (!CanCreateRuntime_(world, agentEntity, route))
 			{
@@ -49,7 +51,8 @@ export namespace rendern
 				obstacleQuery,
 				obstacleSettings,
 				debugRegistry,
-				followerSettings);
+				followerSettings,
+				navigationDebugRegistry);
 		}
 
 		[[nodiscard]] static AIActionExecutionStatus Start(
@@ -63,7 +66,8 @@ export namespace rendern
 			const IGameplayObstacleQuery* obstacleQuery = nullptr,
 			const GameplayObstacleAvoidanceSettings& obstacleSettings = {},
 			GameplaySteeringDebugRegistry* debugRegistry = nullptr,
-			const GameplayRouteFollowerSettings& followerSettings = {})
+			const GameplayRouteFollowerSettings& followerSettings = {},
+			GameplayNavigationDebugRegistry* navigationDebugRegistry = nullptr)
 		{
 			
 			const AIActionRuntimeContext context
@@ -86,7 +90,8 @@ export namespace rendern
 				obstacleQuery,
 				obstacleSettings,
 				debugRegistry,
-				followerSettings);
+				followerSettings,
+				navigationDebugRegistry);
 			if (runtime == nullptr)
 			{
 				return AIActionExecutionStatus::Failed;

@@ -140,6 +140,7 @@ export namespace rendern
 		bool drawLightGizmos{ false };
 		bool debugDrawDepthTest{ true };
 		bool drawNavigationMesh{ false };
+		bool drawNavigationPathDebug{ false };
 		bool drawAIPlannedPathDebug{ false };
 		bool drawGameplayMovementDebug{ false };
 		bool drawGameplayMovementDebugOnlyControlled{ false };

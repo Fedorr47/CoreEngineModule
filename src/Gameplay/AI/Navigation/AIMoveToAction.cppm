@@ -12,6 +12,7 @@ import :ai_action_runtime;
 import :gameplay_route_search;
 import :gameplay_steering;
 import :gameplay_steering_debug;
+import :gameplay_navigation_debug;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor_registry;
 
@@ -42,7 +43,8 @@ export namespace rendern
             const AIMoveToActionRequest& request,
             const IGameplayObstacleQuery* obstacleQuery = nullptr,
             const GameplayObstacleAvoidanceSettings& obstacleSettings = {},
-            GameplaySteeringDebugRegistry* debugRegistry = nullptr)
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr,
+            GameplayNavigationDebugRegistry* navigationDebugRegistry = nullptr)
         {
             if (context.actionId != kAIMoveToActionId || request.routeGraph == nullptr)
             {
@@ -65,7 +67,9 @@ export namespace rendern
                 request.steeringSettings,
                 obstacleQuery,
                 obstacleSettings,
-                debugRegistry);
+                debugRegistry,
+                {},
+                navigationDebugRegistry);
         }
         
         [[nodiscard]] static AIActionExecutionStatus Start(
@@ -80,7 +84,8 @@ export namespace rendern
             const GameplayArrivalSteeringSettings& steeringSettings = {},
             const IGameplayObstacleQuery* obstacleQuery = nullptr,
             const GameplayObstacleAvoidanceSettings& obstacleSettings = {},
-            GameplaySteeringDebugRegistry* debugRegistry = nullptr)
+            GameplaySteeringDebugRegistry* debugRegistry = nullptr,
+            GameplayNavigationDebugRegistry* navigationDebugRegistry = nullptr)
         {
             const AIActionRuntimeContext context{
                 .agentEntity = agentEntity,
@@ -94,7 +99,7 @@ export namespace rendern
             
             std::unique_ptr<IAIActionRuntime> runtime = CreateRuntime(
                 context, world, traversalLinkRegistry, traversalExecutorRegistry, request,
-                obstacleQuery, obstacleSettings, debugRegistry);
+                obstacleQuery, obstacleSettings, debugRegistry, navigationDebugRegistry);
             if (runtime == nullptr)
             {
                 return AIActionExecutionStatus::Failed;

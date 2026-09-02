@@ -40,6 +40,7 @@ import :gameplay_route_search;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
 import :gameplay_steering_debug;
+import :gameplay_navigation_debug;
 import :gameplay_traversal_link;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -136,6 +137,8 @@ export namespace rendern
         { return steeringDebugRegistry_; }
         void SetSteeringDebugEnabled(const bool enabled) noexcept
         { steeringDebugRegistry_.SetEnabled(enabled); }
+        [[nodiscard]] const GameplayNavigationDebugRegistry& GetNavigationDebugRegistry() const noexcept
+        { return navigationDebugRegistry_; }
         [[nodiscard]] std::span<const GameplayWorldEvent> GetCurrentWorldEvents() const noexcept;
         void ClearCurrentWorldEvents() noexcept;
 
@@ -236,6 +239,7 @@ export namespace rendern
         GameplayWorld world_{};
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplaySteeringDebugRegistry steeringDebugRegistry_{};
+        GameplayNavigationDebugRegistry navigationDebugRegistry_{};
         EntityHandle controlledEntity_{ kNullEntity };
         GameplayKeyboardMouseBindings keyboardMouseBindings_{};
         GameplayActionDefinitions actionDefinitions_{ MakeDefaultGameplayActionDefinitions() };

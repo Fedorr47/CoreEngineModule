@@ -13,6 +13,7 @@ import :gameplay_route_follower;
 import :gameplay_steering;
 import :gameplay_obstacle_avoidance;
 import :gameplay_steering_debug;
+import :gameplay_navigation_debug;
 import :character_controller;
 import :gameplay_traversal_link_registry;
 import :gameplay_traversal_executor;
@@ -35,7 +36,8 @@ export namespace rendern
              const IGameplayObstacleQuery* obstacleQuery = nullptr,
              GameplayObstacleAvoidanceSettings obstacleSettings = {},
              GameplaySteeringDebugRegistry* debugRegistry = nullptr,
-             GameplayRouteFollowerSettings followerSettings = {}) noexcept
+             GameplayRouteFollowerSettings followerSettings = {},
+             GameplayNavigationDebugRegistry* navigationDebugRegistry = nullptr) noexcept
         : world_(world)
         , traversalLinkRegistry_(traversalLinkRegistry)
         , traversalExecutorRegistry_(traversalExecutorRegistry)
@@ -45,6 +47,7 @@ export namespace rendern
         , obstacleQuery_(obstacleQuery)
         , obstacleSettings_(obstacleSettings)
         , debugRegistry_(debugRegistry)
+        , navigationDebugRegistry_(navigationDebugRegistry)
         {
         }
         
@@ -54,8 +57,14 @@ export namespace rendern
             obstacleAvoidanceState_ = {};
             if (!ValidateContextAndAgent_(context) || !route_.IsValid())
             {
+                ClearNavigationDebug_(context.agentEntity);
                 StopMovementIfAccessible_(context.agentEntity);
                 return AIActionRuntimeResult::Failed;
+            }
+            
+            if (navigationDebugRegistry_ != nullptr)
+            {
+                navigationDebugRegistry_->Publish(context.agentEntity, route_);
             }
             
             const GameplayRouteFollowerStatus followerStatus = follower_.Start(
@@ -65,6 +74,7 @@ export namespace rendern
                 return AIActionRuntimeResult::Running;
             }
             StopMovementIfAccessible_(context.agentEntity);
+            ClearNavigationDebug_(context.agentEntity);
             return followerStatus == GameplayRouteFollowerStatus::Succeeded
                 ? AIActionRuntimeResult::Succeeded
                 : AIActionRuntimeResult::Failed;
@@ -79,6 +89,7 @@ export namespace rendern
                 StopMovementIfAccessible_(context.agentEntity);
                 CancelActiveTraversal_();
                 follower_.Reset();
+                ClearNavigationDebug_(context.agentEntity);
                 physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Failed;
             }
@@ -103,6 +114,7 @@ export namespace rendern
                     || !follower_.CompleteTraversal(completedTraversal))
                 {
                     StopMovementIfAccessible_(context.agentEntity);
+                    ClearNavigationDebug_(context.agentEntity);
                     physicallyBlocked_ = false;
                     return AIActionRuntimeResult::Failed;
                 }
@@ -121,6 +133,7 @@ export namespace rendern
             CancelActiveTraversal_();
             StopMovementIfAccessible_(context.agentEntity);
             follower_.Reset();
+            ClearNavigationDebug_(context.agentEntity);
             physicallyBlocked_ = false;
             if (debugRegistry_ != nullptr)
             {
@@ -155,12 +168,14 @@ export namespace rendern
             case GameplayRouteFollowerStatus::TraversalRequired:
                 return StartTraversal_(entity, output.requiredTraversalLink);
             case GameplayRouteFollowerStatus::Succeeded:
+                ClearNavigationDebug_(entity);
                 StopMovementIfAccessible_(entity);
                 physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Succeeded;
             case GameplayRouteFollowerStatus::InvalidRoute:
             case GameplayRouteFollowerStatus::NotStarted:
             default:
+                ClearNavigationDebug_(entity);
                 StopMovementIfAccessible_(entity);
                 physicallyBlocked_ = false;
                 return AIActionRuntimeResult::Failed;
@@ -268,6 +283,14 @@ export namespace rendern
             }
         }
         
+        void ClearNavigationDebug_(const EntityHandle entity) noexcept
+        {
+            if (navigationDebugRegistry_ != nullptr)
+            {
+                navigationDebugRegistry_->Clear(entity);
+            }
+        }
+        
         [[nodiscard]] bool ValidateContextAndAgent_(const AIActionRuntimeContext& context) const noexcept
         {
             const bool bHasContext = context.IsValid();
@@ -329,6 +352,7 @@ export namespace rendern
         const IGameplayObstacleQuery* obstacleQuery_{nullptr};
         GameplayObstacleAvoidanceSettings obstacleSettings_{};
         GameplayObstacleAvoidanceState obstacleAvoidanceState_{};
+        GameplayNavigationDebugRegistry* navigationDebugRegistry_{nullptr};
         GameplaySteeringDebugRegistry* debugRegistry_{nullptr};
         bool physicallyBlocked_{ false };
         GameplayRouteFollower follower_{};

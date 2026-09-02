@@ -525,6 +525,21 @@ namespace appLifecycle
 	        app::debugDraw::AppendNavigationGeometry(
                    runtime.navigationDebugGeometry, runtime.scene);
 	    }
+        if (app.graphicsState.rendererSettings.drawNavigationPathDebug && runtime.gameplayRuntime)
+        {
+            constexpr std::uint32_t navigationPathColor = 0xffff40a6u;
+            for (const auto& entry : runtime.gameplayRuntime->GetNavigationDebugRegistry().Routes())
+            {
+                const rendern::GameplayRoute& route = entry.second;
+                for (std::size_t index = 0; index + 1u < route.points.size(); ++index)
+                {
+                    runtime.scene.externalDebugLines.push_back({
+                        route.points[index].worldPosition,
+                        route.points[index + 1u].worldPosition,
+                        navigationPathColor});
+                }
+            }
+        }
 	    if (app.graphicsState.rendererSettings.drawAIPlannedPathDebug
                && runtime.gameplayRuntime)
 	    {
