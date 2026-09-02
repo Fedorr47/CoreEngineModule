@@ -41,6 +41,28 @@ namespace
 
 namespace physics
 {
+    std::optional<PhysicsBodyDescriptor> TryResolveLevelPhysicsBodyDescriptor(
+        const rendern::LevelNode& node) noexcept
+    {
+        if (!node.alive || !node.physicsBody.has_value() || node.parent != -1
+            || node.transform.useMatrix || !IsShapeValid(node.physicsBody->shape))
+        {
+            return std::nullopt;
+        }
+
+        return PhysicsBodyDescriptor{
+            .shape = node.physicsBody->shape,
+            .transform = {
+                .position = node.transform.position,
+                .rotationQuaternion = mathUtils::EulerDegreesZYXToQuat(
+                    node.transform.rotationDegrees)
+            },
+            .motionType = node.physicsBody->motionType,
+            .material = node.physicsBody->material,
+            .surface = node.physicsBody->surface
+        };
+    }
+    
     LevelPhysicsRuntime::LevelPhysicsRuntime(JoltPhysicsWorld& world) noexcept : world_(world) {}
     LevelPhysicsRuntime::~LevelPhysicsRuntime() noexcept { Shutdown(); }
     
@@ -105,19 +127,16 @@ namespace physics
                 {
                     continue;
                 }
-                // Serialized shape dimensions are authoritative and are not multiplied by visual scale.
-                const PhysicsBodyDescriptor descriptor{
-                    .shape = node.physicsBody->shape,
-                    .transform = {
-                        .position = node.transform.position,
-                        .rotationQuaternion = mathUtils::EulerDegreesZYXToQuat(
-                            node.transform.rotationDegrees)
-                        },
-                    .motionType = node.physicsBody->motionType,
-                    .material = node.physicsBody->material,
-                    .surface = node.physicsBody->surface
-                };
-                const PhysicsBodyHandle handle = world_.CreateBody(descriptor);
+                const auto descriptor = TryResolveLevelPhysicsBodyDescriptor(node);
+                if (!descriptor.has_value())
+                {
+                    errorMessage = "Failed to resolve level physics body descriptor for node '" + node.name + "'.";
+                    static_cast<void>(DestroyBindings());
+                    world_.ResetSimulationClock();
+                    return false;
+                }
+
+                const PhysicsBodyHandle handle = world_.CreateBody(*descriptor);
                 if (!handle.IsValid())
                 {
                     errorMessage = "Failed to create level physics body for node '" + node.name + "'.";

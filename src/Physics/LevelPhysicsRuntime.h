@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,11 @@ import core;
 namespace physics
 {
     class JoltPhysicsWorld;
+    
+    // Resolves the exact descriptor used to create a root-level authored level body.
+    // Visual scale is intentionally excluded because authored shape dimensions are authoritative.
+    [[nodiscard]] std::optional<PhysicsBodyDescriptor> TryResolveLevelPhysicsBodyDescriptor(
+        const rendern::LevelNode& node) noexcept;
     
     class LevelPhysicsRuntime final
     {

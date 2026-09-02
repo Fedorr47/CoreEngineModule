@@ -96,6 +96,58 @@ TEST_F(LevelPhysicsRuntime, EnterGameCreatesBindings)
     EXPECT_EQ(runtime.GetBindingCount(), 2u);
 }
 
+TEST(LevelPhysicsDescriptorResolution, PreservesAuthoredShapeTransformAndMotionType)
+{
+    auto node = KinematicBoxNode();
+    node.transform.position = { 3.0f, 4.0f, 5.0f };
+    node.transform.rotationDegrees = { 10.0f, 20.0f, 30.0f };
+    node.transform.scale = { 7.0f, 8.0f, 9.0f };
+
+    const auto descriptor = physics::TryResolveLevelPhysicsBodyDescriptor(node);
+
+    ASSERT_TRUE(descriptor.has_value());
+    EXPECT_EQ(descriptor->transform.position, node.transform.position);
+    EXPECT_TRUE(OrientationsEquivalent(
+        node.transform.rotationDegrees, descriptor->transform.rotationQuaternion));
+    EXPECT_EQ(descriptor->motionType, physics::PhysicsMotionType::Kinematic);
+    EXPECT_EQ(std::get<physics::BoxShapeDescriptor>(descriptor->shape).halfExtents,
+        mathUtils::Vec3(2.0f, 0.25f, 0.25f));
+}
+
+TEST(LevelPhysicsDescriptorResolution, SupportsSphereAndCapsuleShapes)
+{
+    auto sphereNode = DynamicNode();
+    auto capsuleNode = DynamicNode();
+    capsuleNode.physicsBody->shape = physics::CapsuleShapeDescriptor{
+        .radius = 0.75f, .cylinderHeight = 1.5f };
+
+    const auto sphere = physics::TryResolveLevelPhysicsBodyDescriptor(sphereNode);
+    const auto capsule = physics::TryResolveLevelPhysicsBodyDescriptor(capsuleNode);
+
+    ASSERT_TRUE(sphere.has_value());
+    ASSERT_TRUE(capsule.has_value());
+    EXPECT_FLOAT_EQ(std::get<physics::SphereShapeDescriptor>(sphere->shape).radius, 0.5f);
+    EXPECT_FLOAT_EQ(std::get<physics::CapsuleShapeDescriptor>(capsule->shape).radius, 0.75f);
+    EXPECT_FLOAT_EQ(std::get<physics::CapsuleShapeDescriptor>(capsule->shape).cylinderHeight, 1.5f);
+}
+
+TEST(LevelPhysicsDescriptorResolution, SkipsNodesRuntimeCannotInstantiate)
+{
+    auto parented = StaticNode();
+    parented.parent = 0;
+    auto matrixAuthored = StaticNode();
+    matrixAuthored.transform.useMatrix = true;
+    auto dead = StaticNode();
+    dead.alive = false;
+
+    EXPECT_FALSE(physics::TryResolveLevelPhysicsBodyDescriptor(parented).has_value());
+    EXPECT_FALSE(physics::TryResolveLevelPhysicsBodyDescriptor(matrixAuthored).has_value());
+    EXPECT_FALSE(physics::TryResolveLevelPhysicsBodyDescriptor(dead).has_value());
+    EXPECT_FALSE(physics::TryResolveLevelPhysicsBodyDescriptor(
+        rendern::LevelNode{ .name = "VisualOnly" }).has_value());
+}
+
+
 TEST_F(LevelPhysicsRuntime, SteeringPlaygroundAuthoredObstacleIsQueryableAsStaticWorld)
 {
     level = rendern::LoadLevelAssetFromJson("levels/ai_steering_playground.level.json");

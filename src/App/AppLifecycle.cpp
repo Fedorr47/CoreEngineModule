@@ -424,14 +424,51 @@ namespace appLifecycle
 	            }
 	        }
 	    }
+        constexpr std::uint32_t staticBodyColor = 0xff55cc88u;
+	    constexpr std::uint32_t dynamicBodyColor = 0xff44aaffu;
+	    constexpr std::uint32_t kinematicBodyColor = 0xffffaa44u;
+	    if (runtime.gameplayMode == rendern::GameplayRuntimeMode::Editor
+	        && physicsDebug.drawPhysicsBodies && app.contentState.levelAsset)
+	    {
+	        for (const rendern::LevelNode& node : app.contentState.levelAsset->nodes)
+	        {
+	            const auto descriptor = physics::TryResolveLevelPhysicsBodyDescriptor(node);
+	            if (!descriptor.has_value())
+	            {
+	                continue;
+	            }
+	            const std::uint32_t bodyColor =
+	                descriptor->motionType == physics::PhysicsMotionType::Static
+	                ? staticBodyColor : descriptor->motionType == physics::PhysicsMotionType::Dynamic
+	                ? dynamicBodyColor : kinematicBodyColor;
+	            std::visit([&](const auto& shape)
+	            {
+	                using Shape = std::decay_t<decltype(shape)>;
+	                if constexpr (std::is_same_v<Shape, physics::BoxShapeDescriptor>)
+	                {
+	                    runtime.scene.externalDebugBoxes.push_back({ descriptor->transform.position,
+	                        shape.halfExtents, descriptor->transform.rotationQuaternion, bodyColor });
+	                }
+	                else if constexpr (std::is_same_v<Shape, physics::SphereShapeDescriptor>)
+	                {
+	                    runtime.scene.externalDebugSpheres.push_back({
+	                        descriptor->transform.position, shape.radius, bodyColor });
+	                }
+	                else if constexpr (std::is_same_v<Shape, physics::CapsuleShapeDescriptor>)
+	                {
+	                    runtime.scene.externalDebugCapsules.push_back({ descriptor->transform.position,
+	                        shape.radius, shape.cylinderHeight, bodyColor,
+	                        descriptor->transform.rotationQuaternion });
+	                }
+	            }, descriptor->shape);
+	        }
+	    }
         const bool drawAnyBodyPhysics = physicsDebug.drawPhysicsBodies
 	        || physicsDebug.drawPhysicsBodyAabbs
 	        || physicsDebug.drawPhysicsBodyVelocity;
-	    if (drawAnyBodyPhysics && app.physicsState.joltPhysicsWorld)
+        if (runtime.gameplayMode == rendern::GameplayRuntimeMode::Game
+           && drawAnyBodyPhysics && app.physicsState.joltPhysicsWorld)
 	    {
-	        constexpr std::uint32_t staticColor = 0xff55cc88u;
-	        constexpr std::uint32_t dynamicColor = 0xff44aaffu;
-	        constexpr std::uint32_t kinematicColor = 0xffffaa44u;
 	        constexpr std::uint32_t aabbColor = 0xffcc66ccu;
 	        constexpr std::uint32_t velocityColor = 0xff33ddffu;
 	        constexpr float zeroVectorEpsilon = 1e-4f;
@@ -439,8 +476,8 @@ namespace appLifecycle
 	            app.physicsState.joltPhysicsWorld->BuildBodyDebugStates())
 	        {
 	            const std::uint32_t bodyColor = state.motionType == physics::PhysicsMotionType::Static
-	                ? staticColor : state.motionType == physics::PhysicsMotionType::Dynamic
-	                ? dynamicColor : kinematicColor;
+	                ? staticBodyColor : state.motionType == physics::PhysicsMotionType::Dynamic
+                    ? dynamicBodyColor : kinematicBodyColor;
 	            if (physicsDebug.drawPhysicsBodies)
 	            {
 	                std::visit([&](const auto& shape)
