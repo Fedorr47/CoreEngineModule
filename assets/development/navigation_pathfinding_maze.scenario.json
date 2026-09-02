@@ -1,0 +1,93 @@
+﻿{
+  "id": "core.navigation_pathfinding_maze",
+  "title": "Navigation Pathfinding Maze",
+  "description": "A deterministic static maze that exercises production navmesh path generation and route following while the player observes from an elevated platform.",
+  "roles": {
+    "agent": "Maze_AI_Agent",
+    "start": "Maze_Start",
+    "goal": "Maze_Goal"
+  },
+  "setup": [
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "agent"
+    },
+    {
+      "op": "captureTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "ensureAI",
+      "entity": "agent"
+    },
+    {
+      "op": "setCharacterPhysicalSettings",
+      "entity": "agent",
+      "radius": 0.35,
+      "cylinderHeight": 1.1,
+      "maximumSlopeAngleDegrees": 45.0,
+      "maximumStepHeight": 0.35,
+      "mass": 80.0
+    }
+  ],
+  "start": [
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "startNavigationPath",
+      "entity": "agent",
+      "target": "goal",
+      "searchExtents": [
+        1.0,
+        2.0,
+        1.0
+      ],
+      "acceptanceRadius": 0.25,
+      "slowingRadius": 0.9,
+      "wantsRun": false,
+      "result": "Maze path"
+    }
+  ],
+  "update": [],
+  "stop": [
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    }
+  ],
+  "reset": [
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    }
+  ]
+}

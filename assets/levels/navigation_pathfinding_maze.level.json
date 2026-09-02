@@ -1,0 +1,977 @@
+﻿{
+  "name": "NavigationPathfindingMaze",
+  "developmentScenario": "development/navigation_pathfinding_maze.scenario.json",
+  "meshes": {
+    "cube": {
+      "path": "models/cube.obj",
+      "debugName": "Navigation Maze Geometry"
+    }
+  },
+  "models": {},
+  "skinnedMeshes": {
+    "character": {
+      "path": "models/Character.fbx",
+      "flipUVs": true,
+      "debugName": "Navigation Maze Character"
+    }
+  },
+  "animations": {
+    "breathing_idle": {
+      "path": "animations/Breathing Idle.fbx",
+      "flipUVs": true,
+      "debugName": "Breathing Idle"
+    },
+    "idle": {
+      "path": "animations/idle.fbx",
+      "flipUVs": true,
+      "debugName": "idle"
+    },
+    "jump": {
+      "path": "animations/jump.fbx",
+      "flipUVs": true,
+      "debugName": "jump"
+    },
+    "left_strafe": {
+      "path": "animations/left strafe.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe"
+    },
+    "left_strafe_walking": {
+      "path": "animations/left strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe walking"
+    },
+    "left_turn": {
+      "path": "animations/left turn.fbx",
+      "flipUVs": true,
+      "debugName": "left turn"
+    },
+    "left_turn_90": {
+      "path": "animations/left turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "left turn 90"
+    },
+    "punching_attack": {
+      "path": "animations/Punching.fbx",
+      "flipUVs": true,
+      "debugName": "Punching Attack"
+    },
+    "right_strafe": {
+      "path": "animations/right strafe.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe"
+    },
+    "right_strafe_walking": {
+      "path": "animations/right strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe walking"
+    },
+    "right_turn": {
+      "path": "animations/right turn.fbx",
+      "flipUVs": true,
+      "debugName": "right turn"
+    },
+    "right_turn_90": {
+      "path": "animations/right turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "right turn 90"
+    },
+    "running": {
+      "path": "animations/running.fbx",
+      "flipUVs": true,
+      "debugName": "running"
+    },
+    "running_backward": {
+      "path": "animations/Running Backward.fbx",
+      "flipUVs": true,
+      "debugName": "Running Backward"
+    },
+    "running_jump": {
+      "path": "animations/Running Jump.fbx",
+      "flipUVs": true,
+      "debugName": "Running Jump"
+    },
+    "swing_dancing": {
+      "path": "animations/Swing Dancing.fbx",
+      "flipUVs": true,
+      "debugName": "Swing Dancing"
+    },
+    "walking": {
+      "path": "animations/walking.fbx",
+      "flipUVs": true,
+      "debugName": "walking"
+    },
+    "walking_backward": {
+      "path": "animations/Walking Backwards.fbx",
+      "flipUVs": true,
+      "debugName": "Walking Backwards"
+    }
+  },
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "observer": {
+      "baseColor": [
+        0.12,
+        0.16,
+        0.22,
+        1.0
+      ],
+      "roughness": 0.85,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "agent": {
+      "baseColor": [
+        0.12,
+        0.72,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.7,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "floor": {
+      "baseColor": [
+        0.2,
+        0.23,
+        0.27,
+        1.0
+      ],
+      "roughness": 0.95,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "wall": {
+      "baseColor": [
+        0.72,
+        0.74,
+        0.78,
+        1.0
+      ],
+      "roughness": 0.85,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "platform": {
+      "baseColor": [
+        0.18,
+        0.38,
+        0.55,
+        1.0
+      ],
+      "roughness": 0.8,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "start": {
+      "baseColor": [
+        0.15,
+        0.55,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.7,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "goal": {
+      "baseColor": [
+        0.15,
+        1.0,
+        0.3,
+        1.0
+      ],
+      "roughness": 0.6,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    }
+  },
+  "camera": {
+    "position": [
+      0.0,
+      24.0,
+      -25.0
+    ],
+    "target": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "fovYDeg": 58.0,
+    "nearZ": 0.1,
+    "farZ": 140.0
+  },
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.35,
+        -1.0,
+        0.25
+      ],
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "intensity": 3.0
+    }
+  ],
+  "particleEmitters": [],
+  "skybox": null,
+  "nodes": [
+    {
+      "name": "Maze_Observer_Player",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "character",
+      "material": "observer",
+      "transform": {
+        "position": [
+          0.0,
+          10.25,
+          -15.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.005,
+          0.005,
+          0.005
+        ]
+      },
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+    },
+    {
+      "name": "Maze_AI_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "character",
+      "material": "agent",
+      "transform": {
+        "position": [
+          -9.0,
+          0.0,
+          -8.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+    },
+    {
+      "name": "Maze_Floor",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "floor",
+      "transform": {
+        "position": [
+          0.0,
+          -0.25,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          28.0,
+          0.5,
+          24.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            14.0,
+            0.25,
+            12.0
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Observation_Platform",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "platform",
+      "transform": {
+        "position": [
+          0.0,
+          9.75,
+          -15.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          6.0,
+          0.5,
+          5.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            3.0,
+            0.25,
+            2.5
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 81
+      }
+    },
+    {
+      "name": "Maze_Boundary_West",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -12.25,
+          1.0,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          20.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            10.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Boundary_East",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          12.25,
+          1.0,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          20.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            10.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Boundary_North",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          0.0,
+          1.0,
+          10.25
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          25.0,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            12.5,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Boundary_South",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          0.0,
+          1.0,
+          -10.25
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          25.0,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            12.5,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Divider_A",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -7.0,
+          1.0,
+          -2.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          16.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            8.0
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Turn_A_West",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -8.625,
+          1.0,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.25,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.625,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Turn_A_East",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -5.25,
+          1.0,
+          3.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.5,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.75,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Divider_B",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -1.0,
+          1.0,
+          2.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          16.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            8.0
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Divider_C",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          3.0,
+          1.0,
+          -2.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          16.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            8.0
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Divider_D",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          8.0,
+          1.0,
+          2.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          2.0,
+          16.0
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            0.25,
+            1.0,
+            8.0
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Dead_End_NorthWest",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -10.25,
+          1.0,
+          5.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.5,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.75,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Dead_End_Center",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          -0.25,
+          1.0,
+          -2.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          3.5,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.75,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Dead_End_East",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "wall",
+      "transform": {
+        "position": [
+          6.5,
+          1.0,
+          4.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          2.5,
+          2.0,
+          0.5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            1.25,
+            1.0,
+            0.25
+          ]
+        },
+        "material": {
+          "friction": 0.85,
+          "restitution": 0.0
+        },
+        "surfaceId": 80
+      }
+    },
+    {
+      "name": "Maze_Start",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "start",
+      "transform": {
+        "position": [
+          -9.0,
+          0.12,
+          -8.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.3,
+          0.24,
+          0.3
+        ]
+      }
+    },
+    {
+      "name": "Maze_Goal",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "mesh": "cube",
+      "material": "goal",
+      "transform": {
+        "position": [
+          10.0,
+          0.2,
+          8.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          0.5,
+          0.4,
+          0.5
+        ]
+      }
+    }
+  ],
+  "animationProfileAssets": {
+    "human": {
+      "path": "animProfiles/human.animationprofile.json"
+    }
+  },
+  "animationProfiles": {},
+  "animationControllerAssets": {
+    "fsm_test_locomotion_action": {
+      "path": "animControllers/fsm_test_locomotion_action.phaseB.json"
+    }
+  }
+}

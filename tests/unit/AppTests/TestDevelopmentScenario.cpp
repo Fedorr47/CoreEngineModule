@@ -230,6 +230,8 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
         "ai_jump_traversal.scenario.json",
         "ai_movement.scenario.json",
         "ai_physics_step.scenario.json",
+        "ai_steering_playground.scenario.json",
+        "navigation_pathfinding_maze.scenario.json",
         "navigation_agent_size.scenario.json"};
     std::set<std::string> actualScenarios;
     for (const fs::path& path : scenarioPaths)
@@ -275,7 +277,7 @@ TEST(DevelopmentScenarioAsset, ShippedScenarioInventoryAndLevelReferencesAreVali
                << nodeName << "'";
         }
     }
-    EXPECT_EQ(referencedLevelCount, 8u);
+    EXPECT_EQ(referencedLevelCount, 10u);
 }
 
 TEST(DevelopmentScenarioAsset, RejectsDuplicateJsonKeysAndReportsOperationContext)
@@ -979,6 +981,43 @@ TEST(DevelopmentScenarioRunner, NavigationAgentSizeUsesProfilesAndTreatsNoPathAs
     ASSERT_NE(rollbackSmall, rendern::kNullEntity);
     EXPECT_EQ(runtime.GetAIActionStatus(rollbackSmall),
         rendern::AIActionExecutionStatus::Cancelled);
+    runner.Unload(context);
+    runtime.Shutdown();
+}
+
+TEST(DevelopmentScenarioRunner, NavigationPathfindingMazeBuildsAndStartsProductionPath)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    rendern::LevelAsset level = rendern::LoadLevelAssetFromJson(
+        "levels/navigation_pathfinding_maze.level.json");
+    const DevelopmentScenarioAsset scenario = LoadDevelopmentScenarioAsset(level.developmentScenario);
+    rendern::test::LevelInstantiateHarness harness{};
+    harness.SetMeshCPU(MakeCubeMesh());
+    rendern::LevelInstance instance = harness.Instantiate(level);
+    harness.DrainAssetPipeline();
+    rendern::Scene& scene = harness.GetScene();
+    rendern::GameplayRuntime runtime{};
+    runtime.Initialize(level, instance, scene);
+
+    const app::navigationRuntime::GeometryResult geometry =
+        app::navigationRuntime::BuildLevelNavigationGeometry(instance);
+    ASSERT_EQ(geometry.status, app::navigationRuntime::GeometryStatus::Ready);
+    navigation::ProfileRegistry profiles{};
+    ASSERT_EQ(profiles.Initialize(geometry.geometry, navigation::BuildSettings{}).status,
+        navigation::BuildStatus::Succeeded);
+    ScenarioContext context{runtime, level, instance, scene,
+        rendern::GameplayRuntimeMode::Game, nullptr, &profiles};
+    DevelopmentScenarioRunner runner{};
+    ASSERT_TRUE(runner.Load(scenario, context));
+    ASSERT_TRUE(runner.CanStart(context));
+    ASSERT_TRUE(runner.Start(context));
+
+    ASSERT_EQ(runner.GetResults().size(), 1u);
+    EXPECT_EQ(runner.GetResults()[0].status, ScenarioOperationResultStatus::Running);
+    const auto agent = FindRoleEntity(runner, runtime, "agent");
+    ASSERT_NE(agent, rendern::kNullEntity);
+    EXPECT_EQ(runtime.GetAIActionStatus(agent), rendern::AIActionExecutionStatus::Running);
+
     runner.Unload(context);
     runtime.Shutdown();
 }
