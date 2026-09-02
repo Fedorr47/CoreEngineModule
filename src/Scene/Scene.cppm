@@ -27,6 +27,17 @@ export namespace rendern
 		mathUtils::Vec3 start{};
 		mathUtils::Vec3 end{};
 		std::uint32_t rgba{};
+		float thickness{1.0f};
+	};
+	
+	struct ExternalDebugTriangle
+	{
+		mathUtils::Vec3 a{};
+		mathUtils::Vec3 b{};
+		mathUtils::Vec3 c{};
+		std::uint32_t rgbaA{};
+		std::uint32_t rgbaB{};
+		std::uint32_t rgbaC{};
 	};
 	
 	struct ExternalDebugCapsule
@@ -482,6 +493,7 @@ export namespace rendern
 		GameplayMovementDebugState gameplayMovementDebug{};
 		AnimationRuntimeDebugState animationRuntimeDebug{};
 		std::vector<ExternalDebugLine> externalDebugLines{};
+		std::vector<ExternalDebugTriangle> externalDebugTriangles{};
 		std::vector<ExternalDebugCapsule> externalDebugCapsules{};
 		std::vector<ExternalDebugArrow> externalDebugArrows{};
 		std::vector<ExternalDebugBox> externalDebugBoxes{};

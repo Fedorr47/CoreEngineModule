@@ -87,10 +87,21 @@ export namespace navigation
 		mathUtils::Vec3 end{};
 		std::uint32_t rgba{};
 	};
+	
+	struct DebugTriangle
+	{
+		mathUtils::Vec3 a{};
+		mathUtils::Vec3 b{};
+		mathUtils::Vec3 c{};
+		std::uint32_t rgbaA{};
+		std::uint32_t rgbaB{};
+		std::uint32_t rgbaC{};
+	};
 
 	struct DebugGeometry
 	{
 		std::vector<DebugLine> lines;
+		std::vector<DebugTriangle> triangles;
 	};
 
 	// Appends a line strip for a supplied path; Navigation does not retain debug paths.

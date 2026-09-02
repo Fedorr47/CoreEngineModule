@@ -72,7 +72,9 @@ TEST(Navigation, FlatPlaneBuildsAndFindsPath)
 TEST(Navigation, UninitializedWorldHasNoDebugGeometry)
 {
 	navigation::World world;
-	EXPECT_TRUE(world.BuildDebugGeometry().lines.empty());
+	const navigation::DebugGeometry geometry = world.BuildDebugGeometry();
+	EXPECT_TRUE(geometry.lines.empty());
+	EXPECT_TRUE(geometry.triangles.empty());
 }
 
 TEST(Navigation, LevelMeshConversionTransformsAndRebasesGeometry)
@@ -168,14 +170,24 @@ TEST(Navigation, FailedOrInconsistentMeshIsInvalidGeometry)
 	}
 }
 
-TEST(Navigation, BuiltNavMeshProducesDebugLinesAndResetClearsThem)
+TEST(Navigation, BuiltNavMeshProducesFilledGeometryAndResetClearsIt)
 {
 	navigation::World world;
 	ASSERT_EQ(world.Build(MakePlane()), navigation::BuildStatus::Succeeded);
-	EXPECT_FALSE(world.BuildDebugGeometry().lines.empty());
+	const navigation::DebugGeometry builtGeometry = world.BuildDebugGeometry();
+	EXPECT_FALSE(builtGeometry.lines.empty());
+	EXPECT_FALSE(builtGeometry.triangles.empty());
+	for (const navigation::DebugTriangle& triangle : builtGeometry.triangles)
+	{
+		EXPECT_NEAR(triangle.a.y, 0.01f, 1e-5f);
+		EXPECT_NEAR(triangle.b.y, 0.01f, 1e-5f);
+		EXPECT_NEAR(triangle.c.y, 0.01f, 1e-5f);
+	}
 
 	world.Reset();
-	EXPECT_TRUE(world.BuildDebugGeometry().lines.empty());
+	const navigation::DebugGeometry resetGeometry = world.BuildDebugGeometry();
+	EXPECT_TRUE(resetGeometry.lines.empty());
+	EXPECT_TRUE(resetGeometry.triangles.empty());
 }
 
 TEST(Navigation, PathDebugGeometryIsALineStrip)
@@ -195,6 +207,26 @@ TEST(Navigation, PathDebugGeometryIsALineStrip)
 	EXPECT_EQ(geometry.lines[0].rgba, 0x12345678u);
 	EXPECT_FLOAT_EQ(geometry.lines[1].start.x, path.points[1].x);
 	EXPECT_FLOAT_EQ(geometry.lines[1].end.x, path.points[2].x);
+}
+
+TEST(Navigation, DebugGeometryBridgePreservesFilledTriangleColors)
+{
+	navigation::DebugGeometry geometry;
+	geometry.triangles.push_back({
+		{ 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f },
+		0x10203040u, 0x50607080u, 0x90a0b0c0u });
+
+	rendern::Scene scene;
+	app::debugDraw::AppendNavigationGeometry(geometry, scene);
+
+	ASSERT_EQ(scene.externalDebugTriangles.size(), 1u);
+	const rendern::ExternalDebugTriangle& triangle = scene.externalDebugTriangles.front();
+	EXPECT_FLOAT_EQ(triangle.a.x, geometry.triangles.front().a.x);
+	EXPECT_FLOAT_EQ(triangle.b.y, geometry.triangles.front().b.y);
+	EXPECT_FLOAT_EQ(triangle.c.z, geometry.triangles.front().c.z);
+	EXPECT_EQ(triangle.rgbaA, 0x10203040u);
+	EXPECT_EQ(triangle.rgbaB, 0x50607080u);
+	EXPECT_EQ(triangle.rgbaC, 0x90a0b0c0u);
 }
 
 TEST(Navigation, DisconnectedRegionsReturnNoPath)

@@ -26,23 +26,27 @@ export namespace rendern::debugDraw
 
 	struct DebugDrawList
 	{
+		std::vector<DebugVertex> triangleVertices;
 		std::vector<DebugVertex> lineVertices;
 		std::vector<DebugVertex> overlayLineVertices;
 		std::vector<DebugVertex> screenOverlayLineVertices;
 
 		void Clear()
 		{
+			triangleVertices.clear();
 			lineVertices.clear();
 			overlayLineVertices.clear();
 			screenOverlayLineVertices.clear();
 		}
-
-
-
-
+		
 		std::size_t VertexCount() const noexcept
 		{
-			return lineVertices.size() + overlayLineVertices.size() + screenOverlayLineVertices.size();
+			return triangleVertices.size() + lineVertices.size() + overlayLineVertices.size() + screenOverlayLineVertices.size();
+		}
+
+		std::size_t TriangleVertexCount() const noexcept
+		{
+			return triangleVertices.size();
 		}
 
 		std::size_t DepthVertexCount() const noexcept
@@ -71,6 +75,15 @@ export namespace rendern::debugDraw
 		{
 			screenOverlayLineVertices.push_back(DebugVertex{ a, rgba });
 			screenOverlayLineVertices.push_back(DebugVertex{ b, rgba });
+		}
+		
+		void AddTriangle(
+			const mathUtils::Vec3& a, const mathUtils::Vec3& b, const mathUtils::Vec3& c,
+			std::uint32_t rgbaA, std::uint32_t rgbaB, std::uint32_t rgbaC)
+		{
+			triangleVertices.push_back(DebugVertex{ a, rgbaA });
+			triangleVertices.push_back(DebugVertex{ b, rgbaB });
+			triangleVertices.push_back(DebugVertex{ c, rgbaC });
 		}
 
 		void AddScreenSpaceRectNdc(float x0, float y0, float x1, float y1, std::uint32_t rgba)

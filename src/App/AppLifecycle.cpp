@@ -339,6 +339,7 @@ namespace appLifecycle
 	{
 	    auto& runtime = app.runtimeState;
 	    runtime.scene.externalDebugLines.clear();
+        runtime.scene.externalDebugTriangles.clear();
         runtime.scene.externalDebugCapsules.clear();
         runtime.scene.externalDebugBoxes.clear();
         runtime.scene.externalDebugSpheres.clear();
@@ -528,14 +529,47 @@ namespace appLifecycle
         if (app.graphicsState.rendererSettings.drawNavigationPathDebug && runtime.gameplayRuntime)
         {
             constexpr std::uint32_t navigationPathColor = 0xffff40a6u;
+            constexpr float navigationPathHalfWidth = 0.015f;
             for (const auto& entry : runtime.gameplayRuntime->GetNavigationDebugRegistry().Routes())
             {
                 const rendern::GameplayRoute& route = entry.second;
                 for (std::size_t index = 0; index + 1u < route.points.size(); ++index)
                 {
+                    const mathUtils::Vec3 start = route.points[index].worldPosition;
+                    const mathUtils::Vec3 end = route.points[index + 1u].worldPosition;
+                    
                     runtime.scene.externalDebugLines.push_back({
-                        route.points[index].worldPosition,
-                        route.points[index + 1u].worldPosition,
+                        start,
+                        end,
+                        navigationPathColor});
+                    
+                    const mathUtils::Vec3 segment = end - start;
+                    const mathUtils::Vec3 planarSegment{
+                        segment.x,
+                        0.0f,
+                        segment.z
+                    };
+                    const float planarLength = mathUtils::Length(planarSegment);
+                    if (planarLength <= 1e-5f)
+                    {
+                        continue;
+                    }
+                   
+                    const mathUtils::Vec3 side{
+                        -planarSegment.z / planarLength,
+                        0.0f,
+                        planarSegment.x / planarLength
+                    };
+                    const mathUtils::Vec3 offset = side * navigationPathHalfWidth;
+                   
+                    runtime.scene.externalDebugLines.push_back({
+                        start + offset,
+                        end + offset,
+                        navigationPathColor});
+                   
+                    runtime.scene.externalDebugLines.push_back({
+                        start - offset,
+                        end - offset,
                         navigationPathColor});
                 }
             }

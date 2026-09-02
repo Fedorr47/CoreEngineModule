@@ -28,11 +28,12 @@ export namespace rendern::debugDraw
 		void Upload(const DebugDrawList& list)
 		{
 			EnsureResources();
-
+			
+			lastTriangleVertexCount_ = static_cast<std::uint32_t>(list.TriangleVertexCount());
 			lastDepthVertexCount_ = static_cast<std::uint32_t>(list.DepthVertexCount());
 			lastOverlayVertexCount_ = static_cast<std::uint32_t>(list.OverlayVertexCount());
 			lastScreenOverlayVertexCount_ = static_cast<std::uint32_t>(list.ScreenOverlayVertexCount());
-			lastVertexCount_ = lastDepthVertexCount_ + lastOverlayVertexCount_ + lastScreenOverlayVertexCount_;
+			lastVertexCount_ = lastTriangleVertexCount_ + lastDepthVertexCount_ + lastOverlayVertexCount_ + lastScreenOverlayVertexCount_;
 			if (lastVertexCount_ == 0)
 			{
 				return;
@@ -41,7 +42,8 @@ export namespace rendern::debugDraw
 			EnsureVertexBufferCapacity(lastVertexCount_);
 
 			uploadScratch_.clear();
-			uploadScratch_.reserve(list.lineVertices.size() + list.overlayLineVertices.size() + list.screenOverlayLineVertices.size());
+			uploadScratch_.reserve(list.triangleVertices.size() + list.lineVertices.size() + list.overlayLineVertices.size() + list.screenOverlayLineVertices.size());
+			uploadScratch_.insert(uploadScratch_.end(), list.triangleVertices.begin(), list.triangleVertices.end());
 			uploadScratch_.insert(uploadScratch_.end(), list.lineVertices.begin(), list.lineVertices.end());
 			uploadScratch_.insert(uploadScratch_.end(), list.overlayLineVertices.begin(), list.overlayLineVertices.end());
 			uploadScratch_.insert(uploadScratch_.end(), list.screenOverlayLineVertices.begin(), list.screenOverlayLineVertices.end());
@@ -58,11 +60,9 @@ export namespace rendern::debugDraw
 			}
 
 			EnsureResources();
-
-			cmd.BindPipeline(psoLines_);
+			
 			cmd.BindInputLayout(inputLayout_);
 			cmd.BindVertexBuffer(0, vertexBuffer_, static_cast<std::uint32_t>(sizeof(DebugVertex)), 0);
-			cmd.SetPrimitiveTopology(rhi::PrimitiveTopology::LineList);
 
 			struct alignas(16) Constants
 			{
@@ -73,6 +73,24 @@ export namespace rendern::debugDraw
 			const mathUtils::Mat4 vpT = mathUtils::Transpose(viewProj);
 			std::memcpy(c.uViewProj.data(), mathUtils::ValuePtr(vpT), sizeof(float) * 16);
 			cmd.SetConstants(0, std::as_bytes(std::span{ &c, 1 }));
+			
+			if (lastTriangleVertexCount_ > 0)
+			{
+				rhi::GraphicsState triangleState{};
+				triangleState.depth.testEnable = depthTest;
+				triangleState.depth.writeEnable = false;
+				triangleState.depth.depthCompareOp = rhi::CompareOp::LessEqual;
+				triangleState.rasterizer.cullMode = rhi::CullMode::None;
+				triangleState.blend.enable = true;
+
+				cmd.BindPipeline(psoTriangles_);
+				cmd.SetPrimitiveTopology(rhi::PrimitiveTopology::TriangleList);
+				cmd.SetState(triangleState);
+				cmd.Draw(lastTriangleVertexCount_, 0);
+			}
+
+			cmd.BindPipeline(psoLines_);
+			cmd.SetPrimitiveTopology(rhi::PrimitiveTopology::LineList);
 
 			if (lastDepthVertexCount_ > 0)
 			{
@@ -84,10 +102,10 @@ export namespace rendern::debugDraw
 				depthState.blend.enable = false;
 
 				cmd.SetState(depthState);
-				cmd.Draw(lastDepthVertexCount_, 0);
+				cmd.Draw(lastDepthVertexCount_, lastTriangleVertexCount_);
 			}
 
-			const std::uint32_t overlayStartVertex = lastDepthVertexCount_;
+			const std::uint32_t overlayStartVertex = lastTriangleVertexCount_ + lastDepthVertexCount_;
 			if (lastOverlayVertexCount_ > 0)
 			{
 				rhi::GraphicsState overlayState{};
@@ -130,6 +148,7 @@ export namespace rendern::debugDraw
 			}
 			vbCapacityVertices_ = 0;
 			lastVertexCount_ = 0;
+			lastTriangleVertexCount_ = 0;
 			lastDepthVertexCount_ = 0;
 			lastOverlayVertexCount_ = 0;
 			lastScreenOverlayVertexCount_ = 0;
@@ -142,6 +161,7 @@ export namespace rendern::debugDraw
 			}
 
 			psoLines_ = {};
+			psoTriangles_ = {};
 			initialized_ = false;
 		}
 
@@ -154,7 +174,7 @@ export namespace rendern::debugDraw
 			}
 
 			rhi::InputLayoutDesc il{};
-			il.debugName = "DebugLinesInputLayout";
+			il.debugName = "DebugDrawInputLayout";
 			il.strideBytes = static_cast<std::uint32_t>(sizeof(DebugVertex));
 			il.attributes = {
 				rhi::VertexAttributeDesc{
@@ -191,7 +211,8 @@ export namespace rendern::debugDraw
 			rhi::ShaderHandle ps = shaderLibrary_.GetOrCreateShader(psKey);
 
 			psoLines_ = psoCache_.GetOrCreate("PSO_DebugLines", vs, ps, rhi::PrimitiveTopologyType::Line);
-
+			psoTriangles_ = psoCache_.GetOrCreate("PSO_DebugTriangles", vs, ps, rhi::PrimitiveTopologyType::Triangle);
+			
 			EnsureVertexBufferCapacity(4096);
 
 			initialized_ = true;
@@ -222,7 +243,7 @@ export namespace rendern::debugDraw
 			vbDesc.bindFlag = rhi::BufferBindFlag::VertexBuffer;
 			vbDesc.usageFlag = rhi::BufferUsageFlag::Dynamic;
 			vbDesc.sizeInBytes = static_cast<std::size_t>(vbCapacityVertices_) * sizeof(DebugVertex);
-			vbDesc.debugName = "DebugLinesVB";
+			vbDesc.debugName = "DebugDrawVB";
 			vertexBuffer_ = device_.CreateBuffer(vbDesc);
 		}
 
@@ -233,10 +254,12 @@ export namespace rendern::debugDraw
 
 		rhi::InputLayoutHandle inputLayout_{};
 		rhi::PipelineHandle psoLines_{};
+		rhi::PipelineHandle psoTriangles_{};
 		rhi::BufferHandle vertexBuffer_{};
 		std::vector<DebugVertex> uploadScratch_{};
 		std::uint32_t vbCapacityVertices_{ 0 };
 		std::uint32_t lastVertexCount_{ 0 };
+		std::uint32_t lastTriangleVertexCount_{ 0 };
 		std::uint32_t lastDepthVertexCount_{ 0 };
 		std::uint32_t lastOverlayVertexCount_{ 0 };
 		std::uint32_t lastScreenOverlayVertexCount_{ 0 };

@@ -22,6 +22,9 @@ namespace navigation
 {
 	namespace
 	{
+		// Prevent coplanar NavMesh debug geometry from fighting with authored walkable surfaces.
+		constexpr float NavMeshDebugVerticalOffset = 0.01f;
+
 		class DebugGeometryAdapter final : public duDebugDraw
 		{
 		public:
@@ -38,12 +41,13 @@ namespace navigation
 
 			void vertex(const float* position, unsigned int color) override
 			{
-				vertices_.push_back({ { position[0], position[1], position[2] }, color });
+				vertices_.push_back({
+					{ position[0], position[1] + NavMeshDebugVerticalOffset, position[2] }, color });
 			}
 
 			void vertex(float x, float y, float z, unsigned int color) override
 			{
-				vertices_.push_back({ { x, y, z }, color });
+				vertices_.push_back({ { x, y + NavMeshDebugVerticalOffset, z }, color });
 			}
 
 			void vertex(const float* position, unsigned int color, const float*) override
@@ -69,14 +73,14 @@ namespace navigation
 				case DU_DRAW_TRIS:
 					for (std::size_t i = 0; i + 2 < vertices_.size(); i += 3)
 					{
-						AddLine(i, i + 1);
-						AddLine(i + 1, i + 2);
-						AddLine(i + 2, i);
+						AddTriangle(i, i + 1, i + 2);
 					}
 					break;
 				case DU_DRAW_QUADS:
 					for (std::size_t i = 0; i + 3 < vertices_.size(); i += 4)
 					{
+						AddTriangle(i, i + 1, i + 2);
+						AddTriangle(i, i + 2, i + 3);
 						AddLine(i, i + 1);
 						AddLine(i + 1, i + 2);
 						AddLine(i + 2, i + 3);
@@ -99,6 +103,13 @@ namespace navigation
 			void AddLine(std::size_t start, std::size_t end)
 			{
 				geometry_.lines.push_back({ vertices_[start].position, vertices_[end].position, vertices_[start].color });
+			}
+			
+			void AddTriangle(std::size_t a, std::size_t b, std::size_t c)
+			{
+				geometry_.triangles.push_back({
+					vertices_[a].position, vertices_[b].position, vertices_[c].position,
+					vertices_[a].color, vertices_[b].color, vertices_[c].color });
 			}
 
 			DebugGeometry& geometry_;

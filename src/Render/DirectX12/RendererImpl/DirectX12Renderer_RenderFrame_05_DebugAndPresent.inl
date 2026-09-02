@@ -1,6 +1,11 @@
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
+for (const ExternalDebugTriangle& triangle : frameView.GetScene().externalDebugTriangles)
+{
+	debugList.AddTriangle(triangle.a, triangle.b, triangle.c,
+		triangle.rgbaA, triangle.rgbaB, triangle.rgbaC);
+}
 for (const ExternalDebugLine& line : frameView.GetScene().externalDebugLines)
 {
 	debugList.AddLine(line.start, line.end, line.rgba);
