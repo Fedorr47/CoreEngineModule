@@ -99,6 +99,75 @@ TEST_F(JoltFallingBodyTest, StaleHandleCannotReadReplacementBody)
     EXPECT_TRUE(world.DestroyBody(currentHandle));
 }
 
+TEST_F(JoltFallingBodyTest, DebugStateRetainsDescriptorsMotionAndAuthoritativeState)
+{
+    const physics::PhysicsBodyDescriptor descriptors[] = {
+        { .shape = physics::BoxShapeDescriptor{ .halfExtents = { 1.0f, 2.0f, 3.0f } },
+          .transform = { .position = { 2.0f, 4.0f, 6.0f } },
+          .motionType = physics::PhysicsMotionType::Static },
+        { .shape = physics::SphereShapeDescriptor{ .radius = 0.75f },
+          .transform = { .position = { -2.0f, 4.0f, 0.0f } },
+          .motionType = physics::PhysicsMotionType::Dynamic },
+        { .shape = physics::CapsuleShapeDescriptor{ .radius = 0.4f, .cylinderHeight = 1.3f },
+          .transform = { .position = { 0.0f, 3.0f, 2.0f } },
+          .motionType = physics::PhysicsMotionType::Kinematic }
+    };
+
+    for (const auto& descriptor : descriptors)
+    {
+        const auto handle = world.CreateBody(descriptor);
+        ASSERT_TRUE(handle.IsValid());
+        const auto state = world.GetBodyDebugState(handle);
+        ASSERT_TRUE(state.has_value());
+        EXPECT_EQ(state->handle, handle);
+        EXPECT_EQ(state->motionType, descriptor.motionType);
+        EXPECT_EQ(state->shape.index(), descriptor.shape.index());
+        std::visit([&](const auto& expectedShape)
+        {
+            using Shape = std::decay_t<decltype(expectedShape)>;
+            const Shape* actualShape = std::get_if<Shape>(&state->shape);
+            ASSERT_NE(actualShape, nullptr);
+            if constexpr (std::is_same_v<Shape, physics::BoxShapeDescriptor>)
+            {
+                EXPECT_EQ(actualShape->halfExtents, expectedShape.halfExtents);
+            }
+            else if constexpr (std::is_same_v<Shape, physics::SphereShapeDescriptor>)
+            {
+                EXPECT_EQ(actualShape->radius, expectedShape.radius);
+            }
+            else
+            {
+                EXPECT_EQ(actualShape->radius, expectedShape.radius);
+                EXPECT_EQ(actualShape->cylinderHeight, expectedShape.cylinderHeight);
+            }
+        }, descriptor.shape);
+        EXPECT_EQ(state->transform.position, descriptor.transform.position);
+        EXPECT_TRUE(mathUtils::IsFinite(state->aabb.minimum));
+        EXPECT_TRUE(mathUtils::IsFinite(state->aabb.maximum));
+        EXPECT_LE(state->aabb.minimum.x, state->aabb.maximum.x);
+        EXPECT_LE(state->aabb.minimum.y, state->aabb.maximum.y);
+        EXPECT_LE(state->aabb.minimum.z, state->aabb.maximum.z);
+        EXPECT_TRUE(world.DestroyBody(handle));
+        EXPECT_FALSE(world.GetBodyDebugState(handle).has_value());
+    }
+}
+
+TEST_F(JoltFallingBodyTest, DebugStateReportsLinearVelocityAndEnumeratesLiveBodies)
+{
+    const auto handle = world.CreateBody(SphereDescriptor());
+    ASSERT_TRUE(handle.IsValid());
+    const mathUtils::Vec3 velocity{ 1.25f, -2.5f, 0.75f };
+    ASSERT_TRUE(world.SetLinearVelocity(handle, velocity));
+    const auto state = world.GetBodyDebugState(handle);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(state->linearVelocity, velocity);
+    const auto states = world.BuildBodyDebugStates();
+    ASSERT_EQ(states.size(), 1u);
+    EXPECT_EQ(states.front().handle, handle);
+    EXPECT_TRUE(world.DestroyBody(handle));
+    EXPECT_TRUE(world.BuildBodyDebugStates().empty());
+}
+
 TEST_F(JoltFallingBodyTest, Smoke_CreateSimulateReadAndDestroyBodies)
 {
     const auto floorHandle = world.CreateBody(FloorDescriptor());

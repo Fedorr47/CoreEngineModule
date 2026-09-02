@@ -260,26 +260,63 @@ export namespace rendern
 
         [[nodiscard]] bool HasPassedCurrentCorner_(
             const mathUtils::Vec3& currentPosition) const noexcept
-        {
-            const mathUtils::Vec3& start = route_.points[currentSegmentIndex_].worldPosition;
-            const mathUtils::Vec3& corner = route_.points[currentSegmentIndex_ + 1u].worldPosition;
-            mathUtils::Vec3 incoming = corner - start;
-            incoming.y = 0.0f;
-            const float incomingLength = mathUtils::Length(incoming);
-            if (!std::isfinite(incomingLength) || incomingLength <= mathUtils::kLengthEpsilon)
-            {
-                return false;
-            }
+         {
+             const std::size_t nextSegmentIndex = currentSegmentIndex_ + 1u;
+             if (nextSegmentIndex >= route_.segmentAnnotations.size())
+             {
+                 return false;
+             }
 
-            mathUtils::Vec3 fromCorner = currentPosition - corner;
-            fromCorner.y = 0.0f;
-            const float cornerDistance = mathUtils::Length(fromCorner);
-            const bool bInsideEnvelope = std::isfinite(cornerDistance) &&
-                cornerDistance <= followerSettings_.cornerLookAheadDistance;
-            const bool bCrossedEndPlane =
-                mathUtils::Dot(fromCorner, incoming / incomingLength) >= 0.0f;
-            return bInsideEnvelope && bCrossedEndPlane;
-        }
+             const mathUtils::Vec3& start = route_.points[currentSegmentIndex_].worldPosition;
+             const mathUtils::Vec3& corner = route_.points[currentSegmentIndex_ + 1u].worldPosition;
+             const mathUtils::Vec3& next = route_.points[currentSegmentIndex_ + 2u].worldPosition;
+             
+             mathUtils::Vec3 incoming = corner - start;
+             incoming.y = 0.0f;
+             mathUtils::Vec3 outgoing = next - corner;
+             outgoing.y = 0.0f;
+
+             
+             const float incomingLength = mathUtils::Length(incoming);
+             const float outgoingLength = mathUtils::Length(outgoing);
+             if (!std::isfinite(incomingLength) ||
+                 incomingLength <= mathUtils::kLengthEpsilon ||
+                 !std::isfinite(outgoingLength) ||
+                 outgoingLength <= mathUtils::kLengthEpsilon)
+
+             {
+                 return false;
+             }
+
+             mathUtils::Vec3 fromCorner = currentPosition - corner;
+             fromCorner.y = 0.0f;
+             const float cornerDistance = mathUtils::Length(fromCorner);
+             const bool bInsideEnvelope = std::isfinite(cornerDistance) &&
+                 cornerDistance <= followerSettings_.cornerLookAheadDistance;
+            
+             const mathUtils::Vec3 incomingDirection = incoming / incomingLength;
+             const mathUtils::Vec3 outgoingDirection = outgoing / outgoingLength;
+             mathUtils::Vec3 transitionNormal = incomingDirection + outgoingDirection;
+             const float transitionNormalLengthSquared =
+                 mathUtils::Dot(transitionNormal, transitionNormal);
+
+             if (!mathUtils::IsFinite(transitionNormal) ||
+                 transitionNormalLengthSquared <= mathUtils::kLengthEpsilonSq)
+             {
+                 // Near-180-degree reversals have no stable angle bisector.
+                 // Preserve the previous incoming end-plane behavior.
+                 transitionNormal = incomingDirection;
+             }
+             else
+             {
+                 transitionNormal =
+                     transitionNormal / std::sqrt(transitionNormalLengthSquared);
+             }
+
+             const bool bCrossedTransitionPlane =
+                 mathUtils::Dot(fromCorner, transitionNormal) >= 0.0f;
+             return bInsideEnvelope && bCrossedTransitionPlane;
+         }
         
         [[nodiscard]] std::optional<GameplayTraversalLinkHandle> GetCurrentTraversalLink() const noexcept
         {

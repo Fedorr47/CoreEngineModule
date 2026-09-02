@@ -7,8 +7,16 @@ for (const ExternalDebugLine& line : frameView.GetScene().externalDebugLines)
 }
 for (const ExternalDebugCapsule& capsule : frameView.GetScene().externalDebugCapsules)
 {
-	debugList.AddWireCapsuleY(
-		capsule.center, capsule.radius, capsule.cylinderHeight, capsule.rgba);
+	debugList.AddWireCapsule(capsule.center, capsule.rotationQuaternion,
+		capsule.radius, capsule.cylinderHeight, capsule.rgba);
+}
+for (const ExternalDebugBox& box : frameView.GetScene().externalDebugBoxes)
+{
+	debugList.AddWireBox(box.center, box.halfExtents, box.rotationQuaternion, box.rgba);
+}
+for (const ExternalDebugSphere& sphere : frameView.GetScene().externalDebugSpheres)
+{
+	debugList.AddWireSphere(sphere.center, sphere.radius, sphere.rgba);
 }
 for (const ExternalDebugArrow& arrow : frameView.GetScene().externalDebugArrows)
 {

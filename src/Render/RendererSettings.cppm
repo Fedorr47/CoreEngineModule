@@ -150,6 +150,10 @@ export namespace rendern
 		bool drawPhysicsCharacterVelocity{ false };
 		bool drawPhysicsCharacterBlocked{ false };
 		float physicsCharacterVelocityScale{ 0.35f };
+		bool drawPhysicsBodies{ false };
+		bool drawPhysicsBodyAabbs{ false };
+		bool drawPhysicsBodyVelocity{ false };
+		float physicsBodyVelocityScale{ 0.35f };
 
 		bool drawAnimationRuntimeOverlay{ false };
 		bool drawAnimationRuntimeOverlayOnlyControlled{ false };

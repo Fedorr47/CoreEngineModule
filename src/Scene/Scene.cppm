@@ -35,6 +35,22 @@ export namespace rendern
 		float radius{};
 		float cylinderHeight{};
 		std::uint32_t rgba{};
+		mathUtils::Vec4 rotationQuaternion{ 0.0f, 0.0f, 0.0f, 1.0f };
+	};
+
+	struct ExternalDebugBox
+	{
+		mathUtils::Vec3 center{};
+		mathUtils::Vec3 halfExtents{};
+		mathUtils::Vec4 rotationQuaternion{ 0.0f, 0.0f, 0.0f, 1.0f };
+		std::uint32_t rgba{};
+	};
+
+	struct ExternalDebugSphere
+	{
+		mathUtils::Vec3 center{};
+		float radius{};
+		std::uint32_t rgba{};
 	};
 
 	struct ExternalDebugArrow
@@ -468,6 +484,8 @@ export namespace rendern
 		std::vector<ExternalDebugLine> externalDebugLines{};
 		std::vector<ExternalDebugCapsule> externalDebugCapsules{};
 		std::vector<ExternalDebugArrow> externalDebugArrows{};
+		std::vector<ExternalDebugBox> externalDebugBoxes{};
+		std::vector<ExternalDebugSphere> externalDebugSpheres{};
 
 		// Editor selection (runtime-only). Index into LevelAsset::nodes.
 		int editorSelectedNode{ -1 };

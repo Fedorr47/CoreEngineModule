@@ -457,7 +457,8 @@ namespace physics
 
         try
         {
-            const PhysicsBodyHandle handle = impl_->bodyRegistry.AllocateHandle(bodyID, descriptor.surface);
+            const PhysicsBodyHandle handle = impl_->bodyRegistry.AllocateHandle(
+                bodyID, descriptor.surface, descriptor.shape, descriptor.motionType);
             if (handle.IsValid())
             {
                 return handle;
@@ -571,6 +572,81 @@ namespace physics
             velocity.GetY(),
             velocity.GetZ()
         };
+    }
+    
+    std::optional<PhysicsBodyDebugState> JoltPhysicsWorld::GetBodyDebugState(
+        const PhysicsBodyHandle handle) const noexcept
+    {
+        if (!IsInitialized() || !runtime_.IsInitialized() || !handle.IsValid())
+        {
+            return std::nullopt;
+        }
+        CORE_ASSERT_PHYSICS_THREAD();
+        std::optional<PhysicsBodyDebugState> result;
+        impl_->bodyRegistry.VisitActiveBodies(
+            [this, handle, &result](const PhysicsBodyHandle current, const JPH::BodyID bodyID,
+                const PhysicsShapeDescriptor& shape, const PhysicsMotionType motionType)
+            {
+                if (current != handle)
+                {
+                    return;
+                }
+                JPH::BodyLockRead lock(impl_->physicsSystem.GetBodyLockInterface(), bodyID);
+                if (!lock.Succeeded())
+                {
+                    return;
+                }
+                const JPH::Body& body = lock.GetBody();
+                const JPH::RVec3 position = body.GetPosition();
+                const JPH::Quat rotation = body.GetRotation();
+                const JPH::AABox bounds = body.GetWorldSpaceBounds();
+                const JPH::Vec3 velocity = body.GetLinearVelocity();
+                result = PhysicsBodyDebugState{
+                    .handle = current, .motionType = motionType, .shape = shape,
+                    .transform = { .position = { static_cast<float>(position.GetX()),
+                        static_cast<float>(position.GetY()), static_cast<float>(position.GetZ()) },
+                        .rotationQuaternion = { rotation.GetX(), rotation.GetY(), rotation.GetZ(), rotation.GetW() } },
+                    .aabb = { .minimum = { bounds.mMin.GetX(), bounds.mMin.GetY(), bounds.mMin.GetZ() },
+                        .maximum = { bounds.mMax.GetX(), bounds.mMax.GetY(), bounds.mMax.GetZ() } },
+                    .linearVelocity = { velocity.GetX(), velocity.GetY(), velocity.GetZ() }
+                };
+            });
+        return result;
+    }
+
+    std::vector<PhysicsBodyDebugState> JoltPhysicsWorld::BuildBodyDebugStates() const
+    {
+        std::vector<PhysicsBodyDebugState> states;
+        if (!IsInitialized() || !runtime_.IsInitialized())
+        {
+            return states;
+        }
+        CORE_ASSERT_PHYSICS_THREAD();
+        impl_->bodyRegistry.VisitActiveBodies(
+            [this, &states](const PhysicsBodyHandle handle, const JPH::BodyID bodyID,
+                const PhysicsShapeDescriptor& shape, const PhysicsMotionType motionType)
+            {
+                JPH::BodyLockRead lock(impl_->physicsSystem.GetBodyLockInterface(), bodyID);
+                if (!lock.Succeeded())
+                {
+                    return;
+                }
+                const JPH::Body& body = lock.GetBody();
+                const JPH::RVec3 position = body.GetPosition();
+                const JPH::Quat rotation = body.GetRotation();
+                const JPH::AABox bounds = body.GetWorldSpaceBounds();
+                const JPH::Vec3 velocity = body.GetLinearVelocity();
+                states.push_back({
+                    .handle = handle, .motionType = motionType, .shape = shape,
+                    .transform = { .position = { static_cast<float>(position.GetX()),
+                        static_cast<float>(position.GetY()), static_cast<float>(position.GetZ()) },
+                        .rotationQuaternion = { rotation.GetX(), rotation.GetY(), rotation.GetZ(), rotation.GetW() } },
+                    .aabb = { .minimum = { bounds.mMin.GetX(), bounds.mMin.GetY(), bounds.mMin.GetZ() },
+                        .maximum = { bounds.mMax.GetX(), bounds.mMax.GetY(), bounds.mMax.GetZ() } },
+                    .linearVelocity = { velocity.GetX(), velocity.GetY(), velocity.GetZ() }
+                });
+            });
+        return states;
     }
     
     bool JoltPhysicsWorld::SetLinearVelocity(

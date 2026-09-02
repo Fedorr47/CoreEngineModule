@@ -360,5 +360,50 @@ export namespace rendern::debugDraw
 			addHemisphereArc(bottom, {1.0f, 0.0f, 0.0f}, -1.0f);
 			addHemisphereArc(bottom, {0.0f, 0.0f, 1.0f}, -1.0f);
 		}
+		
+		void AddWireBox(const mathUtils::Vec3& center, const mathUtils::Vec3& halfExtents,
+			const mathUtils::Vec4& rotation, std::uint32_t rgba, bool overlay = false)
+		{
+			const auto rotate = [&rotation](const mathUtils::Vec3& value)
+			{
+				const mathUtils::Vec3 q{ rotation.x, rotation.y, rotation.z };
+				return value + 2.0f * mathUtils::Cross(q,
+					mathUtils::Cross(q, value) + value * rotation.w);
+			};
+			mathUtils::Vec3 corners[8]{};
+			for (std::uint32_t index = 0u; index < 8u; ++index)
+			{
+				const mathUtils::Vec3 local{
+					(index & 1u) ? halfExtents.x : -halfExtents.x,
+					(index & 2u) ? halfExtents.y : -halfExtents.y,
+					(index & 4u) ? halfExtents.z : -halfExtents.z };
+				corners[index] = center + rotate(local);
+			}
+			constexpr std::uint32_t edges[][2] = {
+				{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7} };
+			for (const auto& edge : edges)
+			{
+				AddLine(corners[edge[0]], corners[edge[1]], rgba, overlay);
+			}
+		}
+
+		void AddWireCapsule(const mathUtils::Vec3& center, const mathUtils::Vec4& rotation,
+			float radius, float cylinderHeight, std::uint32_t rgba,
+			std::uint32_t segments = 24, bool overlay = false)
+		{
+			DebugDrawList local;
+			local.AddWireCapsuleY({}, radius, cylinderHeight, rgba, segments, false);
+			const mathUtils::Vec3 q{ rotation.x, rotation.y, rotation.z };
+			for (std::size_t index = 0u; index + 1u < local.lineVertices.size(); index += 2u)
+			{
+				const auto rotate = [&q, &rotation](const mathUtils::Vec3& value)
+				{
+					return value + 2.0f * mathUtils::Cross(q,
+						mathUtils::Cross(q, value) + value * rotation.w);
+				};
+				AddLine(center + rotate(local.lineVertices[index].pos),
+					center + rotate(local.lineVertices[index + 1u].pos), rgba, overlay);
+			}
+		}
 	};
 }

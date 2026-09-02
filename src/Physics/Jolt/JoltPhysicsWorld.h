@@ -32,6 +32,9 @@ namespace physics
         [[nodiscard]] std::optional<PhysicsTransform> GetBodyTransform(
             PhysicsBodyHandle handle) const noexcept;
         [[nodiscard]] std::optional<mathUtils::Vec3> GetLinearVelocity(PhysicsBodyHandle handle) const noexcept;
+        [[nodiscard]] std::optional<PhysicsBodyDebugState> GetBodyDebugState(
+            PhysicsBodyHandle handle) const noexcept;
+        [[nodiscard]] std::vector<PhysicsBodyDebugState> BuildBodyDebugStates() const;
         [[nodiscard]] bool SetLinearVelocity(PhysicsBodyHandle handle, const mathUtils::Vec3& velocity);
         [[nodiscard]] bool AddImpulse(PhysicsBodyHandle handle, const mathUtils::Vec3& impulse);
         [[nodiscard]] bool TeleportBody(PhysicsBodyHandle handle, const PhysicsTransform& transform);

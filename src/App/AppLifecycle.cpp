@@ -340,6 +340,8 @@ namespace appLifecycle
 	    auto& runtime = app.runtimeState;
 	    runtime.scene.externalDebugLines.clear();
         runtime.scene.externalDebugCapsules.clear();
+        runtime.scene.externalDebugBoxes.clear();
+        runtime.scene.externalDebugSpheres.clear();
         runtime.scene.externalDebugArrows.clear();
         if (runtime.gameplayRuntime)
         {
@@ -419,6 +421,63 @@ namespace appLifecycle
 	                    runtime.scene.externalDebugCapsules.push_back({state->position,
 	                        markerRadius, state->collider.cylinderHeight, blockedColor});
 	                }
+	            }
+	        }
+	    }
+        const bool drawAnyBodyPhysics = physicsDebug.drawPhysicsBodies
+	        || physicsDebug.drawPhysicsBodyAabbs
+	        || physicsDebug.drawPhysicsBodyVelocity;
+	    if (drawAnyBodyPhysics && app.physicsState.joltPhysicsWorld)
+	    {
+	        constexpr std::uint32_t staticColor = 0xff55cc88u;
+	        constexpr std::uint32_t dynamicColor = 0xff44aaffu;
+	        constexpr std::uint32_t kinematicColor = 0xffffaa44u;
+	        constexpr std::uint32_t aabbColor = 0xffcc66ccu;
+	        constexpr std::uint32_t velocityColor = 0xff33ddffu;
+	        constexpr float zeroVectorEpsilon = 1e-4f;
+	        for (const physics::PhysicsBodyDebugState& state :
+	            app.physicsState.joltPhysicsWorld->BuildBodyDebugStates())
+	        {
+	            const std::uint32_t bodyColor = state.motionType == physics::PhysicsMotionType::Static
+	                ? staticColor : state.motionType == physics::PhysicsMotionType::Dynamic
+	                ? dynamicColor : kinematicColor;
+	            if (physicsDebug.drawPhysicsBodies)
+	            {
+	                std::visit([&](const auto& shape)
+	                {
+	                    using Shape = std::decay_t<decltype(shape)>;
+	                    if constexpr (std::is_same_v<Shape, physics::BoxShapeDescriptor>)
+	                    {
+	                        runtime.scene.externalDebugBoxes.push_back({ state.transform.position,
+	                            shape.halfExtents, state.transform.rotationQuaternion, bodyColor });
+	                    }
+	                    else if constexpr (std::is_same_v<Shape, physics::SphereShapeDescriptor>)
+	                    {
+	                        runtime.scene.externalDebugSpheres.push_back({
+	                            state.transform.position, shape.radius, bodyColor });
+	                    }
+	                    else if constexpr (std::is_same_v<Shape, physics::CapsuleShapeDescriptor>)
+	                    {
+	                        runtime.scene.externalDebugCapsules.push_back({ state.transform.position,
+	                            shape.radius, shape.cylinderHeight, bodyColor,
+	                            state.transform.rotationQuaternion });
+	                    }
+	                }, state.shape);
+	            }
+	            if (physicsDebug.drawPhysicsBodyAabbs)
+	            {
+	                const mathUtils::Vec3 center = (state.aabb.minimum + state.aabb.maximum) * 0.5f;
+	                const mathUtils::Vec3 halfExtents = (state.aabb.maximum - state.aabb.minimum) * 0.5f;
+	                runtime.scene.externalDebugBoxes.push_back({ center, halfExtents,
+	                    { 0.0f, 0.0f, 0.0f, 1.0f }, aabbColor });
+	            }
+	            if (physicsDebug.drawPhysicsBodyVelocity
+	                && state.motionType != physics::PhysicsMotionType::Static
+	                && mathUtils::Length(state.linearVelocity) > zeroVectorEpsilon)
+	            {
+	                runtime.scene.externalDebugArrows.push_back({ state.transform.position,
+	                    state.transform.position + state.linearVelocity * physicsDebug.physicsBodyVelocityScale,
+	                    velocityColor });
 	            }
 	        }
 	    }

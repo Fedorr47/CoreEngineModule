@@ -375,10 +375,18 @@ namespace rendern::ui
         }
         ImGui::Checkbox("Gameplay movement", &rs.drawGameplayMovementDebug);
         ImGui::SeparatorText("Physics");
-        		ImGui::Checkbox("Characters", &rs.drawPhysicsCharacters);
-        		ImGui::Checkbox("Ground", &rs.drawPhysicsCharacterGround);
-        		ImGui::Checkbox("Velocity", &rs.drawPhysicsCharacterVelocity);
-        		ImGui::Checkbox("Blocked", &rs.drawPhysicsCharacterBlocked);
+        ImGui::Checkbox("Characters", &rs.drawPhysicsCharacters);
+        ImGui::Checkbox("Ground", &rs.drawPhysicsCharacterGround);
+        ImGui::Checkbox("Velocity", &rs.drawPhysicsCharacterVelocity);
+        ImGui::Checkbox("Blocked", &rs.drawPhysicsCharacterBlocked);
+        ImGui::Checkbox("Bodies", &rs.drawPhysicsBodies);
+        ImGui::Checkbox("Body AABBs", &rs.drawPhysicsBodyAabbs);
+        ImGui::Checkbox("Body Velocity", &rs.drawPhysicsBodyVelocity);
+        if (rs.drawPhysicsBodyVelocity)
+        {
+            ImGui::SliderFloat("Body velocity scale", &rs.physicsBodyVelocityScale,
+                0.05f, 3.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        }
         ImGui::Checkbox("Navigation Mesh", &rs.drawNavigationMesh);
         ImGui::Checkbox("AI planned paths", &rs.drawAIPlannedPathDebug);
         ImGui::Checkbox("Performance panel", &rs.showPerformancePanel);

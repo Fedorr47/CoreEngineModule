@@ -26,7 +26,10 @@ export namespace physics::jolt
         JoltBodyRegistry(JoltBodyRegistry&&) = delete;
         JoltBodyRegistry& operator=(JoltBodyRegistry&&) = delete;
         
-        [[nodiscard]] PhysicsBodyHandle AllocateHandle(JPH::BodyID bodyID, SurfaceTypeId surface = DefaultSurfaceType);
+        [[nodiscard]] PhysicsBodyHandle AllocateHandle(JPH::BodyID bodyID,
+            SurfaceTypeId surface = DefaultSurfaceType,
+            PhysicsShapeDescriptor shape = {},
+            PhysicsMotionType motionType = PhysicsMotionType::Static);
         
         [[nodiscard]] std::optional<JPH::BodyID> ResolveBodyID
             (const PhysicsBodyHandle handle) const noexcept;
@@ -52,6 +55,20 @@ export namespace physics::jolt
                 }
             }
         }
+        
+        template<typename Visitor>
+        void VisitActiveBodies(Visitor&& visitor) const
+        {
+            for (PhysicsBodyHandle::IndexType index = 0u; index < slots_.size(); ++index)
+            {
+                const Slot& slot = slots_[index];
+                if (slot.bOccupied)
+                {
+                    std::forward<Visitor>(visitor)(
+                        PhysicsBodyHandle{ index, slot.generation }, slot.bodyID, slot.shape, slot.motionType);
+                }
+            }
+        }
 
         void Reset() noexcept;
         
@@ -61,6 +78,8 @@ export namespace physics::jolt
             JPH::BodyID bodyID{};
             PhysicsBodyHandle::GenerationType generation{1u};
             SurfaceTypeId surface{ InvalidSurfaceType };
+            PhysicsShapeDescriptor shape{};
+            PhysicsMotionType motionType{ PhysicsMotionType::Static };
             bool bOccupied{false};
         };
         
@@ -71,7 +90,8 @@ export namespace physics::jolt
 }
 
 physics::PhysicsBodyHandle physics::jolt::JoltBodyRegistry::AllocateHandle(
-    JPH::BodyID bodyID, const SurfaceTypeId surface)
+    JPH::BodyID bodyID, const SurfaceTypeId surface,
+    PhysicsShapeDescriptor shape, const PhysicsMotionType motionType)
 {
     if (bodyID.IsInvalid())
     {
@@ -115,6 +135,8 @@ physics::PhysicsBodyHandle physics::jolt::JoltBodyRegistry::AllocateHandle(
     Slot& slot = slots_[slotIndex];
     slot.bodyID = bodyID;
     slot.surface = surface;
+    slot.shape = std::move(shape);
+    slot.motionType = motionType;
     slot.bOccupied = true;
     return handle;
 }
@@ -185,6 +207,8 @@ bool physics::jolt::JoltBodyRegistry::ReleaseHandle(const PhysicsBodyHandle hand
     handlesByBodyID_.erase(slot.bodyID.GetIndexAndSequenceNumber());
     slot.bodyID = JPH::BodyID{};
     slot.surface = InvalidSurfaceType;
+    slot.shape = {};
+    slot.motionType = PhysicsMotionType::Static;
     slot.bOccupied = false;
 
     if (slot.generation == std::numeric_limits<PhysicsBodyHandle::GenerationType>::max())
@@ -213,6 +237,8 @@ void physics::jolt::JoltBodyRegistry::Reset() noexcept
         Slot& slot = slots_[index];
         slot.bodyID = JPH::BodyID{};
         slot.surface = InvalidSurfaceType;
+        slot.shape = {};
+        slot.motionType = PhysicsMotionType::Static;
         slot.bOccupied = false;
         if (slot.generation == std::numeric_limits<PhysicsBodyHandle::GenerationType>::max())
         {

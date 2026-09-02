@@ -280,6 +280,24 @@ export namespace physics
         PhysicsMaterialDescriptor material{};
         SurfaceTypeId surface{ DefaultSurfaceType };
     };
+    
+    struct PhysicsAabb
+    {
+        mathUtils::Vec3 minimum{};
+        mathUtils::Vec3 maximum{};
+    };
+
+    // Read-only snapshot. Shape metadata is the exact descriptor used at creation;
+    // transform, bounds, and velocity are read from the current physics body.
+    struct PhysicsBodyDebugState
+    {
+        PhysicsBodyHandle handle{};
+        PhysicsMotionType motionType{ PhysicsMotionType::Static };
+        PhysicsShapeDescriptor shape{};
+        PhysicsTransform transform{};
+        PhysicsAabb aabb{};
+        mathUtils::Vec3 linearVelocity{};
+    };
 }
 
 bool physics::PhysicsMaterialDescriptor::IsValid() const noexcept
