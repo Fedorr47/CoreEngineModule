@@ -85,6 +85,10 @@ export namespace rendern
 		float baseCost{ 1.0f };
 		std::vector<AINumericCondition> numericPreconditions{};
 		std::vector<AINumericEffect> numericEffects{};
+		// Preconditions answer whether an action may start. Continuation conditions
+        // are opt-in requirements evaluated only while its runtime is active.
+        std::vector<AIFactCondition> continuationConditions{};
+        std::vector<AINumericCondition> numericContinuationConditions{};
 	};
 		
 	struct AIPlanStep

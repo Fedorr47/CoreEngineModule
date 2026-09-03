@@ -1,6 +1,7 @@
 ﻿#include "DevelopmentScenario.h"
 #include "AppDevelopmentScenarioRuntime.h"
 #include "Physics/Jolt/JoltPhysicsWorld.h"
+#include <chrono>
 
 import core;
 
@@ -126,6 +127,13 @@ namespace appDevelopment
                         entity(), visible->second.AsBool(), whenPickupCollected()});
                 }
                 else if (op == "ensureNodeBoundEntity") result.emplace_back(EnsureNodeBoundEntityOperation{entity()});
+                else if (op == "temporarilyRemoveTargetAtMidpoint")
+                {
+                    result.emplace_back(TemporarilyRemoveTargetAtMidpointOperation{
+                        entity(), RequiredString(operation, "agent", source, section, i),
+                        static_cast<float>(RequiredNumber(operation, "distanceFraction", source, section, i)),
+                        static_cast<float>(RequiredNumber(operation, "unavailableSeconds", source, section, i))});
+                }
                 else if (op == "ensurePickup") result.emplace_back(EnsurePickupOperation{entity(),
                     static_cast<float>(RequiredNumber(operation, "collectionRadius", source, section, i))});
                 else if (op == "ensureInteractionPoint")
@@ -314,6 +322,7 @@ namespace appDevelopment
                 else if constexpr (std::is_same_v<T, SetRuntimeVisibilityOperation>) { return "setRuntimeVisibility"; }
                 else if constexpr (std::is_same_v<T, EnsureNodeBoundEntityOperation>) { return "ensureNodeBoundEntity"; }
                 else if constexpr (std::is_same_v<T, EnsurePickupOperation>) { return "ensurePickup"; }
+                else if constexpr (std::is_same_v<T, TemporarilyRemoveTargetAtMidpointOperation>) { return "temporarilyRemoveTargetAtMidpoint"; }
                 else if constexpr (std::is_same_v<T, EnsureInteractionPointOperation>) { return "ensureInteractionPoint"; }
                 else if constexpr (std::is_same_v<T, ResetPickupOperation>) { return "resetPickup"; }
                 else if constexpr (std::is_same_v<T, SetPickupCollectedOperation>) { return "setPickupCollected"; }
@@ -338,6 +347,10 @@ namespace appDevelopment
             
         std::vector<std::string> AdditionalOperationRoles(const ScenarioOperation& operation)
         {
+            if (const auto* temporary = std::get_if<TemporarilyRemoveTargetAtMidpointOperation>(&operation))
+            {
+                return {temporary->agent};
+            }
             if (const auto* visibility = std::get_if<SetRuntimeVisibilityOperation>(&operation);
                 visibility != nullptr && !visibility->whenPickupCollected.empty())
             {
@@ -443,6 +456,16 @@ namespace appDevelopment
                     if (!roles.contains(role))
                     {
                         Invalid(identity, name, i, operationContext + "unknown entity role '" + role + "'");
+                    }
+                }
+                if (const auto* temporary = std::get_if<TemporarilyRemoveTargetAtMidpointOperation>(&operation))
+                {
+                    if (std::string_view(name) != "update" ||
+                        !std::isfinite(temporary->distanceFraction) || temporary->distanceFraction <= 0.0f ||
+                        temporary->distanceFraction >= 1.0f || !std::isfinite(temporary->unavailableSeconds) ||
+                        temporary->unavailableSeconds <= 0.0f)
+                    {
+                        Invalid(identity, name, i, "temporary target removal requires an update fraction in (0, 1) and positive duration");
                     }
                 }
                 if (const auto* link = std::get_if<RegisterJumpTraversalLinkOperation>(&operation);
@@ -585,6 +608,17 @@ namespace appDevelopment
             }
         }
     }
+    
+    struct TemporaryTargetState
+    {
+        float initialDistanceSquared{};
+        std::chrono::steady_clock::time_point removedAt{};
+        std::optional<rendern::GameplayInteractionPointComponent> interactionPoint{};
+        bool baselineVisibility{};
+        bool initialized{};
+        bool removed{};
+        bool restored{};
+    };
 
     struct DevelopmentScenarioRunner::Impl
     {
@@ -605,6 +639,7 @@ namespace appDevelopment
         std::unordered_map<std::string, EntityHandle> resultEntities;
         std::unordered_set<std::string> decisionResults;
         std::unordered_map<int, bool> visibilityBaselines;
+        std::unordered_map<std::string, TemporaryTargetState> temporaryTargets;
         bool running{};
     };
 
@@ -667,6 +702,67 @@ namespace appDevelopment
                     instance.visibilityBaselines.try_emplace(
                         nodeIt->second, context.levelInstance.IsNodeRuntimeVisible(nodeIt->second));
                     return context.levelInstance.SetNodeRuntimeVisible(context.level, context.scene, nodeIt->second, op.visible);
+                }
+                 else if constexpr (std::is_same_v<T, TemporarilyRemoveTargetAtMidpointOperation>)
+                {
+                    const auto agentNode = instance.nodes.find(op.agent);
+                    if (agentNode == instance.nodes.end())
+                    {
+                        return false;
+                    }
+                    const EntityHandle agent = ResolveEntity(agentNode->second, context);
+                    const EntityHandle target = ResolveEntity(nodeIt->second, context);
+                    const auto* agentTransform = world.TryGetTransform(agent);
+                    const auto* targetTransform = world.TryGetTransform(target);
+                    if (agentTransform == nullptr || targetTransform == nullptr)
+                    {
+                        return false;
+                    }
+                    TemporaryTargetState& state = instance.temporaryTargets[op.entity];
+                    const mathUtils::Vec3 delta = agentTransform->position - targetTransform->position;
+                    const float distanceSquared = mathUtils::Dot(delta, delta);
+                    if (!state.initialized)
+                    {
+                        state.initialDistanceSquared = distanceSquared;
+                        state.initialized = true;
+                        return true;
+                    }
+                    if (!state.removed && !state.restored &&
+                        distanceSquared <= state.initialDistanceSquared * op.distanceFraction * op.distanceFraction)
+                    {
+                        const rendern::GameplayInteractionPointComponent* interactionPoint =
+                            world.TryGetInteractionPoint(target);
+                        if (interactionPoint == nullptr)
+                        {
+                            return false;
+                        }
+                        state.interactionPoint = *interactionPoint;
+                        state.baselineVisibility =
+                            context.levelInstance.IsNodeRuntimeVisible(nodeIt->second);
+                        if (!context.levelInstance.SetNodeRuntimeVisible(
+                                context.level, context.scene, nodeIt->second, false))
+                        {
+                            state.interactionPoint.reset();
+                            return false;
+                        }
+                        world.RemoveInteractionPoint(target);
+                        state.removed = true;
+                        state.removedAt = std::chrono::steady_clock::now();
+                    }
+                    if (state.removed && !state.restored && state.interactionPoint.has_value() &&
+                        std::chrono::duration<float>(std::chrono::steady_clock::now() - state.removedAt).count() >=
+                            op.unavailableSeconds)
+                    {
+                        world.SetInteractionPoint(target, *state.interactionPoint);
+                        if (!context.levelInstance.SetNodeRuntimeVisible(
+                                context.level, context.scene, nodeIt->second,
+                                state.baselineVisibility))
+                        {
+                            return false;
+                        }
+                        state.restored = true;
+                    }
+                    return true;
                 }
                 else if constexpr (std::is_same_v<T, EnsureNodeBoundEntityOperation>)
                 {
@@ -1091,6 +1187,7 @@ namespace appDevelopment
         impl_->physicalBaselines.clear(); impl_->pickupBaselines.clear();
         impl_->interactionPointBaselines.clear(); impl_->results.clear(); impl_->resultEntities.clear();
         impl_->decisionResults.clear();
+        impl_->temporaryTargets.clear();
     }
     bool DevelopmentScenarioRunner::CanStart(const ScenarioContext& context) const noexcept
     {
@@ -1124,6 +1221,7 @@ namespace appDevelopment
         }
         impl_->resultEntities.clear();
         impl_->decisionResults.clear();
+        impl_->temporaryTargets.clear();
         if (!DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->start, *this, context))
         {
             (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->stop, *this, context);
@@ -1159,16 +1257,16 @@ namespace appDevelopment
             {
                 switch (context.gameplayRuntime.GetAIDecisionStatus(entity->second))
                 {
-                case rendern::AIPlanExecutionStatus::NotStarted:
-                    result.status = ScenarioOperationResultStatus::Failed; break;
+                case rendern::AIPlanExecutionStatus::NotStarted: [[fallthrough]];
                 case rendern::AIPlanExecutionStatus::ReadyToStartStep: [[fallthrough]];
-                case rendern::AIPlanExecutionStatus::RunningStep: break;
+                case rendern::AIPlanExecutionStatus::RunningStep: [[fallthrough]];
+                case rendern::AIPlanExecutionStatus::Failed:
+                    // An active decision may obtain a plan again after later observations.
+                    break;
                 case rendern::AIPlanExecutionStatus::Succeeded:
                     result.status = ScenarioOperationResultStatus::Succeeded; break;
                 case rendern::AIPlanExecutionStatus::Cancelled:
                     result.status = ScenarioOperationResultStatus::Cancelled; break;
-                case rendern::AIPlanExecutionStatus::Failed:
-                    result.status = ScenarioOperationResultStatus::Failed; break;
                 }
                 continue;
             }
@@ -1186,6 +1284,29 @@ namespace appDevelopment
     void DevelopmentScenarioRunner::Stop(ScenarioContext& context) noexcept
     {
         if (impl_->asset && impl_->running) (void)DevelopmentScenarioOperationExecutor::ExecuteAll(impl_->asset->stop, *this, context);
+        for (const auto& [role, state] : impl_->temporaryTargets)
+        {
+            if (!state.removed || state.restored || !state.interactionPoint.has_value())
+            {
+                continue;
+            }
+            const auto node = impl_->nodes.find(role);
+            if (node == impl_->nodes.end())
+            {
+                continue;
+            }
+            const EntityHandle target = DevelopmentScenarioOperationExecutor::ResolveEntity(
+                node->second, context);
+            if (target != rendern::kNullEntity)
+            {
+                context.gameplayRuntime.GetWorld().SetInteractionPoint(
+                    target, *state.interactionPoint);
+                (void)context.levelInstance.SetNodeRuntimeVisible(
+                    context.level, context.scene, node->second,
+                    state.baselineVisibility);
+            }
+        }
+        impl_->temporaryTargets.clear();
         for (ScenarioOperationResult& result : impl_->results)
         {
             if (result.status == ScenarioOperationResultStatus::Running)

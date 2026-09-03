@@ -529,7 +529,7 @@ namespace appLifecycle
         if (app.graphicsState.rendererSettings.drawNavigationPathDebug && runtime.gameplayRuntime)
         {
             constexpr std::uint32_t navigationPathColor = 0xffff40a6u;
-            constexpr float navigationPathHalfWidth = 0.015f;
+            constexpr float navigationPathHalfWidth = 0.03f;
             for (const auto& entry : runtime.gameplayRuntime->GetNavigationDebugRegistry().Routes())
             {
                 const rendern::GameplayRoute& route = entry.second;

@@ -1,0 +1,41 @@
+﻿{
+  "id": "ai-goap-target-recovery",
+  "title": "GOAP: Temporary Target Recovery",
+  "description": "The active GOAP movement step is invalidated when its destination becomes temporarily unavailable, then the live decision automatically replans after the same target returns five seconds later.",
+  "roles": {
+    "agent": "GOAP_Recovery_Agent",
+    "start": "GOAP_Recovery_Start",
+    "goal": "GOAP_Recovery_Goal"
+  },
+  "setup": [
+    {"op":"ensureNodeBoundEntity","entity":"agent"},
+    {"op":"captureTransform","entity":"agent","slot":"baseline"},
+    {"op":"ensureAI","entity":"agent"},
+    {"op":"ensureNodeBoundEntity","entity":"goal"},
+    {"op":"ensureInteractionPoint","entity":"goal"}
+  ],
+  "start": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"},
+    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+    {"op":"resetEntitySimulationState","entity":"agent"},
+    {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"goal","visible":true},
+    {"op":"startAIDecision","entity":"agent","decision":"target_recovery","result":"GOAP recovery decision"}
+  ],
+  "update": [
+    {"op":"temporarilyRemoveTargetAtMidpoint","entity":"goal","agent":"agent","distanceFraction":0.5,"unavailableSeconds":5.0}
+  ],
+  "stop": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"}
+  ],
+  "reset": [
+    {"op":"cancelAIDecision","entity":"agent"},
+    {"op":"cancelAI","entity":"agent"},
+    {"op":"restoreTransform","entity":"agent","slot":"baseline"},
+    {"op":"resetEntitySimulationState","entity":"agent"},
+    {"op":"teleportPhysicsCharacter","entity":"agent"},
+    {"op":"setRuntimeVisibility","entity":"goal","visible":true}
+  ]
+}

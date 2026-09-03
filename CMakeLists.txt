@@ -566,6 +566,7 @@ set(COMMON_MODULES
         Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyObservation.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyDecision.cppm
+        Gameplay/AI/Domains/TargetRecovery/GameplayAITargetRecoveryDecision.cppm
         Gameplay/AI/Runtime/GameplayAIDecision.cppm
 
         Timer/GameTimer.ixx

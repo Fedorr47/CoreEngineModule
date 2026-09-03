@@ -81,7 +81,27 @@ namespace rendern
                     {
                         return IsIntegerFactIdValid(effect.factId)
                             && IsNumericEffectOperationValid(effect.operation);
-                    }))
+                    })
+                   || !std::ranges::all_of(action.continuationConditions,
+                       [&](const AIFactCondition& continuation)
+                       {
+                           return IsFactIdValid(continuation.factId)
+                               && std::ranges::find(action.preconditions, continuation)
+                                   != action.preconditions.end();
+                       })
+                   || !std::ranges::all_of(action.numericContinuationConditions,
+                       [&](const AINumericCondition& continuation)
+                       {
+                           return IsIntegerFactIdValid(continuation.factId)
+                               && IsNumericConditionOperatorValid(continuation.comparison)
+                               && std::ranges::find_if(action.numericPreconditions,
+                                   [&](const AINumericCondition& precondition)
+                                   {
+                                       return precondition.factId == continuation.factId
+                                           && precondition.comparison == continuation.comparison
+                                           && precondition.value == continuation.value;
+                                   }) != action.numericPreconditions.end();
+                       }))
                 {
                     return false;
                 }

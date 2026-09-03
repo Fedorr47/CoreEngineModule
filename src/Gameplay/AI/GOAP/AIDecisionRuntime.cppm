@@ -89,8 +89,10 @@ export namespace rendern
 
             const bool bPlanInvalidated = !bGoalChanged
                 && execution_.has_value()
-                && execution_->IsReadyToStartStep()
-                && !IsRemainingPlanValid_(observedState, *selectedGoal, actions);
+                && ((execution_->IsReadyToStartStep()
+                && !IsRemainingPlanValid_(observedState, *selectedGoal, actions))
+                || (execution_->IsRunningStep()
+                && !IsRunningStepContinuationValid_(observedState, actions)));
 
             if (!bGoalChanged && !bPlanInvalidated && HasValidExecution_())
             {
@@ -216,6 +218,33 @@ export namespace rendern
         [[nodiscard]] bool HasValidExecution_() const noexcept
         {
             return execution_.has_value() && !execution_->IsTerminal();
+        }
+        
+        [[nodiscard]] bool IsRunningStepContinuationValid_(
+            const AIAgentWorldState& observedState,
+            const std::span<const AIActionDefinition> actions) const
+        {
+            if (!execution_.has_value() || !execution_->IsRunningStep())
+            {
+                return false;
+            }
+
+            const AIPlanStep* step = execution_->GetCurrentStep();
+            if (step == nullptr)
+            {
+                return false;
+            }
+            const auto definition = std::ranges::find_if(actions,
+                [&](const AIActionDefinition& action)
+                {
+                    return action.actionId == step->actionId
+                        && action.contextId == step->contextId;
+                });
+            return definition != actions.end()
+                && AreFactConditionsSatisfied(
+                    observedState, definition->continuationConditions)
+                && AreNumericConditionsSatisfied(
+                    observedState, definition->numericContinuationConditions);
         }
         
         [[nodiscard]] bool IsRemainingPlanValid_(

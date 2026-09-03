@@ -69,6 +69,7 @@ export import :gameplay_graph;
 export import :gameplay_runtime;
 export import :gameplay_ai_decision;
 export import :gameplay_ai_access_key_decision;
+export import :gameplay_ai_target_recovery_decision;
 export import :gameplay_ai_decision_composition;
 export import :gameplay_goap_decision;
 export import :gameplay_goap_definition_asset;

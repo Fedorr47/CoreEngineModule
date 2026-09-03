@@ -26,6 +26,13 @@ namespace appDevelopment
         std::string whenPickupCollected;
     };
     struct EnsureNodeBoundEntityOperation { std::string entity; };
+    struct TemporarilyRemoveTargetAtMidpointOperation
+    {
+        std::string entity;
+        std::string agent;
+        float distanceFraction{};
+        float unavailableSeconds{};
+    };
     struct EnsurePickupOperation { std::string entity; float collectionRadius{}; };
     struct EnsureInteractionPointOperation { std::string entity; };
     struct ResetPickupOperation { std::string entity; };
@@ -140,6 +147,7 @@ namespace appDevelopment
         TeleportPhysicsCharacterOperation,
         SetRuntimeVisibilityOperation,
         EnsureNodeBoundEntityOperation,
+        TemporarilyRemoveTargetAtMidpointOperation,
         EnsurePickupOperation,
         EnsureInteractionPointOperation,
         ResetPickupOperation,
