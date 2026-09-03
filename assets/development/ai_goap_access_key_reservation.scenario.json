@@ -1,4 +1,4 @@
-﻿{
+{
   "id": "ai-goap-access-key-reservation",
   "title": "Stage 11 GOAP: Multi-Agent Resource Reservation",
   "description": "Two production Access Key agents resolve shared-coin contention through reservations and same-goal replanning.",
@@ -48,8 +48,8 @@
     { "op": "setRuntimeVisibility", "entity": "coinB", "visible": true },
     { "op": "setRuntimeVisibility", "entity": "coinC", "visible": true },
     { "op": "setRuntimeVisibility", "entity": "accessKey", "visible": true },
-    { "op": "startAIDecision", "entity": "agentB", "decision": "access_key", "result": "GOAP decision B" },
-    { "op": "startAIDecision", "entity": "agentA", "decision": "access_key", "result": "GOAP decision A" }
+    { "op": "startAIDecision", "entity": "agentB", "decision": "access_key_reserved", "result": "GOAP decision B" },
+    { "op": "startAIDecision", "entity": "agentA", "decision": "access_key_reserved", "result": "GOAP decision A" }
   ],
   "update": [],
   "stop": [

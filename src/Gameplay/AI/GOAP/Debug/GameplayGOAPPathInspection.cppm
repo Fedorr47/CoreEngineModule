@@ -27,6 +27,14 @@ export namespace rendern
         bool complete{true};
     };
 
+    // Optional action capability; non-navigation capabilities do not import routes.
+    class IGameplayGOAPActionPathProvider
+    {
+    public:
+        virtual ~IGameplayGOAPActionPathProvider() = default;
+        [[nodiscard]] virtual std::optional<GameplayRoute> BuildDebugRoute(AIActionContextId context) const = 0;
+    };
+
     class IGameplayGOAPPlannedPathProvider
     {
     public:

@@ -9,6 +9,8 @@
 
 import core;
 
+#include "TestSupport/AccessKeyAssetSymbols.h"
+
 #include "App/Development/AppDevelopmentScenarioRuntime.h"
 #include "unit/RenderTests/LevelInstantiateTestHelper.h"
 
@@ -221,7 +223,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     runtime.BeginFrame();
     runtime.PrePhysicsUpdate(gameContext);
     EXPECT_TRUE(runtime.GetCurrentWorldEvents().empty());
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
 
     coinA->collected=false;
     runtime.BeginFrame();
@@ -231,7 +233,7 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     EXPECT_EQ(runtime.GetCurrentWorldEvents()[0].subject,coinAEntity);
     EXPECT_TRUE(coinA->collected);
     EXPECT_FALSE(instance.IsNodeRuntimeVisible(coinANode));
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
     
     development.Execute(appDevelopment::ScenarioCommand::Reset, context);
     development.Execute(appDevelopment::ScenarioCommand::Start, context);
@@ -241,12 +243,12 @@ TEST(AppDevelopmentScenarioRuntime, LoadsAuthoredAccessKeyAndResetRecreatesClean
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(keyNode));
     EXPECT_TRUE(runtime.GetCurrentWorldEvents().empty());
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 0);
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 0);
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtDestinationFact));
     runtime.Shutdown();
 }
 
@@ -293,9 +295,9 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::ReadyToStartStep);
     const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBAvailableFact));
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinBAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCAvailableFact));
     const int coinANode=runtime.GetWorld().TryGetNodeLink(coinAEntity)->nodeIndex;
     const int coinBNode=runtime.GetWorld().TryGetNodeLink(coinBEntity)->nodeIndex;
     const int coinCNode=runtime.GetWorld().TryGetNodeLink(coinCEntity)->nodeIndex;
@@ -308,50 +310,50 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     runtime.GetWorld().TryGetTransform(agent)->position=
         runtime.GetWorld().TryGetTransform(coinCEntity)->position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
-        { return facts->IsFactSet(rendern::kGOAPCoinCCollectedFact); },8u))
+        { return facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact); },8u))
         << "Coin C was not collected";
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),1);
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
     EXPECT_FALSE(coinA->collected); EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
 
     TickFrame(runtime,development,context,gameContext);
     EXPECT_TRUE(coinA->collected); EXPECT_FALSE(instance.IsNodeRuntimeVisible(coinANode));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),1);
 
     // Start the replacement C -> B step, then let physical pickup observation confirm B.
     TickFrame(runtime,development,context,gameContext);
     runtime.GetWorld().TryGetTransform(agent)->position=
         runtime.GetWorld().TryGetTransform(coinBEntity)->position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
-        { return facts->IsFactSet(rendern::kGOAPCoinBCollectedFact); },8u))
+        { return facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact); },8u))
         << "Replacement route did not collect Coin B";
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),2);
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),2);
 
     TickFrame(runtime,development,context,gameContext);
     runtime.GetWorld().TryGetTransform(agent)->position=
         runtime.GetWorld().TryGetTransform(keyEntity)->position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
-        { return facts->IsFactSet(rendern::kGOAPHasAccessKeyFact); },8u))
+        { return facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact); },8u))
         << "Access Key purchase did not complete";
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),0);
     EXPECT_FALSE(instance.IsNodeRuntimeVisible(keyNode));
 
     TickFrame(runtime,development,context,gameContext);
     runtime.GetWorld().TryGetTransform(agent)->position=goalNode->transform.position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
-        { return facts->IsFactSet(rendern::kGOAPAtDestinationFact); },8u))
+        { return facts->IsFactSet(access_key_test::kGOAPAtDestinationFact); },8u))
         << "Final goal did not complete";
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::Succeeded);
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),0);
 
     development.Execute(appDevelopment::ScenarioCommand::Reset,context);
     EXPECT_FALSE(coinA->collected); EXPECT_FALSE(coinB->collected); EXPECT_FALSE(coinC->collected);
@@ -363,7 +365,7 @@ TEST(AppDevelopmentScenarioRuntime, Stage10ReplansAfterPlannedCoinBecomesUnavail
     facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
     development.Update(context);
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
     EXPECT_FALSE(coinA->collected); EXPECT_TRUE(instance.IsNodeRuntimeVisible(coinANode));
     runtime.Shutdown();
 }
@@ -415,10 +417,10 @@ TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughR
     {
         const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
         ASSERT_NE(facts,nullptr);
-        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinAAvailableFact));
-        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinBAvailableFact));
-        EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
-        EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+        EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+        EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinBAvailableFact));
+        EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCAvailableFact));
+        EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),0);
         EXPECT_EQ(runtime.GetAIDecisionStatus(agent),
             rendern::AIPlanExecutionStatus::ReadyToStartStep);
     };
@@ -432,10 +434,10 @@ TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughR
     const rendern::AIAgentWorldState* firstFacts=runtime.GetAIDecisionObservedState(firstAgent);
     const rendern::AIAgentWorldState* secondFacts=runtime.GetAIDecisionObservedState(secondAgent);
     ASSERT_NE(firstFacts,nullptr); ASSERT_NE(secondFacts,nullptr);
-    EXPECT_TRUE(firstFacts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
-    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCAvailableFact));
-    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
-    EXPECT_EQ(secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),0);
+    EXPECT_TRUE(firstFacts->IsFactSet(access_key_test::kGOAPCoinCAvailableFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(access_key_test::kGOAPCoinCAvailableFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(secondFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),0);
 
     TickFrame(runtime,development,context,gameContext);
     const rendern::EntityHandle alternateCoin =
@@ -448,22 +450,22 @@ TEST(AppDevelopmentScenarioRuntime, Stage11TwoAgentsResolveContestedCoinThroughR
     world.TryGetTransform(secondAgent)->position=world.TryGetTransform(alternateCoin)->position;
     ASSERT_TRUE(TickUntil(runtime,development,context,gameContext,[&]()
     {
-        return firstFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact) &&
-            secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact)==1;
+        return firstFacts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact) &&
+            secondFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact)==1;
     },8u));
-    EXPECT_EQ(firstFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
-    EXPECT_EQ(secondFacts->GetIntegerFact(rendern::kGOAPCoinCountFact),1);
-    EXPECT_TRUE(firstFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
-    EXPECT_FALSE(secondFacts->IsFactSet(rendern::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(firstFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),1);
+    EXPECT_EQ(secondFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),1);
+    EXPECT_TRUE(firstFacts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(secondFacts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
     if (alternateCoin==coinA)
     {
-        EXPECT_TRUE(secondFacts->IsFactSet(rendern::kGOAPCoinACollectedFact));
-        EXPECT_FALSE(firstFacts->IsFactSet(rendern::kGOAPCoinACollectedFact));
+        EXPECT_TRUE(secondFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+        EXPECT_FALSE(firstFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
     }
     else
     {
-        EXPECT_TRUE(secondFacts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
-        EXPECT_FALSE(firstFacts->IsFactSet(rendern::kGOAPCoinBCollectedFact));
+        EXPECT_TRUE(secondFacts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+        EXPECT_FALSE(firstFacts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
     }
     EXPECT_TRUE(world.TryGetPickup(coinC)->collected);
     EXPECT_TRUE(world.TryGetPickup(alternateCoin)->collected);

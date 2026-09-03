@@ -1,15 +1,13 @@
-module;
+#pragma once
 
 #include <cstdint>
 #include <string_view>
 
-export module core:gameplay_ai_access_key_contracts;
-
-import :ai_action_contracts;
-import :ai_decision_contracts;
-
-export namespace rendern
+// Expected symbols of the checked-in AccessKey test fixture, not runtime wiring.
+// Tests also resolve/verify these names against the compiled asset.
+namespace access_key_test
 {
+    using namespace rendern;
     inline constexpr std::int32_t kAccessKeyPrice = 2;
     inline constexpr std::string_view kAccessKeyAIDecisionId{"access_key"};
     inline constexpr AIWorldFactId kGOAPHasAccessKeyFact{0u};
@@ -27,7 +25,6 @@ export namespace rendern
     inline constexpr AIWorldFactId kGOAPCoinBAvailableFact{12u};
     inline constexpr AIWorldFactId kGOAPCoinCAvailableFact{13u};
     inline constexpr AIWorldIntegerFactId kGOAPCoinCountFact{0u};
-    inline constexpr AIActionId kAIBuyKeyActionId{3u};
     inline constexpr AIGoalId kGOAPReachDestinationGoal{0u};
 
 }

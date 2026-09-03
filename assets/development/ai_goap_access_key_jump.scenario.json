@@ -1,4 +1,4 @@
-﻿{
+{
   "id": "ai-goap-access-key-jump",
   "title": "GOAP Access Key: Running Jump Gap",
   "description": "Production Access-Key GOAP reaches its final MoveTo through an authored Jump traversal.",
@@ -40,7 +40,7 @@
       "takeoff": "takeoff", "landing": "landing", "verticalSpeed": 5.5,
       "takeoffTolerance": 0.20, "landingHorizontalTolerance": 0.55,
       "landingVerticalTolerance": 0.30 },
-    { "op": "startAIDecision", "entity": "agent", "decision": "access_key", "result": "GOAP decision" }
+    { "op": "startAIDecision", "entity": "agent", "decision": "access_key_jump", "result": "GOAP decision" }
   ],
   "stop": [
     { "op": "cancelAIDecision", "entity": "agent" }, { "op": "cancelAI", "entity": "agent" },

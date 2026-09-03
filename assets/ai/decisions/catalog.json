@@ -10,6 +10,21 @@
       "id": "marker_visit",
       "behavior": "ai/behaviors/marker_visit.behavior.json",
       "bindings": "ai/bindings/marker_visit.bindings.json"
+    },
+    {
+      "id": "access_key",
+      "behavior": "ai/behaviors/access_key.behavior.json",
+      "bindings": "ai/bindings/access_key.bindings.json"
+    },
+    {
+      "id": "access_key_reserved",
+      "behavior": "ai/behaviors/access_key_reserved.behavior.json",
+      "bindings": "ai/bindings/access_key.bindings.json"
+    },
+    {
+      "id": "access_key_jump",
+      "behavior": "ai/behaviors/access_key_jump.behavior.json",
+      "bindings": "ai/bindings/access_key_jump.bindings.json"
     }
   ]
 }

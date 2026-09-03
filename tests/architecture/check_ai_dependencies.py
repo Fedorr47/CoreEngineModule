@@ -45,7 +45,7 @@ def main():
         unexpected = dependencies(name) - pure_modules
         assert not unexpected, f"{name} imports runtime dependencies: {sorted(unexpected)}"
 
-    for name in ("gameplay_ai_decision_contracts", "gameplay_ai_decision"):
+    for name in ("gameplay_ai_decision_contracts", "gameplay_ai_decision", "gameplay_goap_composition_registry"):
         forbidden = dependencies(name) & {
             "gameplay", "ai_system", "level", "gameplay_traversal_link_registry",
             "gameplay_traversal_executor_registry", "gameplay_object_reservation_system",

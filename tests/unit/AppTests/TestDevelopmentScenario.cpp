@@ -7,6 +7,8 @@
 
 import core;
 
+#include "TestSupport/AccessKeyAssetSymbols.h"
+
 #include "App/Development/DevelopmentScenario.h"
 #include "App/Development/AppDevelopmentScenarioRuntime.h"
 #include "TestSupport/TestThreadAffinity.h"
@@ -840,7 +842,7 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
     
     const rendern::AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
    
     // Reaching the final destination before the key must not satisfy the goal.
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
@@ -848,7 +850,7 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
     runtime.BeginFrame();
     runtime.PrePhysicsUpdate(game);
     runtime.PostPhysicsUpdate(game);
-    EXPECT_FALSE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtDestinationFact));
     for (const std::string_view role : {"coinA", "coinB", "coinC"})
     {
         const int nodeIndex = runner.GetResolvedNodeIndex(role);
@@ -860,24 +862,24 @@ TEST(DevelopmentScenarioRunner, AuthoredAccessKeyRunsProductionDecisionAndRestar
         runtime.PrePhysicsUpdate(game);
         runtime.PostPhysicsUpdate(game);
     }
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 3);
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 3);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.35f,-7};
     for (int tick = 0; tick < 5 &&
-        !facts->IsFactSet(rendern::kGOAPHasAccessKeyFact); ++tick)
+        !facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact); ++tick)
     {
         runner.Update(context);
         runtime.BeginFrame();
         runtime.PrePhysicsUpdate(game);
         runtime.PostPhysicsUpdate(game);
     }
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPHasAccessKeyFact));
-    EXPECT_EQ(facts->GetIntegerFact(rendern::kGOAPCoinCountFact), 1);
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
     runner.Update(context);
     runtime.BeginFrame();
     runtime.PrePhysicsUpdate(game);
     runtime.PostPhysicsUpdate(game);
-    EXPECT_TRUE(facts->IsFactSet(rendern::kGOAPAtDestinationFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPAtDestinationFact));
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),rendern::AIPlanExecutionStatus::Succeeded);
     
     // Project the production terminal state on the next scenario update,

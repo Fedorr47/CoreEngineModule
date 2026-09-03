@@ -15,8 +15,11 @@
 
 import core;
 
+#include "TestSupport/AccessKeyAssetSymbols.h"
+#include "TestSupport/GameplayGOAPAssetFixture.h"
+
 using namespace rendern;
-using namespace ai_access_key_detail;
+
 
 namespace
 {
@@ -128,14 +131,6 @@ namespace
         runtime.PrePhysicsUpdate(game);
     }
 
-    [[nodiscard]] AIActionContextId ResolvedMoveContext(
-        const GameplayGOAPCompiledDefinition& definition,
-        const ai_access_key_detail::SpatialLocation source,
-        const ai_access_key_detail::SpatialLocation target)
-    {
-        return ai_access_key_detail::FindMoveContext(definition, source, target).value();
-    }
-    
     [[nodiscard]] const AIAgentWorldState* GetGOAPObservedState(
         const GameplayAIDecisionInstance& decision) noexcept
     {
@@ -477,493 +472,6 @@ TEST(GameplayGOAPDecisionInstance, TargetRecoveryUsesGenericInstanceAndPreserves
     decision->Cancel(ai);
 }
 
-TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
-{
-    const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
-        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
-        {0, 0.35f, -7}, {0, 0.08f, 10});
-
-    const auto configuredDefinition = ai_access_key_detail::LoadCompiledDefinition(graph);
-    ASSERT_TRUE(configuredDefinition.has_value());
-
-    const GameplayGOAPDecisionDefinition& definition = configuredDefinition->definition;
-    const auto buyKey = std::ranges::find_if(
-        definition.actions,
-        [](const AIActionDefinition& action)
-        {
-            return action.actionId == kAIBuyKeyActionId;
-        });
-    ASSERT_NE(buyKey, definition.actions.end());
-
-    AIAgentWorldState atShop{};
-    atShop.SetFact(kGOAPAtAccessKeyShopFact, true);
-    for (std::int32_t coins = 0; coins < kAccessKeyPrice; ++coins)
-    {
-        atShop.SetIntegerFact(kGOAPCoinCountFact, coins);
-        EXPECT_FALSE(AreNumericConditionsSatisfied(atShop, buyKey->numericPreconditions));
-    }
-
-    atShop.SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
-    EXPECT_TRUE(AreNumericConditionsSatisfied(atShop, buyKey->numericPreconditions));
-
-    AIAgentWorldState awayFromShop = atShop;
-    awayFromShop.SetFact(kGOAPAtAccessKeyShopFact, false);
-    EXPECT_FALSE(AreFactConditionsSatisfied(awayFromShop, buyKey->preconditions));
-
-    AIAgentWorldState initial{};
-    initial.SetFact(kGOAPAtStartFact, true);
-    initial.SetFact(kGOAPCoinAAvailableFact, true);
-    initial.SetFact(kGOAPCoinBAvailableFact, true);
-    initial.SetFact(kGOAPCoinCAvailableFact, true);
-
-    const auto plan = FindAIPlan(initial, definition.goals.front().goal, definition.actions);
-    ASSERT_TRUE(plan.has_value());
-    ASSERT_EQ(plan->steps.size(), 5u);
-
-    EXPECT_EQ(plan->steps[0], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *configuredDefinition,
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinC)}));
-    EXPECT_EQ(plan->steps[1], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *configuredDefinition,
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::CoinA)}));
-    EXPECT_EQ(plan->steps[2], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *configuredDefinition,
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop)}));
-    EXPECT_EQ(plan->steps[3].actionId, kAIBuyKeyActionId);
-    EXPECT_EQ(plan->steps[4], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *configuredDefinition,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop,
-            ai_access_key_detail::SpatialLocation::Goal)}));
-
-    AIAgentWorldState predicted = initial;
-    for (const AIPlanStep& step : plan->steps)
-    {
-        const auto action = std::ranges::find_if(
-            definition.actions,
-            [&](const AIActionDefinition& candidate)
-            {
-                return candidate.actionId == step.actionId &&
-                    candidate.contextId == step.contextId;
-            });
-        ASSERT_NE(action, definition.actions.end());
-
-        EXPECT_TRUE(AreFactConditionsSatisfied(predicted, action->preconditions));
-        EXPECT_TRUE(AreNumericConditionsSatisfied(predicted, action->numericPreconditions));
-        ApplyFactEffects(predicted, action->effects);
-        EXPECT_TRUE(ApplyNumericEffects(predicted, action->numericEffects));
-
-        const std::array spatialFacts{
-            kGOAPAtStartFact,
-            kGOAPAtCoinAFact,
-            kGOAPAtCoinBFact,
-            kGOAPAtCoinCFact,
-            kGOAPAtAccessKeyShopFact,
-            kGOAPAtGoalFact};
-        EXPECT_EQ(
-            std::ranges::count_if(
-                spatialFacts,
-                [&](const AIWorldFactId fact)
-                {
-                    return predicted.IsFactSet(fact);
-                }),
-            1);
-    }
-
-    EXPECT_TRUE(predicted.IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_FALSE(predicted.IsFactSet(kGOAPCoinBCollectedFact));
-    EXPECT_TRUE(predicted.IsFactSet(kGOAPCoinCCollectedFact));
-    EXPECT_TRUE(predicted.IsFactSet(kGOAPHasAccessKeyFact));
-    EXPECT_TRUE(predicted.IsFactSet(kGOAPAtDestinationFact));
-    EXPECT_EQ(predicted.GetIntegerFact(kGOAPCoinCountFact), 0);
-}
-
-TEST(GameplayAIDecision, AccessKeyJumpRouteAnnotatesOnlyPhysicalGap)
-{
-    const mathUtils::Vec3 start{0.0f, 0.0f, 0.0f};
-    const mathUtils::Vec3 coinA{-6.0f, 0.35f, -3.0f};
-    const mathUtils::Vec3 coinB{6.0f, 0.35f, 1.0f};
-    const mathUtils::Vec3 coinC{-5.0f, 0.35f, 6.0f};
-    const mathUtils::Vec3 shop{0.0f, 0.35f, -7.0f};
-    const mathUtils::Vec3 goal{0.0f, 0.08f, 13.5f};
-    const mathUtils::Vec3 takeoff{0.0f, 0.03f, 8.7f};
-    const mathUtils::Vec3 landing{0.0f, 0.03f, 10.8f};
-
-    const GameplayRouteGraph jumpGraph = ai_access_key_detail::BuildRouteGraph(
-        start, coinA, coinB, coinC, shop, goal, takeoff, landing);
-    const GameplayRouteSearchResult jumpRoute = FindWeightedGameplayRoute(
-        jumpGraph, ai_access_key_detail::kAccessKeyNode,
-        ai_access_key_detail::kFinalGoalNode);
-    ASSERT_TRUE(jumpRoute.Succeeded());
-    ASSERT_EQ(jumpRoute.route.points.size(), 4u);
-    ASSERT_EQ(jumpRoute.route.segmentAnnotations.size(), 3u);
-    EXPECT_FALSE(jumpRoute.route.segmentAnnotations[0].traversalLink.has_value());
-    EXPECT_EQ(jumpRoute.route.segmentAnnotations[1].traversalLink,
-        kAccessKeyGoalJumpTraversalLink);
-    EXPECT_FALSE(jumpRoute.route.segmentAnnotations[2].traversalLink.has_value());
-
-    const auto jumpDefinition = ai_access_key_detail::LoadCompiledDefinition(jumpGraph);
-    ASSERT_TRUE(jumpDefinition.has_value());
-    auto jumpTransitions = ai_access_key_detail::ResolveMoveTransitions(*jumpDefinition);
-    ASSERT_TRUE(jumpTransitions.has_value());
-    const auto goalTransition = std::ranges::find_if(*jumpTransitions,
-        [](const ai_access_key_detail::ResolvedMoveTransition& transition)
-        {
-            return transition.source == ai_access_key_detail::SpatialLocation::AccessKeyShop &&
-                transition.target == ai_access_key_detail::SpatialLocation::Goal;
-        });
-    ASSERT_NE(goalTransition, jumpTransitions->end());
-    const AIActionContextId goalContextId = goalTransition->contextId;
-    GameplayWorld world{};
-    const EntityHandle agent = world.CreateEntity();
-    world.AddTransform(agent, {.position = shop});
-    ai_access_key_detail::AccessKeyMoveToRequestProvider jumpRequests{
-        world, jumpGraph, std::move(*jumpTransitions)};
-    const auto jumpRequest = jumpRequests.ResolveRequest({
-        .agentEntity = agent,
-        .actionId = kAIMoveToActionId,
-        .contextId = goalContextId});
-    ASSERT_TRUE(jumpRequest.has_value());
-    EXPECT_TRUE(jumpRequest->steeringSettings.wantsRun);
-
-    const GameplayRouteGraph flatGraph = ai_access_key_detail::BuildRouteGraph(
-        start, coinA, coinB, coinC, shop, goal);
-    const GameplayRouteSearchResult flatRoute = FindWeightedGameplayRoute(
-        flatGraph, ai_access_key_detail::kAccessKeyNode,
-        ai_access_key_detail::kFinalGoalNode);
-    ASSERT_TRUE(flatRoute.Succeeded());
-    ASSERT_EQ(flatRoute.route.points.size(), 2u);
-    ASSERT_EQ(flatRoute.route.segmentAnnotations.size(), 1u);
-    EXPECT_FALSE(flatRoute.route.segmentAnnotations[0].traversalLink.has_value());
-
-    const auto flatDefinition = ai_access_key_detail::LoadCompiledDefinition(flatGraph);
-    ASSERT_TRUE(flatDefinition.has_value());
-    auto flatTransitions = ai_access_key_detail::ResolveMoveTransitions(*flatDefinition);
-    ASSERT_TRUE(flatTransitions.has_value());
-    const auto flatGoalTransition = std::ranges::find_if(*flatTransitions,
-        [](const ai_access_key_detail::ResolvedMoveTransition& transition)
-        {
-            return transition.source == ai_access_key_detail::SpatialLocation::AccessKeyShop &&
-                transition.target == ai_access_key_detail::SpatialLocation::Goal;
-        });
-    ASSERT_NE(flatGoalTransition, flatTransitions->end());
-    const AIActionContextId flatGoalContextId = flatGoalTransition->contextId;
-    ai_access_key_detail::AccessKeyMoveToRequestProvider flatRequests{
-        world, flatGraph, std::move(*flatTransitions)};
-    const auto flatRequest = flatRequests.ResolveRequest({
-        .agentEntity = agent,
-        .actionId = kAIMoveToActionId,
-        .contextId = flatGoalContextId});
-    ASSERT_TRUE(flatRequest.has_value());
-    EXPECT_FALSE(flatRequest->steeringSettings.wantsRun);
-}
-TEST(GameplayAIDecision, AccessKeyPlannedPathDebugStartsAtCurrentStepAndPreservesFailures)
-{
-    const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
-        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
-        {0, 0.35f, -7}, {0, 0.08f, 13.5f},
-        mathUtils::Vec3{0, 0.03f, 8.7f}, mathUtils::Vec3{0, 0.03f, 10.8f});
-    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
-    ASSERT_TRUE(definition.has_value());
-    auto transitions = ai_access_key_detail::ResolveMoveTransitions(*definition);
-    ASSERT_TRUE(transitions.has_value());
-    const auto context = [&](const SpatialLocation source, const SpatialLocation target)
-    {
-        const auto found = std::ranges::find_if(*transitions,
-            [&](const auto& value)
-            {
-                return value.source == source && value.target == target;
-            });
-        EXPECT_NE(found, transitions->end());
-        return found == transitions->end() ? AIActionContextId{} : found->contextId;
-    };
-    const AIActionContextId startToA = context(SpatialLocation::Start, SpatialLocation::CoinA);
-    const AIActionContextId aToC = context(SpatialLocation::CoinA, SpatialLocation::CoinC);
-    const AIActionContextId cToShop = context(
-        SpatialLocation::CoinC, SpatialLocation::AccessKeyShop);
-    const AIActionContextId shopToGoal = context(
-        SpatialLocation::AccessKeyShop, SpatialLocation::Goal);
-    GameplayWorld world{};
-    ai_access_key_detail::AccessKeyMoveToRequestProvider requests{
-        world, graph, std::move(*transitions)};
-    const std::array plan{
-        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = startToA},
-        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = aToC},
-        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = cToShop},
-        AIPlanStep{.actionId = kAIBuyKeyActionId},
-        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
-
-    const GameplayAIDebugPlannedPathView debug =
-        ai_access_key_detail::BuildPlannedPathDebugView(plan, 2u, requests);
-
-    EXPECT_TRUE(debug.complete);
-    ASSERT_EQ(debug.routeSteps.size(), 2u);
-    EXPECT_EQ(debug.routeSteps[0].planStepIndex, 2u);
-    EXPECT_EQ(debug.routeSteps[0].contextId, cToShop);
-    EXPECT_EQ(debug.routeSteps[1].planStepIndex, 4u);
-    EXPECT_EQ(debug.routeSteps[1].contextId, shopToGoal);
-    ASSERT_TRUE(debug.routeSteps[1].route.has_value());
-    ASSERT_EQ(debug.routeSteps[1].route->segmentAnnotations.size(), 3u);
-    EXPECT_EQ(debug.routeSteps[1].route->segmentAnnotations[1].traversalLink,
-        kAccessKeyGoalJumpTraversalLink);
-    const GameplayAIDebugPlannedPathView completedDebug =
-        ai_access_key_detail::BuildPlannedPathDebugView(
-            plan, std::nullopt, requests);
-    EXPECT_TRUE(completedDebug.routeSteps.empty());
-
-    GameplayRouteGraph disconnectedGraph = graph;
-    std::erase_if(disconnectedGraph.edges,
-        [](const GameplayRouteGraphEdge& edge)
-        {
-            return edge.fromNodeId == ai_access_key_detail::kAccessKeyNode;
-        });
-    auto disconnectedTransitions = ai_access_key_detail::ResolveMoveTransitions(*definition);
-    ASSERT_TRUE(disconnectedTransitions.has_value());
-    ai_access_key_detail::AccessKeyMoveToRequestProvider disconnectedRequests{
-        world, std::move(disconnectedGraph), std::move(*disconnectedTransitions)};
-    const std::array failedPlan{
-        AIPlanStep{.actionId = kAIBuyKeyActionId},
-        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
-    const GameplayAIDebugPlannedPathView failedDebug =
-        ai_access_key_detail::BuildPlannedPathDebugView(failedPlan, 0u, disconnectedRequests);
-    EXPECT_FALSE(failedDebug.complete);
-    ASSERT_EQ(failedDebug.routeSteps.size(), 1u);
-    EXPECT_EQ(failedDebug.routeSteps[0].planStepIndex, 1u);
-    EXPECT_EQ(failedDebug.routeSteps[0].contextId, shopToGoal);
-    EXPECT_FALSE(failedDebug.routeSteps[0].route.has_value());
-}
-
-TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
-{
-    const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
-        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
-        {0, 0.35f, -7}, {0, 0.08f, 10});
-
-    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
-    ASSERT_TRUE(definition.has_value());
-
-    AIAgentWorldState observed{};
-    observed.SetFact(kGOAPAtCoinCFact, true);
-    observed.SetFact(kGOAPCoinCCollectedFact, true);
-    observed.SetFact(kGOAPCoinAAvailableFact, false);
-    observed.SetFact(kGOAPCoinBAvailableFact, true);
-    observed.SetFact(kGOAPCoinCAvailableFact, false);
-    observed.SetIntegerFact(kGOAPCoinCountFact, 1);
-
-    const auto plan = FindAIPlan(
-        observed,
-        definition->definition.goals.front().goal,
-        definition->definition.actions);
-    ASSERT_TRUE(plan.has_value());
-    ASSERT_EQ(plan->steps.size(), 4u);
-
-    EXPECT_EQ(plan->steps[0], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *definition,
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::CoinB)}));
-    EXPECT_EQ(plan->steps[1], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *definition,
-            ai_access_key_detail::SpatialLocation::CoinB,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop)}));
-    EXPECT_EQ(plan->steps[2].actionId, kAIBuyKeyActionId);
-    EXPECT_EQ(plan->steps[3], (AIPlanStep{
-        kAIMoveToActionId,
-        ResolvedMoveContext(
-            *definition,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop,
-            ai_access_key_detail::SpatialLocation::Goal)}));
-}
-
-TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
-{
-    const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
-        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
-        {0, 0.35f, -7}, {0, 0.08f, 10});
-
-    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
-    ASSERT_TRUE(definition.has_value());
-
-    const auto cost = [&](const ai_access_key_detail::SpatialLocation source,
-        const ai_access_key_detail::SpatialLocation target)
-    {
-        const AIActionContextId contextId = ResolvedMoveContext(*definition, source, target);
-        const auto action = std::ranges::find_if(
-            definition->definition.actions,
-            [&](const AIActionDefinition& candidate)
-            {
-                return candidate.actionId == kAIMoveToActionId &&
-                    candidate.contextId == contextId;
-            });
-        EXPECT_NE(action, definition->definition.actions.end());
-        return action == definition->definition.actions.end() ? -1.0f : action->baseCost;
-    };
-
-    EXPECT_NE(
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinC),
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::CoinC));
-    EXPECT_NE(
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinA),
-        1.0f);
-
-    const float selectedCoinRoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinC) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::CoinA) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    const float startAToBRoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinA) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::CoinB) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinB,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    const float startAToCRoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinA) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::CoinC) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    const float startBToARoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinB) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinB,
-            ai_access_key_detail::SpatialLocation::CoinA) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    const float startBToCRoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinB) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinB,
-            ai_access_key_detail::SpatialLocation::CoinC) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    const float startCToBRoute =
-        cost(
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinC) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinC,
-            ai_access_key_detail::SpatialLocation::CoinB) +
-        cost(
-            ai_access_key_detail::SpatialLocation::CoinB,
-            ai_access_key_detail::SpatialLocation::AccessKeyShop);
-
-    EXPECT_LT(selectedCoinRoute, startAToBRoute);
-    EXPECT_LT(selectedCoinRoute, startAToCRoute);
-    EXPECT_LT(selectedCoinRoute, startBToARoute);
-    EXPECT_LT(selectedCoinRoute, startBToCRoute);
-    EXPECT_LT(selectedCoinRoute, startCToBRoute);
-
-    GameplayRouteGraph disconnected = graph;
-    disconnected.edges.clear();
-    EXPECT_FALSE(ai_access_key_detail::LoadCompiledDefinition(disconnected).has_value());
-}
-
-TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
-{
-    GameplayWorld world{};
-    const EntityHandle agent = world.CreateEntity();
-    world.AddTransform(agent, {.position = {0.0f, 0.0f, 0.0f}});
-
-    const EntityHandle key = world.CreateEntity();
-    constexpr mathUtils::Vec3 keyPosition{10.0f, 0.0f, 0.0f};
-    world.AddTransform(key, {.position = keyPosition});
-
-    // Arbitrary valid ids ensure the runtime does not depend on the AccessKey asset layout.
-    constexpr AIWorldFactId hasAccessKeyFact{90u};
-    constexpr AIWorldIntegerFactId coinsFact{91u};
-
-    AIAgentWorldState observed{};
-    std::vector<GameplayWorldEvent> events;
-    const AIActionRuntimeContext context{agent, kAIBuyKeyActionId};
-
-    ai_access_key_detail::BuyKeyActionRuntime insufficient{
-        observed,
-        world,
-        events,
-        key,
-        {0.0f, 0.0f, 0.0f},
-        hasAccessKeyFact,
-        coinsFact};
-    EXPECT_EQ(insufficient.Start(context), AIActionRuntimeResult::Failed);
-    EXPECT_TRUE(events.empty());
-    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
-
-    observed.SetIntegerFact(coinsFact, kAccessKeyPrice);
-    ai_access_key_detail::BuyKeyActionRuntime tooFar{
-        observed,
-        world,
-        events,
-        key,
-        keyPosition,
-        hasAccessKeyFact,
-        coinsFact};
-    EXPECT_EQ(tooFar.Start(context), AIActionRuntimeResult::Failed);
-    EXPECT_TRUE(events.empty());
-    EXPECT_EQ(observed.GetIntegerFact(coinsFact), kAccessKeyPrice);
-    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
-
-    world.TryGetTransform(agent)->position = keyPosition;
-    ai_access_key_detail::BuyKeyActionRuntime purchase{
-        observed,
-        world,
-        events,
-        key,
-        keyPosition,
-        hasAccessKeyFact,
-        coinsFact};
-    EXPECT_EQ(purchase.Start(context), AIActionRuntimeResult::Succeeded);
-    ASSERT_EQ(events.size(), 1u);
-    EXPECT_EQ(events.front().type, GameplayWorldEventType::AccessKeyPurchased);
-
-    // Runtime confirmation is produced without directly applying planner effects.
-    EXPECT_EQ(observed.GetIntegerFact(coinsFact), kAccessKeyPrice);
-    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
-}
-
 TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCancelCleanly)
 {
     InlineThreadOwnerRolesGuard guard{};
@@ -972,7 +480,7 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
     EXPECT_EQ(level.developmentScenario, "development/ai_goap_access_key.scenario.json");
     LevelInstance instance = harness.Instantiate(level);
     GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
-    EXPECT_TRUE(runtime.HasAIDecisionDefinition(kAccessKeyAIDecisionId));
+    EXPECT_TRUE(runtime.HasAIDecisionDefinition(access_key_test::kAccessKeyAIDecisionId));
     EXPECT_FALSE(runtime.HasAIDecisionDefinition("unknown"));
     runtime.Initialize(level, instance, harness.GetScene());
     auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
@@ -1023,122 +531,74 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
         runtime.GetWorld().AddAI(agent);
     }
 
-    GameplayRouteGraph moveRouteGraph = ai_access_key_detail::BuildRouteGraph(
-        {0, 0, 0}, {-6, 0.35f, -3}, {6, 0.35f, 1}, {-5, 0.35f, 6},
-        {0, 0.35f, -7}, {0, 0.08f, 10});
-    const auto compiledDefinition =
-        ai_access_key_detail::LoadCompiledDefinition(moveRouteGraph);
-    ASSERT_TRUE(compiledDefinition.has_value());
-
-    auto resolvedTransitions =
-        ai_access_key_detail::ResolveMoveTransitions(*compiledDefinition);
-    ASSERT_TRUE(resolvedTransitions.has_value());
-
-    auto moveToRequests = ai_access_key_detail::BuildMoveToProvider(
-        runtime.GetWorld(),
-        std::move(moveRouteGraph),
-        std::move(*resolvedTransitions));
-
-    const auto resolveMove = [&](const ai_access_key_detail::SpatialLocation source,
-        const ai_access_key_detail::SpatialLocation target)
-    {
-        return moveToRequests.ResolveRequest(
-            AIActionRuntimeContext{
-                .agentEntity = agent,
-                .actionId = kAIMoveToActionId,
-                .contextId = ResolvedMoveContext(*compiledDefinition, source, target)});
-    };
-
-    runtime.GetWorld().TryGetTransform(agent)->position = {6, 0.35f, 1};
-    EXPECT_FALSE(resolveMove(ai_access_key_detail::SpatialLocation::CoinA,
-        ai_access_key_detail::SpatialLocation::CoinC).has_value());
-    runtime.GetWorld().TryGetTransform(agent)->position={-6,0.35f,-3};
-    const auto coinCRequest = resolveMove(ai_access_key_detail::SpatialLocation::CoinA,
-        ai_access_key_detail::SpatialLocation::CoinC);
-    ASSERT_TRUE(coinCRequest.has_value());
-    EXPECT_EQ(coinCRequest->startNodeId, GameplayRouteNodeId{2u});
-    EXPECT_EQ(coinCRequest->goalNodeId, GameplayRouteNodeId{4u});
-    EXPECT_NE(
-        ResolvedMoveContext(
-            *compiledDefinition,
-            ai_access_key_detail::SpatialLocation::Start,
-            ai_access_key_detail::SpatialLocation::CoinC),
-        ResolvedMoveContext(
-            *compiledDefinition,
-            ai_access_key_detail::SpatialLocation::CoinA,
-            ai_access_key_detail::SpatialLocation::CoinC));
-    
-    EXPECT_FALSE(moveToRequests.ResolveRequest(
-        AIActionRuntimeContext{.agentEntity=agent, .actionId=kAIMoveToActionId,
-            .contextId=AIActionContextId{99u}}).has_value());
-    runtime.GetWorld().TryGetTransform(agent)->position={0,0,0};
-    ASSERT_TRUE(runtime.StartAIDecision(agent,kAccessKeyAIDecisionId));
-    EXPECT_FALSE(runtime.StartAIDecision(agent,kAccessKeyAIDecisionId));
+    runtime.GetWorld().TryGetTransform(agent)->position = {0, 0, 0};
+    ASSERT_TRUE(runtime.StartAIDecision(agent,access_key_test::kAccessKeyAIDecisionId));
+    EXPECT_FALSE(runtime.StartAIDecision(agent,access_key_test::kAccessKeyAIDecisionId));
     
     Tick(runtime,game);
     const AIAgentWorldState* facts=runtime.GetAIDecisionObservedState(agent);
     ASSERT_NE(facts,nullptr);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPAtStartFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtCoinAFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtCoinBFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtCoinCFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtAccessKeyShopFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtGoalFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinBCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinCCollectedFact));
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinBAvailableFact));
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinCAvailableFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPAtStartFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtCoinAFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtCoinBFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtCoinCFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtAccessKeyShopFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtGoalFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinBAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCAvailableFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     const EntityHandle coinAEntity=FindNodeEntity(runtime,level,"GOAP_Coin_A");
     ASSERT_NE(coinAEntity,kNullEntity);
     GameplayPickupComponent* coinAPickup=runtime.GetWorld().TryGetPickup(coinAEntity);
     ASSERT_NE(coinAPickup,nullptr);
     coinAPickup->collected=true;
     Tick(runtime,game);
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(kGOAPCoinCountFact),0);
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),0);
     coinAPickup->collected=false;
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::RunningStep);
     EXPECT_EQ(runtime.GetAIActionStatus(agent),AIActionExecutionStatus::Running);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0,10};
     Tick(runtime,game);
-    EXPECT_FALSE(facts->IsFactSet(kGOAPAtDestinationFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPAtDestinationFact));
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.35f,-7};
     Tick(runtime,game);
-    EXPECT_FALSE(facts->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     runtime.GetWorld().TryGetTransform(agent)->position={-5,0.35f,6};
     Tick(runtime,game);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinCCollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(kGOAPCoinCountFact), 1);
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinBCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     Tick(runtime,game);
     Tick(runtime,game);
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::RunningStep);
     EXPECT_EQ(runtime.GetAIActionStatus(agent),AIActionExecutionStatus::Running);
     runtime.GetWorld().TryGetTransform(agent)->position={-6,0.35f,-3};
     Tick(runtime,game);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(facts->GetIntegerFact(kGOAPCoinCountFact), 2);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPCoinCCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPCoinBCollectedFact));
-    EXPECT_FALSE(facts->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 2);
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPCoinCCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     Tick(runtime,game);
     Tick(runtime,game);
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::RunningStep);
     EXPECT_EQ(runtime.GetAIActionStatus(agent),AIActionExecutionStatus::Running);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.35f,-7};
     Tick(runtime,game);
-    EXPECT_FALSE(facts->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_FALSE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     EXPECT_TRUE(instance.IsNodeRuntimeVisible(keyNode));
     Tick(runtime,game);
     Tick(runtime,game);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPHasAccessKeyFact));
-    EXPECT_EQ(facts->GetIntegerFact(kGOAPCoinCountFact), 0);
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
+    EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 0);
     EXPECT_FALSE(instance.IsNodeRuntimeVisible(keyNode));
     Tick(runtime,game);
     Tick(runtime,game);
@@ -1146,7 +606,7 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
     EXPECT_EQ(runtime.GetAIActionStatus(agent),AIActionExecutionStatus::Running);
     runtime.GetWorld().TryGetTransform(agent)->position={0,0.08f,10};
     Tick(runtime,game);
-    EXPECT_TRUE(facts->IsFactSet(kGOAPAtDestinationFact));
+    EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPAtDestinationFact));
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::Succeeded);
     Tick(runtime,game);
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::Succeeded);
@@ -1169,7 +629,7 @@ TEST(GameplayAIDecision, MissingMovementContractRejectsStartWithoutPartialState)
     GameplayWorld& world=runtime.GetWorld();
     const EntityHandle incomplete=world.CreateEntity();
     world.AddTransform(incomplete,{}); world.AddAI(incomplete);
-    EXPECT_FALSE(runtime.StartAIDecision(incomplete,kAccessKeyAIDecisionId));
+    EXPECT_FALSE(runtime.StartAIDecision(incomplete,access_key_test::kAccessKeyAIDecisionId));
     EXPECT_EQ(runtime.GetAIDecisionStatus(incomplete),AIPlanExecutionStatus::NotStarted);
     EXPECT_EQ(runtime.GetAIDecisionObservedState(incomplete),nullptr);
 }
@@ -1228,71 +688,11 @@ TEST(GameplayAIDecision, LowerEntityHandleWinsReservedCoinContentionRegardlessOf
     world.AddCharacterMovementState(highAgent, {});
     ASSERT_LT(lowAgent, highAgent);
 
-    ASSERT_TRUE(runtime.StartAIDecision(highAgent, kAccessKeyAIDecisionId));
-    ASSERT_TRUE(runtime.StartAIDecision(lowAgent, kAccessKeyAIDecisionId));
+    ASSERT_TRUE(runtime.StartAIDecision(highAgent, "access_key_reserved"));
+    ASSERT_TRUE(runtime.StartAIDecision(lowAgent, "access_key_reserved"));
     Tick(runtime, game);
 
     EXPECT_EQ(runtime.GetGameplayObjectReservationOwner(coinC), lowAgent);
-}
-
-TEST(GameplayAIDecisionSetup, ValidScenarioResolvesCompleteComposition)
-{
-    InlineThreadOwnerRolesGuard guard{};
-    test::LevelInstantiateHarness harness{};
-    LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
-    LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
-    runtime.Initialize(level, instance, harness.GetScene());
-    const auto game = Context(level, instance, harness.GetScene(), GameplayRuntimeMode::Game);
-    Tick(runtime, game);
-
-    const auto ensureNamedEntity = [&](const std::string_view name)
-    {
-        if (const EntityHandle existing = FindNodeEntity(runtime, level, name);
-            existing != kNullEntity)
-        {
-            return existing;
-        }
-        const auto node = std::ranges::find_if(level.nodes,
-            [&](const LevelNode& value) { return value.name == name; });
-        EXPECT_NE(node, level.nodes.end());
-        return runtime.SpawnNodeBoundEntity(game,
-            static_cast<int>(std::distance(level.nodes.begin(), node)), false);
-    };
-    const EntityHandle coinA = ensureNamedEntity("GOAP_Coin_A");
-    const EntityHandle coinB = ensureNamedEntity("GOAP_Coin_B");
-    const EntityHandle coinC = ensureNamedEntity("GOAP_Coin_C");
-    const EntityHandle key = ensureNamedEntity("GOAP_Access_Key");
-    GameplayWorld& world = runtime.GetWorld();
-    world.SetPickup(coinA, {});
-    world.SetPickup(coinB, {});
-    world.SetPickup(coinC, {});
-
-    const auto setup = BuildAccessKeyDecisionSetup(level, world);
-
-    ASSERT_TRUE(setup.has_value());
-    EXPECT_EQ(setup->coinEntities, (std::array{coinA, coinB, coinC}));
-    EXPECT_EQ(setup->keyEntity, key);
-    EXPECT_FALSE(setup->definition.actions.empty());
-    EXPECT_EQ(setup->moveTransitions.size(), ai_access_key_detail::kMoveTransitions.size());
-
-    world.RemovePickup(coinB);
-    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
-    world.SetPickup(coinB, {});
-    world.DestroyEntity(key);
-    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
-}
-
-TEST(GameplayAIDecisionSetup, MissingRequiredNamedNodeFailsTransactionally)
-{
-    LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
-    const auto coinB = std::ranges::find_if(level.nodes,
-        [](const LevelNode& node) { return node.name == "GOAP_Coin_B"; });
-    ASSERT_NE(coinB, level.nodes.end());
-    coinB->alive = false;
-
-    GameplayWorld world{};
-    EXPECT_FALSE(BuildAccessKeyDecisionSetup(level, world).has_value());
 }
 
 TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
@@ -1318,7 +718,7 @@ TEST(GameplayAIDecision, FailedStartLeavesNoActiveDecision)
     ASSERT_TRUE(runtime.GetWorld().HasCharacterMotor(agent));
     ASSERT_TRUE(runtime.GetWorld().HasCharacterMovementState(agent));
     
-    EXPECT_FALSE(runtime.StartAIDecision(agent,kAccessKeyAIDecisionId));
+    EXPECT_FALSE(runtime.StartAIDecision(agent,access_key_test::kAccessKeyAIDecisionId));
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::NotStarted);
     EXPECT_EQ(runtime.GetAIDecisionObservedState(agent),nullptr);
 }
@@ -1337,7 +737,9 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     const auto spawnNamed = [&](const std::string_view name)
     {
         if (const EntityHandle existing=FindNodeEntity(runtime,level,name); existing != kNullEntity)
+        {
             return existing;
+        }
         const auto node=std::ranges::find_if(level.nodes,
             [&](const LevelNode& value) { return value.name == name; });
         EXPECT_NE(node,level.nodes.end());
@@ -1360,8 +762,8 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     GameplayTraversalLinkRegistry links;
     GameplayTraversalExecutorRegistry executors;
     GameplayObjectReservationSystem reservations;
-    auto decision = CreateAccessKeyAIDecision(
-        agent, level, world, links, executors, &reservations);
+    auto decision = goap_asset_test::CreateDecision("access_key_reserved",
+        agent, level, world, links, executors, reservations);
     ASSERT_NE(decision, nullptr);
     AISystem ai;
 
@@ -1369,50 +771,50 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     decision->Update(ai, GameplayAIObservationContext{world, {}});
     const AIAgentWorldState* decisionFacts = GetGOAPObservedState(*decision);
     ASSERT_NE(decisionFacts, nullptr);
-    EXPECT_TRUE(decisionFacts->IsFactSet(kGOAPAtCoinAFact));
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPAtStartFact));
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(decisionFacts->GetIntegerFact(kGOAPCoinCountFact), 0);
+    EXPECT_TRUE(decisionFacts->IsFactSet(access_key_test::kGOAPAtCoinAFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPAtStartFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(decisionFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 0);
     const std::array coinBEvent{GameplayWorldEvent{
         GameplayWorldEventType::PickupCollected, agent, coinB}};
     decision->Update(ai, GameplayAIObservationContext{world, coinBEvent});
-    EXPECT_TRUE(decisionFacts->IsFactSet(kGOAPCoinBCollectedFact));
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(decisionFacts->GetIntegerFact(kGOAPCoinCountFact), 1);
+    EXPECT_TRUE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinBCollectedFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(decisionFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
     decision->Update(ai, GameplayAIObservationContext{world, coinBEvent});
-    EXPECT_EQ(decisionFacts->GetIntegerFact(kGOAPCoinCountFact), 1);
+    EXPECT_EQ(decisionFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
     
     ASSERT_TRUE(reservations.TryReserve(world, coinA, agent));
     decision->Update(ai, GameplayAIObservationContext{world, {}});
-    EXPECT_TRUE(decisionFacts->IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(decisionFacts->GetIntegerFact(kGOAPCoinCountFact), 1);
+    EXPECT_TRUE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(decisionFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
     ASSERT_TRUE(reservations.Release(coinA, agent));
 
     ASSERT_TRUE(reservations.TryReserve(world, coinA, otherAgent));
     decision->Update(ai, GameplayAIObservationContext{world, {}});
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinACollectedFact));
-    EXPECT_EQ(decisionFacts->GetIntegerFact(kGOAPCoinCountFact), 1);
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
+    EXPECT_EQ(decisionFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 1);
     ASSERT_TRUE(reservations.Release(coinA, otherAgent));
     decision->Update(ai, GameplayAIObservationContext{world, {}});
-    EXPECT_TRUE(decisionFacts->IsFactSet(kGOAPCoinAAvailableFact));
+    EXPECT_TRUE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
 
     const std::array otherAgentCoinAEvent{GameplayWorldEvent{
         GameplayWorldEventType::PickupCollected, otherAgent, coinA}};
     decision->Update(ai, GameplayAIObservationContext{world, otherAgentCoinAEvent});
-    EXPECT_FALSE(decisionFacts->IsFactSet(kGOAPCoinACollectedFact));
+    EXPECT_FALSE(decisionFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
     
     AIAgentWorldState* observed = GetMutableGOAPObservedState(*decision);
     ASSERT_NE(observed, nullptr);
     constexpr std::int32_t initialCoinCount = 6;
-    observed->SetIntegerFact(kGOAPCoinCountFact, initialCoinCount);
+    observed->SetIntegerFact(access_key_test::kGOAPCoinCountFact, initialCoinCount);
     const std::array purchaseEvent{GameplayWorldEvent{
-        GameplayWorldEventType::AccessKeyPurchased, agent, key}};
+        GameplayWorldEventType::ResourcePurchased, agent, key}};
     decision->Update(ai, GameplayAIObservationContext{world, purchaseEvent});
-    EXPECT_EQ(observed->GetIntegerFact(kGOAPCoinCountFact),
-        initialCoinCount - kAccessKeyPrice);
-    EXPECT_TRUE(observed->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_EQ(observed->GetIntegerFact(access_key_test::kGOAPCoinCountFact),
+        initialCoinCount - access_key_test::kAccessKeyPrice);
+    EXPECT_TRUE(observed->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     
     // ---------------------------------------------------------------------
     // Runtime-generated purchase event + aliased input/output
@@ -1420,15 +822,15 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     
     // A fresh decision lets the real BuyKey runtime produce the purchase event.
     // This exercises runtime -> domain observation -> outward event composition
-    // rather than injecting AccessKeyPurchased as an input event.
-    auto runtimeEventDecision = CreateAccessKeyAIDecision(
-        agent, level, world, links, executors, &reservations);
+    // rather than injecting ResourcePurchased as an input event.
+    auto runtimeEventDecision = goap_asset_test::CreateDecision("access_key_reserved",
+        agent, level, world, links, executors, reservations);
     ASSERT_NE(runtimeEventDecision, nullptr);
 
     AIAgentWorldState* runtimeEventFacts =
         GetMutableGOAPObservedState(*runtimeEventDecision);
     ASSERT_NE(runtimeEventFacts, nullptr);
-    runtimeEventFacts->SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
+    runtimeEventFacts->SetIntegerFact(access_key_test::kGOAPCoinCountFact, access_key_test::kAccessKeyPrice);
 
     GameplayTransformComponent* agentTransform = world.TryGetTransform(agent);
     const GameplayTransformComponent* keyTransform = world.TryGetTransform(key);
@@ -1458,7 +860,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
         aliasedEvents.resize(1u);
 
         const bool hadAccessKey =
-            runtimeEventFacts->IsFactSet(kGOAPHasAccessKeyFact);
+            runtimeEventFacts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact);
 
         runtimeEventDecision->Update(
             runtimeEventAI,
@@ -1469,7 +871,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
             });
 
         const bool hasAccessKey =
-            runtimeEventFacts->IsFactSet(kGOAPHasAccessKeyFact);
+            runtimeEventFacts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact);
 
         if (!hadAccessKey && hasAccessKey)
         {
@@ -1478,7 +880,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
             // The purchase is confirmed from the runtime-generated event
             // during the same decision update that emitted it.
             EXPECT_EQ(
-                runtimeEventFacts->GetIntegerFact(kGOAPCoinCountFact),
+                runtimeEventFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),
                 0);
 
             EXPECT_EQ(
@@ -1487,7 +889,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
                     [&](const GameplayWorldEvent& event)
                     {
                         return event.type ==
-                                   GameplayWorldEventType::AccessKeyPurchased &&
+                                   GameplayWorldEventType::ResourcePurchased &&
                                event.instigator == agent &&
                                event.subject == key;
                     }),
@@ -1504,22 +906,22 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     EXPECT_TRUE(purchaseConfirmed);
     runtimeEventDecision->Cancel(runtimeEventAI);
     decision->Update(ai, GameplayAIObservationContext{world, purchaseEvent});
-    EXPECT_EQ(observed->GetIntegerFact(kGOAPCoinCountFact),
-        initialCoinCount - kAccessKeyPrice);
-    EXPECT_TRUE(observed->IsFactSet(kGOAPHasAccessKeyFact));
+    EXPECT_EQ(observed->GetIntegerFact(access_key_test::kGOAPCoinCountFact),
+        initialCoinCount - access_key_test::kAccessKeyPrice);
+    EXPECT_TRUE(observed->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     
     // ---------------------------------------------------------------------
     // Runtime-generated purchase with no outward event sink
     // ---------------------------------------------------------------------
     
-    auto nullOutputDecision = CreateAccessKeyAIDecision(
-       agent, level, world, links, executors, &reservations);
+    auto nullOutputDecision = goap_asset_test::CreateDecision("access_key_reserved",
+       agent, level, world, links, executors, reservations);
     ASSERT_NE(nullOutputDecision, nullptr);
 
     AIAgentWorldState* nullOutputFacts =
         GetMutableGOAPObservedState(*nullOutputDecision);
     ASSERT_NE(nullOutputFacts, nullptr);
-    nullOutputFacts->SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
+    nullOutputFacts->SetIntegerFact(access_key_test::kGOAPCoinCountFact, access_key_test::kAccessKeyPrice);
 
     agentTransform->position = keyTransform->position;
 
@@ -1531,7 +933,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
          ++updateIndex)
     {
         const bool hadAccessKey =
-            nullOutputFacts->IsFactSet(kGOAPHasAccessKeyFact);
+            nullOutputFacts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact);
 
         nullOutputDecision->Update(
             nullOutputAI,
@@ -1542,14 +944,14 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
             });
 
         const bool hasAccessKey =
-            nullOutputFacts->IsFactSet(kGOAPHasAccessKeyFact);
+            nullOutputFacts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact);
 
         if (!hadAccessKey && hasAccessKey)
         {
             nullOutputPurchaseConfirmed = true;
 
             EXPECT_EQ(
-                nullOutputFacts->GetIntegerFact(kGOAPCoinCountFact),
+                nullOutputFacts->GetIntegerFact(access_key_test::kGOAPCoinCountFact),
                 0);
         }
     }
@@ -1558,25 +960,25 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     nullOutputDecision->Cancel(nullOutputAI);
     
     // ---------------------------------------------------------------------
-    // Existing cancellation / legacy reservation fallback coverage
+    // Explicit unreserved configuration remains independent of reservations
     // ---------------------------------------------------------------------
     
     decision->Cancel(ai);
     world.RemoveInteractionPoint(coinB);
     world.RemoveInteractionPoint(coinC);
-    auto legacyDecision = CreateAccessKeyAIDecision(
-        agent, level, world, links, executors, &reservations);
-    ASSERT_NE(legacyDecision, nullptr);
+    auto unreservedDecision = goap_asset_test::CreateDecision("access_key",
+        agent, level, world, links, executors, reservations);
+    ASSERT_NE(unreservedDecision, nullptr);
     ASSERT_TRUE(reservations.TryReserve(world, coinA, otherAgent));
-    AISystem legacyAI;
-    legacyDecision->Update(legacyAI, GameplayAIObservationContext{world, {}});
+    AISystem unreservedAI;
+    unreservedDecision->Update(unreservedAI, GameplayAIObservationContext{world, {}});
     
-    const AIAgentWorldState* legacyFacts =
-        GetGOAPObservedState(*legacyDecision);
-    ASSERT_NE(legacyFacts, nullptr);
+    const AIAgentWorldState* unreservedFacts =
+        GetGOAPObservedState(*unreservedDecision);
+    ASSERT_NE(unreservedFacts, nullptr);
 
-    EXPECT_TRUE(legacyFacts->IsFactSet(kGOAPCoinAAvailableFact));
-    EXPECT_FALSE(legacyFacts->IsFactSet(kGOAPCoinACollectedFact));
+    EXPECT_TRUE(unreservedFacts->IsFactSet(access_key_test::kGOAPCoinAAvailableFact));
+    EXPECT_FALSE(unreservedFacts->IsFactSet(access_key_test::kGOAPCoinACollectedFact));
 }
 
 TEST(GameplayAIDecision, InvalidAssetStartReportsSourceAndLeavesNoActiveDecision)

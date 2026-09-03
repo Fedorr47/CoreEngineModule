@@ -43,15 +43,30 @@ template<class F> void Reject(F&& operation, std::string_view message) {
     throw std::runtime_error("Expected rejection: " + std::string(message));
 }
 int main() {
-    const std::vector semantics{GameplayGOAPSemanticAction{"move_to", AIActionId{2u}}};
+    const std::vector semantics{GameplayGOAPSemanticAction{"move_to", AIActionId{2u}}, GameplayGOAPSemanticAction{"purchase", AIActionId{3u}}};
     auto catalog = LoadGameplayAIDecisionCatalogAsset("ai/decisions/catalog.json");
-    Check(catalog.decisions.size() == 2);
+    Check(catalog.decisions.size() == 5);
     for (const auto& reference : catalog.decisions) {
         auto behavior = LoadGameplayAIBehaviorAsset(reference.behavior);
         auto bindings = LoadGameplayAILevelBindingsAsset(reference.bindings);
         auto definition = LoadGameplayGOAPDefinitionAsset(behavior.definition);
         auto compiled = CompileGameplayGOAPDefinition(definition, semantics);
         Check(behavior.model == "goap");
+        if (!behavior.routeGraph.empty()) {
+            const auto graph = LoadGameplayAIRouteGraphAsset(behavior.routeGraph);
+            Check(graph.nodes.size() == bindings.roles.size());
+            Check(graph.edges.size() >= 13);
+            Check(behavior.inspectPath);
+            Check(compiled.definition.actions.size() == 14);
+            const auto& ledger = std::get<GameplayAIResourceLedgerAsset>(behavior.observations.front().parameters);
+            Check(ledger.pickups.size() == 3);
+            Check(ledger.receipts.front().price == 2);
+            Check(compiled.FindIntegerFact(ledger.fact).has_value());
+            const auto& purchase = std::get<GameplayAIPurchaseAsset>(behavior.capabilities.back().parameters);
+            Check(purchase.receipt == ledger.receipts.front().id);
+            Check(compiled.definition.actions.back().actionId == AIActionId{3u});
+            continue;
+        }
         Check(bindings.roles.size() == 2);
         Check(behavior.observations.size() == 2);
         Check(behavior.capabilities.size() == 1);
@@ -60,9 +75,9 @@ int main() {
         Check(action.continuationConditions.size() == 1);
         Check(action.continuationConditions.front().bExpectedValue);
         Check(action.continuationConditions.front().factId ==
-              compiled.FindBooleanFact(behavior.observations.front().fact).value());
+              compiled.FindBooleanFact(std::get<GameplayAISpatialObservationAsset>(behavior.observations.front().parameters).fact).value());
         Check(action.contextId == compiled.FindActionContext(behavior.capabilities.front().context).value());
-        Check(behavior.capabilities.front().acceptanceRadius == behavior.observations.back().radius);
+        Check(std::get<GameplayAIMoveToAsset>(behavior.capabilities.front().parameters).acceptanceRadius == std::get<GameplayAISpatialObservationAsset>(behavior.observations.back().parameters).radius);
         definition.actions.front().continuationConditions.front().fact = "missing_fact";
         Reject([&] { (void)CompileGameplayGOAPDefinition(definition, semantics); }, "missing_fact");
     }
@@ -81,6 +96,15 @@ int main() {
         R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[{"type":"within_distance","target":"g","fact":"at","radius":"far"}],"capabilities":[]})",
         "behavior.json"); }, "radius");
     Reject([] { (void)ParseGameplayAIBehaviorAsset("{", "broken.json"); }, "broken.json");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[{"type":"resource_ledger","fact":"money","pickups":[],"receipts":[{"id":"x","target":"shop","fact":"unlocked","price":-1}]}],"capabilities":[]})",
+        "ledger.json"); }, "positive integer");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[],"capabilities":[{"type":"purchase","context":"x","receipt":"unlock","source":"wrong"}]})",
+        "purchase.json"); }, "unknown field");
+    Reject([] { (void)ParseGameplayAILevelBindingsAsset(
+        R"({"version":1,"roles":[],"traversals":[{"name":"gap","target":"land","type":"jump","handle":1.5}]})",
+        "bindings.json"); }, "positive integer");
     auto numeric = ParseGameplayGOAPDefinitionAsset(R"({"id":"numeric","facts":[
         {"name":"ok","type":"bool"},{"name":"resource","type":"int"}],
         "goals":[{"name":"done","score":1,"facts":[{"fact":"ok","value":true}]}],

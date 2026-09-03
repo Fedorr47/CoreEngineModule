@@ -57,16 +57,37 @@ for entry in catalog['decisions']:
     bindings = read_json(ASSETS / entry['bindings'])
     definition = read_json(ASSETS / behavior['definition'])
     facts = {fact['name'] for fact in definition['facts']}
-    observed = [observer['fact'] for observer in behavior['observations']]
+    observed = []
+    for observer in behavior['observations']:
+        if 'fact' in observer:
+            observed.append(observer['fact'])
+        for group in ('pickups', 'receipts', 'locations'):
+            observed.extend(item['fact'] for item in observer.get(group, []))
     require(set(observed) == facts and len(observed) == len(facts), f"{entry['id']}: observation coverage")
     roles = {role['role']: role['node'] for role in bindings['roles']}
     for observer in behavior['observations']:
-        require(observer['target'] in roles, f"{entry['id']}: unbound observer role")
+        references = ([observer['target']] if 'target' in observer else [])
+        for group in ('pickups', 'receipts', 'locations'):
+            references += [item['target'] for item in observer.get(group, [])]
+        require(all(role in roles for role in references), f"{entry['id']}: unbound observer role")
     contexts = {(action['action'], action['context']) for action in definition['actions']}
     configured = {(cap['type'], cap['context']) for cap in behavior['capabilities']}
     require(contexts == configured, f"{entry['id']}: action/context coverage")
     for capability in behavior['capabilities']:
-        require(capability['source'] in roles and capability['target'] in roles, f"{entry['id']}: unbound capability role")
+        if capability['type'] == 'move_to':
+            require(capability['source'] in roles and capability['target'] in roles, f"{entry['id']}: unbound capability role")
+        else:
+            receipts = [receipt for observer in behavior['observations'] for receipt in observer.get('receipts', [])]
+            matches = [receipt for receipt in receipts if receipt['id'] == capability['receipt']]
+            require(len(matches) == 1, f"{entry['id']}: unresolved receipt")
+    if behavior.get('routeGraph'):
+        graph = read_json(ASSETS / behavior['routeGraph'])
+        require(set(graph['nodes']) <= set(roles), f"{entry['id']}: unresolved graph role")
+        require(len(set(graph['nodes'])) == len(graph['nodes']), f"{entry['id']}: duplicate graph node")
+        traversals = {item['name'] for item in bindings.get('traversals', [])}
+        for edge in graph['edges']:
+            require(edge['from'] in graph['nodes'] and edge['to'] in graph['nodes'], f"{entry['id']}: unknown edge endpoint")
+            require(not edge.get('traversal') or edge['traversal'] in traversals, f"{entry['id']}: unresolved traversal")
     # Verify that the demo level and its development script reference this config,
     # and that all role names resolve there. Runtime tests cover entity components.
     matched_levels = 0
@@ -88,7 +109,10 @@ for entry in catalog['decisions']:
 for path in SRC.rglob('*'):
     if path.suffix in {'.cppm', '.cpp', '.h', '.inl', '.ixx'}:
         source = path.read_text(encoding='utf-8-sig')
-        require('marker_visit' not in source and 'GOAP_Marker_' not in source,
+        require(not re.search(r'marker_visit|GOAP_Marker_|access_key|AccessKey|GOAP_Coin_|GOAP_Jump_', source),
                 f'Third scenario has a C++ dependency: {path}')
+
+root = (SRC / 'Gameplay/AI/Composition/GameplayAIBuiltinDecisions.cppm').read_text()
+require('.Register(' not in root, 'Composition root manually registers scenario configurations')
 
 print(f'Passed module/build boundaries and {len(ids)} catalog asset graphs; third scenario is assets only.')

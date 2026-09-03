@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "role": "start",
+      "node": "GOAP_Start"
+    },
+    {
+      "role": "coinA",
+      "node": "GOAP_Coin_A"
+    },
+    {
+      "role": "coinB",
+      "node": "GOAP_Coin_B"
+    },
+    {
+      "role": "coinC",
+      "node": "GOAP_Coin_C"
+    },
+    {
+      "role": "shop",
+      "node": "GOAP_Access_Key"
+    },
+    {
+      "role": "goal",
+      "node": "GOAP_Final_Goal"
+    },
+    {
+      "role": "takeoff",
+      "node": "GOAP_Jump_Takeoff"
+    },
+    {
+      "role": "landing",
+      "node": "GOAP_Jump_Landing"
+    }
+  ],
+  "traversals": [
+    {
+      "name": "goal_gap",
+      "target": "landing",
+      "type": "jump",
+      "handle": 9470001
+    }
+  ]
+}

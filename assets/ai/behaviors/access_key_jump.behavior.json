@@ -1,0 +1,234 @@
+{
+  "version": 1,
+  "id": "access_key_jump",
+  "model": "goap",
+  "definition": "ai/goap/access_key.goap.json",
+  "routeGraph": "ai/routes/access_key_jump.routes.json",
+  "inspectPath": true,
+  "observations": [
+    {
+      "type": "resource_ledger",
+      "fact": "coins",
+      "pickups": [
+        {
+          "target": "coinA",
+          "fact": "coinACollected",
+          "amount": 1
+        },
+        {
+          "target": "coinB",
+          "fact": "coinBCollected",
+          "amount": 1
+        },
+        {
+          "target": "coinC",
+          "fact": "coinCCollected",
+          "amount": 1
+        }
+      ],
+      "receipts": [
+        {
+          "id": "unlock",
+          "target": "shop",
+          "fact": "hasAccessKey",
+          "price": 2
+        }
+      ]
+    },
+    {
+      "type": "pickup_available",
+      "target": "coinA",
+      "fact": "coinAAvailable"
+    },
+    {
+      "type": "pickup_available",
+      "target": "coinB",
+      "fact": "coinBAvailable"
+    },
+    {
+      "type": "pickup_available",
+      "target": "coinC",
+      "fact": "coinCAvailable"
+    },
+    {
+      "type": "nearest_location",
+      "radius": 0.6,
+      "locations": [
+        {
+          "target": "start",
+          "fact": "atStart"
+        },
+        {
+          "target": "coinA",
+          "fact": "atCoinA"
+        },
+        {
+          "target": "coinB",
+          "fact": "atCoinB"
+        },
+        {
+          "target": "coinC",
+          "fact": "atCoinC"
+        },
+        {
+          "target": "shop",
+          "fact": "atAccessKeyShop"
+        },
+        {
+          "target": "goal",
+          "fact": "atGoal"
+        }
+      ]
+    },
+    {
+      "type": "within_distance",
+      "target": "goal",
+      "fact": "atDestination",
+      "radius": 0.6,
+      "requireEntity": false,
+      "latch": true,
+      "requiredFacts": [
+        "hasAccessKey"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "type": "move_to",
+      "context": "start_to_coin_a",
+      "source": "start",
+      "target": "coinA",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "start_to_coin_b",
+      "source": "start",
+      "target": "coinB",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "start_to_coin_c",
+      "source": "start",
+      "target": "coinC",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_a_to_coin_b",
+      "source": "coinA",
+      "target": "coinB",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_a_to_coin_c",
+      "source": "coinA",
+      "target": "coinC",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_a_to_access_key_shop",
+      "source": "coinA",
+      "target": "shop",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_b_to_coin_a",
+      "source": "coinB",
+      "target": "coinA",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_b_to_coin_c",
+      "source": "coinB",
+      "target": "coinC",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_b_to_access_key_shop",
+      "source": "coinB",
+      "target": "shop",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_c_to_coin_a",
+      "source": "coinC",
+      "target": "coinA",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_c_to_coin_b",
+      "source": "coinC",
+      "target": "coinB",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "coin_c_to_access_key_shop",
+      "source": "coinC",
+      "target": "shop",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true
+    },
+    {
+      "type": "move_to",
+      "context": "access_key_shop_to_goal",
+      "source": "shop",
+      "target": "goal",
+      "acceptanceRadius": 0.35,
+      "slowingRadius": 1.25,
+      "sourceRadius": 0.6,
+      "routeCost": true,
+      "wantsRun": true
+    },
+    {
+      "type": "purchase",
+      "context": "buy_key",
+      "receipt": "unlock",
+      "radius": 0.6
+    }
+  ]
+}

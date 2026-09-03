@@ -558,6 +558,9 @@ set(COMMON_MODULES
         Gameplay/AI/Composition/GameplayAIBuiltinDecisions.cppm
         Gameplay/AI/Composition/GameplayGOAPCompositionRegistry.cppm
         Gameplay/AI/Composition/GameplayGOAPBuiltinComponents.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponents.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPResourceComponents.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponent.cppm
         Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm
         Gameplay/AI/GOAP/Authoring/GameplayAIDecisionAsset.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
@@ -568,17 +571,12 @@ set(COMMON_MODULES
         Gameplay/AI/GOAP/GameplayGOAPDecision.cppm
         Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionAsset.cppm
         Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm
-        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyObservation.cppm
-        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyComposition.cppm
         Gameplay/AI/Runtime/GameplayAIDecision.cppm
         Gameplay/AI/GOAP/AIStateOperations.cppm
         Gameplay/AI/GOAP/AIGoalSelectionContracts.cppm
         Gameplay/AI/Runtime/GameplayAIDecisionCreationContext.cppm
         Gameplay/AI/GOAP/GameplayGOAPDecisionSetup.cppm
         Gameplay/AI/GOAP/GameplayGOAPDecisionInstance.cppm
-        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyContracts.cppm
-        Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyNavigation.cppm
-        Gameplay/AI/Domains/AccessKey/GameplayAIBuyKeyAction.cppm
 
 
         Timer/GameTimer.ixx

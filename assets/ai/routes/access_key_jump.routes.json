@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "nodes": [
+    "start",
+    "coinA",
+    "coinB",
+    "coinC",
+    "shop",
+    "goal",
+    "takeoff",
+    "landing"
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "coinA"
+    },
+    {
+      "from": "start",
+      "to": "coinB"
+    },
+    {
+      "from": "start",
+      "to": "coinC"
+    },
+    {
+      "from": "coinA",
+      "to": "coinB"
+    },
+    {
+      "from": "coinA",
+      "to": "coinC"
+    },
+    {
+      "from": "coinA",
+      "to": "shop"
+    },
+    {
+      "from": "coinB",
+      "to": "coinA"
+    },
+    {
+      "from": "coinB",
+      "to": "coinC"
+    },
+    {
+      "from": "coinB",
+      "to": "shop"
+    },
+    {
+      "from": "coinC",
+      "to": "coinA"
+    },
+    {
+      "from": "coinC",
+      "to": "coinB"
+    },
+    {
+      "from": "coinC",
+      "to": "shop"
+    },
+    {
+      "from": "shop",
+      "to": "takeoff"
+    },
+    {
+      "from": "takeoff",
+      "to": "landing",
+      "traversal": "goal_gap"
+    },
+    {
+      "from": "landing",
+      "to": "goal"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-#include <cmath>
+﻿#include <cmath>
 #include <algorithm>
 #include <gtest/gtest.h>
 
@@ -107,8 +107,8 @@ namespace
         return {.agentEntity = agent, .actionId = kAIFleeTargetActionId};
     }
     
-    static_assert(kAIFollowTargetActionId != kAIBuyKeyActionId);
-    static_assert(kAIFleeTargetActionId != kAIBuyKeyActionId);
+    static_assert(kAIFollowTargetActionId != kAIPurchaseActionId);
+    static_assert(kAIFleeTargetActionId != kAIPurchaseActionId);
     static_assert(kAIFollowTargetActionId != kAIFleeTargetActionId);
 
     void ExpectDirection(const GameplayWorld& world, const EntityHandle agent, const float x, const float z)

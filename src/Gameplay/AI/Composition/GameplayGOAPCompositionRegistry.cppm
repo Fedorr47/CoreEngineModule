@@ -3,6 +3,8 @@ module;
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
+#include <variant>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -34,6 +36,9 @@ export namespace rendern
     {
     public:
         virtual ~IGameplayGOAPObservation() = default;
+        [[nodiscard]] virtual std::vector<AIWorldFactId> BooleanOutputs() const = 0;
+        [[nodiscard]] virtual std::vector<AIWorldIntegerFactId> IntegerOutputs() const { return {}; }
+        [[nodiscard]] virtual std::vector<AIWorldFactId> BooleanInputs() const { return {}; }
         virtual void Observe(const GameplayWorld& world, EntityHandle agent,
             std::span<const GameplayWorldEvent> events, AIAgentWorldState& facts) = 0;
 
@@ -47,6 +52,7 @@ export namespace rendern
     {
     public:
         virtual ~IGameplayGOAPCapability() = default;
+        [[nodiscard]] virtual std::vector<GameplayGOAPActionCostOverride> CostOverrides() const { return {}; }
         [[nodiscard]] virtual std::unique_ptr<IAIActionBinding> CreateBinding(
             AIAgentWorldState& facts, std::vector<GameplayWorldEvent>& events) = 0;
     };
@@ -57,6 +63,9 @@ export namespace rendern
         const GameplayGOAPCompiledDefinition& definition;
         std::span<const GameplayAIResolvedRole> roles;
         std::string_view source;
+        std::span<const GameplayAIObservationAsset> observations{};
+        const GameplayAIRouteGraphAsset* routeGraph{};
+        const GameplayAILevelBindingsAsset* levelBindings{};
 
         [[noreturn]] void Fail(std::string_view component, std::string_view reason) const
         {
@@ -74,6 +83,26 @@ export namespace rendern
                 }
             }
             Fail("role '" + std::string(name) + "'", "no level binding");
+        }
+
+        [[nodiscard]] AIWorldIntegerFactId IntegerFact(std::string_view name) const
+        {
+            const auto fact = definition.FindIntegerFact(name);
+            if (!fact)
+            {
+                Fail(name, "unknown fact or expected int");
+            }
+            return *fact;
+        }
+        template<class T, class TAsset>
+        [[nodiscard]] const T& Parameters(const TAsset& asset) const
+        {
+            const auto* parameters = std::get_if<T>(&asset.parameters);
+            if (parameters == nullptr)
+            {
+                Fail(asset.type, "incorrect typed parameters");
+            }
+            return *parameters;
         }
 
         [[nodiscard]] AIWorldFactId BooleanFact(std::string_view name) const

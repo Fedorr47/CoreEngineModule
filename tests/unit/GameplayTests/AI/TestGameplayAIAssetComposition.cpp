@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <variant>
 
 #include "TestSupport/TestTempPath.h"
 
@@ -161,9 +162,9 @@ TEST_F(GameplayAIAssetComposition, RequiresOneWriterPerFactAndOneBindingPerConte
     behavior.observations.pop_back();
     ExpectFailure("fact has no observation writer");
     behavior.observations.push_back(observation);
-    behavior.observations.front().fact = "missing";
-    ExpectFailure("unknown observation fact");
-    behavior.observations.front().fact = "goalAvailable";
+    std::get<GameplayAISpatialObservationAsset>(behavior.observations.front().parameters).fact = "missing";
+    ExpectFailure("unknown fact");
+    std::get<GameplayAISpatialObservationAsset>(behavior.observations.front().parameters).fact = "goalAvailable";
     behavior.capabilities.push_back(behavior.capabilities.front());
     ExpectFailure("multiple capability bindings");
     behavior.capabilities.pop_back();
@@ -175,10 +176,10 @@ TEST_F(GameplayAIAssetComposition, RequiresOneWriterPerFactAndOneBindingPerConte
 
 TEST_F(GameplayAIAssetComposition, RejectsInvalidSpatialParameters)
 {
-    behavior.observations.back().radius = 0.0f;
+    std::get<GameplayAISpatialObservationAsset>(behavior.observations.back().parameters).radius = 0.0f;
     ExpectFailure("radius must be positive");
-    behavior.observations.back().radius = 0.4f;
-    behavior.capabilities.front().slowingRadius = 0.1f;
+    std::get<GameplayAISpatialObservationAsset>(behavior.observations.back().parameters).radius = 0.4f;
+    std::get<GameplayAIMoveToAsset>(behavior.capabilities.front().parameters).slowingRadius = 0.1f;
     ExpectFailure("slowingRadius >= acceptanceRadius");
 }
 
@@ -190,7 +191,7 @@ TEST_F(GameplayAIAssetComposition, MultipleContextsShareOneSemanticBinding)
     definition.actions.push_back(secondAction);
     auto secondCapability = behavior.capabilities.front();
     secondCapability.context = "alternative";
-    secondCapability.acceptanceRadius = 0.8f;
+    std::get<GameplayAIMoveToAsset>(secondCapability.parameters).acceptanceRadius = 0.8f;
     behavior.capabilities.push_back(secondCapability);
     auto decision = Create();
     ASSERT_NE(decision, nullptr); // Duplicate action bindings would reject configuration.

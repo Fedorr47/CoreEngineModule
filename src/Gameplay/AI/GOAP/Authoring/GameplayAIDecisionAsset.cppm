@@ -5,6 +5,9 @@ module;
 #include <filesystem>
 #include <initializer_list>
 #include <limits>
+#include <cstdint>
+#include <optional>
+#include <variant>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -19,24 +22,81 @@ import :json_utils;
 
 export namespace rendern
 {
-    struct GameplayAIObservationAsset
+    struct GameplayAISpatialObservationAsset
     {
-        std::string type{};
-        std::string target{};
-        std::string fact{};
+        std::string target, fact;
         float radius{};
         bool requireInteractionPoint{};
+        bool requireEntity{true};
+        bool latch{};
+        std::vector<std::string> requiredFacts;
     };
-
+    struct GameplayAIPickupAvailabilityAsset
+    {
+        std::string target, fact;
+        bool respectReservations{};
+    };
+    struct GameplayAILocationAsset { std::string target, fact; };
+    struct GameplayAINearestLocationAsset
+    {
+        float radius{};
+        std::vector<GameplayAILocationAsset> locations;
+    };
+    struct GameplayAIResourcePickupAsset
+    {
+        std::string target, fact;
+        std::int32_t amount{1};
+    };
+    struct GameplayAIResourceReceiptAsset
+    {
+        std::string id, target, fact;
+        std::int32_t price{};
+    };
+    struct GameplayAIResourceLedgerAsset
+    {
+        std::string fact;
+        std::vector<GameplayAIResourcePickupAsset> pickups;
+        std::vector<GameplayAIResourceReceiptAsset> receipts;
+    };
+    struct GameplayAIObservationAsset
+    {
+        std::string type;
+        std::variant<GameplayAISpatialObservationAsset, GameplayAIPickupAvailabilityAsset,
+            GameplayAINearestLocationAsset, GameplayAIResourceLedgerAsset> parameters;
+    };
+    struct GameplayAIMoveToAsset
+    {
+        std::string source, target;
+        float acceptanceRadius{0.4f}, slowingRadius{1.5f};
+        bool wantsRun{};
+        float sourceRadius{};
+        bool reserveTarget{}, routeCost{};
+    };
+    struct GameplayAIPurchaseAsset
+    {
+        std::string receipt;
+        float radius{0.6f};
+    };
     struct GameplayAICapabilityAsset
     {
-        std::string type{};
-        std::string context{};
-        std::string source{};
-        std::string target{};
-        float acceptanceRadius{0.4f};
-        float slowingRadius{1.5f};
-        bool wantsRun{};
+        std::string type, context;
+        std::variant<GameplayAIMoveToAsset, GameplayAIPurchaseAsset> parameters;
+    };
+    struct GameplayAIRouteEdgeAsset
+    {
+        std::string from, to, traversal;
+        std::optional<float> cost;
+    };
+    struct GameplayAIRouteGraphAsset
+    {
+        std::string source;
+        std::vector<std::string> nodes;
+        std::vector<GameplayAIRouteEdgeAsset> edges;
+    };
+    struct GameplayAITraversalBindingAsset
+    {
+        std::string name, target, type;
+        std::uint64_t handle{};
     };
 
     struct GameplayAIBehaviorAsset
@@ -47,6 +107,8 @@ export namespace rendern
         std::string definition{};
         std::vector<GameplayAIObservationAsset> observations{};
         std::vector<GameplayAICapabilityAsset> capabilities{};
+        std::string routeGraph;
+        bool inspectPath{};
     };
 
     struct GameplayAIRoleBindingAsset
@@ -59,6 +121,7 @@ export namespace rendern
     {
         std::string source{};
         std::vector<GameplayAIRoleBindingAsset> roles{};
+        std::vector<GameplayAITraversalBindingAsset> traversals;
     };
 
     struct GameplayAIDecisionAssetReference
@@ -74,6 +137,8 @@ export namespace rendern
         std::vector<GameplayAIDecisionAssetReference> decisions{};
     };
 
+    [[nodiscard]] GameplayAIRouteGraphAsset ParseGameplayAIRouteGraphAsset(std::string_view json, std::string_view source);
+    [[nodiscard]] GameplayAIRouteGraphAsset LoadGameplayAIRouteGraphAsset(std::string_view path);
     [[nodiscard]] GameplayAIBehaviorAsset ParseGameplayAIBehaviorAsset(
         std::string_view json, std::string_view source);
     [[nodiscard]] GameplayAILevelBindingsAsset ParseGameplayAILevelBindingsAsset(
@@ -184,6 +249,38 @@ namespace rendern::ai_asset_detail
         return static_cast<float>(value.AsNumber());
     }
 
+    std::string OptionalString(const JsonObject& object, const char* key,
+        std::string_view source, std::string_view location)
+    {
+        return object.contains(key) ? String(object, key, source, location) : std::string{};
+    }
+    std::uint64_t PositiveInteger(const JsonObject& object, const char* key,
+        std::uint64_t maximum, std::string_view source, std::string_view location)
+    {
+        const auto& value = Required(object, key, source, location);
+        if (!value.IsNumber() || !std::isfinite(value.AsNumber()) || value.AsNumber() < 1.0
+            || value.AsNumber() > static_cast<double>(maximum)
+            || std::floor(value.AsNumber()) != value.AsNumber())
+        {
+            Invalid(source, location, "field '" + std::string(key) + "' must be a positive integer in range");
+        }
+        return static_cast<std::uint64_t>(value.AsNumber());
+    }
+    std::vector<std::string> Strings(const JsonObject& object, const char* key,
+        std::string_view source, std::string_view location)
+    {
+        std::vector<std::string> result;
+        for (const auto& entry : Array(object, key, source, location))
+        {
+            if (!entry.IsString() || entry.AsString().empty())
+            {
+                Invalid(source, location, "expected non-empty strings");
+            }
+            result.push_back(entry.AsString());
+        }
+        return result;
+    }
+
     JsonValue Root(const std::string_view json, const std::string_view source)
     {
         JsonValue root;
@@ -207,49 +304,113 @@ namespace rendern::ai_asset_detail
 
 namespace rendern
 {
-    GameplayAIBehaviorAsset ParseGameplayAIBehaviorAsset(
-        const std::string_view json, const std::string_view source)
+    GameplayAIBehaviorAsset ParseGameplayAIBehaviorAsset(std::string_view json, std::string_view source)
     {
         using namespace ai_asset_detail;
-        const JsonValue value = Root(json, source);
-        const JsonObject& root = value.AsObject();
-        Fields(root, {"version", "id", "model", "definition", "observations", "capabilities"}, source, "root");
+        const auto value = Root(json, source);
+        const auto& root = value.AsObject();
+        Fields(root, {"version", "id", "model", "definition", "observations", "capabilities", "routeGraph", "inspectPath"}, source, "root");
         GameplayAIBehaviorAsset result{
             .id = String(root, "id", source, "root"), .source = std::string(source),
-            .model = String(root, "model", source, "root"),
-            .definition = String(root, "definition", source, "root")};
-        std::unordered_set<std::string> facts;
-        for (const JsonValue& entry : Array(root, "observations", source, "observations"))
+            .model = String(root, "model", source, "root"), .definition = String(root, "definition", source, "root")};
+        result.routeGraph = OptionalString(root, "routeGraph", source, "root");
+        result.inspectPath = Boolean(root, "inspectPath", false, source, "root");
+        for (const auto& entry : Array(root, "observations", source, "observations"))
         {
-            const std::string location = "observations[" + std::to_string(result.observations.size()) + "]";
+            const auto location = "observations[" + std::to_string(result.observations.size()) + "]";
             const auto& object = Object(entry, source, location);
-            Fields(object, {"type", "target", "fact", "radius", "requireInteractionPoint"}, source, location);
-            GameplayAIObservationAsset observation{
-                .type = String(object, "type", source, location),
-                .target = String(object, "target", source, location),
-                .fact = String(object, "fact", source, location),
-                .radius = Number(object, "radius", 0.0f, source, location),
-                .requireInteractionPoint = Boolean(object, "requireInteractionPoint", false, source, location)};
-            if (!facts.insert(observation.fact).second)
+            GameplayAIObservationAsset observer{.type = String(object, "type", source, location)};
+            if (observer.type == "target_available" || observer.type == "within_distance")
             {
-                Invalid(source, location, "duplicate observer for fact '" + observation.fact + "'");
+                Fields(object, {"type", "target", "fact", "radius", "requireInteractionPoint", "requireEntity", "latch", "requiredFacts"}, source, location);
+                GameplayAISpatialObservationAsset parameters{
+                    .target = String(object, "target", source, location), .fact = String(object, "fact", source, location),
+                    .radius = Number(object, "radius", 0, source, location),
+                    .requireInteractionPoint = Boolean(object, "requireInteractionPoint", false, source, location),
+                    .requireEntity = Boolean(object, "requireEntity", true, source, location),
+                    .latch = Boolean(object, "latch", false, source, location)};
+                if (object.contains("requiredFacts"))
+                {
+                    parameters.requiredFacts = Strings(object, "requiredFacts", source, location);
+                }
+                observer.parameters = std::move(parameters);
             }
-            result.observations.push_back(std::move(observation));
+            else if (observer.type == "pickup_available")
+            {
+                Fields(object, {"type", "target", "fact", "respectReservations"}, source, location);
+                observer.parameters = GameplayAIPickupAvailabilityAsset{
+                    String(object, "target", source, location), String(object, "fact", source, location),
+                    Boolean(object, "respectReservations", false, source, location)};
+            }
+            else if (observer.type == "nearest_location")
+            {
+                Fields(object, {"type", "radius", "locations"}, source, location);
+                GameplayAINearestLocationAsset parameters{.radius = Number(object, "radius", 0, source, location)};
+                for (const auto& item : Array(object, "locations", source, location))
+                {
+                    const auto& node = Object(item, source, location);
+                    Fields(node, {"target", "fact"}, source, location);
+                    parameters.locations.push_back({String(node, "target", source, location), String(node, "fact", source, location)});
+                }
+                observer.parameters = std::move(parameters);
+            }
+            else if (observer.type == "resource_ledger")
+            {
+                Fields(object, {"type", "fact", "pickups", "receipts"}, source, location);
+                GameplayAIResourceLedgerAsset parameters{.fact = String(object, "fact", source, location)};
+                for (const auto& item : Array(object, "pickups", source, location))
+                {
+                    const auto& pickup = Object(item, source, location);
+                    Fields(pickup, {"target", "fact", "amount"}, source, location);
+                    parameters.pickups.push_back({String(pickup, "target", source, location),
+                        String(pickup, "fact", source, location), static_cast<std::int32_t>(
+                            PositiveInteger(pickup, "amount", INT32_MAX, source, location))});
+                }
+                for (const auto& item : Array(object, "receipts", source, location))
+                {
+                    const auto& receipt = Object(item, source, location);
+                    Fields(receipt, {"id", "target", "fact", "price"}, source, location);
+                    parameters.receipts.push_back({String(receipt, "id", source, location),
+                        String(receipt, "target", source, location), String(receipt, "fact", source, location),
+                        static_cast<std::int32_t>(PositiveInteger(receipt, "price", INT32_MAX, source, location))});
+                }
+                observer.parameters = std::move(parameters);
+            }
+            else
+            {
+                Invalid(source, location, "unknown observation type '" + observer.type + "'");
+            }
+            result.observations.push_back(std::move(observer));
         }
         std::unordered_set<std::string> contexts;
-        for (const JsonValue& entry : Array(root, "capabilities", source, "capabilities"))
+        for (const auto& entry : Array(root, "capabilities", source, "capabilities"))
         {
-            const std::string location = "capabilities[" + std::to_string(result.capabilities.size()) + "]";
+            const auto location = "capabilities[" + std::to_string(result.capabilities.size()) + "]";
             const auto& object = Object(entry, source, location);
-            Fields(object, {"type", "context", "source", "target", "acceptanceRadius", "slowingRadius", "wantsRun"}, source, location);
-            GameplayAICapabilityAsset capability{
-                .type = String(object, "type", source, location),
-                .context = String(object, "context", source, location),
-                .source = String(object, "source", source, location),
-                .target = String(object, "target", source, location),
-                .acceptanceRadius = Number(object, "acceptanceRadius", 0.4f, source, location),
-                .slowingRadius = Number(object, "slowingRadius", 1.5f, source, location),
-                .wantsRun = Boolean(object, "wantsRun", false, source, location)};
+            GameplayAICapabilityAsset capability{.type = String(object, "type", source, location),
+                .context = String(object, "context", source, location)};
+            if (capability.type == "move_to")
+            {
+                Fields(object, {"type", "context", "source", "target", "acceptanceRadius", "slowingRadius", "wantsRun", "sourceRadius", "reserveTarget", "routeCost"}, source, location);
+                capability.parameters = GameplayAIMoveToAsset{
+                    .source = String(object, "source", source, location), .target = String(object, "target", source, location),
+                    .acceptanceRadius = Number(object, "acceptanceRadius", 0.4f, source, location),
+                    .slowingRadius = Number(object, "slowingRadius", 1.5f, source, location),
+                    .wantsRun = Boolean(object, "wantsRun", false, source, location),
+                    .sourceRadius = Number(object, "sourceRadius", 0, source, location),
+                    .reserveTarget = Boolean(object, "reserveTarget", false, source, location),
+                    .routeCost = Boolean(object, "routeCost", false, source, location)};
+            }
+            else if (capability.type == "purchase")
+            {
+                Fields(object, {"type", "context", "receipt", "radius"}, source, location);
+                capability.parameters = GameplayAIPurchaseAsset{String(object, "receipt", source, location),
+                    Number(object, "radius", 0.6f, source, location)};
+            }
+            else
+            {
+                Invalid(source, location, "unknown capability '" + capability.type + "'");
+            }
             if (!contexts.insert(capability.context).second)
             {
                 Invalid(source, location, "duplicate capability context '" + capability.context + "'");
@@ -265,7 +426,7 @@ namespace rendern
         using namespace ai_asset_detail;
         const JsonValue value = Root(json, source);
         const JsonObject& root = value.AsObject();
-        Fields(root, {"version", "roles"}, source, "root");
+        Fields(root, {"version", "roles", "traversals"}, source, "root");
         GameplayAILevelBindingsAsset result{.source = std::string(source)};
         std::unordered_set<std::string> roles;
         for (const JsonValue& entry : Array(root, "roles", source, "roles"))
@@ -279,6 +440,23 @@ namespace rendern
                 Invalid(source, "roles", "duplicate role '" + binding.role + "'");
             }
             result.roles.push_back(std::move(binding));
+        }
+        if (root.contains("traversals"))
+        {
+            std::unordered_set<std::string> names;
+            for (const auto& entry : Array(root, "traversals", source, "traversals"))
+            {
+                const auto& object = Object(entry, source, "traversals");
+                Fields(object, {"name", "target", "type", "handle"}, source, "traversals");
+                GameplayAITraversalBindingAsset binding{String(object, "name", source, "traversals"),
+                    String(object, "target", source, "traversals"), String(object, "type", source, "traversals"),
+                    PositiveInteger(object, "handle", 9007199254740991ULL, source, "traversals")};
+                if (!names.insert(binding.name).second)
+                {
+                    Invalid(source, "traversals", "duplicate traversal name");
+                }
+                result.traversals.push_back(std::move(binding));
+            }
         }
         return result;
     }
@@ -306,6 +484,28 @@ namespace rendern
             result.decisions.push_back(std::move(reference));
         }
         return result;
+    }
+
+    GameplayAIRouteGraphAsset ParseGameplayAIRouteGraphAsset(std::string_view json, std::string_view source)
+    {
+        using namespace ai_asset_detail;
+        const auto value = Root(json, source);
+        const auto& root = value.AsObject();
+        Fields(root, {"version", "nodes", "edges"}, source, "root");
+        GameplayAIRouteGraphAsset result{.source = std::string(source), .nodes = Strings(root, "nodes", source, "nodes")};
+        for (const auto& value : Array(root, "edges", source, "edges"))
+        {
+            const auto& edge = Object(value, source, "edges");
+            Fields(edge, {"from", "to", "traversal", "cost"}, source, "edges");
+            result.edges.push_back({String(edge, "from", source, "edges"), String(edge, "to", source, "edges"),
+                OptionalString(edge, "traversal", source, "edges"), edge.contains("cost")
+                    ? std::optional{Number(edge, "cost", 0, source, "edges")} : std::nullopt});
+        }
+        return result;
+    }
+    GameplayAIRouteGraphAsset LoadGameplayAIRouteGraphAsset(std::string_view path)
+    {
+        return ParseGameplayAIRouteGraphAsset(FILE_UTILS::ReadAllText(corefs::ResolveAsset(std::filesystem::path(path))), path);
     }
 
     GameplayAIBehaviorAsset LoadGameplayAIBehaviorAsset(const std::string_view path)

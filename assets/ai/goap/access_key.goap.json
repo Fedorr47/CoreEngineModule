@@ -565,7 +565,7 @@
       ]
     },
     {
-      "action": "buy_key",
+      "action": "purchase",
       "context": "buy_key",
       "cost": 1.0,
       "preconditions": [

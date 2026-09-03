@@ -1,6 +1,8 @@
 module;
 
 #include <algorithm>
+#include <bitset>
+#include <optional>
 #include <cmath>
 #include <exception>
 #include <map>
@@ -21,6 +23,7 @@ import :gameplay_goap_decision_instance;
 import :gameplay_goap_definition_asset;
 import :gameplay;
 import :level;
+import :gameplay_goap_path_inspection;
 
 namespace rendern::goap_asset_composition_detail
 {
@@ -82,7 +85,7 @@ namespace rendern::goap_asset_composition_detail
         return result;
     }
 
-    class ComposedContext final : public IGameplayGOAPContext
+    class ComposedContext : public IGameplayGOAPContext
     {
     public:
         explicit ComposedContext(EntityHandle agent) : agent_(agent) {}
@@ -111,6 +114,32 @@ namespace rendern::goap_asset_composition_detail
     private:
         EntityHandle agent_;
     };
+    class InspectedContext final : public ComposedContext, public IGameplayGOAPPlannedPathProvider
+    {
+    public:
+        using ComposedContext::ComposedContext;
+        std::vector<AIActionId> actionIds;
+        GameplayAIDebugPlannedPathView BuildPlannedPath(std::span<const AIPlanStep> plan,
+            std::optional<std::size_t> current) const override
+        {
+            GameplayAIDebugPlannedPathView result;
+            for (std::size_t step = current.value_or(plan.size()); step < plan.size(); ++step)
+            {
+                for (std::size_t index = 0; index < capabilities.size(); ++index)
+                {
+                    const auto* paths = dynamic_cast<const IGameplayGOAPActionPathProvider*>(capabilities[index].get());
+                    if (actionIds[index] == plan[step].actionId && paths != nullptr)
+                    {
+                        auto route = paths->BuildDebugRoute(plan[step].contextId);
+                        result.complete = result.complete && route.has_value();
+                        result.routeSteps.push_back({step, plan[step].actionId, plan[step].contextId, std::move(route)});
+                    }
+                }
+            }
+            return result;
+        }
+    };
+
 }
 
 export namespace rendern
@@ -122,46 +151,90 @@ export namespace rendern
         const GameplayAIBehaviorAsset& behavior,
         const GameplayAILevelBindingsAsset& bindings,
         const GameplayGOAPDefinitionAsset& definition,
-        const GameplayGOAPCompositionRegistry& registry)
+        const GameplayGOAPCompositionRegistry& registry,
+        const GameplayAIRouteGraphAsset* routeGraph = nullptr)
     {
         using namespace goap_asset_composition_detail;
         if (behavior.model != "goap")
         {
             Invalid(behavior.source, "unknown decision model '" + behavior.model + "'");
         }
+        if (!behavior.routeGraph.empty() && routeGraph == nullptr)
+        {
+            Invalid(behavior.source, "missing authored route graph input");
+        }
         auto compiled = CompileGameplayGOAPDefinition(definition, registry.SemanticActions());
         const auto roles = ResolveRoles(bindings, services);
-        const GameplayGOAPCompositionContext context{services, compiled, roles, behavior.source};
-        auto domain = std::make_unique<ComposedContext>(services.agent);
-        std::set<std::string> observedFacts;
+        const GameplayGOAPCompositionContext context{services, compiled, roles, behavior.source,
+            behavior.observations, routeGraph, &bindings};
+        std::unique_ptr<ComposedContext> domain;
+        if (behavior.inspectPath)
+        {
+            domain = std::make_unique<InspectedContext>(services.agent);
+        }
+        else
+        {
+            domain = std::make_unique<ComposedContext>(services.agent);
+        }
+        std::vector<std::unique_ptr<IGameplayGOAPObservation>> pendingObservers;
+        std::bitset<AIAgentWorldState::FactCapacity> booleanWriters;
+        std::bitset<AIAgentWorldState::IntegerFactCapacity> integerWriters;
         for (const auto& asset : behavior.observations)
         {
-            if (!observedFacts.insert(asset.fact).second)
-            {
-                context.Fail(asset.fact, "multiple observation writers");
-            }
-            if (!compiled.FindBooleanFact(asset.fact) && !compiled.FindIntegerFact(asset.fact))
-            {
-                context.Fail(asset.fact, "unknown observation fact");
-            }
             const auto* compiler = registry.Observation(asset.type);
             if (compiler == nullptr)
             {
-                context.Fail(asset.fact, "unknown observation type '" + asset.type + "'");
+                context.Fail(asset.type, "unknown observation type '" + asset.type + "'");
             }
             auto observer = (*compiler)(asset, context);
             if (!observer)
             {
                 context.Fail(asset.type, "observation compiler returned no provider");
             }
-            domain->observations.push_back(std::move(observer));
-        }
-        for (const auto& fact : definition.facts)
-        {
-            if (!observedFacts.contains(fact.name))
+            for (const auto fact : observer->BooleanOutputs())
             {
-                context.Fail(fact.name, "fact has no observation writer");
+                if (fact.index >= compiled.definition.metadata.booleanFacts.size() || booleanWriters.test(fact.index))
+                {
+                    context.Fail(asset.type, "unknown fact or multiple observation writers");
+                }
+                booleanWriters.set(fact.index);
             }
+            for (const auto fact : observer->IntegerOutputs())
+            {
+                if (fact.index >= compiled.definition.metadata.integerFacts.size() || integerWriters.test(fact.index))
+                {
+                    context.Fail(asset.type, "unknown fact or multiple observation writers");
+                }
+                integerWriters.set(fact.index);
+            }
+            pendingObservers.push_back(std::move(observer));
+        }
+        if (booleanWriters.count() != compiled.definition.metadata.booleanFacts.size()
+            || integerWriters.count() != compiled.definition.metadata.integerFacts.size())
+        {
+            context.Fail("observations", "fact has no observation writer");
+        }
+        // Stable dependency order makes derived observations independent of asset order.
+        std::bitset<AIAgentWorldState::FactCapacity> ready;
+        while (!pendingObservers.empty())
+        {
+            const auto next = std::ranges::find_if(pendingObservers, [&](const auto& observer)
+            {
+                return std::ranges::all_of(observer->BooleanInputs(), [&](const auto fact)
+                {
+                    return fact.index < ready.size() && ready.test(fact.index);
+                });
+            });
+            if (next == pendingObservers.end())
+            {
+                context.Fail("observations", "cyclic or unresolved observation dependencies");
+            }
+            for (const auto fact : (*next)->BooleanOutputs())
+            {
+                ready.set(fact.index);
+            }
+            domain->observations.push_back(std::move(*next));
+            pendingObservers.erase(next);
         }
 
         std::set<std::string> boundContexts;
@@ -195,6 +268,7 @@ export namespace rendern
             }
         }
         GameplayGOAPDecisionSetup setup;
+        std::vector<GameplayGOAPActionCostOverride> costOverrides;
         for (const auto& [type, assets] : groups)
         {
             const auto& registration = *registry.Capability(type);
@@ -209,9 +283,16 @@ export namespace rendern
                 {
                     return capability->CreateBinding(facts, events);
                 }});
+            const auto overrides = provider->CostOverrides();
+            costOverrides.insert(costOverrides.end(), overrides.begin(), overrides.end());
+            if (auto* inspected = dynamic_cast<InspectedContext*>(domain.get()))
+            {
+                inspected->actionIds.push_back(registration.actionId);
+            }
             domain->capabilities.push_back(std::move(provider));
         }
-        setup.definition = std::move(compiled.definition);
+        setup.definition = costOverrides.empty() ? std::move(compiled.definition)
+            : CompileGameplayGOAPDefinition(definition, registry.SemanticActions(), costOverrides).definition;
         setup.context = std::move(domain);
         auto decision = CreateGameplayGOAPDecision(services.agent, std::move(setup));
         if (!decision)
@@ -242,7 +323,10 @@ export namespace rendern
                         const auto behavior = LoadGameplayAIBehaviorAsset(reference.behavior);
                         const auto bindings = LoadGameplayAILevelBindingsAsset(reference.bindings);
                         const auto definition = LoadGameplayGOAPDefinitionAsset(behavior.definition);
-                        return CreateGameplayGOAPDecisionFromAssets(context, behavior, bindings, definition, components);
+                        const auto graph = behavior.routeGraph.empty() ? std::optional<GameplayAIRouteGraphAsset>{}
+                            : std::optional{LoadGameplayAIRouteGraphAsset(behavior.routeGraph)};
+                        return CreateGameplayGOAPDecisionFromAssets(context, behavior, bindings, definition, components,
+                            graph ? &*graph : nullptr);
                     }
                     catch (const std::exception& error)
                     {
