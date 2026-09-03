@@ -43,7 +43,19 @@ export namespace rendern
             const GameplayAIDecisionCreationContext& context) const
         {
             const auto found = factories_.find(definitionId);
-            return found == factories_.end() ? nullptr : found->second(context);
+            if (context.diagnostic != nullptr)
+            {
+                context.diagnostic->clear();
+            }
+            if (found == factories_.end())
+            {
+                if (context.diagnostic != nullptr)
+                {
+                    *context.diagnostic = "Unknown AI decision '" + std::string(definitionId) + "'";
+                }
+                return nullptr;
+            }
+            return found->second(context);
         }
 
     private:

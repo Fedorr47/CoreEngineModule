@@ -1,0 +1,50 @@
+{
+  "id": "target_recovery",
+  "facts": [
+    {
+      "name": "atDestination",
+      "type": "bool"
+    },
+    {
+      "name": "goalAvailable",
+      "type": "bool"
+    }
+  ],
+  "goals": [
+    {
+      "name": "reachDestination",
+      "score": 1,
+      "facts": [
+        {
+          "fact": "atDestination",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action": "move_to",
+      "context": "destination",
+      "cost": 1,
+      "preconditions": [
+        {
+          "fact": "goalAvailable",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "atDestination",
+          "value": true
+        }
+      ],
+      "continuationConditions": [
+        {
+          "fact": "goalAvailable",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

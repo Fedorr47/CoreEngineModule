@@ -44,6 +44,8 @@ export namespace rendern
     std::vector<GameplayGOAPAuthoredBoolean> effects{};
     std::vector<GameplayGOAPAuthoredNumeric> numericPreconditions{};
     std::vector<GameplayGOAPAuthoredNumeric> numericEffects{};
+    std::vector<GameplayGOAPAuthoredBoolean> continuationConditions{};
+    std::vector<GameplayGOAPAuthoredNumeric> numericContinuationConditions{};
   };
   struct GameplayGOAPDefinitionAsset {
     std::string id{};
@@ -233,6 +235,10 @@ namespace rendern
                                              source, "actions", action.context);
       action.numericEffects =
           Numerics(object, "numericEffects", source, "actions", action.context);
+      action.continuationConditions =
+          Booleans(object, "continuationConditions", source, "actions", action.context);
+      action.numericContinuationConditions =
+          Numerics(object, "numericContinuationConditions", source, "actions", action.context);
       asset.actions.push_back(std::move(action));
     }
     return asset;

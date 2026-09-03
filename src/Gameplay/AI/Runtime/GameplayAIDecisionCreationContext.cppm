@@ -1,3 +1,7 @@
+module;
+
+#include <string>
+
 export module core:gameplay_ai_decision_creation_context;
 
 import :EnTTHelpers;
@@ -22,6 +26,8 @@ export namespace rendern
         const GameplayTraversalLinkRegistry& traversalLinkRegistry;
         const GameplayTraversalExecutorRegistry& traversalExecutorRegistry;
         GameplayObjectReservationSystem& reservationSystem;
+        // Optional per-call diagnostic output. Never retained by a decision.
+        std::string* diagnostic{};
     };
 
 }

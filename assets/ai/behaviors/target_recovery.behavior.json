@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "target_recovery",
+  "model": "goap",
+  "definition": "ai/goap/target_recovery.goap.json",
+  "observations": [
+    {
+      "type": "target_available",
+      "target": "destination",
+      "fact": "goalAvailable",
+      "requireInteractionPoint": true
+    },
+    {
+      "type": "within_distance",
+      "target": "destination",
+      "fact": "atDestination",
+      "radius": 0.4,
+      "requireInteractionPoint": true
+    }
+  ],
+  "capabilities": [
+    {
+      "type": "move_to",
+      "context": "destination",
+      "source": "origin",
+      "target": "destination",
+      "acceptanceRadius": 0.4,
+      "slowingRadius": 1.5,
+      "wantsRun": false
+    }
+  ]
+}

@@ -865,8 +865,7 @@ namespace appDevelopment
                         auto result = std::ranges::find(instance.results, op.result,
                             &ScenarioOperationResult::name);
                         if (result == instance.results.end() ||
-                            !context.gameplayRuntime.HasAIDecisionDefinition(op.decision) ||
-                            !context.gameplayRuntime.StartAIDecision(entity, op.decision))
+                            !context.gameplayRuntime.StartAIDecision(entity, op.decision, &result->diagnostic))
                         {
                             if (result != instance.results.end())
                             {
@@ -1218,6 +1217,7 @@ namespace appDevelopment
         for (ScenarioOperationResult& result : impl_->results)
         {
             result.status = ScenarioOperationResultStatus::NotStarted;
+            result.diagnostic.clear();
         }
         impl_->resultEntities.clear();
         impl_->decisionResults.clear();
@@ -1323,6 +1323,7 @@ namespace appDevelopment
         for (ScenarioOperationResult& result : impl_->results)
         {
             result.status = ScenarioOperationResultStatus::NotStarted;
+            result.diagnostic.clear();
         }
         impl_->resultEntities.clear();
         impl_->decisionResults.clear();

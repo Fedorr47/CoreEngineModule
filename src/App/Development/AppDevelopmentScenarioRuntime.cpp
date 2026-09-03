@@ -150,7 +150,9 @@ namespace appDevelopment
                     view.statusCount = static_cast<unsigned int>(std::min<std::size_t>(results.size(), 4));
                     for (unsigned int index = 0; index < view.statusCount; ++index)
                     {
-                        view.statuses[index] = {results[index].name.c_str(), ToString(results[index].status)};
+                        view.statuses[index] = {results[index].name.c_str(),
+                            results[index].diagnostic.empty() ? ToString(results[index].status)
+                                : results[index].diagnostic.c_str()};
                     }
                 }
             }

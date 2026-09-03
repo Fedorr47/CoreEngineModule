@@ -608,24 +608,36 @@
         }
 
         bool GameplayRuntime::StartAIDecision(
-            const EntityHandle agentEntity, const std::string_view definitionId)
+            const EntityHandle agentEntity, const std::string_view definitionId, std::string* diagnostic)
         {
             CORE_ASSERT_RUNTIME_THREAD();
+            if (diagnostic != nullptr)
+            {
+                diagnostic->clear();
+            }
             if (lastMode_ != GameplayRuntimeMode::Game || activeAIDecisions_.contains(agentEntity) ||
                 !world_.IsEntityValid(agentEntity) || !world_.HasAI(agentEntity) ||
                 !world_.HasTransform(agentEntity) || !world_.HasCharacterCommand(agentEntity) ||
                 !world_.HasCharacterMotor(agentEntity) ||
                 !world_.HasCharacterMovementState(agentEntity) || currentLevelAsset_ == nullptr)
             {
+                if (diagnostic != nullptr)
+                {
+                    *diagnostic = "AI decision requires Game mode, an idle configured agent and a level";
+                }
                 return false;
             }
             std::unique_ptr<GameplayAIDecisionInstance> decision =
                 aiDecisionFactoryRegistry_.Create(definitionId,
                     GameplayAIDecisionCreationContext{agentEntity, *currentLevelAsset_, world_,
                         traversalLinkRegistry_, traversalExecutorRegistry_,
-                        objectReservationSystem_});
+                        objectReservationSystem_, diagnostic});
             if (!decision)
             {
+                if (diagnostic != nullptr && diagnostic->empty())
+                {
+                    *diagnostic = "AI decision '" + std::string(definitionId) + "' could not be created";
+                }
                 return false;
             }
             
@@ -640,6 +652,10 @@
                 status == GameplayAIDecisionStatus::Cancelled)
             {
                 decision->Cancel(aiSystem_);
+                if (diagnostic != nullptr)
+                {
+                    *diagnostic = "AI decision '" + std::string(definitionId) + "' failed its initial update";
+                }
                 return false;
             }
             

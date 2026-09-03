@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "marker_visit",
+  "model": "goap",
+  "definition": "ai/goap/marker_visit.goap.json",
+  "observations": [
+    {
+      "type": "target_available",
+      "target": "destination",
+      "fact": "markerPresent",
+      "requireInteractionPoint": true
+    },
+    {
+      "type": "within_distance",
+      "target": "destination",
+      "fact": "markerReached",
+      "radius": 0.8,
+      "requireInteractionPoint": true
+    }
+  ],
+  "capabilities": [
+    {
+      "type": "move_to",
+      "context": "visitMarker",
+      "source": "origin",
+      "target": "destination",
+      "acceptanceRadius": 0.8,
+      "slowingRadius": 1.5,
+      "wantsRun": true
+    }
+  ]
+}

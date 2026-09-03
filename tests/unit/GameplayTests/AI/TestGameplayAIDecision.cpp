@@ -6,6 +6,7 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -451,7 +452,15 @@ TEST(GameplayGOAPDecisionInstance, TargetRecoveryUsesGenericInstanceAndPreserves
     world.AddInteractionPoint(target, {});
     GameplayTraversalLinkRegistry links;
     GameplayTraversalExecutorRegistry executors;
-    auto decision = CreateTargetRecoveryAIDecision(agent, level, world, links, executors);
+    GameplayObjectReservationSystem reservations;
+    auto registry = MakeDefaultGameplayAIDecisionFactories();
+    auto decision = registry.Create("target_recovery",
+        {agent, level, world, links, executors, reservations});
+    const auto definition = CompileGameplayGOAPDefinition(
+        LoadGameplayGOAPDefinitionAsset("ai/goap/target_recovery.goap.json"),
+        MakeDefaultGameplayGOAPComponents().SemanticActions());
+    const auto available = definition.FindBooleanFact("goalAvailable").value();
+    const auto arrived = definition.FindBooleanFact("atDestination").value();
     ASSERT_NE(decision, nullptr);
     EXPECT_NE(dynamic_cast<GameplayGOAPDecisionInstance*>(decision.get()), nullptr);
     EXPECT_EQ(dynamic_cast<IGameplayGOAPPathInspection*>(decision.get()), nullptr);
@@ -459,12 +468,12 @@ TEST(GameplayGOAPDecisionInstance, TargetRecoveryUsesGenericInstanceAndPreserves
     decision->Update(ai, {world, {}});
     const auto* facts = GetGOAPObservedState(*decision);
     ASSERT_NE(facts, nullptr);
-    EXPECT_TRUE(facts->IsFactSet(kTargetRecoveryGoalAvailableFact));
-    EXPECT_TRUE(facts->IsFactSet(kTargetRecoveryAtDestinationFact));
+    EXPECT_TRUE(facts->IsFactSet(available));
+    EXPECT_TRUE(facts->IsFactSet(arrived));
     world.RemoveInteractionPoint(target);
     decision->Update(ai, {world, {}});
-    EXPECT_FALSE(facts->IsFactSet(kTargetRecoveryGoalAvailableFact));
-    EXPECT_FALSE(facts->IsFactSet(kTargetRecoveryAtDestinationFact));
+    EXPECT_FALSE(facts->IsFactSet(available));
+    EXPECT_FALSE(facts->IsFactSet(arrived));
     decision->Cancel(ai);
 }
 
@@ -1568,4 +1577,32 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
 
     EXPECT_TRUE(legacyFacts->IsFactSet(kGOAPCoinAAvailableFact));
     EXPECT_FALSE(legacyFacts->IsFactSet(kGOAPCoinACollectedFact));
+}
+
+TEST(GameplayAIDecision, InvalidAssetStartReportsSourceAndLeavesNoActiveDecision)
+{
+    InlineThreadOwnerRolesGuard guard{};
+    LevelAsset level;
+    LevelNode node{};
+    node.name = "Agent";
+    level.nodes.push_back(node);
+    LevelInstance instance;
+    Scene scene;
+    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
+    runtime.Initialize(level, instance, scene);
+    auto editor = Context(level, instance, scene, GameplayRuntimeMode::Editor);
+    const auto agent = runtime.SpawnNodeBoundEntity(editor, 0, false);
+    ASSERT_NE(agent, kNullEntity);
+    runtime.GetWorld().AddAI(agent);
+    auto game = Context(level, instance, scene, GameplayRuntimeMode::Game);
+    runtime.BeginFrame();
+    runtime.PrePhysicsUpdate(game);
+    runtime.PostPhysicsUpdate(game);
+    std::string diagnostic;
+    EXPECT_FALSE(runtime.StartAIDecision(agent, "target_recovery", &diagnostic));
+    EXPECT_NE(diagnostic.find("target_recovery.bindings.json"), std::string::npos) << diagnostic;
+    EXPECT_NE(diagnostic.find("GOAP_Recovery_Start"), std::string::npos) << diagnostic;
+    EXPECT_EQ(runtime.GetAIDecisionObservedState(agent), nullptr);
+    EXPECT_EQ(runtime.GetAIDecisionStatus(agent), AIPlanExecutionStatus::NotStarted);
+    EXPECT_NE(runtime.GetAIActionStatus(agent), AIActionExecutionStatus::Running);
 }

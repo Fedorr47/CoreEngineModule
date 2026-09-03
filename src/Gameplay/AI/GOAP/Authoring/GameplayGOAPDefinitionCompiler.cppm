@@ -339,6 +339,15 @@ namespace rendern
              EffectOperation(value.operation, asset, authored.context),
              value.value});
       }
+      for (const auto &value : authored.continuationConditions) {
+        action.continuationConditions.push_back(
+            {booleanId(value.fact, "continuationConditions", authored.context), value.value});
+      }
+      for (const auto &value : authored.numericContinuationConditions) {
+        action.numericContinuationConditions.push_back(
+            {integerId(value.fact, authored.context),
+             ConditionOperator(value.operation, asset, authored.context), value.value});
+      }
       compiled.definition.actions.push_back(std::move(action));
       compiled.definition.metadata.actions.push_back(
           {semantic->second, context->second, authored.action, authored.context});

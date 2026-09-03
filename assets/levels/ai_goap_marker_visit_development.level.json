@@ -1,0 +1,399 @@
+{
+  "name": "AI GOAP Asset Marker Visit",
+  "meshes": {
+    "cube": {
+      "path": "models/cube.obj",
+      "debugName": "GOAP marker"
+    }
+  },
+  "models": {},
+  "skinnedMeshes": {
+    "models_Character_fbx": {
+      "path": "models/Character.fbx",
+      "flipUVs": true,
+      "debugName": "CharacterPhysicsAutomateCharacter"
+    }
+  },
+  "animations": {
+    "breathing_idle": {
+      "path": "animations/Breathing Idle.fbx",
+      "flipUVs": true,
+      "debugName": "Breathing Idle"
+    },
+    "idle": {
+      "path": "animations/idle.fbx",
+      "flipUVs": true,
+      "debugName": "idle"
+    },
+    "jump": {
+      "path": "animations/jump.fbx",
+      "flipUVs": true,
+      "debugName": "jump"
+    },
+    "left_strafe": {
+      "path": "animations/left strafe.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe"
+    },
+    "left_strafe_walking": {
+      "path": "animations/left strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "left strafe walking"
+    },
+    "left_turn": {
+      "path": "animations/left turn.fbx",
+      "flipUVs": true,
+      "debugName": "left turn"
+    },
+    "left_turn_90": {
+      "path": "animations/left turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "left turn 90"
+    },
+    "punching_attack": {
+      "path": "animations/Punching.fbx",
+      "flipUVs": true,
+      "debugName": "Punching Attack"
+    },
+    "right_strafe": {
+      "path": "animations/right strafe.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe"
+    },
+    "right_strafe_walking": {
+      "path": "animations/right strafe walking.fbx",
+      "flipUVs": true,
+      "debugName": "right strafe walking"
+    },
+    "right_turn": {
+      "path": "animations/right turn.fbx",
+      "flipUVs": true,
+      "debugName": "right turn"
+    },
+    "right_turn_90": {
+      "path": "animations/right turn 90.fbx",
+      "flipUVs": true,
+      "debugName": "right turn 90"
+    },
+    "running": {
+      "path": "animations/running.fbx",
+      "flipUVs": true,
+      "debugName": "running"
+    },
+    "running_backward": {
+      "path": "animations/Running Backward.fbx",
+      "flipUVs": true,
+      "debugName": "Running Backward"
+    },
+    "running_jump": {
+      "path": "animations/Running Jump.fbx",
+      "flipUVs": true,
+      "debugName": "Running Jump"
+    },
+    "swing_dancing": {
+      "path": "animations/Swing Dancing.fbx",
+      "flipUVs": true,
+      "debugName": "Swing Dancing"
+    },
+    "walking": {
+      "path": "animations/walking.fbx",
+      "flipUVs": true,
+      "debugName": "walking"
+    },
+    "walking_backward": {
+      "path": "animations/Walking Backwards.fbx",
+      "flipUVs": true,
+      "debugName": "Walking Backwards"
+    }
+  },
+  "animationProfileAssets": {
+    "human": {
+      "path": "animProfiles/human.animationprofile.json"
+    }
+  },
+  "animationProfiles": {},
+  "animationControllerAssets": {
+    "fsm_test_locomotion_action": {
+      "path": "animControllers/fsm_test_locomotion_action.phaseB.json"
+    }
+  },
+  "animationControllers": {},
+  "textures": {},
+  "materials": {
+    "floor": {
+      "baseColor": [
+        0.18,
+        0.21,
+        0.25,
+        1
+      ],
+      "roughness": 0.95,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "player": {
+      "baseColor": [
+        0.2,
+        0.55,
+        1,
+        1
+      ],
+      "roughness": 0.7,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "npc": {
+      "baseColor": [
+        1,
+        0.65,
+        0.12,
+        1
+      ],
+      "roughness": 0.7,
+      "flags": [
+        "useShadow",
+        "skinning"
+      ],
+      "textures": {}
+    },
+    "start": {
+      "baseColor": [
+        0.2,
+        0.55,
+        1,
+        1
+      ],
+      "emissiveStrength": 0.5,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "key": {
+      "baseColor": [
+        1,
+        0.82,
+        0.05,
+        1
+      ],
+      "emissiveStrength": 2,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "goal": {
+      "baseColor": [
+        0.15,
+        1,
+        0.3,
+        1
+      ],
+      "emissiveStrength": 2,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    },
+    "coin": {
+      "baseColor": [
+        0.85,
+        0.25,
+        1,
+        1
+      ],
+      "emissiveStrength": 1.5,
+      "flags": [
+        "useShadow"
+      ],
+      "textures": {}
+    }
+  },
+  "camera": {
+    "position": [
+      0,
+      12,
+      -20
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "fovYDeg": 55,
+    "nearZ": 0.1,
+    "farZ": 100
+  },
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.4,
+        -1,
+        0.25
+      ],
+      "color": [
+        1,
+        1,
+        1
+      ],
+      "intensity": 3
+    }
+  ],
+  "particleEmitters": [],
+  "skybox": null,
+  "nodes": [
+    {
+      "name": "GOAP_Marker_Observer",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "models_Character_fbx",
+      "material": "player",
+      "transform": {
+        "position": [
+          -7,
+          0,
+          -7
+        ],
+        "rotationDegrees": [
+          0,
+          35,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+    },
+    {
+      "name": "GOAP_Marker_Agent",
+      "parent": -1,
+      "visible": true,
+      "alive": true,
+      "skinnedMesh": "models_Character_fbx",
+      "material": "npc",
+      "transform": {
+        "position": [
+          -6,
+          0,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "animationController": "fsm_test_locomotion_action",
+      "animationProfile": "human"
+    },
+    {
+      "name": "GOAP_Marker_Floor",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "floor",
+      "transform": {
+        "position": [
+          0,
+          -0.5,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          24,
+          0.5,
+          5
+        ]
+      },
+      "physicsBody": {
+        "motionType": "static",
+        "shape": {
+          "type": "box",
+          "halfExtents": [
+            11,
+            0.5,
+            13
+          ]
+        },
+        "material": {
+          "friction": 0.9,
+          "restitution": 0
+        }
+      }
+    },
+    {
+      "name": "GOAP_Marker_Start",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "start",
+      "transform": {
+        "position": [
+          -6,
+          0,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1.2,
+          0.05,
+          1.2
+        ]
+      }
+    },
+    {
+      "name": "GOAP_Marker_Goal",
+      "parent": -1,
+      "visible": true,
+      "mesh": "cube",
+      "material": "goal",
+      "transform": {
+        "position": [
+          6,
+          0.2,
+          0
+        ],
+        "rotationDegrees": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    }
+  ],
+  "developmentScenario": "development/ai_goap_marker_visit.scenario.json"
+}

@@ -1,0 +1,50 @@
+{
+  "id": "marker_visit",
+  "facts": [
+    {
+      "name": "markerReached",
+      "type": "bool"
+    },
+    {
+      "name": "markerPresent",
+      "type": "bool"
+    }
+  ],
+  "goals": [
+    {
+      "name": "visitMarker",
+      "score": 1,
+      "facts": [
+        {
+          "fact": "markerReached",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action": "move_to",
+      "context": "visitMarker",
+      "cost": 2,
+      "preconditions": [
+        {
+          "fact": "markerPresent",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "fact": "markerReached",
+          "value": true
+        }
+      ],
+      "continuationConditions": [
+        {
+          "fact": "markerPresent",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

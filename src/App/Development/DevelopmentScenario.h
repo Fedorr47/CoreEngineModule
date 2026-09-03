@@ -135,6 +135,7 @@ namespace appDevelopment
     {
         std::string name;
         ScenarioOperationResultStatus status{ScenarioOperationResultStatus::NotStarted};
+        std::string diagnostic;
     };
 
     [[nodiscard]] const char* ToString(ScenarioOperationResultStatus status) noexcept;

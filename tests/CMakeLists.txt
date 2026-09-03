@@ -83,6 +83,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/TestGameplayTraversalExecutorRegistry.cpp"
         "unit/GameplayTests/AI/TestAIFollowRouteTraversal.cpp"
         "unit/GameplayTests/AI/TestGameplayAIDecision.cpp"
+        "unit/GameplayTests/AI/TestGameplayAIAssetComposition.cpp"
         "unit/GameplayTests/AI/TestGameplayAIAccessKeyObservation.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPDefinitionAsset.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPDefinitionCompiler.cpp"

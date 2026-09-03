@@ -7,6 +7,7 @@ module;
 #include <iostream>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -172,7 +173,8 @@ export namespace rendern
             std::span<const AIActionDefinition> actions,
             const AIActionBindingRegistry& bindings);
         void CancelAIDecision(AIDecisionRuntime& decision) noexcept;
-        [[nodiscard]] bool StartAIDecision(EntityHandle agentEntity, std::string_view definitionId);
+        [[nodiscard]] bool StartAIDecision(EntityHandle agentEntity, std::string_view definitionId,
+            std::string* diagnostic = nullptr);
         void CancelAIDecision(EntityHandle agentEntity) noexcept;
         [[nodiscard]] AIPlanExecutionStatus GetAIDecisionStatus(EntityHandle agentEntity) const noexcept;
         [[nodiscard]] const AIAgentWorldState* GetAIDecisionObservedState(EntityHandle agentEntity) const noexcept;

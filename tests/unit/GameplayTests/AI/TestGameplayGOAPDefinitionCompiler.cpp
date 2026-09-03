@@ -263,3 +263,27 @@ TEST(GameplayGOAPDefinitionCompiler, RejectsDuplicateSemanticActionId)
         "GOAP definition 'compiler-test', semanticActions 'buy_key': "
         "duplicate semantic action id");
 }
+
+TEST(GameplayGOAPDefinitionCompiler, PreservesAndValidatesContinuationConditions)
+{
+    using namespace rendern;
+    auto asset = MakeDefinition();
+    asset.actions.front().continuationConditions = {{"enabled", true}};
+    asset.actions.front().numericContinuationConditions = {{"resource", ">=", 1}};
+    const std::vector semantics{GameplayGOAPSemanticAction{"move_to", AIActionId{7u}}};
+    const auto compiled = CompileGameplayGOAPDefinition(asset, semantics);
+    const auto& action = compiled.definition.actions.front();
+    ASSERT_EQ(action.continuationConditions.size(), 1u);
+    EXPECT_EQ(action.continuationConditions.front().factId, compiled.FindBooleanFact("enabled").value());
+    EXPECT_TRUE(action.continuationConditions.front().bExpectedValue);
+    ASSERT_EQ(action.numericContinuationConditions.size(), 1u);
+    EXPECT_EQ(action.numericContinuationConditions.front().comparison, AINumericConditionOperator::GreaterOrEqual);
+    EXPECT_EQ(action.numericContinuationConditions.front().value, 1);
+    asset.actions.front().continuationConditions.front().fact = "resource";
+    EXPECT_THROW(CompileGameplayGOAPDefinition(asset, semantics), std::runtime_error);
+    asset.actions.front().continuationConditions.front().fact = "missing";
+    EXPECT_THROW(CompileGameplayGOAPDefinition(asset, semantics), std::runtime_error);
+    asset.actions.front().continuationConditions.front().fact = "enabled";
+    asset.actions.front().numericContinuationConditions.front().operation = "add";
+    EXPECT_THROW(CompileGameplayGOAPDefinition(asset, semantics), std::runtime_error);
+}

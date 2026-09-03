@@ -126,3 +126,19 @@ TEST(GameplayGOAPDefinitionAsset, ParseRejectsWrongAuthoredNumericType)
             "numeric value must be a finite 32-bit integer");
     }
 }
+
+TEST(GameplayGOAPDefinitionAsset, ParsesBooleanAndNumericContinuationConditions)
+{
+    const auto asset = rendern::ParseGameplayGOAPDefinitionAsset(R"json({
+        "id":"continuation", "facts":[], "goals":[], "actions":[{
+            "action":"move_to", "context":"goal", "cost":1,
+            "continuationConditions":[{"fact":"available", "value":true}],
+            "numericContinuationConditions":[{"fact":"resource", "op":">=", "value":1}]
+        }]})json", "continuation.json");
+    ASSERT_EQ(asset.actions.front().continuationConditions.size(), 1u);
+    EXPECT_EQ(asset.actions.front().continuationConditions.front().fact, "available");
+    EXPECT_TRUE(asset.actions.front().continuationConditions.front().value);
+    ASSERT_EQ(asset.actions.front().numericContinuationConditions.size(), 1u);
+    EXPECT_EQ(asset.actions.front().numericContinuationConditions.front().operation, ">=");
+    EXPECT_EQ(asset.actions.front().numericContinuationConditions.front().value, 1);
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "decisions": [
+    {
+      "id": "target_recovery",
+      "behavior": "ai/behaviors/target_recovery.behavior.json",
+      "bindings": "ai/bindings/target_recovery.bindings.json"
+    },
+    {
+      "id": "marker_visit",
+      "behavior": "ai/behaviors/marker_visit.behavior.json",
+      "bindings": "ai/bindings/marker_visit.bindings.json"
+    }
+  ]
+}

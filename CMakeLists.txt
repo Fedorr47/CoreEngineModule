@@ -556,6 +556,10 @@ set(COMMON_MODULES
         Gameplay/Runtime/GameplayRuntimeCommon.cppm
         Gameplay/Runtime/GameplayBootstrap.cppm
         Gameplay/AI/Composition/GameplayAIBuiltinDecisions.cppm
+        Gameplay/AI/Composition/GameplayGOAPCompositionRegistry.cppm
+        Gameplay/AI/Composition/GameplayGOAPBuiltinComponents.cppm
+        Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm
+        Gameplay/AI/GOAP/Authoring/GameplayAIDecisionAsset.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/AI/Runtime/GameplayAIDecisionContracts.cppm
@@ -566,7 +570,6 @@ set(COMMON_MODULES
         Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyObservation.cppm
         Gameplay/AI/Domains/AccessKey/GameplayAIAccessKeyComposition.cppm
-        Gameplay/AI/Domains/TargetRecovery/GameplayAITargetRecoveryComposition.cppm
         Gameplay/AI/Runtime/GameplayAIDecision.cppm
         Gameplay/AI/GOAP/AIStateOperations.cppm
         Gameplay/AI/GOAP/AIGoalSelectionContracts.cppm

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "role": "origin",
+      "node": "GOAP_Marker_Start"
+    },
+    {
+      "role": "destination",
+      "node": "GOAP_Marker_Goal"
+    }
+  ]
+}

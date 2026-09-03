@@ -1,0 +1,106 @@
+{
+  "id": "ai-goap-marker-visit",
+  "title": "GOAP: Asset-authored Marker Visit",
+  "description": "The agent runs to the marker and stops within its wider arrival radius.",
+  "roles": {
+    "agent": "GOAP_Marker_Agent",
+    "start": "GOAP_Marker_Start",
+    "goal": "GOAP_Marker_Goal"
+  },
+  "setup": [
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "agent"
+    },
+    {
+      "op": "captureTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "ensureAI",
+      "entity": "agent"
+    },
+    {
+      "op": "ensureNodeBoundEntity",
+      "entity": "goal"
+    },
+    {
+      "op": "ensureInteractionPoint",
+      "entity": "goal"
+    }
+  ],
+  "start": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "goal",
+      "visible": true
+    },
+    {
+      "op": "startAIDecision",
+      "entity": "agent",
+      "decision": "marker_visit",
+      "result": "GOAP marker visit"
+    }
+  ],
+  "update": [],
+  "stop": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    }
+  ],
+  "reset": [
+    {
+      "op": "cancelAIDecision",
+      "entity": "agent"
+    },
+    {
+      "op": "cancelAI",
+      "entity": "agent"
+    },
+    {
+      "op": "restoreTransform",
+      "entity": "agent",
+      "slot": "baseline"
+    },
+    {
+      "op": "resetEntitySimulationState",
+      "entity": "agent"
+    },
+    {
+      "op": "teleportPhysicsCharacter",
+      "entity": "agent"
+    },
+    {
+      "op": "setRuntimeVisibility",
+      "entity": "goal",
+      "visible": true
+    }
+  ]
+}
