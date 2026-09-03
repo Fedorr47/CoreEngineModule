@@ -7,6 +7,8 @@ module;
 
 export module core:ai_decision_runtime;
 
+import :ai_state_operations;
+
 import :gameplay;
 import :ai_system;
 export import :ai_goal_selection;

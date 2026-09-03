@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <string>
 #include <vector>
@@ -6,7 +6,7 @@
 export module core:gameplay_goap_definition_contracts;
 
 import :ai_action_contracts;
-export import :ai_goal_selection;
+export import :ai_goal_selection_contracts;
 
 export namespace rendern
 {
