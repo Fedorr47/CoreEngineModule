@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <array>
 #include <cstddef>
@@ -9,6 +9,7 @@
 export module core:gameplay_ai_access_key_observation;
 
 import :ai_agent_world_state;
+import :gameplay_ai_access_key_contracts;
 import :gameplay;
 import :gameplay_object_reservation_system;
 import :gameplay_world_event;
@@ -16,7 +17,6 @@ import :math_utils;
 
 export namespace rendern
 {
-    inline constexpr std::int32_t kAccessKeyPrice = 2;
 
     namespace ai_access_key_detail
     {

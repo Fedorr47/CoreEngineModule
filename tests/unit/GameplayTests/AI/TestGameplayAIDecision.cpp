@@ -57,6 +57,48 @@ namespace
         bool* destroyed_{};
     };
     
+    class TestGOAPContext final : public IGameplayGOAPContext
+    {
+    public:
+        TestGOAPContext(const AIWorldFactId fact, bool& alive) : fact_(fact), alive_(alive)
+        {
+            alive_ = true;
+        }
+        ~TestGOAPContext() override
+        {
+            alive_ = false;
+        }
+        void Observe(const GameplayWorld&, std::span<const GameplayWorldEvent>,
+            AIAgentWorldState& facts) override
+        {
+            facts.SetFact(fact_, true);
+        }
+    private:
+        AIWorldFactId fact_{};
+        bool& alive_;
+    };
+
+    class ContextLifetimeBinding final : public IAIActionBinding
+    {
+    public:
+        ContextLifetimeBinding(const bool& contextAlive, bool& destroyedWithLiveContext)
+            : contextAlive_(contextAlive), destroyedWithLiveContext_(destroyedWithLiveContext)
+        {
+        }
+        ~ContextLifetimeBinding() override
+        {
+            destroyedWithLiveContext_ = contextAlive_;
+        }
+        [[nodiscard]] std::unique_ptr<IAIActionRuntime> CreateRuntime(
+            const AIActionRuntimeContext&) override
+        {
+            return nullptr;
+        }
+    private:
+        const bool& contextAlive_;
+        bool& destroyedWithLiveContext_;
+    };
+
     GameplayUpdateContext Context(LevelAsset& level, LevelInstance& instance, Scene& scene,
         const GameplayRuntimeMode mode)
     {
@@ -294,6 +336,138 @@ TEST(GameplayGOAPDecision, DuplicateBindingDoesNotReplaceInstalledCapability)
     EXPECT_TRUE(firstDestroyed);
 }
 
+TEST(GameplayGOAPDecisionInstance, DifferentConfigurationsShareLifecycleAndKeepIndependentFacts)
+{
+    bool firstAlive = false;
+    bool secondAlive = false;
+    GameplayGOAPDecisionSetup firstSetup{};
+    firstSetup.context = std::make_unique<TestGOAPContext>(AIWorldFactId{30u}, firstAlive);
+    GameplayGOAPDecisionSetup secondSetup{};
+    secondSetup.context = std::make_unique<TestGOAPContext>(AIWorldFactId{31u}, secondAlive);
+    auto first = CreateGameplayGOAPDecision(EntityHandle{1u}, std::move(firstSetup));
+    auto second = CreateGameplayGOAPDecision(EntityHandle{2u}, std::move(secondSetup));
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    EXPECT_NE(dynamic_cast<GameplayGOAPDecisionInstance*>(first.get()), nullptr);
+    EXPECT_NE(dynamic_cast<GameplayGOAPDecisionInstance*>(second.get()), nullptr);
+    EXPECT_EQ(dynamic_cast<IGameplayGOAPPathInspection*>(first.get()), nullptr);
+    EXPECT_EQ(first->GetStatus(), GameplayAIDecisionStatus::NotStarted);
+
+    AISystem ai;
+    GameplayWorld world;
+    first->Update(ai, {world, {}});
+    second->Update(ai, {world, {}});
+    const auto* firstFacts = GetGOAPObservedState(*first);
+    const auto* secondFacts = GetGOAPObservedState(*second);
+    ASSERT_NE(firstFacts, nullptr);
+    ASSERT_NE(secondFacts, nullptr);
+    EXPECT_TRUE(firstFacts->IsFactSet(AIWorldFactId{30u}));
+    EXPECT_FALSE(firstFacts->IsFactSet(AIWorldFactId{31u}));
+    EXPECT_FALSE(secondFacts->IsFactSet(AIWorldFactId{30u}));
+    EXPECT_TRUE(secondFacts->IsFactSet(AIWorldFactId{31u}));
+    EXPECT_EQ(first->GetStatus(), GameplayAIDecisionStatus::Succeeded);
+    first->Cancel(ai);
+    EXPECT_EQ(first->GetStatus(), GameplayAIDecisionStatus::Cancelled);
+    EXPECT_EQ(second->GetStatus(), GameplayAIDecisionStatus::Succeeded);
+    second->Cancel(ai);
+}
+
+TEST(GameplayGOAPDecisionInstance, RejectsIncompleteSetupAndDestroysBindingsBeforeContext)
+{
+    EXPECT_EQ(CreateGameplayGOAPDecision(EntityHandle{1u}, {}), nullptr);
+    bool contextAlive = false;
+    bool bindingDestroyedWithContext = false;
+    bool nullFactoryInvoked = false;
+    GameplayGOAPDecisionSetup setup{};
+    setup.context = std::make_unique<TestGOAPContext>(AIWorldFactId{30u}, contextAlive);
+    setup.definition.actions = {
+        AIActionDefinition{.actionId = AIActionId{40u}},
+        AIActionDefinition{.actionId = AIActionId{41u}}};
+    setup.actionBindings.push_back({AIActionId{40u},
+        [&](AIAgentWorldState&, std::vector<GameplayWorldEvent>&)
+        {
+            return std::make_unique<ContextLifetimeBinding>(
+                contextAlive, bindingDestroyedWithContext);
+        }});
+    setup.actionBindings.push_back({AIActionId{41u},
+        [&](AIAgentWorldState&, std::vector<GameplayWorldEvent>&)
+            -> std::unique_ptr<IAIActionBinding>
+        {
+            nullFactoryInvoked = true;
+            return nullptr;
+        }});
+    EXPECT_EQ(CreateGameplayGOAPDecision(EntityHandle{1u}, std::move(setup)), nullptr);
+    EXPECT_TRUE(nullFactoryInvoked);
+    EXPECT_TRUE(bindingDestroyedWithContext);
+    EXPECT_FALSE(contextAlive);
+
+    GameplayGOAPDecisionSetup missingBinding{};
+    missingBinding.context = std::make_unique<TestGOAPContext>(AIWorldFactId{30u}, contextAlive);
+    missingBinding.definition.actions = {AIActionDefinition{.actionId = AIActionId{40u}}};
+    EXPECT_EQ(CreateGameplayGOAPDecision(EntityHandle{1u}, std::move(missingBinding)), nullptr);
+    EXPECT_FALSE(contextAlive);
+}
+
+TEST(GameplayGOAPDecisionInstance, CancelKeepsContextUntilBindingsAreDestroyed)
+{
+    bool contextAlive = false;
+    bool bindingDestroyedWithContext = false;
+    GameplayGOAPDecisionSetup setup{};
+    setup.context = std::make_unique<TestGOAPContext>(AIWorldFactId{30u}, contextAlive);
+    setup.definition.actions = {AIActionDefinition{.actionId = AIActionId{40u}}};
+    setup.actionBindings.push_back({AIActionId{40u},
+        [&](AIAgentWorldState&, std::vector<GameplayWorldEvent>&)
+        {
+            return std::make_unique<ContextLifetimeBinding>(
+                contextAlive, bindingDestroyedWithContext);
+        }});
+    auto decision = CreateGameplayGOAPDecision(EntityHandle{1u}, std::move(setup));
+    ASSERT_NE(decision, nullptr);
+    AISystem ai;
+    decision->Cancel(ai);
+    EXPECT_TRUE(contextAlive);
+    EXPECT_FALSE(bindingDestroyedWithContext);
+    decision.reset();
+    EXPECT_TRUE(bindingDestroyedWithContext);
+    EXPECT_FALSE(contextAlive);
+}
+
+TEST(GameplayGOAPDecisionInstance, TargetRecoveryUsesGenericInstanceAndPreservesAvailabilityObservation)
+{
+    LevelAsset level;
+    LevelNode start{};
+    start.name = "GOAP_Recovery_Start";
+    start.transform.position = {0.0f, 0.0f, 0.0f};
+    LevelNode goal{};
+    goal.name = "GOAP_Recovery_Goal";
+    goal.transform.position = {2.0f, 0.0f, 0.0f};
+    level.nodes = {start, goal};
+    GameplayWorld world;
+    const EntityHandle agent = world.CreateEntity();
+    world.AddTransform(agent, {.position = goal.transform.position});
+    world.AddAI(agent);
+    const EntityHandle target = world.CreateEntity();
+    world.AddNodeLink(target, {.nodeIndex = 1});
+    world.AddInteractionPoint(target, {});
+    GameplayTraversalLinkRegistry links;
+    GameplayTraversalExecutorRegistry executors;
+    auto decision = CreateTargetRecoveryAIDecision(agent, level, world, links, executors);
+    ASSERT_NE(decision, nullptr);
+    EXPECT_NE(dynamic_cast<GameplayGOAPDecisionInstance*>(decision.get()), nullptr);
+    EXPECT_EQ(dynamic_cast<IGameplayGOAPPathInspection*>(decision.get()), nullptr);
+    AISystem ai;
+    decision->Update(ai, {world, {}});
+    const auto* facts = GetGOAPObservedState(*decision);
+    ASSERT_NE(facts, nullptr);
+    EXPECT_TRUE(facts->IsFactSet(kTargetRecoveryGoalAvailableFact));
+    EXPECT_TRUE(facts->IsFactSet(kTargetRecoveryAtDestinationFact));
+    world.RemoveInteractionPoint(target);
+    decision->Update(ai, {world, {}});
+    EXPECT_FALSE(facts->IsFactSet(kTargetRecoveryGoalAvailableFact));
+    EXPECT_FALSE(facts->IsFactSet(kTargetRecoveryAtDestinationFact));
+    decision->Cancel(ai);
+}
+
 TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
 {
     const GameplayRouteGraph graph = ai_access_key_detail::BuildRouteGraph(
@@ -514,11 +688,11 @@ TEST(GameplayAIDecision, AccessKeyPlannedPathDebugStartsAtCurrentStepAndPreserve
     ai_access_key_detail::AccessKeyMoveToRequestProvider requests{
         world, graph, std::move(*transitions)};
     const std::array plan{
-        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = startToA},
-        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = aToC},
-        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = cToShop},
-        AIDebugPlanStepView{.actionId = kAIBuyKeyActionId},
-        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
+        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = startToA},
+        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = aToC},
+        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = cToShop},
+        AIPlanStep{.actionId = kAIBuyKeyActionId},
+        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
 
     const GameplayAIDebugPlannedPathView debug =
         ai_access_key_detail::BuildPlannedPathDebugView(plan, 2u, requests);
@@ -549,8 +723,8 @@ TEST(GameplayAIDecision, AccessKeyPlannedPathDebugStartsAtCurrentStepAndPreserve
     ai_access_key_detail::AccessKeyMoveToRequestProvider disconnectedRequests{
         world, std::move(disconnectedGraph), std::move(*disconnectedTransitions)};
     const std::array failedPlan{
-        AIDebugPlanStepView{.actionId = kAIBuyKeyActionId},
-        AIDebugPlanStepView{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
+        AIPlanStep{.actionId = kAIBuyKeyActionId},
+        AIPlanStep{.actionId = kAIMoveToActionId, .contextId = shopToGoal}};
     const GameplayAIDebugPlannedPathView failedDebug =
         ai_access_key_detail::BuildPlannedPathDebugView(failedPlan, 0u, disconnectedRequests);
     EXPECT_FALSE(failedDebug.complete);
@@ -1256,7 +1430,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     AISystem runtimeEventAI{};
 
     // Deliberately use the same vector as both observation input and output.
-    // AccessKeyDecision must consume the input span before appending runtime
+    // The shared GOAP instance must consume the input span before appending runtime
     // events to the vector, so reallocation cannot invalidate active reads.
     std::vector<GameplayWorldEvent> aliasedEvents{
         GameplayWorldEvent{

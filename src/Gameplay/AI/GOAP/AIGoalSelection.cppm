@@ -7,23 +7,12 @@ module;
 
 export module core:ai_goal_selection;
 
-export import :ai_decision_contracts;
+import :ai_state_operations;
+
+export import :ai_goal_selection_contracts;
 
 export namespace rendern
 {
-    struct AIGoalScoreRule
-    {
-        AIFactCondition condition{};
-        float scoreDelta{};
-    };
-
-    struct AIGoalSelectionCandidate
-    {
-        AIGoalDefinition goal{};
-        float baseScore{};
-        std::vector<AIGoalScoreRule> scoreRules{};
-    };
-
     struct AIGoalSelectionResult
     {
         AIGoalId goalId{};

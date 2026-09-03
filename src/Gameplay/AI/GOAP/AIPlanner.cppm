@@ -13,6 +13,8 @@ module;
 
 export module core:ai_planner;
 
+import :ai_state_operations;
+
 import :ai_action_contracts;
 export import :ai_decision_contracts;
 

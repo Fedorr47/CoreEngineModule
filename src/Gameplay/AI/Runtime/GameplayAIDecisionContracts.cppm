@@ -1,16 +1,17 @@
-﻿module;
+module;
 
 #include <span>
 #include <vector>
 
 export module core:gameplay_ai_decision_contracts;
 
-import :ai_system;
-import :gameplay;
 import :gameplay_world_event;
 
 export namespace rendern
 {
+    class AISystem;
+    class GameplayWorld;
+
     enum class GameplayAIDecisionStatus
     {
         NotStarted,

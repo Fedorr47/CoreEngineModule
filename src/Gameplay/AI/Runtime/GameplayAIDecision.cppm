@@ -10,28 +10,14 @@ module;
 export module core:gameplay_ai_decision;
 
 export import :gameplay_ai_decision_contracts;
-import :gameplay;
-import :gameplay_traversal_executor_registry;
-import :gameplay_traversal_link_registry;
-import :gameplay_object_reservation_system;
-import :level;
+export import :gameplay_ai_decision_creation_context;
 
 export namespace rendern
 {
-    // All references are non-owning and are valid only for the duration of Create().
-    struct GameplayAIDecisionCreationContext
-    {
-        EntityHandle agent{kNullEntity};
-        LevelAsset& level;
-        GameplayWorld& world;
-        const GameplayTraversalLinkRegistry& traversalLinkRegistry;
-        const GameplayTraversalExecutorRegistry& traversalExecutorRegistry;
-        GameplayObjectReservationSystem& reservationSystem;
-    };
-
     using GameplayAIDecisionFactory = std::function<
         std::unique_ptr<GameplayAIDecisionInstance>(const GameplayAIDecisionCreationContext&)>;
 
+    // Keys identify authored/configured decisions, not C++ decision model types.
     // The registry owns its factory callables. Registration is first-wins: a duplicate
     // identifier or an empty factory is rejected without changing the existing entry.
     class GameplayAIDecisionFactoryRegistry

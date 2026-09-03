@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <algorithm>
 #include <cstddef>
@@ -10,6 +10,8 @@
 #include <vector>
 
 export module core:ai_debug_view_model;
+
+import :ai_state_operations;
 
 import :ai_action_contracts;
 export import :ai_decision_runtime;

@@ -2,11 +2,13 @@ module;
 
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <vector>
 
 export module core:gameplay_goap_path_inspection;
 
 export import :ai_action_contracts;
+import :ai_decision_contracts;
 export import :gameplay_route;
 
 export namespace rendern
@@ -23,6 +25,15 @@ export namespace rendern
     {
         std::vector<GameplayAIDebugPlannedRouteStep> routeSteps{};
         bool complete{true};
+    };
+
+    class IGameplayGOAPPlannedPathProvider
+    {
+    public:
+        virtual ~IGameplayGOAPPlannedPathProvider() = default;
+        [[nodiscard]] virtual GameplayAIDebugPlannedPathView BuildPlannedPath(
+            std::span<const AIPlanStep> selectedPlan,
+            std::optional<std::size_t> currentStepIndex) const = 0;
     };
 
     class IGameplayGOAPPathInspection
