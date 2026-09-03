@@ -34,6 +34,7 @@ namespace rendern::goap_resource_detail
         AIWorldFactId result;
         AIWorldIntegerFactId resource;
         std::int32_t price{};
+        std::string receiptId;
     };
 
     Transaction ResolveReceipt(std::string_view name, const GameplayGOAPCompositionContext& context)
@@ -41,8 +42,7 @@ namespace rendern::goap_resource_detail
         const GameplayAIResourceReceiptAsset* selected = nullptr;
         const GameplayAIResourceLedgerAsset* selectedLedger = nullptr;
         std::set<std::string> names;
-        std::set<EntityHandle> targets;
-        // Events carry a subject, so receipts must resolve uniquely across ledgers.
+        // Receipt IDs are unique across this behavior; subjects may be shared.
         for (const auto& observer : context.observations)
         {
             const auto* ledger = std::get_if<GameplayAIResourceLedgerAsset>(&observer.parameters);
@@ -53,9 +53,9 @@ namespace rendern::goap_resource_detail
             for (const auto& receipt : ledger->receipts)
             {
                 const auto target = context.Role(receipt.target).entity;
-                if (receipt.id.empty() || !names.insert(receipt.id).second || !targets.insert(target).second)
+                if (receipt.id.empty() || !names.insert(receipt.id).second)
                 {
-                    context.Fail(receipt.id, "duplicate receipt id or receipt subject");
+                    context.Fail(receipt.id, "duplicate receipt id");
                 }
                 if (!context.services.world.IsEntityValid(target) || receipt.price <= 0)
                 {
@@ -74,7 +74,7 @@ namespace rendern::goap_resource_detail
         }
         const auto& target = context.Role(selected->target);
         return {target.entity, target.position, context.BooleanFact(selected->fact),
-            context.IntegerFact(selectedLedger->fact), selected->price};
+            context.IntegerFact(selectedLedger->fact), selected->price, selected->id};
     }
 
     class ResourceLedgerObservation final : public IGameplayGOAPObservation
@@ -144,7 +144,8 @@ namespace rendern::goap_resource_detail
                 {
                     for (const auto& receipt : receipts_)
                     {
-                        if (event.subject == receipt.target && !facts.IsFactSet(receipt.result)
+                        if (event.subject == receipt.target && event.receiptId == receipt.receiptId
+                            && !facts.IsFactSet(receipt.result)
                             && facts.GetIntegerFact(resource_) >= receipt.price)
                         {
                             facts.SetIntegerFact(resource_, facts.GetIntegerFact(resource_) - receipt.price);
@@ -164,6 +165,47 @@ namespace rendern::goap_resource_detail
         AIWorldIntegerFactId resource_;
         std::vector<Pickup> pickups_;
         std::vector<Transaction> receipts_;
+    };
+
+    // Visibility is an authored reaction, independent of purchase execution.
+    class HideOnPurchaseReaction final : public IGameplayGOAPEventReaction
+    {
+    public:
+        HideOnPurchaseReaction(const GameplayAIReactionAsset& asset, const GameplayGOAPCompositionContext& context)
+            : agent_(context.services.agent)
+        {
+            const auto& parameters = context.Parameters<GameplayAIHideOnPurchaseAsset>(asset);
+            transaction_ = ResolveReceipt(parameters.receipt, context);
+            target_ = context.Role(parameters.target).entity;
+            const auto* node = context.services.world.TryGetNodeLink(target_);
+            if (!context.services.world.IsEntityValid(target_) || node == nullptr || node->nodeIndex < 0)
+            {
+                context.Fail(asset.type, "visibility target requires a live node-bound entity");
+            }
+        }
+        void React(const GameplayWorld& world, std::span<const GameplayWorldEvent> events,
+            const AIAgentWorldState& facts, std::vector<GameplayWorldEvent>& output) override
+        {
+            if (emitted_ || !world.IsEntityValid(target_) || !facts.IsFactSet(transaction_.result))
+            {
+                return;
+            }
+            for (const auto& event : events)
+            {
+                if (event.type == GameplayWorldEventType::ResourcePurchased && event.instigator == agent_
+                    && event.subject == transaction_.target && event.receiptId == transaction_.receiptId)
+                {
+                    output.push_back({GameplayWorldEventType::HideEntityRequested, agent_, target_});
+                    emitted_ = true;
+                    return;
+                }
+            }
+        }
+    private:
+        EntityHandle agent_{kNullEntity};
+        EntityHandle target_{kNullEntity};
+        Transaction transaction_{};
+        bool emitted_{};
     };
 
     class PurchaseRuntime final : public IAIActionRuntime
@@ -190,7 +232,8 @@ namespace rendern::goap_resource_detail
             {
                 return AIActionRuntimeResult::Failed;
             }
-            events_.push_back({GameplayWorldEventType::ResourcePurchased, context.agentEntity, transaction_.target});
+            events_.push_back({GameplayWorldEventType::ResourcePurchased, context.agentEntity,
+                transaction_.target, transaction_.receiptId});
             committed_ = true;
             return AIActionRuntimeResult::Succeeded;
         }
@@ -301,7 +344,11 @@ export namespace rendern
         {
             return std::make_unique<goap_resource_detail::PurchaseCapability>(assets, context);
         });
-        if (!ledger || !purchase)
+        const bool hide = registry.RegisterReaction("hide_on_purchase", [](const auto& asset, const auto& context)
+        {
+            return std::make_unique<goap_resource_detail::HideOnPurchaseReaction>(asset, context);
+        });
+        if (!ledger || !purchase || !hide)
         {
             throw std::logic_error("Duplicate resource component registration");
         }

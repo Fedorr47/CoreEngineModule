@@ -65,8 +65,12 @@ int main() {
             const auto& purchase = std::get<GameplayAIPurchaseAsset>(behavior.capabilities.back().parameters);
             Check(purchase.receipt == ledger.receipts.front().id);
             Check(compiled.definition.actions.back().actionId == AIActionId{3u});
+            Check(behavior.reactions.size() == 1);
+            const auto& hide = std::get<GameplayAIHideOnPurchaseAsset>(behavior.reactions.front().parameters);
+            Check(hide.receipt == ledger.receipts.front().id && hide.target == "shop");
             continue;
         }
+        Check(behavior.reactions.empty());
         Check(bindings.roles.size() == 2);
         Check(behavior.observations.size() == 2);
         Check(behavior.capabilities.size() == 1);
@@ -105,6 +109,18 @@ int main() {
     Reject([] { (void)ParseGameplayAILevelBindingsAsset(
         R"({"version":1,"roles":[],"traversals":[{"name":"gap","target":"land","type":"jump","handle":1.5}]})",
         "bindings.json"); }, "positive integer");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[],"capabilities":[],"reactions":[{"type":"wrong","receipt":"x","target":"shop"}]})",
+        "reactions.json"); }, "unknown reaction type");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[],"capabilities":[],"reactions":[{"type":"hide_on_purchase","receipt":"x"}]})",
+        "reactions.json"); }, "target");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[],"capabilities":[],"reactions":[{"type":"hide_on_purchase","receipt":"","target":"shop"}]})",
+        "reactions.json"); }, "non-empty string");
+    Reject([] { (void)ParseGameplayAIBehaviorAsset(
+        R"({"version":1,"id":"a","model":"goap","definition":"a","observations":[],"capabilities":[],"reactions":[{"type":"hide_on_purchase","receipt":"x","target":"shop","typo":true}]})",
+        "reactions.json"); }, "unknown field");
     auto numeric = ParseGameplayGOAPDefinitionAsset(R"({"id":"numeric","facts":[
         {"name":"ok","type":"bool"},{"name":"resource","type":"int"}],
         "goals":[{"name":"done","score":1,"facts":[{"fact":"ok","value":true}]}],

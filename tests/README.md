@@ -170,3 +170,28 @@ Expected configure behavior:
 
 - A warning is printed that `CORE_ENABLE_UBSAN` is unsupported on MSVC toolchains and is disabled.
 - ASan remains enabled.
+## AI architecture and asset checks
+
+With `WITH_TESTS=ON`, CTest includes `AI.ImportBoundaries` and
+`AI.AssetComposition`. Configuration requires Python 3.9 or newer; these checks
+are not silently skipped when the interpreter is missing. Run the architecture
+label with the ordinary build directory:
+
+```sh
+ctest --test-dir out/build/<preset> -C Debug -L architecture --output-on-failure
+```
+
+They can also run independently of graphics libraries and the C++ toolchain:
+
+```sh
+cmake -S tests/architecture -B out/architecture
+ctest --test-dir out/architecture -L architecture --output-on-failure
+```
+
+CI should treat a nonzero CTest exit code as failure. To enforce a merge gate,
+configure the job running these checks as a required status in repository branch
+protection. CTest registration itself does not change GitHub repository settings.
+
+The optional `tests/tools/run_goap_asset_portable_checks.py` compiles the authoring
+subset with GCC ASan/UBSan. It is separate from the cross-platform architecture
+checks and does not replace the MSVC module build or runtime GoogleTests.

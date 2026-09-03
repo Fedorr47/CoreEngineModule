@@ -82,6 +82,15 @@ export namespace rendern
         std::string type, context;
         std::variant<GameplayAIMoveToAsset, GameplayAIPurchaseAsset> parameters;
     };
+    struct GameplayAIHideOnPurchaseAsset
+    {
+        std::string receipt, target;
+    };
+    struct GameplayAIReactionAsset
+    {
+        std::string type;
+        std::variant<GameplayAIHideOnPurchaseAsset> parameters;
+    };
     struct GameplayAIRouteEdgeAsset
     {
         std::string from, to, traversal;
@@ -109,6 +118,7 @@ export namespace rendern
         std::vector<GameplayAICapabilityAsset> capabilities{};
         std::string routeGraph;
         bool inspectPath{};
+        std::vector<GameplayAIReactionAsset> reactions;
     };
 
     struct GameplayAIRoleBindingAsset
@@ -309,7 +319,7 @@ namespace rendern
         using namespace ai_asset_detail;
         const auto value = Root(json, source);
         const auto& root = value.AsObject();
-        Fields(root, {"version", "id", "model", "definition", "observations", "capabilities", "routeGraph", "inspectPath"}, source, "root");
+        Fields(root, {"version", "id", "model", "definition", "observations", "capabilities", "routeGraph", "inspectPath", "reactions"}, source, "root");
         GameplayAIBehaviorAsset result{
             .id = String(root, "id", source, "root"), .source = std::string(source),
             .model = String(root, "model", source, "root"), .definition = String(root, "definition", source, "root")};
@@ -381,6 +391,23 @@ namespace rendern
                 Invalid(source, location, "unknown observation type '" + observer.type + "'");
             }
             result.observations.push_back(std::move(observer));
+        }
+        if (root.contains("reactions"))
+        {
+            for (const auto& entry : Array(root, "reactions", source, "reactions"))
+            {
+                const auto location = "reactions[" + std::to_string(result.reactions.size()) + "]";
+                const auto& object = Object(entry, source, location);
+                GameplayAIReactionAsset reaction{.type = String(object, "type", source, location)};
+                if (reaction.type != "hide_on_purchase")
+                {
+                    Invalid(source, location, "unknown reaction type '" + reaction.type + "'");
+                }
+                Fields(object, {"type", "receipt", "target"}, source, location);
+                reaction.parameters = GameplayAIHideOnPurchaseAsset{
+                    String(object, "receipt", source, location), String(object, "target", source, location)};
+                result.reactions.push_back(std::move(reaction));
+            }
         }
         std::unordered_set<std::string> contexts;
         for (const auto& entry : Array(root, "capabilities", source, "capabilities"))

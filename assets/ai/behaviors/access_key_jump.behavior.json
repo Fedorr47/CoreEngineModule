@@ -230,5 +230,12 @@
       "receipt": "unlock",
       "radius": 0.6
     }
+  ],
+  "reactions": [
+    {
+      "type": "hide_on_purchase",
+      "receipt": "unlock",
+      "target": "shop"
+    }
   ]
 }

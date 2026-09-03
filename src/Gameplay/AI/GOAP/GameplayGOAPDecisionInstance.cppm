@@ -1,6 +1,7 @@
 module;
 
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -20,11 +21,19 @@ export namespace rendern
     {
     public:
         GameplayGOAPDecisionInstance(const EntityHandle agent, GameplayGOAPDecisionSetup setup)
-            : context_(std::move(setup.context)), goap_(agent, std::move(setup.definition))
+            : context_(std::move(setup.context)), reactions_(std::move(setup.eventReactions)),
+              goap_(agent, std::move(setup.definition))
         {
             if (!context_)
             {
                 return;
+            }
+            for (const auto& reaction : reactions_)
+            {
+                if (!reaction)
+                {
+                    return;
+                }
             }
             for (const GameplayGOAPActionBindingSetup& binding : setup.actionBindings)
             {
@@ -48,16 +57,21 @@ export namespace rendern
             {
                 return;
             }
+            reactionEvents_.clear();
             // Input and output may alias. Finish all input reads before forwarding events.
             context_->Observe(observation.world, observation.events, goap_.GetObservedState());
+            ReactToEvents_(observation.world, observation.events);
             runtimeEvents_.clear();
             goap_.Update(aiSystem, observation.world);
             context_->ObserveActionEvents(
                 observation.world, runtimeEvents_, goap_.GetObservedState());
+            ReactToEvents_(observation.world, runtimeEvents_);
             if (observation.eventOutput != nullptr)
             {
                 observation.eventOutput->insert(observation.eventOutput->end(),
                     runtimeEvents_.begin(), runtimeEvents_.end());
+                observation.eventOutput->insert(observation.eventOutput->end(),
+                    reactionEvents_.begin(), reactionEvents_.end());
             }
         }
 
@@ -110,9 +124,19 @@ export namespace rendern
         }
 
     private:
+        void ReactToEvents_(const GameplayWorld& world, std::span<const GameplayWorldEvent> events)
+        {
+            for (const auto& reaction : reactions_)
+            {
+                reaction->React(world, events, goap_.GetObservedState(), reactionEvents_);
+            }
+        }
+
         // Bindings borrow the context, facts and event buffer. Context and events
         // outlive goap_; the decision owner must cancel active AISystem tasks first.
         std::unique_ptr<IGameplayGOAPContext> context_;
+        std::vector<std::unique_ptr<IGameplayGOAPEventReaction>> reactions_;
+        std::vector<GameplayWorldEvent> reactionEvents_{};
         std::vector<GameplayWorldEvent> runtimeEvents_{};
         GameplayGOAPDecision goap_;
         bool configured_{};

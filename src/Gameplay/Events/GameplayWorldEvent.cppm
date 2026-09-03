@@ -1,6 +1,7 @@
 ﻿module;
 
 #include <cstdint>
+#include <string>
 
 export module core:gameplay_world_event;
 
@@ -13,7 +14,8 @@ export namespace rendern
     enum class GameplayWorldEventType : std::uint8_t
     {
         PickupCollected,
-        ResourcePurchased
+        ResourcePurchased,
+        HideEntityRequested
     };
 
     struct GameplayWorldEvent
@@ -21,5 +23,7 @@ export namespace rendern
         GameplayWorldEventType type{};
         EntityHandle instigator{ kNullEntity };
         EntityHandle subject{ kNullEntity };
+        // Owned semantic identity, required for ResourcePurchased. Other events leave it empty.
+        std::string receiptId{};
     };
 }

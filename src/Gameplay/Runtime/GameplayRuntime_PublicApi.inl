@@ -263,7 +263,7 @@
                 {
                     const GameplayWorldEvent& event = currentWorldEvents_[eventIndex];
                     if ((event.type != GameplayWorldEventType::PickupCollected &&
-                            event.type != GameplayWorldEventType::ResourcePurchased) ||
+                            event.type != GameplayWorldEventType::HideEntityRequested) ||
                         ctx.levelAsset == nullptr || ctx.levelInstance == nullptr ||
                         ctx.scene == nullptr)
                     {

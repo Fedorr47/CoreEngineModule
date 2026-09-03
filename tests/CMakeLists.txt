@@ -1,3 +1,5 @@
+add_subdirectory(architecture)
+
 # Test conventions: see tests/README.md for naming, layout, fixtures, and backend guidance.
 add_executable(CoreEngineModuleTests
         "FakeRHI.h" 

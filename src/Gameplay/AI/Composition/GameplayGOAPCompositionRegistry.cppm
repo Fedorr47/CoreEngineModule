@@ -123,6 +123,10 @@ export namespace rendern
         std::unique_ptr<IGameplayGOAPCapability>(std::span<const GameplayAICapabilityAsset>,
             const GameplayGOAPCompositionContext&)>;
 
+    using GameplayGOAPReactionCompiler = std::function<
+        std::unique_ptr<IGameplayGOAPEventReaction>(const GameplayAIReactionAsset&,
+            const GameplayGOAPCompositionContext&)>;
+
     struct GameplayGOAPCapabilityRegistration
     {
         AIActionId actionId;
@@ -142,6 +146,21 @@ export namespace rendern
                 return false;
             }
             return observations_.emplace(std::string(type), std::move(compiler)).second;
+        }
+
+        [[nodiscard]] bool RegisterReaction(std::string_view type, GameplayGOAPReactionCompiler compiler)
+        {
+            if (type.empty() || !compiler)
+            {
+                return false;
+            }
+            return reactions_.emplace(std::string(type), std::move(compiler)).second;
+        }
+
+        [[nodiscard]] const GameplayGOAPReactionCompiler* Reaction(std::string_view type) const
+        {
+            const auto found = reactions_.find(type);
+            return found == reactions_.end() ? nullptr : &found->second;
         }
 
         [[nodiscard]] bool RegisterCapability(std::string_view type, AIActionId actionId,
@@ -186,6 +205,7 @@ export namespace rendern
 
     private:
         std::map<std::string, GameplayGOAPObservationCompiler, std::less<>> observations_;
+        std::map<std::string, GameplayGOAPReactionCompiler, std::less<>> reactions_;
         std::map<std::string, GameplayGOAPCapabilityRegistration, std::less<>> capabilities_;
     };
 }

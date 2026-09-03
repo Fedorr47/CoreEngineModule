@@ -80,6 +80,13 @@ for entry in catalog['decisions']:
             receipts = [receipt for observer in behavior['observations'] for receipt in observer.get('receipts', [])]
             matches = [receipt for receipt in receipts if receipt['id'] == capability['receipt']]
             require(len(matches) == 1, f"{entry['id']}: unresolved receipt")
+    receipts = [receipt for observer in behavior['observations'] for receipt in observer.get('receipts', [])]
+    require(len({receipt['id'] for receipt in receipts}) == len(receipts), f"{entry['id']}: duplicate receipt id")
+    for reaction in behavior.get('reactions', []):
+        require(reaction['type'] == 'hide_on_purchase', f"{entry['id']}: unknown reaction type")
+        require(reaction['target'] in roles, f"{entry['id']}: unbound reaction target")
+        require(sum(receipt['id'] == reaction['receipt'] for receipt in receipts) == 1,
+                f"{entry['id']}: unresolved reaction receipt")
     if behavior.get('routeGraph'):
         graph = read_json(ASSETS / behavior['routeGraph'])
         require(set(graph['nodes']) <= set(roles), f"{entry['id']}: unresolved graph role")

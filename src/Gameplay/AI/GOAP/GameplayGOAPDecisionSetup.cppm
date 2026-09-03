@@ -30,6 +30,16 @@ export namespace rendern
         }
     };
 
+    // Reactions consume confirmed events and produce explicit world requests.
+    // Output is separate from input and is never recursively dispatched.
+    class IGameplayGOAPEventReaction
+    {
+    public:
+        virtual ~IGameplayGOAPEventReaction() = default;
+        virtual void React(const GameplayWorld& world, std::span<const GameplayWorldEvent> events,
+            const AIAgentWorldState& facts, std::vector<GameplayWorldEvent>& output) = 0;
+    };
+
     struct GameplayGOAPActionBindingSetup
     {
         AIActionId actionId{};
@@ -44,5 +54,6 @@ export namespace rendern
         GameplayGOAPDecisionDefinition definition{};
         std::unique_ptr<IGameplayGOAPContext> context{};
         std::vector<GameplayGOAPActionBindingSetup> actionBindings{};
+        std::vector<std::unique_ptr<IGameplayGOAPEventReaction>> eventReactions{};
     };
 }

@@ -472,14 +472,30 @@ TEST(GameplayGOAPDecisionInstance, TargetRecoveryUsesGenericInstanceAndPreserves
     decision->Cancel(ai);
 }
 
-TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCancelCleanly)
+class GameplayAIDecisionPurchaseVisibility : public ::testing::TestWithParam<bool> {};
+
+TEST_P(GameplayAIDecisionPurchaseVisibility, AuthoredReactionControlsVisibilityAndPreservesPurchase)
 {
     InlineThreadOwnerRolesGuard guard{};
     test::LevelInstantiateHarness harness{};
     LevelAsset level = LoadLevelAssetFromJson("levels/ai_goap_access_key_development.level.json");
     EXPECT_EQ(level.developmentScenario, "development/ai_goap_access_key.scenario.json");
     LevelInstance instance = harness.Instantiate(level);
-    GameplayRuntime runtime{MakeDefaultGameplayAIDecisionFactories()};
+    GameplayAIDecisionFactoryRegistry factories;
+    ASSERT_TRUE(factories.Register("access_key", [hide = GetParam()](const auto& services)
+    {
+        auto behavior = LoadGameplayAIBehaviorAsset("ai/behaviors/access_key.behavior.json");
+        if (!hide)
+        {
+            behavior.reactions.clear();
+        }
+        const auto graph = LoadGameplayAIRouteGraphAsset(behavior.routeGraph);
+        return CreateGameplayGOAPDecisionFromAssets(services, behavior,
+            LoadGameplayAILevelBindingsAsset("ai/bindings/access_key.bindings.json"),
+            LoadGameplayGOAPDefinitionAsset(behavior.definition), MakeDefaultGameplayGOAPComponents(),
+            &graph);
+    }));
+    GameplayRuntime runtime{std::move(factories)};
     EXPECT_TRUE(runtime.HasAIDecisionDefinition(access_key_test::kAccessKeyAIDecisionId));
     EXPECT_FALSE(runtime.HasAIDecisionDefinition("unknown"));
     runtime.Initialize(level, instance, harness.GetScene());
@@ -599,7 +615,7 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
     Tick(runtime,game);
     EXPECT_TRUE(facts->IsFactSet(access_key_test::kGOAPHasAccessKeyFact));
     EXPECT_EQ(facts->GetIntegerFact(access_key_test::kGOAPCoinCountFact), 0);
-    EXPECT_FALSE(instance.IsNodeRuntimeVisible(keyNode));
+    EXPECT_EQ(instance.IsNodeRuntimeVisible(keyNode), !GetParam());
     Tick(runtime,game);
     Tick(runtime,game);
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::RunningStep);
@@ -615,6 +631,8 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCance
     EXPECT_EQ(runtime.GetAIDecisionStatus(agent),AIPlanExecutionStatus::NotStarted);
     EXPECT_EQ(runtime.GetAIDecisionObservedState(agent),nullptr);
 }
+
+INSTANTIATE_TEST_SUITE_P(WithAndWithoutReaction, GameplayAIDecisionPurchaseVisibility, ::testing::Bool());
 
 TEST(GameplayAIDecision, MissingMovementContractRejectsStartWithoutPartialState)
 {
@@ -810,7 +828,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     constexpr std::int32_t initialCoinCount = 6;
     observed->SetIntegerFact(access_key_test::kGOAPCoinCountFact, initialCoinCount);
     const std::array purchaseEvent{GameplayWorldEvent{
-        GameplayWorldEventType::ResourcePurchased, agent, key}};
+        GameplayWorldEventType::ResourcePurchased, agent, key, "unlock"}};
     decision->Update(ai, GameplayAIObservationContext{world, purchaseEvent});
     EXPECT_EQ(observed->GetIntegerFact(access_key_test::kGOAPCoinCountFact),
         initialCoinCount - access_key_test::kAccessKeyPrice);
@@ -820,7 +838,7 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
     // Runtime-generated purchase event + aliased input/output
     // ---------------------------------------------------------------------
     
-    // A fresh decision lets the real BuyKey runtime produce the purchase event.
+    // A fresh decision lets the real purchase runtime produce the purchase event.
     // This exercises runtime -> domain observation -> outward event composition
     // rather than injecting ResourcePurchased as an input event.
     auto runtimeEventDecision = goap_asset_test::CreateDecision("access_key_reserved",
@@ -891,13 +909,14 @@ TEST(GameplayAIDecision, AccessKeyMapsOnlyMatchingAgentAndCoinEvents)
                         return event.type ==
                                    GameplayWorldEventType::ResourcePurchased &&
                                event.instigator == agent &&
-                               event.subject == key;
+                               event.subject == key && event.receiptId == "unlock";
                     }),
                 1);
 
-            // The original aliased input event is preserved and exactly one
-            // new runtime event is appended.
-            ASSERT_EQ(aliasedEvents.size(), 2u);
+            // Input, transaction and explicit visibility request survive aliasing.
+            ASSERT_EQ(aliasedEvents.size(), 3u);
+            EXPECT_EQ(aliasedEvents.back().type, GameplayWorldEventType::HideEntityRequested);
+            EXPECT_EQ(aliasedEvents.back().subject, key);
             EXPECT_EQ(aliasedEvents.front().instigator, otherAgent);
             EXPECT_EQ(aliasedEvents.front().subject, coinA);
         }

@@ -56,11 +56,11 @@ TEST(GameplayGOAPResources, CreditsOnlyMatchingAgentSubjectAndAcknowledgesOnce)
     EXPECT_EQ(facts.GetIntegerFact(resource), 1);
     EXPECT_TRUE(facts.IsFactSet(collected));
     facts.SetIntegerFact(resource, 4);
-    const std::array wrongPurchase{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, other, shop},
-        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, other}};
+    const std::array wrongPurchase{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, other, shop, "unlock"},
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, other, "unlock"}};
     Observe(fixture, observers, facts, wrongPurchase);
     EXPECT_FALSE(facts.IsFactSet(purchased));
-    const std::array purchase{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop}};
+    const std::array purchase{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop, "unlock"}};
     Observe(fixture, observers, facts, purchase);
     Observe(fixture, observers, facts, purchase);
     EXPECT_TRUE(facts.IsFactSet(purchased));
@@ -155,6 +155,7 @@ TEST(GameplayGOAPResources, PurchaseChecksFundsDistanceAndConfirmsByEvent)
     EXPECT_EQ(runtime->Start(context), AIActionRuntimeResult::Succeeded);
     ASSERT_EQ(events.size(), 1u);
     EXPECT_EQ(events.front().type, GameplayWorldEventType::ResourcePurchased);
+    EXPECT_EQ(events.front().receiptId, "unlock");
     EXPECT_FALSE(facts.IsFactSet(purchased));
     EXPECT_EQ(facts.GetIntegerFact(resource), 2);
     auto observers = fixture.Observers();
@@ -177,9 +178,13 @@ TEST(GameplayGOAPResources, DependencyOrderingMakesReceiptVisibleToGoalInSameUpd
     auto& facts = const_cast<AIAgentWorldState&>(inspection->GetObservedState());
     facts.SetIntegerFact(fixture.compiled.FindIntegerFact("coins").value(), 2);
     fixture.world.TryGetTransform(fixture.agent)->position = fixture.Role("goal").position;
-    const std::array event{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased,
-        fixture.agent, fixture.Role("shop").entity}};
-    decision->Update(fixture.ai, {fixture.world, event});
+    std::vector<GameplayWorldEvent> event{GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased,
+        fixture.agent, fixture.Role("shop").entity, "unlock"}};
+    decision->Update(fixture.ai, {fixture.world, event, &event});
+    ASSERT_EQ(event.size(), 2u);
+    EXPECT_EQ(event.back().type, GameplayWorldEventType::HideEntityRequested);
+    decision->Update(fixture.ai, {fixture.world, event, &event});
+    EXPECT_EQ(event.size(), 2u); // Replaying input cannot emit a second reaction.
     EXPECT_TRUE(facts.IsFactSet(fixture.compiled.FindBooleanFact("atDestination").value()));
     EXPECT_EQ(decision->GetStatus(), GameplayAIDecisionStatus::Succeeded);
     decision->Cancel(fixture.ai);
@@ -369,6 +374,7 @@ TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
             effect.value = effect.value < 0 ? -3 : 2;
         }
     }
+    std::get<GameplayAIHideOnPurchaseAsset>(fixture.behavior.reactions.front().parameters).receipt = "permit";
     fixture.Refresh();
     auto decision = fixture.Create();
     ASSERT_NE(decision, nullptr);
@@ -383,4 +389,121 @@ TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
     EXPECT_TRUE(inspection->GetObservedState().IsFactSet(fixture.compiled.FindBooleanFact("gatePass").value()));
     EXPECT_EQ(inspection->GetObservedState().GetIntegerFact(fixture.compiled.FindIntegerFact("tokens").value()), 1);
     decision->Cancel(fixture.ai);
+}
+
+TEST(GameplayGOAPResources, SharedVendorDistinguishesReceiptsAndRejectsMissingIdentity)
+{
+    Fixture fixture;
+    auto& ledger = std::get<GameplayAIResourceLedgerAsset>(fixture.behavior.observations.front().parameters);
+    ledger.receipts.push_back({"ammo", "shop", "hasAmmo", 1});
+    fixture.definition.facts.push_back({"hasAmmo", GameplayGOAPFactType::Boolean});
+    auto purchase = fixture.definition.actions.back();
+    ASSERT_EQ(purchase.action, "purchase");
+    purchase.context = "buy_ammo";
+    for (auto& condition : purchase.preconditions)
+    {
+        if (condition.fact == "hasAccessKey")
+        {
+            condition.fact = "hasAmmo";
+        }
+    }
+    purchase.effects.front().fact = "hasAmmo";
+    purchase.numericPreconditions.front().value = 1;
+    purchase.numericEffects.front().value = -1;
+    fixture.definition.actions.push_back(purchase);
+    auto capability = fixture.behavior.capabilities.back();
+    capability.context = "buy_ammo";
+    std::get<GameplayAIPurchaseAsset>(capability.parameters).receipt = "ammo";
+    fixture.behavior.capabilities.push_back(capability);
+    fixture.Refresh();
+    auto decision = fixture.Create();
+    ASSERT_NE(decision, nullptr); // Same subject is valid for two authored receipts.
+    auto observers = fixture.Observers();
+    auto provider = fixture.Capability("purchase");
+    AIAgentWorldState facts;
+    std::vector<GameplayWorldEvent> events;
+    auto binding = provider->CreateBinding(facts, events);
+    const auto resource = fixture.compiled.FindIntegerFact("coins").value();
+    const auto key = fixture.compiled.FindBooleanFact("hasAccessKey").value();
+    const auto ammo = fixture.compiled.FindBooleanFact("hasAmmo").value();
+    facts.SetIntegerFact(resource, 5);
+    const auto shop = fixture.Role("shop").entity;
+    const std::array unrecognized{
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop},
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop, "unknown"}};
+    Observe(fixture, observers, facts, unrecognized);
+    EXPECT_EQ(facts.GetIntegerFact(resource), 5);
+    EXPECT_FALSE(facts.IsFactSet(key));
+    EXPECT_FALSE(facts.IsFactSet(ammo));
+    fixture.world.TryGetTransform(fixture.agent)->position = fixture.Role("shop").position;
+    for (const std::string_view contextName : {"buy_ammo", "buy_key"})
+    {
+        const AIActionRuntimeContext context{fixture.agent, kAIPurchaseActionId,
+            fixture.compiled.FindActionContext(contextName).value()};
+        auto runtime = binding->CreateRuntime(context);
+        ASSERT_NE(runtime, nullptr);
+        EXPECT_EQ(runtime->Start(context), AIActionRuntimeResult::Succeeded);
+        Observe(fixture, observers, facts, events);
+        if (contextName == "buy_ammo")
+        {
+            EXPECT_EQ(events.back().receiptId, "ammo");
+            EXPECT_EQ(facts.GetIntegerFact(resource), 4);
+            EXPECT_TRUE(facts.IsFactSet(ammo));
+            EXPECT_FALSE(facts.IsFactSet(key));
+        }
+    }
+    ASSERT_EQ(events.size(), 2u); // Purchase binding does not emit visibility requests.
+    EXPECT_EQ(events.back().receiptId, "unlock");
+    EXPECT_TRUE(facts.IsFactSet(key));
+    EXPECT_EQ(facts.GetIntegerFact(resource), 2);
+    Observe(fixture, observers, facts, events);
+    EXPECT_EQ(facts.GetIntegerFact(resource), 2);
+}
+
+TEST(GameplayGOAPResources, ExplicitReactionCanHideAnotherEntityAndFiltersUnconfirmedEvents)
+{
+    Fixture fixture;
+    auto& asset = fixture.behavior.reactions.front();
+    std::get<GameplayAIHideOnPurchaseAsset>(asset.parameters).target = "goal";
+    auto reaction = (*fixture.components.Reaction(asset.type))(asset, fixture.Context());
+    AIAgentWorldState facts;
+    std::vector<GameplayWorldEvent> output;
+    const auto shop = fixture.Role("shop").entity;
+    const std::array purchased{
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop, "unlock"}};
+    reaction->React(fixture.world, purchased, facts, output);
+    EXPECT_TRUE(output.empty());
+    facts.SetFact(fixture.compiled.FindBooleanFact("hasAccessKey").value());
+    const std::array ignored{
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, shop, "another_receipt"},
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, fixture.agent, fixture.agent, "unlock"},
+        GameplayWorldEvent{GameplayWorldEventType::ResourcePurchased, kNullEntity, shop, "unlock"},
+        GameplayWorldEvent{GameplayWorldEventType::HideEntityRequested, fixture.agent, shop}};
+    reaction->React(fixture.world, ignored, facts, output);
+    EXPECT_TRUE(output.empty());
+    reaction->React(fixture.world, purchased, facts, output);
+    reaction->React(fixture.world, purchased, facts, output);
+    ASSERT_EQ(output.size(), 1u);
+    EXPECT_EQ(output.front().type, GameplayWorldEventType::HideEntityRequested);
+    EXPECT_EQ(output.front().subject, fixture.Role("goal").entity);
+    EXPECT_NE(output.front().subject, shop);
+}
+
+TEST(GameplayGOAPResources, InvalidReactionRejectsEntireDecisionBeforeStart)
+{
+    Fixture fixture;
+    auto& reaction = fixture.behavior.reactions.front();
+    reaction.type = "unknown_reaction";
+    EXPECT_THROW(fixture.Create(), std::runtime_error);
+    reaction.type = "hide_on_purchase";
+    auto& parameters = std::get<GameplayAIHideOnPurchaseAsset>(reaction.parameters);
+    parameters.receipt = "missing_receipt";
+    EXPECT_THROW(fixture.Create(), std::runtime_error);
+    parameters.receipt = "unlock";
+    parameters.target = "missing_role";
+    EXPECT_THROW(fixture.Create(), std::runtime_error);
+    parameters.target = "goal";
+    fixture.world.RemoveNodeLink(fixture.Role("goal").entity);
+    EXPECT_THROW(fixture.Create(), std::runtime_error);
+    EXPECT_FALSE(fixture.ai.HasActiveAction(fixture.agent));
 }

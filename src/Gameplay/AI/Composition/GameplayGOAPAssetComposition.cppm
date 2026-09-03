@@ -268,6 +268,20 @@ export namespace rendern
             }
         }
         GameplayGOAPDecisionSetup setup;
+        for (const auto& asset : behavior.reactions)
+        {
+            const auto* compiler = registry.Reaction(asset.type);
+            if (compiler == nullptr)
+            {
+                context.Fail(asset.type, "unknown reaction type");
+            }
+            auto reaction = (*compiler)(asset, context);
+            if (!reaction)
+            {
+                context.Fail(asset.type, "reaction compiler returned no provider");
+            }
+            setup.eventReactions.push_back(std::move(reaction));
+        }
         std::vector<GameplayGOAPActionCostOverride> costOverrides;
         for (const auto& [type, assets] : groups)
         {
