@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <variant>
+#include <any>
 
 // Include after import core. This fixture exercises production asset compilers.
 namespace goap_asset_test
@@ -40,7 +40,7 @@ namespace goap_asset_test
             {
                 throw std::runtime_error("Missing fixture catalog entry");
             }
-            behavior = LoadGameplayAIBehaviorAsset(reference->behavior);
+            behavior = LoadGameplayAIBehaviorAsset(reference->behavior, components.AssetParsers());
             bindings = LoadGameplayAILevelBindingsAsset(reference->bindings);
             definition = LoadGameplayGOAPDefinitionAsset(behavior.definition);
             graph = LoadGameplayAIRouteGraphAsset(behavior.routeGraph);
@@ -62,7 +62,7 @@ namespace goap_asset_test
             }
             for (const auto& observation : behavior.observations)
             {
-                if (const auto* ledger = std::get_if<GameplayAIResourceLedgerAsset>(&observation.parameters))
+                if (const auto* ledger = std::any_cast<GameplayAIResourceLedgerAsset>(&observation.parameters))
                 {
                     for (const auto& pickup : ledger->pickups)
                     {

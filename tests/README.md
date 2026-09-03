@@ -192,6 +192,10 @@ CI should treat a nonzero CTest exit code as failure. To enforce a merge gate,
 configure the job running these checks as a required status in repository branch
 protection. CTest registration itself does not change GitHub repository settings.
 
-The optional `tests/tools/run_goap_asset_portable_checks.py` compiles the authoring
-subset with GCC ASan/UBSan. It is separate from the cross-platform architecture
-checks and does not replace the MSVC module build or runtime GoogleTests.
+The optional `tests/tools/run_goap_asset_portable_checks.py` compiles authoring,
+prepared templates and observation dependency ordering with GCC ASan/UBSan. It
+uses inert runtime compiler callbacks and only entity aliases from EnTTHelpers;
+world-dependent composition/execution is not tested by this harness. It is separate
+from the cross-platform architecture checks and does not replace the MSVC module
+build or runtime GoogleTests. See `docs/architecture/goap-prepared-templates.md`
+for the snapshot/rebuild contract and relevant runtime suites.

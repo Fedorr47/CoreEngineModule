@@ -11,6 +11,7 @@ module;
 export module core:gameplay_goap_spatial_components;
 
 import :gameplay_goap_composition_registry;
+export import :gameplay_goap_spatial_component_assets;
 import :gameplay;
 import :gameplay_object_reservation_system;
 
@@ -185,13 +186,13 @@ export namespace rendern
         {
             return std::make_unique<goap_spatial_detail::SpatialObservation>(asset, context);
         };
-        const bool available = registry.RegisterObservation("target_available", spatial);
-        const bool distance = registry.RegisterObservation("within_distance", spatial);
-        const bool location = registry.RegisterObservation("nearest_location", [](const auto& asset, const auto& context)
+        const bool available = registry.RegisterObservation<GameplayAISpatialObservationAsset>("target_available", ParseGameplayAISpatialObservation, spatial);
+        const bool distance = registry.RegisterObservation<GameplayAISpatialObservationAsset>("within_distance", ParseGameplayAISpatialObservation, spatial);
+        const bool location = registry.RegisterObservation<GameplayAINearestLocationAsset>("nearest_location", ParseGameplayAINearestLocation, [](const auto& asset, const auto& context)
         {
             return std::make_unique<goap_spatial_detail::NearestLocationObservation>(asset, context);
         });
-        const bool pickup = registry.RegisterObservation("pickup_available", [](const auto& asset, const auto& context)
+        const bool pickup = registry.RegisterObservation<GameplayAIPickupAvailabilityAsset>("pickup_available", ParseGameplayAIPickupAvailability, [](const auto& asset, const auto& context)
         {
             return std::make_unique<goap_spatial_detail::PickupAvailabilityObservation>(asset, context);
         });

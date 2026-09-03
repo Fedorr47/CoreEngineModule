@@ -52,6 +52,13 @@ def main():
         }
         assert not forbidden, f"{name} imports implementation modules: {sorted(forbidden)}"
 
+    for name in ("gameplay_ai_asset_parsing", "gameplay_ai_decision_asset",
+                 "gameplay_goap_decision_template", "gameplay_goap_observation_order"):
+        forbidden = dependencies(name) & {"gameplay", "ai_system", "level"}
+        assert not forbidden, f"{name} imports world implementation: {sorted(forbidden)}"
+        assert not any(dep.endswith(("_components", "_component_assets", "_move_to_component"))
+                       for dep in dependencies(name)), f"{name} depends on built-in component definitions"
+
     domain_prefixes = ("gameplay_ai_access_key", "gameplay_ai_target_recovery", "gameplay_ai_buy_key")
     for name in ("gameplay_goap_decision", "gameplay_goap_decision_setup",
                  "gameplay_goap_decision_instance", "gameplay_runtime"):

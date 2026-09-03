@@ -562,7 +562,13 @@ set(COMMON_MODULES
         Gameplay/AI/Composition/Components/GameplayGOAPResourceComponents.cppm
         Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponent.cppm
         Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm
+        Gameplay/AI/Composition/GameplayGOAPDecisionTemplate.cppm
+        Gameplay/AI/Composition/GameplayGOAPObservationOrder.cppm
         Gameplay/AI/GOAP/Authoring/GameplayAIDecisionAsset.cppm
+        Gameplay/AI/GOAP/Authoring/GameplayAIAssetParsing.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponentAssets.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPResourceComponentAssets.cppm
+        Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponentAssets.cppm
         Gameplay/Runtime/GameplaySceneSync.cppm
         Gameplay/Runtime/GameplayRuntime.cppm
         Gameplay/AI/Runtime/GameplayAIDecisionContracts.cppm

@@ -48,6 +48,17 @@ for name in generic:
     require(not re.search(r'AccessKey|TargetRecovery|GOAP_Recovery|marker_visit|access_key|target_recovery', source),
             f'{name}: scenario leaked into generic composition')
 
+# Component payload types belong to their modules, not to a closed generic variant.
+for name in ('GameplayAIDecisionAsset.cppm', 'GameplayAIAssetParsing.cppm'):
+    source = (SRC / 'Gameplay/AI/GOAP/Authoring' / name).read_text(encoding='utf-8-sig')
+    require('std::variant' not in source, f'{name}: closed component payload variant')
+    require(not re.search(r'"(?:move_to|purchase|resource_ledger|within_distance|hide_on_purchase)"', source),
+            f'{name}: concrete component dispatch leaked into generic authoring')
+composition = (SRC / 'Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm').read_text()
+creation = composition.split('CreateGameplayGOAPDecisionFromTemplate(', 1)[1].split('// One-shot composition', 1)[0]
+require(not re.search(r'(?:Load|Parse)GameplayAI|CompileGameplayGOAPDefinition', creation),
+        'Per-agent creation repeats immutable asset preparation')
+
 catalog = read_json(ASSETS / 'ai/decisions/catalog.json')
 ids = {entry['id'] for entry in catalog['decisions']}
 require(len(ids) == len(catalog['decisions']), 'Duplicate catalog decision id')

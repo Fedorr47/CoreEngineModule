@@ -484,7 +484,7 @@ TEST_P(GameplayAIDecisionPurchaseVisibility, AuthoredReactionControlsVisibilityA
     GameplayAIDecisionFactoryRegistry factories;
     ASSERT_TRUE(factories.Register("access_key", [hide = GetParam()](const auto& services)
     {
-        auto behavior = LoadGameplayAIBehaviorAsset("ai/behaviors/access_key.behavior.json");
+        auto behavior = LoadGameplayAIBehaviorAsset("ai/behaviors/access_key.behavior.json", MakeDefaultGameplayGOAPComponents().AssetParsers());
         if (!hide)
         {
             behavior.reactions.clear();

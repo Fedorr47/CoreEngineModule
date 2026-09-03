@@ -11,12 +11,13 @@ module;
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
+#include <any>
 #include <vector>
 
 export module core:gameplay_goap_resource_components;
 
 import :gameplay_goap_composition_registry;
+export import :gameplay_goap_resource_component_assets;
 import :gameplay;
 import :ai_action_binding;
 
@@ -45,7 +46,7 @@ namespace rendern::goap_resource_detail
         // Receipt IDs are unique across this behavior; subjects may be shared.
         for (const auto& observer : context.observations)
         {
-            const auto* ledger = std::get_if<GameplayAIResourceLedgerAsset>(&observer.parameters);
+            const auto* ledger = std::any_cast<GameplayAIResourceLedgerAsset>(&observer.parameters);
             if (ledger == nullptr)
             {
                 continue;
@@ -336,15 +337,15 @@ export namespace rendern
 {
     void RegisterGameplayGOAPResourceComponents(GameplayGOAPCompositionRegistry& registry)
     {
-        const bool ledger = registry.RegisterObservation("resource_ledger", [](const auto& asset, const auto& context)
+        const bool ledger = registry.RegisterObservation<GameplayAIResourceLedgerAsset>("resource_ledger", ParseGameplayAIResourceLedger, [](const auto& asset, const auto& context)
         {
             return std::make_unique<goap_resource_detail::ResourceLedgerObservation>(asset, context);
         });
-        const bool purchase = registry.RegisterCapability("purchase", kAIPurchaseActionId, [](auto assets, const auto& context)
+        const bool purchase = registry.RegisterCapability<GameplayAIPurchaseAsset>("purchase", kAIPurchaseActionId, ParseGameplayAIPurchase, [](auto assets, const auto& context)
         {
             return std::make_unique<goap_resource_detail::PurchaseCapability>(assets, context);
         });
-        const bool hide = registry.RegisterReaction("hide_on_purchase", [](const auto& asset, const auto& context)
+        const bool hide = registry.RegisterReaction<GameplayAIHideOnPurchaseAsset>("hide_on_purchase", ParseGameplayAIHideOnPurchase, [](const auto& asset, const auto& context)
         {
             return std::make_unique<goap_resource_detail::HideOnPurchaseReaction>(asset, context);
         });

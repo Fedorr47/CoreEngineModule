@@ -193,18 +193,18 @@ TEST(GameplayGOAPResources, DependencyOrderingMakesReceiptVisibleToGoalInSameUpd
 TEST(GameplayGOAPResources, InvalidReceiptsPriceAndDependenciesRejectBeforeStart)
 {
     Fixture fixture;
-    auto& ledger = std::get<GameplayAIResourceLedgerAsset>(fixture.behavior.observations.front().parameters);
+    auto& ledger = std::any_cast<GameplayAIResourceLedgerAsset&>(fixture.behavior.observations.front().parameters);
     ledger.receipts.front().price = 3;
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     ledger.receipts.front().price = 2;
     ledger.receipts.push_back(ledger.receipts.front());
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     ledger.receipts.pop_back();
-    auto& purchase = std::get<GameplayAIPurchaseAsset>(fixture.behavior.capabilities.back().parameters);
+    auto& purchase = std::any_cast<GameplayAIPurchaseAsset&>(fixture.behavior.capabilities.back().parameters);
     purchase.receipt = "unknown";
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     purchase.receipt = "unlock";
-    auto& goal = std::get<GameplayAISpatialObservationAsset>(fixture.behavior.observations.back().parameters);
+    auto& goal = std::any_cast<GameplayAISpatialObservationAsset&>(fixture.behavior.observations.back().parameters);
     goal.requiredFacts = {"atDestination"};
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     EXPECT_FALSE(fixture.ai.HasActiveAction(fixture.agent));
@@ -327,7 +327,7 @@ TEST(GameplayGOAPResources, JumpGraphRetainsCostsAnnotationsAndRunningRequest)
 TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
 {
     Fixture fixture;
-    auto& ledger = std::get<GameplayAIResourceLedgerAsset>(fixture.behavior.observations.front().parameters);
+    auto& ledger = std::any_cast<GameplayAIResourceLedgerAsset&>(fixture.behavior.observations.front().parameters);
     ledger.fact = "tokens";
     ledger.receipts.front().id = "permit";
     ledger.receipts.front().fact = "gatePass";
@@ -336,8 +336,8 @@ TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
     {
         pickup.amount = 2;
     }
-    std::get<GameplayAIPurchaseAsset>(fixture.behavior.capabilities.back().parameters).receipt = "permit";
-    std::get<GameplayAISpatialObservationAsset>(fixture.behavior.observations.back().parameters).requiredFacts = {"gatePass"};
+    std::any_cast<GameplayAIPurchaseAsset&>(fixture.behavior.capabilities.back().parameters).receipt = "permit";
+    std::any_cast<GameplayAISpatialObservationAsset&>(fixture.behavior.observations.back().parameters).requiredFacts = {"gatePass"};
     const auto rename = [](std::string& name)
     {
         if (name == "coins")
@@ -374,7 +374,7 @@ TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
             effect.value = effect.value < 0 ? -3 : 2;
         }
     }
-    std::get<GameplayAIHideOnPurchaseAsset>(fixture.behavior.reactions.front().parameters).receipt = "permit";
+    std::any_cast<GameplayAIHideOnPurchaseAsset&>(fixture.behavior.reactions.front().parameters).receipt = "permit";
     fixture.Refresh();
     auto decision = fixture.Create();
     ASSERT_NE(decision, nullptr);
@@ -394,7 +394,7 @@ TEST(GameplayGOAPResources, RenamedResourceAndDifferentPriceReuseTheSameRuntime)
 TEST(GameplayGOAPResources, SharedVendorDistinguishesReceiptsAndRejectsMissingIdentity)
 {
     Fixture fixture;
-    auto& ledger = std::get<GameplayAIResourceLedgerAsset>(fixture.behavior.observations.front().parameters);
+    auto& ledger = std::any_cast<GameplayAIResourceLedgerAsset&>(fixture.behavior.observations.front().parameters);
     ledger.receipts.push_back({"ammo", "shop", "hasAmmo", 1});
     fixture.definition.facts.push_back({"hasAmmo", GameplayGOAPFactType::Boolean});
     auto purchase = fixture.definition.actions.back();
@@ -413,7 +413,7 @@ TEST(GameplayGOAPResources, SharedVendorDistinguishesReceiptsAndRejectsMissingId
     fixture.definition.actions.push_back(purchase);
     auto capability = fixture.behavior.capabilities.back();
     capability.context = "buy_ammo";
-    std::get<GameplayAIPurchaseAsset>(capability.parameters).receipt = "ammo";
+    std::any_cast<GameplayAIPurchaseAsset&>(capability.parameters).receipt = "ammo";
     fixture.behavior.capabilities.push_back(capability);
     fixture.Refresh();
     auto decision = fixture.Create();
@@ -464,7 +464,7 @@ TEST(GameplayGOAPResources, ExplicitReactionCanHideAnotherEntityAndFiltersUnconf
 {
     Fixture fixture;
     auto& asset = fixture.behavior.reactions.front();
-    std::get<GameplayAIHideOnPurchaseAsset>(asset.parameters).target = "goal";
+    std::any_cast<GameplayAIHideOnPurchaseAsset&>(asset.parameters).target = "goal";
     auto reaction = (*fixture.components.Reaction(asset.type))(asset, fixture.Context());
     AIAgentWorldState facts;
     std::vector<GameplayWorldEvent> output;
@@ -496,7 +496,7 @@ TEST(GameplayGOAPResources, InvalidReactionRejectsEntireDecisionBeforeStart)
     reaction.type = "unknown_reaction";
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     reaction.type = "hide_on_purchase";
-    auto& parameters = std::get<GameplayAIHideOnPurchaseAsset>(reaction.parameters);
+    auto& parameters = std::any_cast<GameplayAIHideOnPurchaseAsset&>(reaction.parameters);
     parameters.receipt = "missing_receipt";
     EXPECT_THROW(fixture.Create(), std::runtime_error);
     parameters.receipt = "unlock";

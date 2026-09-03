@@ -89,6 +89,7 @@ add_executable(CoreEngineModuleTests
         "unit/GameplayTests/AI/TestGameplayAIDecision.cpp"
         "unit/GameplayTests/AI/TestGameplayAIAssetComposition.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPResourceComponents.cpp"
+        "unit/GameplayTests/AI/TestGameplayGOAPDecisionTemplate.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPDefinitionAsset.cpp"
         "unit/GameplayTests/AI/TestGameplayGOAPDefinitionCompiler.cpp"
         "unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp"

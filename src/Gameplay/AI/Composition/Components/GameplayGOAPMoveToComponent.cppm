@@ -16,6 +16,7 @@ module;
 export module core:gameplay_goap_move_to_component;
 
 import :gameplay_goap_composition_registry;
+export import :gameplay_goap_move_to_component_assets;
 import :gameplay;
 import :ai_move_to_action;
 import :ai_move_to_action_binding;
@@ -250,7 +251,7 @@ export namespace rendern
 {
     void RegisterGameplayGOAPMoveToComponent(GameplayGOAPCompositionRegistry& registry)
     {
-        if (!registry.RegisterCapability("move_to", kAIMoveToActionId, [](auto assets, const auto& context)
+        if (!registry.RegisterCapability<GameplayAIMoveToAsset>("move_to", kAIMoveToActionId, ParseGameplayAIMoveTo, [](auto assets, const auto& context)
             {
                 return std::make_unique<goap_move_detail::MoveToCapability>(assets, context);
             }))

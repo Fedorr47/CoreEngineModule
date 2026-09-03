@@ -4,7 +4,7 @@ module;
 #include <map>
 #include <memory>
 #include <optional>
-#include <variant>
+#include <any>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -39,6 +39,7 @@ export namespace rendern
         [[nodiscard]] virtual std::vector<AIWorldFactId> BooleanOutputs() const = 0;
         [[nodiscard]] virtual std::vector<AIWorldIntegerFactId> IntegerOutputs() const { return {}; }
         [[nodiscard]] virtual std::vector<AIWorldFactId> BooleanInputs() const { return {}; }
+        [[nodiscard]] virtual std::vector<AIWorldIntegerFactId> IntegerInputs() const { return {}; }
         virtual void Observe(const GameplayWorld& world, EntityHandle agent,
             std::span<const GameplayWorldEvent> events, AIAgentWorldState& facts) = 0;
 
@@ -97,7 +98,7 @@ export namespace rendern
         template<class T, class TAsset>
         [[nodiscard]] const T& Parameters(const TAsset& asset) const
         {
-            const auto* parameters = std::get_if<T>(&asset.parameters);
+            const auto* parameters = std::any_cast<T>(&asset.parameters);
             if (parameters == nullptr)
             {
                 Fail(asset.type, "incorrect typed parameters");
@@ -138,23 +139,42 @@ export namespace rendern
     class GameplayGOAPCompositionRegistry
     {
     public:
+        template<class T>
         [[nodiscard]] bool RegisterObservation(std::string_view type,
+            std::function<T(const GameplayAIComponentParseContext&)> parse,
             GameplayGOAPObservationCompiler compiler)
         {
-            if (type.empty() || !compiler)
+            if (type.empty() || !parse || !compiler || observations_.contains(type))
             {
                 return false;
             }
-            return observations_.emplace(std::string(type), std::move(compiler)).second;
+            auto parsers = parsers_;
+            if (!parsers.Register<T>(GameplayAIComponentKind::Observation, type, std::move(parse)))
+            {
+                return false;
+            }
+            observations_.emplace(std::string(type), std::move(compiler));
+            parsers_ = std::move(parsers);
+            return true;
         }
 
-        [[nodiscard]] bool RegisterReaction(std::string_view type, GameplayGOAPReactionCompiler compiler)
+        template<class T>
+        [[nodiscard]] bool RegisterReaction(std::string_view type,
+            std::function<T(const GameplayAIComponentParseContext&)> parse,
+            GameplayGOAPReactionCompiler compiler)
         {
-            if (type.empty() || !compiler)
+            if (type.empty() || !parse || !compiler || reactions_.contains(type))
             {
                 return false;
             }
-            return reactions_.emplace(std::string(type), std::move(compiler)).second;
+            auto parsers = parsers_;
+            if (!parsers.Register<T>(GameplayAIComponentKind::Reaction, type, std::move(parse)))
+            {
+                return false;
+            }
+            reactions_.emplace(std::string(type), std::move(compiler));
+            parsers_ = std::move(parsers);
+            return true;
         }
 
         [[nodiscard]] const GameplayGOAPReactionCompiler* Reaction(std::string_view type) const
@@ -163,10 +183,12 @@ export namespace rendern
             return found == reactions_.end() ? nullptr : &found->second;
         }
 
+        template<class T>
         [[nodiscard]] bool RegisterCapability(std::string_view type, AIActionId actionId,
+            std::function<T(const GameplayAIComponentParseContext&)> parse,
             GameplayGOAPCapabilityCompiler compiler)
         {
-            if (type.empty() || !actionId.IsValid() || !compiler)
+            if (type.empty() || !actionId.IsValid() || !parse || !compiler || capabilities_.contains(type))
             {
                 return false;
             }
@@ -177,9 +199,18 @@ export namespace rendern
                     return false;
                 }
             }
-            return capabilities_.emplace(std::string(type),
-                GameplayGOAPCapabilityRegistration{actionId, std::move(compiler)}).second;
+            auto parsers = parsers_;
+            if (!parsers.Register<T>(GameplayAIComponentKind::Capability, type, std::move(parse)))
+            {
+                return false;
+            }
+            capabilities_.emplace(std::string(type),
+                GameplayGOAPCapabilityRegistration{actionId, std::move(compiler)});
+            parsers_ = std::move(parsers);
+            return true;
         }
+
+        [[nodiscard]] const GameplayAIComponentParsers& AssetParsers() const noexcept { return parsers_; }
 
         [[nodiscard]] const GameplayGOAPObservationCompiler* Observation(std::string_view type) const
         {
@@ -204,6 +235,7 @@ export namespace rendern
         }
 
     private:
+        GameplayAIComponentParsers parsers_;
         std::map<std::string, GameplayGOAPObservationCompiler, std::less<>> observations_;
         std::map<std::string, GameplayGOAPReactionCompiler, std::less<>> reactions_;
         std::map<std::string, GameplayGOAPCapabilityRegistration, std::less<>> capabilities_;

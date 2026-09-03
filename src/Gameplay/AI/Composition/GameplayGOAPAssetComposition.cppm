@@ -1,7 +1,6 @@
 module;
 
 #include <algorithm>
-#include <bitset>
 #include <optional>
 #include <cmath>
 #include <exception>
@@ -17,7 +16,8 @@ module;
 
 export module core:gameplay_goap_asset_composition;
 
-export import :gameplay_goap_composition_registry;
+export import :gameplay_goap_decision_template;
+export import :gameplay_goap_observation_order;
 import :gameplay_ai_decision;
 import :gameplay_goap_decision_instance;
 import :gameplay_goap_definition_asset;
@@ -146,24 +146,15 @@ export namespace rendern
 {
     // Validation and provider construction finish before a decision can start tasks.
     // Model orchestration remains in GameplayGOAPDecisionInstance.
-    [[nodiscard]] std::unique_ptr<GameplayAIDecisionInstance> CreateGameplayGOAPDecisionFromAssets(
-        const GameplayAIDecisionCreationContext& services,
-        const GameplayAIBehaviorAsset& behavior,
-        const GameplayAILevelBindingsAsset& bindings,
-        const GameplayGOAPDefinitionAsset& definition,
-        const GameplayGOAPCompositionRegistry& registry,
-        const GameplayAIRouteGraphAsset* routeGraph = nullptr)
+    [[nodiscard]] std::unique_ptr<GameplayAIDecisionInstance> CreateGameplayGOAPDecisionFromTemplate(
+        const GameplayAIDecisionCreationContext& services, const GameplayGOAPDecisionTemplate& prepared)
     {
         using namespace goap_asset_composition_detail;
-        if (behavior.model != "goap")
-        {
-            Invalid(behavior.source, "unknown decision model '" + behavior.model + "'");
-        }
-        if (!behavior.routeGraph.empty() && routeGraph == nullptr)
-        {
-            Invalid(behavior.source, "missing authored route graph input");
-        }
-        auto compiled = CompileGameplayGOAPDefinition(definition, registry.SemanticActions());
+        const auto& behavior = prepared.Behavior();
+        const auto& bindings = prepared.Bindings();
+        const auto& registry = prepared.Components();
+        const auto& compiled = prepared.Compiled();
+        const auto* routeGraph = prepared.RouteGraph();
         const auto roles = ResolveRoles(bindings, services);
         const GameplayGOAPCompositionContext context{services, compiled, roles, behavior.source,
             behavior.observations, routeGraph, &bindings};
@@ -177,8 +168,6 @@ export namespace rendern
             domain = std::make_unique<ComposedContext>(services.agent);
         }
         std::vector<std::unique_ptr<IGameplayGOAPObservation>> pendingObservers;
-        std::bitset<AIAgentWorldState::FactCapacity> booleanWriters;
-        std::bitset<AIAgentWorldState::IntegerFactCapacity> integerWriters;
         for (const auto& asset : behavior.observations)
         {
             const auto* compiler = registry.Observation(asset.type);
@@ -191,82 +180,10 @@ export namespace rendern
             {
                 context.Fail(asset.type, "observation compiler returned no provider");
             }
-            for (const auto fact : observer->BooleanOutputs())
-            {
-                if (fact.index >= compiled.definition.metadata.booleanFacts.size() || booleanWriters.test(fact.index))
-                {
-                    context.Fail(asset.type, "unknown fact or multiple observation writers");
-                }
-                booleanWriters.set(fact.index);
-            }
-            for (const auto fact : observer->IntegerOutputs())
-            {
-                if (fact.index >= compiled.definition.metadata.integerFacts.size() || integerWriters.test(fact.index))
-                {
-                    context.Fail(asset.type, "unknown fact or multiple observation writers");
-                }
-                integerWriters.set(fact.index);
-            }
             pendingObservers.push_back(std::move(observer));
         }
-        if (booleanWriters.count() != compiled.definition.metadata.booleanFacts.size()
-            || integerWriters.count() != compiled.definition.metadata.integerFacts.size())
-        {
-            context.Fail("observations", "fact has no observation writer");
-        }
-        // Stable dependency order makes derived observations independent of asset order.
-        std::bitset<AIAgentWorldState::FactCapacity> ready;
-        while (!pendingObservers.empty())
-        {
-            const auto next = std::ranges::find_if(pendingObservers, [&](const auto& observer)
-            {
-                return std::ranges::all_of(observer->BooleanInputs(), [&](const auto fact)
-                {
-                    return fact.index < ready.size() && ready.test(fact.index);
-                });
-            });
-            if (next == pendingObservers.end())
-            {
-                context.Fail("observations", "cyclic or unresolved observation dependencies");
-            }
-            for (const auto fact : (*next)->BooleanOutputs())
-            {
-                ready.set(fact.index);
-            }
-            domain->observations.push_back(std::move(*next));
-            pendingObservers.erase(next);
-        }
+        domain->observations = OrderGameplayGOAPObservations(std::move(pendingObservers), compiled, behavior.source);
 
-        std::set<std::string> boundContexts;
-        std::map<std::string, std::vector<GameplayAICapabilityAsset>> groups;
-        for (const auto& asset : behavior.capabilities)
-        {
-            const auto* registration = registry.Capability(asset.type);
-            if (registration == nullptr)
-            {
-                context.Fail(asset.context, "unknown capability '" + asset.type + "'");
-            }
-            if (!boundContexts.insert(asset.context).second)
-            {
-                context.Fail(asset.context, "multiple capability bindings");
-            }
-            const auto authored = std::ranges::find_if(definition.actions, [&](const auto& action)
-            {
-                return action.context == asset.context;
-            });
-            if (authored == definition.actions.end() || authored->action != asset.type)
-            {
-                context.Fail(asset.context, "capability does not match a definition action/context");
-            }
-            groups[asset.type].push_back(asset);
-        }
-        for (const auto& action : definition.actions)
-        {
-            if (!boundContexts.contains(action.context))
-            {
-                context.Fail(action.context, "action context has no capability binding");
-            }
-        }
         GameplayGOAPDecisionSetup setup;
         for (const auto& asset : behavior.reactions)
         {
@@ -283,9 +200,11 @@ export namespace rendern
             setup.eventReactions.push_back(std::move(reaction));
         }
         std::vector<GameplayGOAPActionCostOverride> costOverrides;
-        for (const auto& [type, assets] : groups)
+        for (const auto& group : prepared.Capabilities())
         {
-            const auto& registration = *registry.Capability(type);
+            const auto& type = group.type;
+            const auto& assets = group.assets;
+            const auto& registration = group.registration;
             auto provider = registration.compile(assets, context);
             if (!provider)
             {
@@ -305,8 +224,7 @@ export namespace rendern
             }
             domain->capabilities.push_back(std::move(provider));
         }
-        setup.definition = costOverrides.empty() ? std::move(compiled.definition)
-            : CompileGameplayGOAPDefinition(definition, registry.SemanticActions(), costOverrides).definition;
+        setup.definition = prepared.InstanceDefinition(costOverrides);
         setup.context = std::move(domain);
         auto decision = CreateGameplayGOAPDecision(services.agent, std::move(setup));
         if (!decision)
@@ -316,45 +234,76 @@ export namespace rendern
         return decision;
     }
 
-    // Registration is transactional. Each creation loads fresh content; the catalog
-    // is fixed for this registry's lifetime. Captures own paths and compiler callbacks.
+    // One-shot composition for callers editing authored data directly. Catalog
+    // factories prepare once instead and use CreateGameplayGOAPDecisionFromTemplate.
+    [[nodiscard]] std::unique_ptr<GameplayAIDecisionInstance> CreateGameplayGOAPDecisionFromAssets(
+        const GameplayAIDecisionCreationContext& services, const GameplayAIBehaviorAsset& behavior,
+        const GameplayAILevelBindingsAsset& bindings, const GameplayGOAPDefinitionAsset& definition,
+        const GameplayGOAPCompositionRegistry& registry, const GameplayAIRouteGraphAsset* graph = nullptr)
+    {
+        const GameplayGOAPDecisionTemplate prepared{behavior, bindings, definition, registry,
+            graph ? std::optional{*graph} : std::nullopt};
+        return CreateGameplayGOAPDecisionFromTemplate(services, prepared);
+    }
+
+    // Registration prepares a complete immutable snapshot before publishing any
+    // factory. Copies of the factory registry share templates, never agent state.
+    // Rebuild the registry to load asset edits; active decisions remain independent.
     void RegisterGameplayAIDecisionAssets(GameplayAIDecisionFactoryRegistry& destination,
         const GameplayAIDecisionCatalogAsset& catalog, const GameplayGOAPCompositionRegistry& components)
     {
-        auto pending = destination;
+        std::set<std::string> ids;
         for (const auto& reference : catalog.decisions)
         {
+            if (reference.id.empty() || destination.Contains(reference.id) || !ids.insert(reference.id).second)
+            {
+                goap_asset_composition_detail::Invalid(catalog.source, "empty or duplicate decision id '" + reference.id + "'");
+            }
             if (reference.behavior.empty() || reference.bindings.empty())
             {
                 goap_asset_composition_detail::Invalid(catalog.source, "empty asset reference for '" + reference.id + "'");
             }
+        }
+        auto pending = destination;
+        for (const auto& reference : catalog.decisions)
+        {
+            const auto diagnosticPrefix = "Decision '" + reference.id + "' (behavior '"
+                + reference.behavior + "', bindings '" + reference.bindings + "'): ";
+            std::shared_ptr<const GameplayGOAPDecisionTemplate> prepared;
+            try
+            {
+                auto behavior = LoadGameplayAIBehaviorAsset(reference.behavior, components.AssetParsers());
+                auto bindings = LoadGameplayAILevelBindingsAsset(reference.bindings);
+                const auto definition = LoadGameplayGOAPDefinitionAsset(behavior.definition);
+                auto graph = behavior.routeGraph.empty() ? std::optional<GameplayAIRouteGraphAsset>{}
+                    : std::optional{LoadGameplayAIRouteGraphAsset(behavior.routeGraph)};
+                prepared = std::make_shared<const GameplayGOAPDecisionTemplate>(std::move(behavior),
+                    std::move(bindings), definition, components, std::move(graph));
+            }
+            catch (const std::exception& error)
+            {
+                goap_asset_composition_detail::Invalid(catalog.source, diagnosticPrefix + error.what());
+            }
             const bool registered = pending.Register(reference.id,
-                [reference, components](const GameplayAIDecisionCreationContext& context)
+                [prepared = std::move(prepared), diagnosticPrefix](const GameplayAIDecisionCreationContext& context)
                     -> std::unique_ptr<GameplayAIDecisionInstance>
                 {
                     try
                     {
-                        const auto behavior = LoadGameplayAIBehaviorAsset(reference.behavior);
-                        const auto bindings = LoadGameplayAILevelBindingsAsset(reference.bindings);
-                        const auto definition = LoadGameplayGOAPDefinitionAsset(behavior.definition);
-                        const auto graph = behavior.routeGraph.empty() ? std::optional<GameplayAIRouteGraphAsset>{}
-                            : std::optional{LoadGameplayAIRouteGraphAsset(behavior.routeGraph)};
-                        return CreateGameplayGOAPDecisionFromAssets(context, behavior, bindings, definition, components,
-                            graph ? &*graph : nullptr);
+                        return CreateGameplayGOAPDecisionFromTemplate(context, *prepared);
                     }
                     catch (const std::exception& error)
                     {
                         if (context.diagnostic != nullptr)
                         {
-                            *context.diagnostic = "Decision '" + reference.id + "' (behavior '"
-                                + reference.behavior + "', bindings '" + reference.bindings + "'): " + error.what();
+                            *context.diagnostic = diagnosticPrefix + error.what();
                         }
                         return nullptr;
                     }
                 });
             if (!registered)
             {
-                goap_asset_composition_detail::Invalid(catalog.source, "empty or duplicate decision id '" + reference.id + "'");
+                goap_asset_composition_detail::Invalid(catalog.source, "duplicate decision id '" + reference.id + "'");
             }
         }
         destination = std::move(pending);
