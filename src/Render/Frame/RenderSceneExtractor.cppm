@@ -13,7 +13,7 @@ export namespace rendern
     public:
         [[nodiscard]] static RenderFrameView BuildFrameView(const Scene& scene)
         {
-            return RenderFrameView(
+            const RenderWorldView world(
                 scene.camera,
                 scene.materials,
                 scene.drawItems,
@@ -21,7 +21,8 @@ export namespace rendern
                 scene.lights,
                 scene.particles,
                 scene.particleEmitters,
-                scene.skyboxDescIndex,
+                scene.skyboxDescIndex);
+            const RenderDebugView debug(
                 scene.debugPickRay,
                 scene.gameplayMovementDebug,
                 scene.externalDebugLines,
@@ -29,7 +30,8 @@ export namespace rendern
                 scene.externalDebugCapsules,
                 scene.externalDebugArrows,
                 scene.externalDebugBoxes,
-                scene.externalDebugSpheres,
+                scene.externalDebugSpheres);
+            const RenderEditorView editor(
                 scene.editorSelectedLights,
                 scene.editorSelectedParticleEmitter,
                 scene.editorSelectedDrawItems,
@@ -39,7 +41,12 @@ export namespace rendern
                 scene.editorGizmoMode,
                 scene.editorTranslateGizmo,
                 scene.editorRotateGizmo,
-                scene.editorScaleGizmo,
+                scene.editorScaleGizmo);
+
+            return RenderFrameView(
+                world,
+                debug,
+                editor,
                 BuildAnimationRuntimeOverlaySnapshot(scene));
         }
     private:

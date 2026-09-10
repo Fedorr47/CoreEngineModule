@@ -40,13 +40,10 @@ export namespace rendern
             return samples.empty();
         }
     };
-    
-    // Non-owning synchronous frame view. Every borrowed reference/span must
-    // remain valid for the immediate RenderFrame call. Do not queue, retain,
-    // or consume this view asynchronously.
-    struct RenderFrameView
+
+    struct RenderWorldView
     {
-        RenderFrameView(
+        RenderWorldView(
             const Camera& camera,
             std::span<const Material> materials,
             std::span<const DrawItem> drawItems,
@@ -54,26 +51,7 @@ export namespace rendern
             std::span<const Light> lights,
             std::span<const Particle> particles,
             std::span<const ParticleEmitter> particleEmitters,
-            rhi::TextureDescIndex skyboxDescIndex,
-            const DebugRay& debugPickRay,
-            const GameplayMovementDebugState& gameplayMovementDebug,
-            std::span<const ExternalDebugLine> externalDebugLines,
-            std::span<const ExternalDebugTriangle> externalDebugTriangles,
-            std::span<const ExternalDebugCapsule> externalDebugCapsules,
-            std::span<const ExternalDebugArrow> externalDebugArrows,
-            std::span<const ExternalDebugBox> externalDebugBoxes,
-            std::span<const ExternalDebugSphere> externalDebugSpheres,
-            std::span<const int> editorSelectedLights,
-            int editorSelectedParticleEmitter,
-            std::span<const int> editorSelectedDrawItems,
-            std::span<const int> editorSelectedSkinnedDrawItems,
-            bool editorDrawSelectedSkinnedSkeleton,
-            bool editorDrawSelectedSkinnedBounds,
-            GizmoMode editorGizmoMode,
-            const TranslateGizmoState& editorTranslateGizmo,
-            const RotateGizmoState& editorRotateGizmo,
-            const ScaleGizmoState& editorScaleGizmo,
-            AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot)
+            rhi::TextureDescIndex skyboxDescIndex) noexcept
             : camera_(&camera)
             , materials_(materials)
             , drawItems_(drawItems)
@@ -82,25 +60,6 @@ export namespace rendern
             , particles_(particles)
             , particleEmitters_(particleEmitters)
             , skyboxDescIndex_(skyboxDescIndex)
-            , debugPickRay_(&debugPickRay)
-            , gameplayMovementDebug_(&gameplayMovementDebug)
-            , externalDebugLines_(externalDebugLines)
-            , externalDebugTriangles_(externalDebugTriangles)
-            , externalDebugCapsules_(externalDebugCapsules)
-            , externalDebugArrows_(externalDebugArrows)
-            , externalDebugBoxes_(externalDebugBoxes)
-            , externalDebugSpheres_(externalDebugSpheres)
-            , editorSelectedLights_(editorSelectedLights)
-            , editorSelectedParticleEmitter_(editorSelectedParticleEmitter)
-            , editorSelectedDrawItems_(editorSelectedDrawItems)
-            , editorSelectedSkinnedDrawItems_(editorSelectedSkinnedDrawItems)
-            , editorDrawSelectedSkinnedSkeleton_(editorDrawSelectedSkinnedSkeleton)
-            , editorDrawSelectedSkinnedBounds_(editorDrawSelectedSkinnedBounds)
-            , editorGizmoMode_(editorGizmoMode)
-            , editorTranslateGizmo_(&editorTranslateGizmo)
-            , editorRotateGizmo_(&editorRotateGizmo)
-            , editorScaleGizmo_(&editorScaleGizmo)
-            , animationRuntimeOverlaySnapshot_(std::move(animationRuntimeOverlaySnapshot))
         {
         }
 
@@ -112,24 +71,6 @@ export namespace rendern
         [[nodiscard]] std::span<const Particle> GetParticles() const noexcept { return particles_; }
         [[nodiscard]] std::span<const ParticleEmitter> GetParticleEmitters() const noexcept { return particleEmitters_; }
         [[nodiscard]] rhi::TextureDescIndex GetSkyboxDescIndex() const noexcept { return skyboxDescIndex_; }
-        [[nodiscard]] const DebugRay& GetDebugPickRay() const noexcept { return *debugPickRay_; }
-        [[nodiscard]] const GameplayMovementDebugState& GetGameplayMovementDebug() const noexcept { return *gameplayMovementDebug_; }
-        [[nodiscard]] std::span<const ExternalDebugLine> GetExternalDebugLines() const noexcept { return externalDebugLines_; }
-        [[nodiscard]] std::span<const ExternalDebugTriangle> GetExternalDebugTriangles() const noexcept { return externalDebugTriangles_; }
-        [[nodiscard]] std::span<const ExternalDebugCapsule> GetExternalDebugCapsules() const noexcept { return externalDebugCapsules_; }
-        [[nodiscard]] std::span<const ExternalDebugArrow> GetExternalDebugArrows() const noexcept { return externalDebugArrows_; }
-        [[nodiscard]] std::span<const ExternalDebugBox> GetExternalDebugBoxes() const noexcept { return externalDebugBoxes_; }
-        [[nodiscard]] std::span<const ExternalDebugSphere> GetExternalDebugSpheres() const noexcept { return externalDebugSpheres_; }
-        [[nodiscard]] std::span<const int> GetEditorSelectedLights() const noexcept { return editorSelectedLights_; }
-        [[nodiscard]] int GetEditorSelectedParticleEmitter() const noexcept { return editorSelectedParticleEmitter_; }
-        [[nodiscard]] std::span<const int> GetEditorSelectedDrawItems() const noexcept { return editorSelectedDrawItems_; }
-        [[nodiscard]] std::span<const int> GetEditorSelectedSkinnedDrawItems() const noexcept { return editorSelectedSkinnedDrawItems_; }
-        [[nodiscard]] bool GetEditorDrawSelectedSkinnedSkeleton() const noexcept { return editorDrawSelectedSkinnedSkeleton_; }
-        [[nodiscard]] bool GetEditorDrawSelectedSkinnedBounds() const noexcept { return editorDrawSelectedSkinnedBounds_; }
-        [[nodiscard]] GizmoMode GetEditorGizmoMode() const noexcept { return editorGizmoMode_; }
-        [[nodiscard]] const TranslateGizmoState& GetEditorTranslateGizmo() const noexcept { return *editorTranslateGizmo_; }
-        [[nodiscard]] const RotateGizmoState& GetEditorRotateGizmo() const noexcept { return *editorRotateGizmo_; }
-        [[nodiscard]] const ScaleGizmoState& GetEditorScaleGizmo() const noexcept { return *editorScaleGizmo_; }
 
         [[nodiscard]] const Material& GetMaterial(MaterialHandle handle) const
         {
@@ -139,12 +80,7 @@ export namespace rendern
             }
             return materials_[handle.id - 1];
         }
-        
-        [[nodiscard]] const AnimationRuntimeOverlaySnapshot& GetAnimationRuntimeOverlaySnapshot() const noexcept
-        {
-            return animationRuntimeOverlaySnapshot_;
-        }
-    
+
     private:
         const Camera* camera_;
         std::span<const Material> materials_;
@@ -154,24 +90,130 @@ export namespace rendern
         std::span<const Particle> particles_;
         std::span<const ParticleEmitter> particleEmitters_;
         rhi::TextureDescIndex skyboxDescIndex_;
-        const DebugRay* debugPickRay_;
-        const GameplayMovementDebugState* gameplayMovementDebug_;
-        std::span<const ExternalDebugLine> externalDebugLines_;
-        std::span<const ExternalDebugTriangle> externalDebugTriangles_;
-        std::span<const ExternalDebugCapsule> externalDebugCapsules_;
-        std::span<const ExternalDebugArrow> externalDebugArrows_;
-        std::span<const ExternalDebugBox> externalDebugBoxes_;
-        std::span<const ExternalDebugSphere> externalDebugSpheres_;
-        std::span<const int> editorSelectedLights_;
-        int editorSelectedParticleEmitter_;
-        std::span<const int> editorSelectedDrawItems_;
-        std::span<const int> editorSelectedSkinnedDrawItems_;
-        bool editorDrawSelectedSkinnedSkeleton_;
-        bool editorDrawSelectedSkinnedBounds_;
-        GizmoMode editorGizmoMode_;
-        const TranslateGizmoState* editorTranslateGizmo_;
-        const RotateGizmoState* editorRotateGizmo_;
-        const ScaleGizmoState* editorScaleGizmo_;
+    };
+
+    struct RenderDebugView
+    {
+        RenderDebugView(
+            const DebugRay& pickRay,
+            const GameplayMovementDebugState& gameplayMovement,
+            std::span<const ExternalDebugLine> lines,
+            std::span<const ExternalDebugTriangle> triangles,
+            std::span<const ExternalDebugCapsule> capsules,
+            std::span<const ExternalDebugArrow> arrows,
+            std::span<const ExternalDebugBox> boxes,
+            std::span<const ExternalDebugSphere> spheres) noexcept
+            : pickRay_(&pickRay)
+            , gameplayMovement_(&gameplayMovement)
+            , lines_(lines)
+            , triangles_(triangles)
+            , capsules_(capsules)
+            , arrows_(arrows)
+            , boxes_(boxes)
+            , spheres_(spheres)
+        {
+        }
+
+        [[nodiscard]] const DebugRay& GetPickRay() const noexcept { return *pickRay_; }
+        [[nodiscard]] const GameplayMovementDebugState& GetGameplayMovement() const noexcept { return *gameplayMovement_; }
+        [[nodiscard]] std::span<const ExternalDebugLine> GetLines() const noexcept { return lines_; }
+        [[nodiscard]] std::span<const ExternalDebugTriangle> GetTriangles() const noexcept { return triangles_; }
+        [[nodiscard]] std::span<const ExternalDebugCapsule> GetCapsules() const noexcept { return capsules_; }
+        [[nodiscard]] std::span<const ExternalDebugArrow> GetArrows() const noexcept { return arrows_; }
+        [[nodiscard]] std::span<const ExternalDebugBox> GetBoxes() const noexcept { return boxes_; }
+        [[nodiscard]] std::span<const ExternalDebugSphere> GetSpheres() const noexcept { return spheres_; }
+
+    private:
+        const DebugRay* pickRay_;
+        const GameplayMovementDebugState* gameplayMovement_;
+        std::span<const ExternalDebugLine> lines_;
+        std::span<const ExternalDebugTriangle> triangles_;
+        std::span<const ExternalDebugCapsule> capsules_;
+        std::span<const ExternalDebugArrow> arrows_;
+        std::span<const ExternalDebugBox> boxes_;
+        std::span<const ExternalDebugSphere> spheres_;
+    };
+
+    struct RenderEditorView
+    {
+        RenderEditorView(
+            std::span<const int> selectedLights,
+            int selectedParticleEmitter,
+            std::span<const int> selectedDrawItems,
+            std::span<const int> selectedSkinnedDrawItems,
+            bool drawSelectedSkinnedSkeleton,
+            bool drawSelectedSkinnedBounds,
+            GizmoMode gizmoMode,
+            const TranslateGizmoState& translateGizmo,
+            const RotateGizmoState& rotateGizmo,
+            const ScaleGizmoState& scaleGizmo) noexcept
+            : selectedLights_(selectedLights)
+            , selectedParticleEmitter_(selectedParticleEmitter)
+            , selectedDrawItems_(selectedDrawItems)
+            , selectedSkinnedDrawItems_(selectedSkinnedDrawItems)
+            , drawSelectedSkinnedSkeleton_(drawSelectedSkinnedSkeleton)
+            , drawSelectedSkinnedBounds_(drawSelectedSkinnedBounds)
+            , gizmoMode_(gizmoMode)
+            , translateGizmo_(&translateGizmo)
+            , rotateGizmo_(&rotateGizmo)
+            , scaleGizmo_(&scaleGizmo)
+        {
+        }
+
+        [[nodiscard]] std::span<const int> GetSelectedLights() const noexcept { return selectedLights_; }
+        [[nodiscard]] int GetSelectedParticleEmitter() const noexcept { return selectedParticleEmitter_; }
+        [[nodiscard]] std::span<const int> GetSelectedDrawItems() const noexcept { return selectedDrawItems_; }
+        [[nodiscard]] std::span<const int> GetSelectedSkinnedDrawItems() const noexcept { return selectedSkinnedDrawItems_; }
+        [[nodiscard]] bool GetDrawSelectedSkinnedSkeleton() const noexcept { return drawSelectedSkinnedSkeleton_; }
+        [[nodiscard]] bool GetDrawSelectedSkinnedBounds() const noexcept { return drawSelectedSkinnedBounds_; }
+        [[nodiscard]] GizmoMode GetGizmoMode() const noexcept { return gizmoMode_; }
+        [[nodiscard]] const TranslateGizmoState& GetTranslateGizmo() const noexcept { return *translateGizmo_; }
+        [[nodiscard]] const RotateGizmoState& GetRotateGizmo() const noexcept { return *rotateGizmo_; }
+        [[nodiscard]] const ScaleGizmoState& GetScaleGizmo() const noexcept { return *scaleGizmo_; }
+
+    private:
+        std::span<const int> selectedLights_;
+        int selectedParticleEmitter_;
+        std::span<const int> selectedDrawItems_;
+        std::span<const int> selectedSkinnedDrawItems_;
+        bool drawSelectedSkinnedSkeleton_;
+        bool drawSelectedSkinnedBounds_;
+        GizmoMode gizmoMode_;
+        const TranslateGizmoState* translateGizmo_;
+        const RotateGizmoState* rotateGizmo_;
+        const ScaleGizmoState* scaleGizmo_;
+    };
+
+    // RenderFrameView and its nested views are non-owning synchronous views.
+    // Every borrowed reference/span must remain valid for the immediate
+    // RenderFrame call. Do not queue, retain, cache, or consume them
+    // asynchronously.
+    struct RenderFrameView
+    {
+        RenderFrameView(
+            RenderWorldView world,
+            RenderDebugView debug,
+            RenderEditorView editor,
+            AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot)
+            : world_(world)
+            , debug_(debug)
+            , editor_(editor)
+            , animationRuntimeOverlaySnapshot_(std::move(animationRuntimeOverlaySnapshot))
+        {
+        }
+
+        [[nodiscard]] const RenderWorldView& GetWorld() const noexcept { return world_; }
+        [[nodiscard]] const RenderDebugView& GetDebug() const noexcept { return debug_; }
+        [[nodiscard]] const RenderEditorView& GetEditor() const noexcept { return editor_; }
+        [[nodiscard]] const AnimationRuntimeOverlaySnapshot& GetAnimationRuntimeOverlaySnapshot() const noexcept
+        {
+            return animationRuntimeOverlaySnapshot_;
+        }
+
+    private:
+        RenderWorldView world_;
+        RenderDebugView debug_;
+        RenderEditorView editor_;
         AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot_{};
     };
 }

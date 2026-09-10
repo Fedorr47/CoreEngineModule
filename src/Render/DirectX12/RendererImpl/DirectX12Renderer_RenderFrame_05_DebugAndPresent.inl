@@ -1,29 +1,29 @@
 // Debug primitives (no ImGui dependency) - rendered in the main view.
 debugDraw::DebugDrawList debugList;
 debugText::DebugTextList textList;
-for (const ExternalDebugTriangle& triangle : frameView.GetExternalDebugTriangles())
+for (const ExternalDebugTriangle& triangle : debug.GetTriangles())
 {
 	debugList.AddTriangle(triangle.a, triangle.b, triangle.c,
 		triangle.rgbaA, triangle.rgbaB, triangle.rgbaC);
 }
-for (const ExternalDebugLine& line : frameView.GetExternalDebugLines())
+for (const ExternalDebugLine& line : debug.GetLines())
 {
 	debugList.AddLine(line.start, line.end, line.rgba);
 }
-for (const ExternalDebugCapsule& capsule : frameView.GetExternalDebugCapsules())
+for (const ExternalDebugCapsule& capsule : debug.GetCapsules())
 {
 	debugList.AddWireCapsule(capsule.center, capsule.rotationQuaternion,
 		capsule.radius, capsule.cylinderHeight, capsule.rgba);
 }
-for (const ExternalDebugBox& box : frameView.GetExternalDebugBoxes())
+for (const ExternalDebugBox& box : debug.GetBoxes())
 {
 	debugList.AddWireBox(box.center, box.halfExtents, box.rotationQuaternion, box.rgba);
 }
-for (const ExternalDebugSphere& sphere : frameView.GetExternalDebugSpheres())
+for (const ExternalDebugSphere& sphere : debug.GetSpheres())
 {
 	debugList.AddWireSphere(sphere.center, sphere.radius, sphere.rgba);
 }
-for (const ExternalDebugArrow& arrow : frameView.GetExternalDebugArrows())
+for (const ExternalDebugArrow& arrow : debug.GetArrows())
 {
 	debugList.AddArrow(arrow.start, arrow.end, arrow.rgba);
 }

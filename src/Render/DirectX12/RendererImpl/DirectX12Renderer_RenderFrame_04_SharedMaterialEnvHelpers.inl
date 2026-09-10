@@ -16,7 +16,7 @@ auto ResolveMainPassMaterialPerm = [&](const auto& material, const auto& materia
 		MaterialPerm perm = MaterialPerm::UseShadow;
 		if (materialHandle.id != 0)
 		{
-			perm = EffectivePerm(frameView.GetMaterial(materialHandle));
+			perm = EffectivePerm(world.GetMaterial(materialHandle));
 		}
 		else if (material.albedoDescIndex != 0)
 		{
@@ -35,7 +35,7 @@ auto ResolveOpaqueEnvBinding = [&](const auto& materialHandle, int reflectionPro
 			return env;
 		}
 
-		const auto& mat = frameView.GetMaterial(materialHandle);
+		const auto& mat = world.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || !settings_.enableReflectionCapture)
 		{
 			return env;
@@ -69,7 +69,7 @@ auto ResolveTransparentEnvBinding = [&](const auto& materialHandle) -> ResolvedM
 			return env;
 		}
 
-		const auto& mat = frameView.GetMaterial(materialHandle);
+		const auto& mat = world.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || !settings_.enableReflectionCapture)
 		{
 			return env;

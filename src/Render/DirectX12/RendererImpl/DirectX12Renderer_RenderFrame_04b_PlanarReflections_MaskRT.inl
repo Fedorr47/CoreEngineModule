@@ -263,7 +263,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						MaterialPerm perm = MaterialPerm::UseShadow;
 						if (batch.materialHandle.id != 0)
 						{
-							perm = EffectivePerm(frameView.GetMaterial(batch.materialHandle));
+							perm = EffectivePerm(world.GetMaterial(batch.materialHandle));
 						}
 						else if (batch.material.albedoDescIndex != 0)
 						{
@@ -291,7 +291,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						rhi::TextureHandle envArrayTexture{};
 						if (batch.materialHandle.id != 0)
 						{
-							const auto& mat = frameView.GetMaterial(batch.materialHandle);
+							const auto& mat = world.GetMaterial(batch.materialHandle);
 							if (mat.envSource == EnvSource::ReflectionCapture && settings_.enableReflectionCapture)
 							{
 								if (batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())

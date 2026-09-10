@@ -184,7 +184,7 @@
 				MaterialPerm perm = MaterialPerm::None;
 				if (batch.materialHandle.id != 0)
 				{
-					perm = EffectivePerm(frameView.GetMaterial(batch.materialHandle));
+					perm = EffectivePerm(world.GetMaterial(batch.materialHandle));
 				}
 				else
 				{
@@ -311,7 +311,7 @@
 				MaterialPerm perm = MaterialPerm::None;
 				if (draw.materialHandle.id != 0)
 				{
-					perm = EffectivePerm(frameView.GetMaterial(draw.materialHandle));
+					perm = EffectivePerm(world.GetMaterial(draw.materialHandle));
 				}
 				else if (draw.material.albedoDescIndex != 0)
 				{

@@ -46,10 +46,12 @@ export namespace rendern
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView)
 		{
-			const Camera& camera = frameView.GetCamera();
-			const auto drawItems = frameView.GetDrawItems();
-			const auto editorSelectedDrawItems = frameView.GetEditorSelectedDrawItems();
-			const auto skyboxDescIndex = frameView.GetSkyboxDescIndex();
+			const RenderWorldView& world = frameView.GetWorld();
+			const RenderEditorView& editor = frameView.GetEditor();
+			const Camera& camera = world.GetCamera();
+			const auto drawItems = world.GetDrawItems();
+			const auto editorSelectedDrawItems = editor.GetSelectedDrawItems();
+			const auto skyboxDescIndex = world.GetSkyboxDescIndex();
 			renderGraph::RenderGraph graph;
 
 			rhi::ClearDesc clearDesc{};
@@ -62,7 +64,7 @@ export namespace rendern
 			graph.AddSwapChainPass(
 				"MainPass",
 				clearDesc,
-				[this, &frameView, &camera, drawItems, editorSelectedDrawItems, skyboxDescIndex](renderGraph::PassContext& ctx)
+				[this, &world, &camera, drawItems, editorSelectedDrawItems, skyboxDescIndex](renderGraph::PassContext& ctx)
 				{
 					const auto extent = ctx.passExtent;
 
@@ -200,7 +202,7 @@ export namespace rendern
 						MaterialParams mat{};
 						if (item.material.id != 0)
 						{
-							mat = frameView.GetMaterial(item.material).params;
+							mat = world.GetMaterial(item.material).params;
 						}
 						else
 						{

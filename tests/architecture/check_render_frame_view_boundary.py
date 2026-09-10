@@ -25,6 +25,25 @@ def main():
         if re.search(pattern, frame_view):
             violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
 
+    for view_type in ("RenderWorldView", "RenderDebugView", "RenderEditorView"):
+        if not re.search(rf"\bstruct\s+{view_type}\b", frame_view):
+            violations.append(
+                f"{FRAME_VIEW.relative_to(ROOT)}: missing grouped {view_type} contract"
+            )
+
+    flat_accessors = (
+        "GetCamera",
+        "GetDrawItems",
+        "GetExternalDebugLines",
+        "GetEditorSelectedLights",
+    )
+    frame_view_body = frame_view[frame_view.find("struct RenderFrameView") :]
+    for accessor in flat_accessors:
+        if re.search(rf"\b{accessor}\s*\(", frame_view_body):
+            violations.append(
+                f"{FRAME_VIEW.relative_to(ROOT)}: RenderFrameView retains flat {accessor} capability"
+            )
+
     for path in RENDERER_FILES:
         source = path.read_text(encoding="utf-8")
         if re.search(r"\bframeView\s*\.\s*GetScene\s*\(", source):
