@@ -12,6 +12,13 @@ add_test(NAME AI.ImportBoundaries
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_ai_dependencies.py")
 add_test(NAME AI.AssetComposition
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/check_goap_asset_composition.py")
+add_test(NAME Engine.ImportBoundaries
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_engine_dependencies.py")
+add_test(NAME Engine.ImportBoundaryLogic
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_engine_dependencies.py")
 set_tests_properties(AI.ImportBoundaries AI.AssetComposition PROPERTIES
     LABELS "ai;architecture"
+    TIMEOUT 60)
+set_tests_properties(Engine.ImportBoundaries Engine.ImportBoundaryLogic PROPERTIES
+    LABELS "engine;architecture"
     TIMEOUT 60)

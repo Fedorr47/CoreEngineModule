@@ -3,39 +3,18 @@
 Run from any directory: python tests/architecture/check_ai_dependencies.py
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
+
+from module_dependencies import discover_modules
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DECLARATION = re.compile(r"^export module core:([^;]+);", re.MULTILINE)
-IMPORT = re.compile(r"^(?:export )?import\s+:([^;]+);", re.MULTILINE)
 
 
 def main():
-    modules = {}
-    sources = list((ROOT / "src").rglob("*.cppm")) + list((ROOT / "src").rglob("*.ixx"))
-    for path in sources:
-        source = path.read_text(encoding="utf-8-sig")
-        declaration = DECLARATION.search(source)
-        if declaration:
-            name = declaration.group(1)
-            if name in modules:
-                raise AssertionError(f"Duplicate partition: {name}")
-            modules[name] = (path, set(IMPORT.findall(source)))
-
-    def dependencies(start):
-        visited = set()
-        pending = [start]
-        while pending:
-            name = pending.pop()
-            if name in visited:
-                continue
-            visited.add(name)
-            if name not in modules:
-                raise AssertionError(f"Missing partition: {name}")
-            pending.extend(modules[name][1])
-        return visited
+    graph = discover_modules(ROOT / "src")
+    dependencies = graph.dependencies
 
     pure_modules = {
         "ai_action_contracts", "ai_agent_world_state", "ai_decision_contracts",
