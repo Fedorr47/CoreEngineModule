@@ -1,0 +1,477 @@
+path	subsystem	kind	lines	bytes	module	import_count	test
+assets/ai/behaviors/access_key.behavior.json	AI	json	240	5254		0	0
+assets/ai/behaviors/access_key_jump.behavior.json	AI	json	241	5288		0	0
+assets/ai/behaviors/access_key_reserved.behavior.json	AI	json	252	5629		0	0
+assets/ai/behaviors/marker_visit.behavior.json	AI	json	32	683		0	0
+assets/ai/behaviors/target_recovery.behavior.json	AI	json	32	690		0	0
+assets/ai/bindings/access_key.bindings.json	AI	json	29	425		0	0
+assets/ai/bindings/access_key_jump.bindings.json	AI	json	45	703		0	0
+assets/ai/bindings/marker_visit.bindings.json	AI	json	13	182		0	0
+assets/ai/bindings/target_recovery.bindings.json	AI	json	13	186		0	0
+assets/ai/decisions/catalog.json	AI	json	30	869		0	0
+assets/ai/goap/access_key.goap.json	AI	json	603	11024		0	0
+assets/ai/goap/marker_visit.goap.json	AI	json	50	804		0	0
+assets/ai/goap/target_recovery.goap.json	AI	json	50	812		0	0
+assets/ai/routes/access_key.routes.json	AI	json	65	852		0	0
+assets/ai/routes/access_key_jump.routes.json	AI	json	76	1033		0	0
+docs/architecture/editor-ui-architecture.md	Editor	md	272	25793		0	0
+docs/architecture/scene-level-editor-render-boundaries.md	Editor	md	53	2420		0	0
+docs/refactor/master-plan.md	Other	md	747	14316		0	0
+src/Animation/Assets/AnimationClip.cppm	Animation	cppm	203	4409	core:animation_clip	1	0
+src/Animation/Assets/Skeleton.cppm	Animation	cppm	79	1954	core:skeleton	1	0
+src/Animation/Runtime/AnimationController.cppm	Animation	cppm	354	10911	core:animation_controller	4	0
+src/Animation/Runtime/AnimationController_api.inl	Animation	inl	527	18216		0	0
+src/Animation/Runtime/AnimationController_detail.inl	Animation	inl	4	261		0	0
+src/Animation/Runtime/AnimationController_detail_parameters_and_sampling.inl	Animation	inl	556	17710		0	0
+src/Animation/Runtime/AnimationController_detail_root_motion_and_notifies.inl	Animation	inl	335	10814		0	0
+src/Animation/Runtime/AnimationController_detail_runtime_state.inl	Animation	inl	183	7092		0	0
+src/Animation/Runtime/AnimationController_detail_transitions_and_animators.inl	Animation	inl	140	5324		0	0
+src/Animation/Runtime/AnimationController_topology.inl	Animation	inl	519	22946		0	0
+src/Animation/Runtime/Animator.cppm	Animation	cppm	456	11713	core:animator	3	0
+src/Animation/Serialization/AnimationControllerJson.inl	Animation	inl	248	10389		0	0
+src/Animation/Serialization/AnimationProfileJson.inl	Animation	inl	49	2150		0	0
+src/Animation/Serialization/Level_LoadJson_Animation.inl	Animation	inl	573	22386		0	0
+src/Animation/Serialization/Level_SaveJson_Animation.inl	Animation	inl	134	4536		0	0
+src/Animation/Tooling/AnimationWorkspace.cppm	Animation	cppm	207	8698	core:animation_workspace	3	0
+src/App/AppArguments.cpp	App	cpp	83	2129		0	0
+src/App/AppArguments.h	App	h	24	574		0	0
+src/App/AppBootstrap.cpp	App	cpp	167	4882		1	0
+src/App/AppBootstrap.h	App	h	38	1080		0	0
+src/App/AppLifecycle.cpp	App	cpp	1290	58943		1	0
+src/App/AppLifecycle.h	App	h	202	6373		0	0
+src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	325	12025		0	0
+src/App/AppRuntimeHelpers.h	App	h	114	3019		0	0
+src/App/DebugUiHost.cpp	App	cpp	366	12243		1	0
+src/App/DebugUiHost.h	App	h	32	1262		0	0
+src/App/Development/AppDevelopmentScenarioRuntime.cpp	App	cpp	166	5584		1	0
+src/App/Development/AppDevelopmentScenarioRuntime.h	App	h	107	2288		0	0
+src/App/Development/DevelopmentScenario.cpp	App	cpp	1339	77765		1	0
+src/App/Development/DevelopmentScenario.h	App	h	220	7493		0	0
+src/App/EditorViewportInteraction.h	App	h	8	211		0	0
+src/App/EditorViewportInteraction_Core.inl	App	inl	258	8314		0	0
+src/App/EditorViewportInteraction_Mouse.inl	App	inl	260	9807		0	0
+src/App/EditorViewportInteraction_ParticleEmitter.inl	App	inl	121	4922		0	0
+src/App/GameplayPhysicsCharacterIntegration.cpp	App	cpp	399	14429		1	0
+src/App/GameplayPhysicsCharacterIntegration.h	App	h	42	1276		0	0
+src/App/GameplayPhysicsObstacleQuery.h	App	h	35	1262		0	0
+src/App/LevelNavigation.cppm	App	cppm	146	4374	core:level_navigation	4	0
+src/App/NavigationDebugDraw.cppm	App	cppm	44	1619	core:navigation_debug_draw	3	0
+src/App/Win32AppShell.cpp	App	cpp	404	11295		1	0
+src/App/Win32AppShell.h	App	h	65	2001		0	0
+src/Assets/AssetManager.cppm	Assets	cppm	475	14372	core:asset_manager	3	0
+src/Assets/ResourceManager.ixx	Assets	ixx	5	154	core:resource_manager	3	0
+src/Assets/ResourceManager_core.cppm	Assets	cppm	508	11038	core:resource_manager_core	0	0
+src/Assets/ResourceManager_mesh.cppm	Assets	cppm	615	15820	core:resource_manager_mesh	7	0
+src/Assets/ResourceManager_texture.cppm	Assets	cppm	547	12087	core:resource_manager_texture	1	0
+src/Core/Core.ixx	Core	ixx	105	3668	core	99	0
+src/Core/Hash/HashUtils.cppm	Core	cppm	72	2503	core:hash_utils	4	0
+src/Core/IO/FileUtils.cppm	Core	cppm	49	979	core:file_utils	0	0
+src/Core/Json/JsonUtils.cppm	Core	cppm	489	15163	core:json_utils	2	0
+src/Core/Math/Geometry.cppm	Core	cppm	23	386	core:geometry	1	0
+src/Core/Math/MathUtils.cppm	Core	cppm	838	24056	core:math_utils	0	0
+src/Core/String/StringUtils.cppm	Core	cppm	51	1228	core:string_utils	0	0
+src/Core/ThreadAffinity/ThreadAffinity.cpp	Core	cpp	264	7708	core	1	0
+src/Core/ThreadAffinity/ThreadAffinity.cppm	Core	cppm	56	1782	core:thread_affinity	0	0
+src/Core/ThreadAffinity/ThreadAffinityAssertions.h	Core	h	15	826		0	0
+src/ECS/EnTTHelpers.cppm	ECS	cppm	21	506	core:EnTTHelpers	0	0
+src/Editor/EditorCommands.cppm	Editor	cppm	83	2812	core:editor_commands	3	0
+src/Editor/EditorGizmo.cppm	Editor	cppm	603	18256	core:editor_gizmo	5	0
+src/Editor/EditorImpl/EditorGizmoMathShared.inl	Editor	inl	137	4054		0	0
+src/Editor/EditorImpl/EditorGizmoShared.inl	Editor	inl	82	1864		0	0
+src/Editor/EditorRotateGizmo.cppm	Editor	cppm	395	11657	core:editor_rotate_gizmo	5	0
+src/Editor/EditorScaleGizmo.cppm	Editor	cppm	536	16295	core:editor_scale_gizmo	5	0
+src/Editor/EditorSceneState.cppm	Editor	cppm	41	1222	core:editor_scene_state	2	0
+src/Editor/EditorSelectionService.cppm	Editor	cppm	187	5807	core:editor_selection_service	1	0
+src/Editor/Picking.cppm	Editor	cppm	286	9734	core:picking	5	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponent.cppm	AI	cppm	262	11781	core:gameplay_goap_move_to_component	10	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponentAssets.cppm	AI	cppm	37	1556	core:gameplay_goap_move_to_component_assets	1	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPResourceComponentAssets.cppm	AI	cppm	81	3328	core:gameplay_goap_resource_component_assets	1	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPResourceComponents.cppm	AI	cppm	357	15642	core:gameplay_goap_resource_components	4	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponentAssets.cppm	AI	cppm	77	3371	core:gameplay_goap_spatial_component_assets	1	0
+src/Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponents.cppm	AI	cppm	204	9260	core:gameplay_goap_spatial_components	4	0
+src/Gameplay/AI/Composition/GameplayAIBuiltinDecisions.cppm	AI	cppm	17	554	core:gameplay_ai_builtin_decisions	3	0
+src/Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm	AI	cppm	311	13583	core:gameplay_goap_asset_composition	8	0
+src/Gameplay/AI/Composition/GameplayGOAPBuiltinComponents.cppm	AI	cppm	21	770	core:gameplay_goap_builtin_components	7	0
+src/Gameplay/AI/Composition/GameplayGOAPCompositionRegistry.cppm	AI	cppm	243	9114	core:gameplay_goap_composition_registry	6	0
+src/Gameplay/AI/Composition/GameplayGOAPDecisionTemplate.cppm	AI	cppm	155	6852	core:gameplay_goap_decision_template	2	0
+src/Gameplay/AI/Composition/GameplayGOAPObservationOrder.cppm	AI	cppm	90	3556	core:gameplay_goap_observation_order	1	0
+src/Gameplay/AI/GOAP/AIAgentWorldState.cppm	AI	cppm	182	5230	core:ai_agent_world_state	0	0
+src/Gameplay/AI/GOAP/AIDecisionContracts.cppm	AI	cppm	105	2179	core:ai_decision_contracts	2	0
+src/Gameplay/AI/GOAP/AIDecisionRuntime.cppm	AI	cppm	312	11285	core:ai_decision_runtime	6	0
+src/Gameplay/AI/GOAP/AIGoalSelection.cppm	AI	cppm	83	2624	core:ai_goal_selection	2	0
+src/Gameplay/AI/GOAP/AIGoalSelectionContracts.cppm	AI	cppm	24	412	core:ai_goal_selection_contracts	1	0
+src/Gameplay/AI/GOAP/AIPlanExecution.cppm	AI	cppm	139	4405	core:ai_plan_execution	2	0
+src/Gameplay/AI/GOAP/AIPlanExecutionBridge.cppm	AI	cppm	118	3961	core:ai_plan_execution_bridge	5	0
+src/Gameplay/AI/GOAP/AIPlanner.cppm	AI	cppm	225	8513	core:ai_planner	3	0
+src/Gameplay/AI/GOAP/AIStateOperations.cppm	AI	cppm	130	2921	core:ai_state_operations	1	0
+src/Gameplay/AI/GOAP/Authoring/GameplayAIAssetParsing.cppm	AI	cppm	223	7911	core:gameplay_ai_asset_parsing	1	0
+src/Gameplay/AI/GOAP/Authoring/GameplayAIDecisionAsset.cppm	AI	cppm	263	11548	core:gameplay_ai_decision_asset	2	0
+src/Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionAsset.cppm	AI	cppm	253	10617	core:gameplay_goap_definition_asset	2	0
+src/Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm	AI	cppm	368	15487	core:gameplay_goap_definition_compiler	3	0
+src/Gameplay/AI/GOAP/Debug/AIDebugViewModel.cppm	AI	cppm	182	6471	core:ai_debug_view_model	3	0
+src/Gameplay/AI/GOAP/Debug/GameplayGOAPInspection.cppm	AI	cppm	20	570	core:gameplay_goap_inspection	3	0
+src/Gameplay/AI/GOAP/Debug/GameplayGOAPPathInspection.cppm	AI	cppm	55	1518	core:gameplay_goap_path_inspection	3	0
+src/Gameplay/AI/GOAP/GameplayGOAPDecision.cppm	AI	cppm	167	5774	core:gameplay_goap_decision	6	0
+src/Gameplay/AI/GOAP/GameplayGOAPDecisionInstance.cppm	AI	cppm	197	7383	core:gameplay_goap_decision_instance	5	0
+src/Gameplay/AI/GOAP/GameplayGOAPDecisionSetup.cppm	AI	cppm	59	2100	core:gameplay_goap_decision_setup	3	0
+src/Gameplay/AI/GOAP/GameplayGOAPDefinitionContracts.cppm	AI	cppm	37	1049	core:gameplay_goap_definition_contracts	2	0
+src/Gameplay/AI/Navigation/AIFleeTargetAction.cppm	AI	cppm	77	2901	core:ai_flee_target_action	7	0
+src/Gameplay/AI/Navigation/AIFleeTargetActionRuntime.cppm	AI	cppm	214	8318	core:ai_flee_target_action_runtime	9	0
+src/Gameplay/AI/Navigation/AIFollowRouteAction.cppm	AI	cppm	121	3916	core:ai_follow_route_action	13	0
+src/Gameplay/AI/Navigation/AIFollowRouteActionRuntime.cppm	AI	cppm	361	15002	core:ai_follow_route_action_runtime	14	0
+src/Gameplay/AI/Navigation/AIFollowTargetAction.cppm	AI	cppm	76	2931	core:ai_follow_target_action	7	0
+src/Gameplay/AI/Navigation/AIFollowTargetActionRuntime.cppm	AI	cppm	208	8241	core:ai_follow_target_action_runtime	8	0
+src/Gameplay/AI/Navigation/AIMoveToAction.cppm	AI	cppm	111	4351	core:ai_move_to_action	11	0
+src/Gameplay/AI/Navigation/AIMoveToActionBinding.cppm	AI	cppm	219	8904	core:ai_move_to_action_binding	9	0
+src/Gameplay/AI/Navigation/GameplayAgentObstacleAvoidance.cppm	AI	cppm	43	1895	core:gameplay_agent_obstacle_avoidance	4	0
+src/Gameplay/AI/Runtime/AIActionBinding.cppm	AI	cppm	60	1622	core:ai_action_binding	2	0
+src/Gameplay/AI/Runtime/AIActionContracts.cppm	AI	cppm	61	1349	core:ai_action_contracts	0	0
+src/Gameplay/AI/Runtime/AIActionRuntime.cppm	AI	cppm	67	2230	core:ai_action_runtime	2	0
+src/Gameplay/AI/Runtime/AIActionTask.cppm	AI	cppm	125	3995	core:ai_action_task	2	0
+src/Gameplay/AI/Runtime/AISystem.cppm	AI	cppm	162	5532	core:ai_system	3	0
+src/Gameplay/AI/Runtime/GameplayAIComponents.cppm	AI	cppm	10	117	core:gameplay_ai_components	0	0
+src/Gameplay/AI/Runtime/GameplayAIDecision.cppm	AI	cppm	64	2112	core:gameplay_ai_decision	2	0
+src/Gameplay/AI/Runtime/GameplayAIDecisionContracts.cppm	AI	cppm	39	912	core:gameplay_ai_decision_contracts	1	0
+src/Gameplay/AI/Runtime/GameplayAIDecisionCreationContext.cppm	AI	cppm	33	979	core:gameplay_ai_decision_creation_context	1	0
+src/Gameplay/Action/GameplayActionComponents.cppm	Gameplay	cppm	447	16421	core:gameplay_action_components	0	0
+src/Gameplay/Animation/GameplayAnimationBridge.cppm	Animation	cppm	468	17343	core:gameplay_animation_bridge	2	0
+src/Gameplay/Animation/GameplayAnimationBridgeSystem.cppm	Animation	cppm	254	11050	core:gameplay_animation_bridge_system	7	0
+src/Gameplay/Animation/GameplayAnimationComponents.cppm	Animation	cppm	54	1650	core:gameplay_animation_components	0	0
+src/Gameplay/Camera/GameplayCameraComponents.cppm	Gameplay	cppm	20	511	core:gameplay_camera_components	1	0
+src/Gameplay/Camera/GameplayFollowCamera.cppm	Gameplay	cppm	92	3396	core:gameplay_follow_camera	4	0
+src/Gameplay/Character/CharacterController.cppm	Gameplay	cppm	201	7300	core:character_controller	4	0
+src/Gameplay/Character/CharacterMovement.cppm	Gameplay	cppm	342	14540	core:character_movement	2	0
+src/Gameplay/Character/GameplayCharacterComponents.cppm	Gameplay	cppm	125	4030	core:gameplay_character_components	3	0
+src/Gameplay/Combat/CombatSystem.cppm	Gameplay	cppm	18	419	core:combat_system	1	0
+src/Gameplay/Components/GameplayEntityComponents.cppm	Gameplay	cppm	29	634	core:gameplay_entity_components	2	0
+src/Gameplay/Events/GameplayWorldEvent.cppm	Gameplay	cppm	29	629	core:gameplay_world_event	1	0
+src/Gameplay/GameplayRefactorNotes.md	Gameplay	md	113	3548		0	0
+src/Gameplay/GameplayWorld.cppm	Gameplay	cppm	211	13180	core:gameplay	9	0
+src/Gameplay/GameplayWorld_component_accessors.inl	Gameplay	inl	18	1502		0	0
+src/Gameplay/GameplayWorld_impl.cppm	Gameplay	cppm	210	6066	core:gameplay_impl	1	0
+src/Gameplay/Graph/GameplayGraph.cppm	Gameplay	cppm	457	15083	core:gameplay_graph	0	0
+src/Gameplay/Graph/GameplayGraphAssets.cppm	Gameplay	cppm	48	1463	core:gameplay_graph_assets	1	0
+src/Gameplay/Input/GameplayInput.cppm	Gameplay	cppm	101	3368	core:gameplay_input_system	3	0
+src/Gameplay/Input/GameplayInputBindings.cppm	Gameplay	cppm	57	2049	core:gameplay_input_bindings	1	0
+src/Gameplay/Input/GameplayInputComponents.cppm	Gameplay	cppm	24	448	core:gameplay_input_components	1	0
+src/Gameplay/Interaction/GameplayInteractionComponents.cppm	Gameplay	cppm	19	333	core:gameplay_interaction_components	1	0
+src/Gameplay/Interaction/GameplayInteractionPoint.cppm	Gameplay	cppm	72	2091	core:gameplay_interaction_point	2	0
+src/Gameplay/Interaction/GameplayObjectReservationSystem.cppm	Gameplay	cppm	103	3645	core:gameplay_object_reservation_system	1	0
+src/Gameplay/Interaction/InteractionSystem.cppm	Gameplay	cppm	18	434	core:interaction_system	1	0
+src/Gameplay/Navigation/GameplayNavigationDebug.cppm	Gameplay	cppm	54	1308	core:gameplay_navigation_debug	2	0
+src/Gameplay/Navigation/GameplayObstacleAvoidance.cppm	Gameplay	cppm	570	22209	core:gameplay_obstacle_avoidance	2	0
+src/Gameplay/Navigation/GameplayRequest.cppm	Gameplay	cppm	96	2695	core:gameplay_request	1	0
+src/Gameplay/Navigation/GameplayRoute.cppm	Gameplay	cppm	110	3493	core:gameplay_route	1	0
+src/Gameplay/Navigation/GameplayRouteFollower.cppm	Gameplay	cppm	337	13497	core:gameplay_route_follower	3	0
+src/Gameplay/Navigation/GameplayRouteSearch.cppm	Gameplay	cppm	371	13072	core:gameplay_route_search	2	0
+src/Gameplay/Navigation/GameplaySteering.cppm	Gameplay	cppm	188	6281	core:gameplay_steering	2	0
+src/Gameplay/Navigation/GameplaySteeringDebug.cppm	Gameplay	cppm	83	1920	core:gameplay_steering_debug	2	0
+src/Gameplay/Pickup/GameplayPickupSystem.cppm	Gameplay	cppm	53	1937	core:gameplay_pickup_system	2	0
+src/Gameplay/Runtime/GameplayBootstrap.cppm	Gameplay	cppm	109	3523	core:gameplay_bootstrap	4	0
+src/Gameplay/Runtime/GameplayRuntime.cppm	Gameplay	cppm	289	14856	core:gameplay_runtime	40	0
+src/Gameplay/Runtime/GameplayRuntimeCommon.cppm	Gameplay	cppm	69	1697	core:gameplay_runtime_common	6	0
+src/Gameplay/Runtime/GameplayRuntime_FrameLifecycle.inl	Gameplay	inl	38	1242		0	0
+src/Gameplay/Runtime/GameplayRuntime_GraphExecution.inl	Gameplay	inl	384	16640		0	0
+src/Gameplay/Runtime/GameplayRuntime_ModeAndBootstrap.inl	Gameplay	inl	174	7056		0	0
+src/Gameplay/Runtime/GameplayRuntime_PublicApi.inl	Gameplay	inl	913	36702		0	0
+src/Gameplay/Runtime/GameplaySceneSync.cppm	Gameplay	cppm	71	2345	core:gameplay_scene_sync	5	0
+src/Gameplay/Traversal/DoorTraversalExecutor.cppm	Gameplay	cppm	197	9407	core:door_traversal_executor	7	0
+src/Gameplay/Traversal/GameplayTraversalExecutor.cppm	Gameplay	cppm	60	1918	core:gameplay_traversal_executor	3	0
+src/Gameplay/Traversal/GameplayTraversalExecutorRegistry.cppm	Gameplay	cppm	88	2648	core:gameplay_traversal_executor_registry	2	0
+src/Gameplay/Traversal/GameplayTraversalLink.cppm	Gameplay	cppm	74	2301	core:gameplay_traversal_link	3	0
+src/Gameplay/Traversal/GameplayTraversalLinkRegistry.cppm	Gameplay	cppm	67	1821	core:gameplay_traversal_link_registry	2	0
+src/Gameplay/Traversal/JumpTraversalExecutor.cppm	Gameplay	cppm	293	12949	core:jump_traversal_executor	6	0
+src/Input/ControllerBase.cppm	Input	cppm	47	1217	core:controller_base	1	0
+src/Input/Input.cppm	Input	cppm	56	1427	core:input	0	0
+src/Input/InputCore.cppm	Input	cppm	79	2465	core:input_core	1	0
+src/Input/Win32Input.cppm	Input	cppm	214	5604	core:win32_input	2	0
+src/Level/Level.cppm	Level	cppm	103	2980	core:level	17	0
+src/Level/LevelECS.cppm	Level	cppm	176	5490	core:level_ecs	3	0
+src/Level/LevelECS_impl.cppm	Level	cppm	236	7014	core:level_ecs_impl	1	0
+src/Level/LevelImpl/Level_AssetTypes.inl	Level	inl	176	4471		0	0
+src/Level/LevelImpl/Level_InstantiateRuntime.inl	Level	inl	355	10964		0	0
+src/Level/LevelImpl/Level_JsonSupport.inl	Level	inl	86	2837		0	0
+src/Level/LevelImpl/Level_LevelInstance_Editing.inl	Level	inl	3	181		0	0
+src/Level/LevelImpl/Level_LevelInstance_Editing_AccessorsAndParticles.inl	Level	inl	260	6367		0	0
+src/Level/LevelImpl/Level_LevelInstance_Editing_ImportAndMutation.inl	Level	inl	787	24018		0	0
+src/Level/LevelImpl/Level_LevelInstance_Editing_RuntimeSync.inl	Level	inl	220	6077		0	0
+src/Level/LevelImpl/Level_LevelInstance_PrivateHelpers.inl	Level	inl	984	27546		0	0
+src/Level/LevelImpl/Level_LevelInstance_RuntimeBindings.inl	Level	inl	345	8386		0	0
+src/Level/LevelImpl/Level_LevelInstance_State.inl	Level	inl	28	1219		0	0
+src/Level/LevelImpl/Level_LoadJson.inl	Level	inl	37	1378		0	0
+src/Level/LevelImpl/Level_LoadJson_AssetSections.inl	Level	inl	485	18466		0	0
+src/Level/LevelImpl/Level_LoadJson_SceneSections.inl	Level	inl	437	14225		0	0
+src/Level/LevelImpl/Level_SaveJson.inl	Level	inl	58	1695		0	0
+src/Level/LevelImpl/Level_SaveJson_AssetSections.inl	Level	inl	600	20674		0	0
+src/Level/LevelImpl/Level_SaveJson_SceneSections.inl	Level	inl	326	8711		0	0
+src/Level/LevelImpl/Level_SaveJson_Support.inl	Level	inl	25	561		0	0
+src/Navigation/Navigation.cppm	Navigation	cppm	178	4069	core:navigation	1	0
+src/Navigation/Recast/Navigation.cpp	Navigation	cpp	710	19794	core	2	0
+src/Physics/Jolt/JoltBodyRegistry.cppm	Physics	cppm	253	7252	core:jolt_body_registry	1	0
+src/Physics/Jolt/JoltCharacterRegistry.cppm	Physics	cppm	297	9577	core:jolt_character_registry	1	0
+src/Physics/Jolt/JoltCollisionLayers.cpp	Physics	cpp	87	2797		0	0
+src/Physics/Jolt/JoltCollisionLayers.h	Physics	h	44	1320		0	0
+src/Physics/Jolt/JoltPhysicsWorld.cpp	Physics	cpp	1301	49032		1	0
+src/Physics/Jolt/JoltPhysicsWorld.h	Physics	h	68	3900		1	0
+src/Physics/Jolt/JoltRuntime.cpp	Physics	cpp	159	3848		0	0
+src/Physics/Jolt/JoltRuntime.h	Physics	h	35	862		0	0
+src/Physics/Jolt/JoltShapeFactory.cppm	Physics	cppm	88	2847	core:jolt_shape_factory	1	0
+src/Physics/LevelPhysicsRuntime.cpp	Physics	cpp	386	13876		0	0
+src/Physics/LevelPhysicsRuntime.h	Physics	h	70	2592		1	0
+src/Physics/PhysicsTypes.cppm	Physics	cppm	344	10040	core:physics_types	1	0
+src/Render/Bindless.cppm	Render	cppm	39	891	core:render_bindless	1	0
+src/Render/Debug/DebugColorUtils.cppm	Render	cppm	16	453	core:debug_color_utils	0	0
+src/Render/Debug/DebugDraw.cppm	Render	cppm	422	13701	core:debug_draw	2	0
+src/Render/Debug/DebugText.cppm	Render	cppm	188	4533	core:debug_text	1	0
+src/Render/Decoders/TextureDecoderSTB.cppm	Render	cppm	474	12698	core:texture_decoder_stb	3	0
+src/Render/DirectX12/CommonDX12Structs.cppm	Render	cppm	633	24367	core:common_DX12_Structs	6	0
+src/Render/DirectX12/DebugDrawRendererDX12.cppm	Render	cppm	268	8318	core:debug_draw_renderer_dx12	5	0
+src/Render/DirectX12/DebugTextRendererDX12.cppm	Render	cppm	419	13477	core:debug_text_renderer_dx12	4	0
+src/Render/DirectX12/DirectX12Core.cppm	Render	cppm	78	2040	core:dx12_core	0	0
+src/Render/DirectX12/DirectX12RHI.cppm	Render	cppm	258	6840	core:rhi_dx12	3	0
+src/Render/DirectX12/DirectX12Renderer.cppm	Render	cppm	646	23851	core:renderer_dx12	19	0
+src/Render/DirectX12/DirectX12TextureUploader.cppm	Render	cppm	610	15685	core:render_core_dx12	3	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl	Render	inl	27	1103		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_CapabilitiesAndDxc.inl	Render	inl	267	9224		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Descriptors.inl	Render	inl	378	13774		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_FrameUpload.inl	Render	inl	210	7551		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_PrivateHelpers.inl	Render	inl	5	245		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_PrivateTypes.inl	Render	inl	178	6694		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public.inl	Render	inl	9	514		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_Buffers.inl	Render	inl	132	4385		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission.inl	Render	inl	417	19258		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission_DrawAndImGuiCommands.inl	Render	inl	173	9725		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission_PSOHelpers.inl	Render	inl	64	3109		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission_PassCommands.inl	Render	inl	292	10459		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission_StateAndBindingCommands.inl	Render	inl	126	6763		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_CommandSubmission_TransitionAndSrvHelpers.inl	Render	inl	60	1601		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_Core.inl	Render	inl	320	12647		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_DebugHelpers.inl	Render	inl	4	103		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_DescriptorsAndFences.inl	Render	inl	145	5229		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_ShaderObjects.inl	Render	inl	106	4038		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_ShaderPipelineEx.inl	Render	inl	130	5136		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_Public_Textures.inl	Render	inl	411	16903		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_RootSignature.inl	Render	inl	209	8286		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_State.inl	Render	inl	80	2525		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_ImGui_Private.inl	Render	inl	2	123		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_ImGui_Public.inl	Render	inl	45	1190		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_SwapChain.inl	Render	inl	73	2223		0	0
+src/Render/DirectX12/RHIImpl/DirectX12RHI_SwapChainImpl.inl	Render	inl	217	7605		0	0
+src/Render/DirectX12/RenderDX12.ixx	Render	ixx	13	371	core:render_dx12	5	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_00_PathsSkybox.inl	Render	inl	65	2359		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_01_MainPipelines.inl	Render	inl	679	26294		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_02_ShadowPipelines.inl	Render	inl	302	11271		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_03_DynamicBuffers.inl	Render	inl	82	3225		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl	Render	inl	187	8326		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl	Render	inl	3	301		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_FinalizeAndUpload.inl	Render	inl	189	7345		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_MainTransparentReflectionPacking.inl	Render	inl	403	13119		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_ShadowAndLayeredShadow.inl	Render	inl	128	4056		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl	Render	inl	504	19486		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl	Render	inl	433	18034		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl	Render	inl	57	2610		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass.inl	Render	inl	3	203		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_00_Shared.inl	Render	inl	478	16932		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01_Deferred.inl	Render	inl	8	322		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01a_DeferredGeometryAndLighting.inl	Render	inl	596	21935		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01b_DeferredPost.inl	Render	inl	103	3731		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01c_DeferredTransparentAndSelection.inl	Render	inl	567	19177		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_02_Forward.inl	Render	inl	907	33857		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedMaterialEnvHelpers.inl	Render	inl	184	5297		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedPerBatchConstantsHelpers.inl	Render	inl	35	1662		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl	Render	inl	172	7564		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04b_PlanarReflections_MaskRT.inl	Render	inl	508	24783		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl	Render	inl	1203	45405		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_Shutdown.inl	Render	inl	86	1797		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_UploadLights.inl	Render	inl	53	2201		0	0
+src/Render/FileSystem.cppm	Render	cppm	49	809	core:file_system	1	0
+src/Render/Frame/RenderFrameView.cppm	Render	cppm	66	1963	core:render_frame_view	1	0
+src/Render/Frame/RenderSceneExtractor.cppm	Render	cppm	49	2238	core:render_scene_extractor	2	0
+src/Render/GpuMemory.cppm	Render	cppm	55	1339	core:render_gpu_memory	1	0
+src/Render/ImGui/Animation/ImGuiAnimationGraphBlend.inl	Animation	inl	615	29716		0	0
+src/Render/ImGui/Animation/ImGuiAnimationGraphDetails.inl	Animation	inl	814	38506		0	0
+src/Render/ImGui/Animation/ImGuiAnimationGraphNodes.inl	Animation	inl	633	33656		0	0
+src/Render/ImGui/Animation/ImGuiAnimationGraphShared.inl	Animation	inl	1006	37330		0	0
+src/Render/ImGui/Animation/ImGuiAnimationGraphView.inl	Animation	inl	178	7596		0	0
+src/Render/ImGui/Animation/ImGuiAnimationRuntimeViewModel.inl	Animation	inl	272	11962		0	0
+src/Render/ImGui/Animation/ImGuiAnimationUI.inl	Animation	inl	36	1491		0	0
+src/Render/ImGui/Animation/ImGuiAnimationUIState.inl	Animation	inl	89	3557		0	0
+src/Render/ImGui/Animation/ImGuiAnimationWorkspace.inl	Animation	inl	401	24480		0	0
+src/Render/ImGui/ImGuiDebugUI.cppm	Render	cppm	258	7310	core:imgui_debug_ui	15	0
+src/Render/ImGui/ImGuiDebugUI_Common.inl	Render	inl	15	423		0	0
+src/Render/ImGui/ImGuiDebugUI_GOAP.inl	Render	inl	217	8441		0	0
+src/Render/ImGui/ImGuiDebugUI_InputBindings.inl	Render	inl	298	15030		0	0
+src/Render/ImGui/ImGuiDebugUI_Level.inl	Render	inl	201	7239		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelFile.inl	Render	inl	79	2722		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelHierarchy.inl	Render	inl	149	5620		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelInspector.inl	Render	inl	3	174		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelInspector_CreateImport.inl	Render	inl	352	14820		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelInspector_NodeInspector.inl	Render	inl	948	54158		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelInspector_SelectionAndPanel.inl	Render	inl	239	9385		0	0
+src/Render/ImGui/ImGuiDebugUI_LevelShared.inl	Render	inl	598	23116		0	0
+src/Render/ImGui/ImGuiDebugUI_Light.inl	Render	inl	403	13097		0	0
+src/Render/ImGui/ImGuiDebugUI_Performance.inl	Render	inl	244	11291		0	0
+src/Render/ImGui/ImGuiDebugUI_Reflections.inl	Render	inl	58	2460		0	0
+src/Render/ImGui/ImGuiDebugUI_RendererCore.inl	Render	inl	481	24349		0	0
+src/Render/ImGui/ImGuiDebugUI_RendererFacade.inl	Render	inl	13	342		0	0
+src/Render/ImGui/RendererSettingsViewModels.h	Render	h	211	10584		0	0
+src/Render/Model/AssimpImportShared.inl	Render	inl	239	7314		0	0
+src/Render/Model/AssimpLoader.cppm	Render	cppm	1065	38286	core:assimp_loader	6	0
+src/Render/Model/AssimpSceneLoader.cppm	Render	cppm	546	21367	core:assimp_scene_loader	3	0
+src/Render/Model/Mesh/Mesh.cppm	Render	cppm	284	9053	core:mesh	2	0
+src/Render/Model/ObjLoader.cppm	Render	cppm	221	4492	core:obj_loader	2	0
+src/Render/Model/SkinnedMesh.cppm	Render	cppm	351	9787	core:skinned_mesh	4	0
+src/Render/OpenGL/OpenGLCore.cppm	Render	cppm	256	6661	core:render_core_gl	2	0
+src/Render/OpenGL/OpenGLRHI.cppm	Render	cppm	234	5008	core:rhi_gl	1	0
+src/Render/OpenGL/OpenGLRHI_DeviceApi.inl	Render	inl	472	12910		0	0
+src/Render/OpenGL/OpenGLRHI_DeviceCommands.inl	Render	inl	422	11219		0	0
+src/Render/OpenGL/OpenGLRHI_DevicePrivate.inl	Render	inl	467	12272		0	0
+src/Render/OpenGL/OpenGLRHI_GlHelpers.inl	Render	inl	369	8091		0	0
+src/Render/OpenGL/OpenGLRHI_GlUtils.inl	Render	inl	409	9276		0	0
+src/Render/OpenGL/OpenGLRenderer.cppm	Render	cppm	428	13943	core:renderer_mesh_gl	10	0
+src/Render/OpenGL/RenderGL.ixx	Render	ixx	7	199	core:render_gl	4	0
+src/Render/RHI.cppm	Render	cppm	910	23163	core:rhi	0	0
+src/Render/Render.ixx	Render	ixx	34	976	core:render	32	0
+src/Render/RenderCommandQueue.cppm	Render	cppm	216	5853	core:render_command_queue	0	0
+src/Render/RenderCore.cppm	Render	cppm	371	8583	core:render_core	6	0
+src/Render/RenderGraph.cppm	Render	cppm	424	12664	core:render_graph	1	0
+src/Render/RenderScheduler.cppm	Render	cppm	302	8229	core:render_scheduler	1	0
+src/Render/Render_overview.md	Render	md	1	1		0	0
+src/Render/Renderer.cppm	Render	cppm	194	5887	core:render_renderer	6	0
+src/Render/RendererSettings.cppm	Render	cppm	486	16333	core:renderer_settings	1	0
+src/Render/Scene/CameraController.cppm	Render	cppm	202	6262	core:camera_controller	4	0
+src/Render/Scene/SceneBridge.cppm	Render	cppm	53	851	core:scene_bridge	2	0
+src/Render/Scene/Visibility.cppm	Render	cppm	83	2193	core:visibility	3	0
+src/Render/Shader/ShaderFiles.cppm	Render	cppm	175	4704	core:shader_files	2	0
+src/Render/Shader/ShaderSystem.cppm	Render	cppm	81	1833	core:shader_system	0	0
+src/Render/Sync.cppm	Render	cppm	70	1373	core:sync	1	0
+src/Scene/Scene.cppm	Scene	cppm	558	15622	core:scene	8	0
+src/Scene/Scene_EditorSelection.inl	Scene	inl	264	6066		0	0
+src/Scene/Scene_RuntimeSystems.inl	Scene	inl	319	9146		0	0
+src/Timer/GameTimer.cppm	Other	cppm	195	4415	core:gametimer_core	0	0
+src/Timer/GameTimer.ixx	Other	ixx	3	62	core:gametimer	1	0
+src/main.cpp	Other	cpp	33	579		1	0
+tests/CMakeLists.txt	Other	txt	368	13623		0	1
+tests/FakeMeshIO.h	Other	h	113	2758		1	1
+tests/FakeRHI.cpp	Other	cpp	317	8493		0	1
+tests/FakeRHI.h	Other	h	147	5902		1	1
+tests/FakeTextureIO.h	Other	h	154	2919		1	1
+tests/README.md	Other	md	201	8825		0	1
+tests/TestSupport/AccessKeyAssetSymbols.h	Assets	h	30	1388		0	1
+tests/TestSupport/GameplayGOAPAssetFixture.h	Gameplay	h	135	5934		0	1
+tests/TestSupport/GameplayRouteTestHelper.h	Gameplay	h	31	788		1	1
+tests/TestSupport/MathTestHelper.h	Other	h	52	1559		1	1
+tests/TestSupport/TestFixtureLoader.cpp	Other	cpp	75	2343		0	1
+tests/TestSupport/TestFixtureLoader.h	Other	h	9	257		0	1
+tests/TestSupport/TestGlobalVariables.h	Other	h	3	61		0	1
+tests/TestSupport/TestTempPath.h	Other	h	39	905		0	1
+tests/TestSupport/TestThreadAffinity.h	Other	h	22	691		1	1
+tests/architecture/CMakeLists.txt	Other	txt	17	699		0	1
+tests/architecture/check_ai_dependencies.py	Other	py	80	3511		0	1
+tests/assets/json/invalid/malformed_config.json	Assets	json	4	40		0	1
+tests/assets/json/valid/minimal_config.json	Assets	json	4	42		0	1
+tests/assets/json/valid/nested_config.json	Assets	json	9	123		0	1
+tests/integration/AIPhysicsSmoke/TestAIPhysicsSmoke.cpp	Physics	cpp	286	10878		1	1
+tests/integration/CharacterPhysicsSmoke/TestCharacterPhysicsSmoke.cpp	Physics	cpp	234	8465		1	1
+tests/integration/Dx12Smoke/TestDx12BackendSmoke.cpp	Other	cpp	284	8730		1	1
+tests/integration/JoltSmoke/TestJoltDependencySmoke.cpp	Other	cpp	50	1262		0	1
+tests/integration/PhysicsLevelSmoke/TestPhysicsLevelSmoke.cpp	Level	cpp	184	6842		1	1
+tests/tools/check_goap_asset_composition.py	Other	py	136	7817		0	1
+tests/tools/run_goap_asset_portable_checks.py	Other	py	288	19158		0	1
+tests/tools/test_build_repo_index.py	Other	py	70	3334		0	1
+tests/unit/AnimationTests/AnimationTestHelpers.h	Animation	h	117	3424		1	1
+tests/unit/AnimationTests/TestAnimationController.cpp	Animation	cpp	1514	88842		1	1
+tests/unit/AnimationTests/TestAnimatorSamplingInvariants.cpp	Animation	cpp	110	4476		1	1
+tests/unit/AppTests/TestAppBootstrapArguments.cpp	App	cpp	120	3419		0	1
+tests/unit/AppTests/TestAppDevelopmentScenarioRuntime.cpp	App	cpp	667	33386		1	1
+tests/unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp	App	cpp	35	1047		0	1
+tests/unit/AppTests/TestAppPhysicsStateLifecycle.cpp	App	cpp	86	2551		1	1
+tests/unit/AppTests/TestDevelopmentScenario.cpp	App	cpp	1238	66831		1	1
+tests/unit/AppTests/TestGameplayPhysicsCharacterIntegration.cpp	App	cpp	1145	50376		1	1
+tests/unit/CoreTests/TestFileUtils.cpp	Core	cpp	131	3605		1	1
+tests/unit/CoreTests/TestJsonUtils.cpp	Core	cpp	207	6936		1	1
+tests/unit/CoreTests/TestStringHashUtils.cpp	Core	cpp	120	3877		1	1
+tests/unit/CoreTests/TestThreadAffinity.cpp	Core	cpp	221	8557		1	1
+tests/unit/EditorTests/TestEditorSelectionService.cpp	Editor	cpp	122	5046		1	1
+tests/unit/GameplayTests/AI/TestAIActionBinding.cpp	AI	cpp	59	1754		1	1
+tests/unit/GameplayTests/AI/TestAIActionRuntime.cpp	AI	cpp	170	5664		1	1
+tests/unit/GameplayTests/AI/TestAIActionTask.cpp	AI	cpp	290	10078		1	1
+tests/unit/GameplayTests/AI/TestAIAgentWorldState.cpp	AI	cpp	176	5535		1	1
+tests/unit/GameplayTests/AI/TestAIDebugViewModel.cpp	AI	cpp	154	6230		1	1
+tests/unit/GameplayTests/AI/TestAIDecisionContracts.cpp	AI	cpp	327	11962		1	1
+tests/unit/GameplayTests/AI/TestAIDecisionRuntime.cpp	AI	cpp	359	19971		1	1
+tests/unit/GameplayTests/AI/TestAIFollowRouteAction.cpp	AI	cpp	242	9781		1	1
+tests/unit/GameplayTests/AI/TestAIFollowRouteTraversal.cpp	AI	cpp	554	26142		1	1
+tests/unit/GameplayTests/AI/TestAIGOAPMoveToVerticalSlice.cpp	AI	cpp	148	5297		1	1
+tests/unit/GameplayTests/AI/TestAIGoalSelection.cpp	AI	cpp	198	5697		1	1
+tests/unit/GameplayTests/AI/TestAIMoveToAction.cpp	AI	cpp	397	15519		1	1
+tests/unit/GameplayTests/AI/TestAIMoveToActionBinding.cpp	AI	cpp	309	13488		1	1
+tests/unit/GameplayTests/AI/TestAIPlanExecution.cpp	AI	cpp	166	6857		1	1
+tests/unit/GameplayTests/AI/TestAIPlanExecutionBridge.cpp	AI	cpp	191	8922		1	1
+tests/unit/GameplayTests/AI/TestAIPlanner.cpp	AI	cpp	332	10365		1	1
+tests/unit/GameplayTests/AI/TestAISystem.cpp	AI	cpp	400	14788		1	1
+tests/unit/GameplayTests/AI/TestAITargetActions.cpp	AI	cpp	476	20756		1	1
+tests/unit/GameplayTests/AI/TestGameplayAIAssetComposition.cpp	AI	cpp	379	17058		1	1
+tests/unit/GameplayTests/AI/TestGameplayAIDecision.cpp	AI	cpp	1029	45832		1	1
+tests/unit/GameplayTests/AI/TestGameplayGOAPDecisionTemplate.cpp	AI	cpp	210	10772		1	1
+tests/unit/GameplayTests/AI/TestGameplayGOAPDefinitionAsset.cpp	AI	cpp	144	4571		1	1
+tests/unit/GameplayTests/AI/TestGameplayGOAPDefinitionCompiler.cpp	AI	cpp	289	10895		1	1
+tests/unit/GameplayTests/AI/TestGameplayGOAPResourceComponents.cpp	AI	cpp	509	25373		1	1
+tests/unit/GameplayTests/TestAIFollowRouteActionRuntime.cpp	Gameplay	cpp	162	6209		1	1
+tests/unit/GameplayTests/TestGameplayActionPolicy.cpp	Gameplay	cpp	275	11168		1	1
+tests/unit/GameplayTests/TestGameplayAnimationBridge.cpp	Gameplay	cpp	186	6512		1	1
+tests/unit/GameplayTests/TestGameplayCharacterCameraOwnership.cpp	Gameplay	cpp	428	12578		1	1
+tests/unit/GameplayTests/TestGameplayGraph.cpp	Gameplay	cpp	515	15505		1	1
+tests/unit/GameplayTests/TestGameplayInteractionPoint.cpp	Gameplay	cpp	93	4512		1	1
+tests/unit/GameplayTests/TestGameplayObjectReservationSystem.cpp	Gameplay	cpp	148	6617		1	1
+tests/unit/GameplayTests/TestGameplayObstacleAvoidance.cpp	Gameplay	cpp	841	34956		1	1
+tests/unit/GameplayTests/TestGameplayPickupSystem.cpp	Gameplay	cpp	36	1301		1	1
+tests/unit/GameplayTests/TestGameplayRequest.cpp	Gameplay	cpp	252	9598		1	1
+tests/unit/GameplayTests/TestGameplayRoute.cpp	Gameplay	cpp	338	10366		1	1
+tests/unit/GameplayTests/TestGameplayRouteFollower.cpp	Gameplay	cpp	612	27715		1	1
+tests/unit/GameplayTests/TestGameplayRouteSearch.cpp	Gameplay	cpp	527	24372		1	1
+tests/unit/GameplayTests/TestGameplayRuntimeModeTransitions.cpp	Gameplay	cpp	360	13511		1	1
+tests/unit/GameplayTests/TestGameplayRuntimeNodeBoundMappingConsistency.cpp	Gameplay	cpp	338	13090		1	1
+tests/unit/GameplayTests/TestGameplaySteering.cpp	Gameplay	cpp	391	14972		1	1
+tests/unit/GameplayTests/TestGameplayTraversalExecutorRegistry.cpp	Gameplay	cpp	134	5629		1	1
+tests/unit/GameplayTests/TestGameplayTraversalLinkRegistry.cpp	Gameplay	cpp	71	2637		1	1
+tests/unit/GameplayTests/TestGameplayWorld.cpp	Gameplay	cpp	104	3480		1	1
+tests/unit/GameplayTests/Traversal/TestDoorTraversalExecutor.cpp	Gameplay	cpp	264	12863		1	1
+tests/unit/GameplayTests/Traversal/TestJumpTraversalExecutor.cpp	Gameplay	cpp	314	15242		1	1
+tests/unit/InputTests/TestCameraController.cpp	Input	cpp	112	2636		1	1
+tests/unit/InputTests/TestControllerBase.cpp	Input	cpp	51	1042		1	1
+tests/unit/InputTests/TestGameplayInputBindings.cpp	Input	cpp	296	13990		1	1
+tests/unit/InputTests/TestInputCore.cpp	Input	cpp	79	1987		1	1
+tests/unit/Math/TestMathUtils.cpp	Other	cpp	627	18776		0	1
+tests/unit/NavigationTests/TestNavigation.cpp	Navigation	cpp	456	16730		1	1
+tests/unit/PhysicsTests/TestJoltBodyCreation.cpp	Physics	cpp	210	6765		1	1
+tests/unit/PhysicsTests/TestJoltBodyMutation.cpp	Physics	cpp	188	8256		1	1
+tests/unit/PhysicsTests/TestJoltBodyRegistry.cpp	Physics	cpp	148	5518		1	1
+tests/unit/PhysicsTests/TestJoltCharacterBackend.cpp	Physics	cpp	667	26305		0	1
+tests/unit/PhysicsTests/TestJoltCollisionLayers.cpp	Physics	cpp	79	2577		0	1
+tests/unit/PhysicsTests/TestJoltFallingBody.cpp	Physics	cpp	298	12251		1	1
+tests/unit/PhysicsTests/TestJoltPhysicsWorld.cpp	Physics	cpp	196	5630		1	1
+tests/unit/PhysicsTests/TestJoltRayCast.cpp	Physics	cpp	223	7720		1	1
+tests/unit/PhysicsTests/TestJoltRuntime.cpp	Physics	cpp	47	1285		0	1
+tests/unit/PhysicsTests/TestJoltShapeFactory.cpp	Physics	cpp	91	3206		1	1
+tests/unit/PhysicsTests/TestJoltShapeQueries.cpp	Physics	cpp	256	9930		1	1
+tests/unit/PhysicsTests/TestLevelPhysicsRuntime.cpp	Physics	cpp	295	11427		1	1
+tests/unit/PhysicsTests/TestLevelPhysicsSerialization.cpp	Physics	cpp	109	4858		1	1
+tests/unit/PhysicsTests/TestPhysicsTypes.cpp	Physics	cpp	370	13719		1	1
+tests/unit/RenderTests/LevelInstantiateTestHelper.h	Render	h	105	2871		1	1
+tests/unit/RenderTests/TestAssimpImportContracts.cpp	Render	cpp	70	1794		1	1
+tests/unit/RenderTests/TestDescriptorBindlessInvariants.cpp	Render	cpp	71	2583		1	1
+tests/unit/RenderTests/TestGpuStructPacking.cpp	Render	cpp	40	1338		1	1
+tests/unit/RenderTests/TestInlineRenderScheduler.cpp	Render	cpp	135	3767		1	1
+tests/unit/RenderTests/TestLevelInstantiateReferenceIntegrity.cpp	Render	cpp	174	6339		1	1
+tests/unit/RenderTests/TestLevelWorld.cpp	Render	cpp	89	2601		1	1
+tests/unit/RenderTests/TestRenderCommandQueue.cpp	Render	cpp	136	3306		1	1
+tests/unit/RenderTests/TestRenderGraphFakeRHI.cpp	Render	cpp	453	17359		1	1
+tests/unit/RenderTests/TestRendererSettingsCommands.cpp	Render	cpp	87	3756		1	1
+tests/unit/RenderTests/TestRendererSettingsViewModels.cpp	Render	cpp	212	11141		1	1
+tests/unit/RenderTests/TestThreadedRenderScheduler.cpp	Render	cpp	398	12048		1	1
+tests/unit/ResourceTests/TestAssetManagerStartupValidation.cpp	Other	cpp	98	3101		0	1
+tests/unit/ResourceTests/TestMeshStorage.cpp	Other	cpp	186	6523		0	1
+tests/unit/ResourceTests/TestTextureStorage.cpp	Other	cpp	241	8220		0	1
+tests/unit/TimerTests/TestTimerBasic.cpp	Other	cpp	108	2721		1	1
+tools/refactor/build_repo_index.py	Other	py	353	18216		0	0
