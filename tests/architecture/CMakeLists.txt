@@ -16,9 +16,11 @@ add_test(NAME Engine.ImportBoundaries
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_engine_dependencies.py")
 add_test(NAME Engine.ImportBoundaryLogic
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_engine_dependencies.py")
+add_test(NAME App.NavigationCoordinator
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_app_navigation_coordinator.py")
 set_tests_properties(AI.ImportBoundaries AI.AssetComposition PROPERTIES
     LABELS "ai;architecture"
     TIMEOUT 60)
-set_tests_properties(Engine.ImportBoundaries Engine.ImportBoundaryLogic PROPERTIES
+set_tests_properties(Engine.ImportBoundaries Engine.ImportBoundaryLogic App.NavigationCoordinator PROPERTIES
     LABELS "engine;architecture"
     TIMEOUT 60)

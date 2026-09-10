@@ -7,9 +7,9 @@ Do not edit manually.
 
 ## Summary
 
-- Indexed files: **484**
-- Source-tree files: **336**
-- Test files: **126**
+- Indexed files: **487**
+- Source-tree files: **338**
+- Test files: **127**
 - Repository modules: **176**
 - Repository dependency edges: **713**
 - Test mappings: **167**
@@ -21,7 +21,7 @@ Regenerate with `python tools/refactor/build_repo_index.py`.
 | Subsystem | Primary path | Files | Tests | Index |
 |---|---|---:|---:|---|
 | Animation | `src/Animation/` | 31 | 3 | [open](subsystems/animation.md) |
-| App | `src/App/` | 33 | 6 | [open](subsystems/app.md) |
+| App | `src/App/` | 36 | 7 | [open](subsystems/app.md) |
 | Assets | `src/Assets/` | 9 | 4 | [open](subsystems/assets.md) |
 | Core | `src/Core/` | 14 | 4 | [open](subsystems/core.md) |
 | ECS | `src/ECS/` | 1 | 0 | [open](subsystems/ecs.md) |

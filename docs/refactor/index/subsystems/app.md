@@ -9,12 +9,13 @@ Do not edit manually.
 
 - `src/App/`
 - `tests/unit/`
+- `tests/architecture/`
 
 ## Counts
 
-- Files: **33**
+- Files: **36**
 - Declared modules: **2**
-- Test files: **6**
+- Test files: **7**
 
 ## Modules
 
@@ -44,6 +45,7 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 
 ## Tests
 
+- `tests/architecture/test_app_navigation_coordinator.py`
 - `tests/unit/AppTests/TestAppBootstrapArguments.cpp`
 - `tests/unit/AppTests/TestAppDevelopmentScenarioRuntime.cpp`
 - `tests/unit/AppTests/TestAppLifecycleStreamingWorkerCount.cpp`
