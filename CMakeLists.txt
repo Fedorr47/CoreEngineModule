@@ -704,6 +704,7 @@ target_sources(CoreEngineModuleLib
         "${SRC_DIR}/App/AppBootstrap.cpp"
         "${SRC_DIR}/App/GameplayPhysicsCharacterIntegration.cpp"
         "${SRC_DIR}/App/AppLifecycle.cpp"
+        "${SRC_DIR}/App/AppDebugVisualization.cpp"
 )
 
 # Common deps

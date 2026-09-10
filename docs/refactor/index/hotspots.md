@@ -35,7 +35,6 @@ Score = capped points for each 250 LOC, 20 KB, four imports, module fan-in/fan-o
 | 8 | `src/Physics/Jolt/JoltPhysicsWorld.cpp` | Physics | 1301 LOC; 1 imports |
 | 8 | `src/Render/DirectX12/CommonDX12Structs.cppm` | Render | 633 LOC; 6 imports; fan-in 3; fan-out 6 |
 | 7 | `src/Animation/Runtime/AnimationController.cppm` | Animation | 354 LOC; 4 imports; fan-in 9; fan-out 4 |
-| 7 | `src/App/AppLifecycle.cpp` | App | 1290 LOC; 1 imports |
 | 7 | `src/Gameplay/Navigation/GameplayObstacleAvoidance.cppm` | Gameplay | 570 LOC; 2 imports; fan-in 11; fan-out 2 |
 | 7 | `src/Gameplay/Runtime/GameplayRuntimeCommon.cppm` | Gameplay | 69 LOC; 6 imports; fan-in 6; fan-out 6 |
 | 7 | `src/Render/OpenGL/OpenGLRenderer.cppm` | Render | 428 LOC; 10 imports; fan-in 2; fan-out 10 |
@@ -53,5 +52,6 @@ Score = capped points for each 250 LOC, 20 KB, four imports, module fan-in/fan-o
 | 5 | `src/Gameplay/AI/Composition/GameplayGOAPCompositionRegistry.cppm` | AI | 243 LOC; 6 imports; fan-in 7; fan-out 6 |
 | 5 | `src/Gameplay/AI/Navigation/GameplayAgentObstacleAvoidance.cppm` | AI | 43 LOC; 4 imports; fan-in 3; fan-out 4 |
 | 5 | `src/Gameplay/AI/Runtime/AISystem.cppm` | AI | 162 LOC; 3 imports; fan-in 9; fan-out 3 |
+| 5 | `src/Gameplay/Character/CharacterController.cppm` | Gameplay | 201 LOC; 4 imports; fan-in 7; fan-out 4 |
 
 Each row means **structural hotspot — inspect before planning refactoring**.

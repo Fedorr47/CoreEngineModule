@@ -12,7 +12,7 @@ Do not edit manually.
 
 ## Counts
 
-- Files: **31**
+- Files: **33**
 - Declared modules: **2**
 - Test files: **6**
 
@@ -58,4 +58,3 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 ## Hotspots
 
 - `src/App/Development/DevelopmentScenario.cpp`
-- `src/App/AppLifecycle.cpp`

@@ -117,3 +117,4 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 - `src/Gameplay/GameplayWorld.cppm`
 - `src/Gameplay/Navigation/GameplayObstacleAvoidance.cppm`
 - `src/Gameplay/Runtime/GameplayRuntimeCommon.cppm`
+- `src/Gameplay/Character/CharacterController.cppm`

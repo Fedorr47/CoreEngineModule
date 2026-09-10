@@ -40,9 +40,11 @@ src/App/AppArguments.cpp	App	cpp	83	2129		0	0
 src/App/AppArguments.h	App	h	24	574		0	0
 src/App/AppBootstrap.cpp	App	cpp	167	4882		1	0
 src/App/AppBootstrap.h	App	h	38	1080		0	0
-src/App/AppLifecycle.cpp	App	cpp	1290	58943		1	0
+src/App/AppDebugVisualization.cpp	App	cpp	506	24848		1	0
+src/App/AppDebugVisualization.h	App	h	12	232		0	0
+src/App/AppLifecycle.cpp	App	cpp	805	34563		1	0
 src/App/AppLifecycle.h	App	h	202	6373		0	0
-src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	325	12025		0	0
+src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	324	12008		0	0
 src/App/AppRuntimeHelpers.h	App	h	114	3019		0	0
 src/App/DebugUiHost.cpp	App	cpp	366	12243		1	0
 src/App/DebugUiHost.h	App	h	32	1262		0	0
