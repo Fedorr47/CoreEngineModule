@@ -25,14 +25,14 @@ def main():
         if re.search(pattern, frame_view):
             violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
 
-    for view_type in ("RenderWorldSnapshot", "RenderDebugView", "RenderEditorView"):
+    for view_type in ("RenderWorldSnapshot", "RenderDebugSnapshot", "RenderEditorView"):
         if not re.search(rf"\bstruct\s+{view_type}\b", frame_view):
             violations.append(
                 f"{FRAME_VIEW.relative_to(ROOT)}: missing grouped {view_type} contract"
             )
 
     world_start = frame_view.find("struct RenderSkinnedDrawItem")
-    world_end = frame_view.find("struct RenderDebugView")
+    world_end = frame_view.find("struct RenderDebugSnapshot")
     if world_start < 0 or world_end < 0 or world_start >= world_end:
         violations.append(
             f"{FRAME_VIEW.relative_to(ROOT)}: cannot isolate owned World snapshot contract"
@@ -48,6 +48,27 @@ def main():
         }
         for message, pattern in owned_world_checks.items():
             if re.search(pattern, owned_world_contract):
+                violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
+
+    debug_start = frame_view.find("struct RenderDebugSnapshot")
+    debug_end = frame_view.find("struct RenderEditorView")
+    if debug_start < 0 or debug_end < 0 or debug_start >= debug_end:
+        violations.append(
+            f"{FRAME_VIEW.relative_to(ROOT)}: cannot isolate owned Debug snapshot contract"
+        )
+    else:
+        owned_debug_contract = frame_view[debug_start:debug_end]
+        owned_debug_checks = {
+            "owned Debug contract uses std::span": r"\bstd::span\b",
+            "owned Debug contract stores a Scene pointer": r"\bScene\s*(?:const\s*)?\*",
+            "owned Debug contract stores a Scene reference": r"\bScene\s*(?:const\s*)?&",
+            "owned Debug contract stores a DebugRay pointer/reference":
+                r"\bDebugRay\s*(?:const\s*)?[&*]\s*\w+_\s*;",
+            "owned Debug contract stores a GameplayMovementDebugState pointer/reference":
+                r"\bGameplayMovementDebugState\s*(?:const\s*)?[&*]\s*\w+_\s*;",
+        }
+        for message, pattern in owned_debug_checks.items():
+            if re.search(pattern, owned_debug_contract):
                 violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
 
     flat_accessors = (

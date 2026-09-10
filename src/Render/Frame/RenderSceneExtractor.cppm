@@ -22,7 +22,7 @@ export namespace rendern
                 scene.particles,
                 scene.particleEmitters,
                 scene.skyboxDescIndex);
-            const RenderDebugView debug(
+            RenderDebugSnapshot debug(
                 scene.debugPickRay,
                 scene.gameplayMovementDebug,
                 scene.externalDebugLines,
@@ -45,7 +45,7 @@ export namespace rendern
 
             return RenderFrameView(
                 std::move(world),
-                debug,
+                std::move(debug),
                 editor,
                 BuildAnimationRuntimeOverlaySnapshot(scene));
         }

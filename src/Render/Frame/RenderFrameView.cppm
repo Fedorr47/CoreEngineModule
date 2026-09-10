@@ -105,46 +105,46 @@ export namespace rendern
         rhi::TextureDescIndex skyboxDescIndex_;
     };
 
-    struct RenderDebugView
+    struct RenderDebugSnapshot
     {
-        RenderDebugView(
-            const DebugRay& pickRay,
-            const GameplayMovementDebugState& gameplayMovement,
-            std::span<const ExternalDebugLine> lines,
-            std::span<const ExternalDebugTriangle> triangles,
-            std::span<const ExternalDebugCapsule> capsules,
-            std::span<const ExternalDebugArrow> arrows,
-            std::span<const ExternalDebugBox> boxes,
-            std::span<const ExternalDebugSphere> spheres) noexcept
-            : pickRay_(&pickRay)
-            , gameplayMovement_(&gameplayMovement)
-            , lines_(lines)
-            , triangles_(triangles)
-            , capsules_(capsules)
-            , arrows_(arrows)
-            , boxes_(boxes)
-            , spheres_(spheres)
+        RenderDebugSnapshot(
+            DebugRay pickRay,
+            GameplayMovementDebugState gameplayMovement,
+            std::vector<ExternalDebugLine> lines,
+            std::vector<ExternalDebugTriangle> triangles,
+            std::vector<ExternalDebugCapsule> capsules,
+            std::vector<ExternalDebugArrow> arrows,
+            std::vector<ExternalDebugBox> boxes,
+            std::vector<ExternalDebugSphere> spheres) noexcept
+            : pickRay_(std::move(pickRay))
+            , gameplayMovement_(std::move(gameplayMovement))
+            , lines_(std::move(lines))
+            , triangles_(std::move(triangles))
+            , capsules_(std::move(capsules))
+            , arrows_(std::move(arrows))
+            , boxes_(std::move(boxes))
+            , spheres_(std::move(spheres))
         {
         }
 
-        [[nodiscard]] const DebugRay& GetPickRay() const noexcept { return *pickRay_; }
-        [[nodiscard]] const GameplayMovementDebugState& GetGameplayMovement() const noexcept { return *gameplayMovement_; }
-        [[nodiscard]] std::span<const ExternalDebugLine> GetLines() const noexcept { return lines_; }
-        [[nodiscard]] std::span<const ExternalDebugTriangle> GetTriangles() const noexcept { return triangles_; }
-        [[nodiscard]] std::span<const ExternalDebugCapsule> GetCapsules() const noexcept { return capsules_; }
-        [[nodiscard]] std::span<const ExternalDebugArrow> GetArrows() const noexcept { return arrows_; }
-        [[nodiscard]] std::span<const ExternalDebugBox> GetBoxes() const noexcept { return boxes_; }
-        [[nodiscard]] std::span<const ExternalDebugSphere> GetSpheres() const noexcept { return spheres_; }
+        [[nodiscard]] const DebugRay& GetPickRay() const noexcept { return pickRay_; }
+        [[nodiscard]] const GameplayMovementDebugState& GetGameplayMovement() const noexcept { return gameplayMovement_; }
+        [[nodiscard]] const std::vector<ExternalDebugLine>& GetLines() const noexcept { return lines_; }
+        [[nodiscard]] const std::vector<ExternalDebugTriangle>& GetTriangles() const noexcept { return triangles_; }
+        [[nodiscard]] const std::vector<ExternalDebugCapsule>& GetCapsules() const noexcept { return capsules_; }
+        [[nodiscard]] const std::vector<ExternalDebugArrow>& GetArrows() const noexcept { return arrows_; }
+        [[nodiscard]] const std::vector<ExternalDebugBox>& GetBoxes() const noexcept { return boxes_; }
+        [[nodiscard]] const std::vector<ExternalDebugSphere>& GetSpheres() const noexcept { return spheres_; }
 
     private:
-        const DebugRay* pickRay_;
-        const GameplayMovementDebugState* gameplayMovement_;
-        std::span<const ExternalDebugLine> lines_;
-        std::span<const ExternalDebugTriangle> triangles_;
-        std::span<const ExternalDebugCapsule> capsules_;
-        std::span<const ExternalDebugArrow> arrows_;
-        std::span<const ExternalDebugBox> boxes_;
-        std::span<const ExternalDebugSphere> spheres_;
+        DebugRay pickRay_;
+        GameplayMovementDebugState gameplayMovement_;
+        std::vector<ExternalDebugLine> lines_;
+        std::vector<ExternalDebugTriangle> triangles_;
+        std::vector<ExternalDebugCapsule> capsules_;
+        std::vector<ExternalDebugArrow> arrows_;
+        std::vector<ExternalDebugBox> boxes_;
+        std::vector<ExternalDebugSphere> spheres_;
     };
 
     struct RenderEditorView
@@ -197,26 +197,26 @@ export namespace rendern
         const ScaleGizmoState* scaleGizmo_;
     };
 
-    // Mixed lifetime contract: World and the animation overlay are owned frame
-    // snapshots; Debug and Editor are borrowed synchronous views. Their
-    // references/spans must remain valid for the immediate RenderFrame call, so
-    // the complete RenderFrameView cannot yet be queued or retained.
+    // Mixed lifetime contract: World, Debug, and the animation overlay are owned
+    // frame snapshots. RenderFrameView is still not a fully owned asynchronous
+    // frame packet because RenderEditorView remains borrowed, so the complete
+    // RenderFrameView cannot yet be queued or retained.
     struct RenderFrameView
     {
         RenderFrameView(
             RenderWorldSnapshot world,
-            RenderDebugView debug,
+            RenderDebugSnapshot debug,
             RenderEditorView editor,
             AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot)
             : world_(std::move(world))
-            , debug_(debug)
+            , debug_(std::move(debug))
             , editor_(editor)
             , animationRuntimeOverlaySnapshot_(std::move(animationRuntimeOverlaySnapshot))
         {
         }
 
         [[nodiscard]] const RenderWorldSnapshot& GetWorld() const noexcept { return world_; }
-        [[nodiscard]] const RenderDebugView& GetDebug() const noexcept { return debug_; }
+        [[nodiscard]] const RenderDebugSnapshot& GetDebug() const noexcept { return debug_; }
         [[nodiscard]] const RenderEditorView& GetEditor() const noexcept { return editor_; }
         [[nodiscard]] const AnimationRuntimeOverlaySnapshot& GetAnimationRuntimeOverlaySnapshot() const noexcept
         {
@@ -225,7 +225,7 @@ export namespace rendern
 
     private:
         RenderWorldSnapshot world_;
-        RenderDebugView debug_;
+        RenderDebugSnapshot debug_;
         RenderEditorView editor_;
         AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot_{};
     };
