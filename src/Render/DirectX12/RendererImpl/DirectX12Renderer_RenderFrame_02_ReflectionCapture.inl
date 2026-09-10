@@ -4,14 +4,14 @@
 
 if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwnerDrawItems_.empty())
 {
-	auto GetDrawItemWorldPos = [&scene](int drawItemIndex) -> mathUtils::Vec3
+	auto GetDrawItemWorldPos = [&](int drawItemIndex) -> mathUtils::Vec3
 	{
-		if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
+		if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= drawItems.size())
 		{
 			return {};
 		}
 
-		const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
+		const DrawItem& di = drawItems[static_cast<std::size_t>(drawItemIndex)];
 		if (di.transform.useMatrix)
 		{
 			const mathUtils::Vec4& t = di.transform.matrix[3];
@@ -49,7 +49,7 @@ if (settings_.enableReflectionCapture && psoReflectionCapture_ && !reflectiveOwn
 	clearDepthOnly.clearDepth = true;
 	clearDepthOnly.depth = 1.0f;
 
-	const std::uint32_t skyboxDesc = scene.skyboxDescIndex;
+	const std::uint32_t skyboxDesc = skyboxDescIndex;
 	const bool haveSkybox = (skyboxDesc != 0);
 
 	struct ReflectionProbePrefilterConstants

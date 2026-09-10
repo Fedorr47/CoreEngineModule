@@ -71,6 +71,7 @@ add_executable(CoreEngineModuleTests
         "unit/ResourceTests/TestAssetManagerStartupValidation.cpp"
         "unit/TimerTests/TestTimerBasic.cpp"
         "unit/RenderTests/TestRenderGraphFakeRHI.cpp"
+        "unit/RenderTests/TestRenderSceneExtractor.cpp"
         "unit/CoreTests/TestJsonUtils.cpp"
         "unit/CoreTests/TestStringHashUtils.cpp"
         "unit/CoreTests/TestFileUtils.cpp"

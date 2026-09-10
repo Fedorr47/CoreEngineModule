@@ -14,7 +14,7 @@ Do not edit manually.
 
 - Files: **3**
 - Declared modules: **2**
-- Test files: **96**
+- Test files: **97**
 
 ## Modules
 
@@ -69,7 +69,7 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 - `tests/unit/AnimationTests/TestAnimatorSamplingInvariants.cpp`
 - `tests/unit/AppTests/TestAppDevelopmentScenarioRuntime.cpp`
 - `tests/unit/AppTests/TestAppPhysicsStateLifecycle.cpp`
-- _81 more; see the TSV indexes._
+- _82 more; see the TSV indexes._
 
 ## Relevant docs
 

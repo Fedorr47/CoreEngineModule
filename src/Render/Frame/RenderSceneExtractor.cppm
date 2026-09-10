@@ -13,7 +13,34 @@ export namespace rendern
     public:
         [[nodiscard]] static RenderFrameView BuildFrameView(const Scene& scene)
         {
-            return RenderFrameView(scene, BuildAnimationRuntimeOverlaySnapshot(scene));
+            return RenderFrameView(
+                scene.camera,
+                scene.materials,
+                scene.drawItems,
+                scene.skinnedDrawItems,
+                scene.lights,
+                scene.particles,
+                scene.particleEmitters,
+                scene.skyboxDescIndex,
+                scene.debugPickRay,
+                scene.gameplayMovementDebug,
+                scene.externalDebugLines,
+                scene.externalDebugTriangles,
+                scene.externalDebugCapsules,
+                scene.externalDebugArrows,
+                scene.externalDebugBoxes,
+                scene.externalDebugSpheres,
+                scene.editorSelectedLights,
+                scene.editorSelectedParticleEmitter,
+                scene.editorSelectedDrawItems,
+                scene.editorSelectedSkinnedDrawItems,
+                scene.editorDrawSelectedSkinnedSkeleton,
+                scene.editorDrawSelectedSkinnedBounds,
+                scene.editorGizmoMode,
+                scene.editorTranslateGizmo,
+                scene.editorRotateGizmo,
+                scene.editorScaleGizmo,
+                BuildAnimationRuntimeOverlaySnapshot(scene));
         }
     private:
         [[nodiscard]] static AnimationRuntimeOverlaySnapshot BuildAnimationRuntimeOverlaySnapshot(const Scene& scene)

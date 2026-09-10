@@ -117,7 +117,29 @@ export namespace rendern
 				{
 					return std::chrono::duration<double, std::milli>(b - a).count();
 				};
-			const Scene& scene = frameView.GetScene();
+			const Camera& renderCamera = frameView.GetCamera();
+			const auto drawItems = frameView.GetDrawItems();
+			const auto skinnedDrawItems = frameView.GetSkinnedDrawItems();
+			const auto lights = frameView.GetLights();
+			const auto particles = frameView.GetParticles();
+			const auto particleEmitters = frameView.GetParticleEmitters();
+			const auto skyboxDescIndex = frameView.GetSkyboxDescIndex();
+			const DebugRay& debugPickRay = frameView.GetDebugPickRay();
+			const GameplayMovementDebugState& gameplayMovementDebug = frameView.GetGameplayMovementDebug();
+			const auto editorSelectedLights = frameView.GetEditorSelectedLights();
+			const auto editorSelectedDrawItems = frameView.GetEditorSelectedDrawItems();
+			const auto editorSelectedSkinnedDrawItems = frameView.GetEditorSelectedSkinnedDrawItems();
+			const int editorSelectedParticleEmitter = frameView.GetEditorSelectedParticleEmitter();
+			const bool editorDrawSelectedSkinnedSkeleton = frameView.GetEditorDrawSelectedSkinnedSkeleton();
+			const bool editorDrawSelectedSkinnedBounds = frameView.GetEditorDrawSelectedSkinnedBounds();
+			const GizmoMode editorGizmoMode = frameView.GetEditorGizmoMode();
+			const TranslateGizmoState& editorTranslateGizmo = frameView.GetEditorTranslateGizmo();
+			const RotateGizmoState& editorRotateGizmo = frameView.GetEditorRotateGizmo();
+			const ScaleGizmoState& editorScaleGizmo = frameView.GetEditorScaleGizmo();
+			const auto IsEditorLightSelected = [editorSelectedLights](int lightIndex) noexcept
+			{
+				return std::ranges::find(editorSelectedLights, lightIndex) != editorSelectedLights.end();
+			};
 			const auto setupCsmStart = std::chrono::steady_clock::now();
 #include "RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl"
 			const auto setupCsmEnd = std::chrono::steady_clock::now();
@@ -196,8 +218,8 @@ export namespace rendern
 
 		void DrawParticleBillboards(
 			rhi::CommandList& commandList,
-			const Scene& scene,
-			const FrameCameraData& camera,
+			const Camera& camera,
+			const FrameCameraData& frameCamera,
 			std::uint32_t particleCount) const
 		{
 			if (!psoParticles_ || !particleMesh_.vertexBuffer || !particleMesh_.indexBuffer || !particleInstanceBuffer_ || particleCount == 0 || particleBatches_.empty())
@@ -205,8 +227,8 @@ export namespace rendern
 				return;
 			}
 
-			const mathUtils::Vec3 forward = mathUtils::Normalize(scene.camera.target - scene.camera.position);
-			mathUtils::Vec3 right = mathUtils::Cross(forward, scene.camera.up);
+			const mathUtils::Vec3 forward = mathUtils::Normalize(camera.target - camera.position);
+			mathUtils::Vec3 right = mathUtils::Cross(forward, camera.up);
 			if (mathUtils::Length(right) <= 0.0001f)
 			{
 				right = mathUtils::Vec3(1.0f, 0.0f, 0.0f);
@@ -215,7 +237,7 @@ export namespace rendern
 			const mathUtils::Vec3 up = mathUtils::Normalize(mathUtils::Cross(right, forward));
 
 			ParticleConstants constants{};
-			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(camera.viewProj);
+			const mathUtils::Mat4 viewProjT = mathUtils::Transpose(frameCamera.viewProj);
 			std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
 			constants.uCameraRight = { right.x, right.y, right.z, 0.0f };
 			constants.uCameraUp = { up.x, up.y, up.z, 0.0f };
@@ -296,24 +318,24 @@ export namespace rendern
 			return insertedIt->second;
 		}
 
-		FrameCameraData BuildFrameCameraData(const Scene& scene, const rhi::Extent2D& extent) const
+		FrameCameraData BuildFrameCameraData(const Camera& camera, const rhi::Extent2D& extent) const
 		{
 			const float aspect = extent.height
 				? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
 				: 1.0f;
 
 			FrameCameraData data{};
-			data.proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-			data.view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+			data.proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(camera.fovYDeg), aspect, camera.nearZ, camera.farZ);
+			data.view = mathUtils::LookAt(camera.position, camera.target, camera.up);
 			data.viewProj = data.proj * data.view;
 			data.invViewProj = mathUtils::Inverse(data.viewProj);
 			data.invViewProjT = mathUtils::Transpose(data.invViewProj);
-			data.camPos = scene.camera.position;
-			data.camForward = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+			data.camPos = camera.position;
+			data.camForward = mathUtils::Normalize(camera.target - camera.position);
 			return data;
 		}
 
-		std::uint32_t UploadLights(const Scene& scene, const mathUtils::Vec3& camPos)
+		std::uint32_t UploadLights(std::span<const Light> lights, const mathUtils::Vec3& camPos)
 		{
 #include "RendererImpl/DirectX12Renderer_UploadLights.inl"
 		}
@@ -595,7 +617,7 @@ export namespace rendern
 
 		std::vector<ReflectionProbeRuntime> reflectionProbes_;
 		std::vector<int> reflectiveOwnerDrawItems_;           // frame list of owners
-		std::vector<int> drawItemReflectionProbeIndices_;     // size == scene.drawItems.size()
+		std::vector<int> drawItemReflectionProbeIndices_;     // size == drawItems.size()
 		std::vector<TransparentDraw> scratchTransparentDraws_;
 		std::vector<InstanceData> scratchCombinedInstances_;
 		std::vector<DeferredReflectionProbeGpu> scratchDeferredReflectionProbes_;

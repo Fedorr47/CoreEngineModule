@@ -11,15 +11,15 @@
 	att.clearDesc.clearStencil = false;
 
 	graph.AddPass("DeferredSkybox", std::move(att),
-		[this, &scene, instStride, DrawEditorSelectionGroup](renderGraph::PassContext& ctx)
+		[&, this, instStride, DrawEditorSelectionGroup](renderGraph::PassContext& ctx)
 		{
 			const auto extent = ctx.passExtent;
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 			const mathUtils::Mat4& proj = camera.proj;
 			const mathUtils::Mat4& view = camera.view;
 
-			if (scene.skyboxDescIndex != 0)
+			if (skyboxDescIndex != 0)
 			{
 				mathUtils::Mat4 viewNoTranslation = view;
 				viewNoTranslation[3] = mathUtils::Vec4(0, 0, 0, 1);
@@ -32,7 +32,7 @@
 
 				ctx.commandList.SetState(skyboxState_);
 				ctx.commandList.BindPipeline(psoSkybox_);
-				ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+				ctx.commandList.BindTextureDesc(0, skyboxDescIndex);
 
 				ctx.commandList.BindInputLayout(skyboxMesh_.layout);
 				ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);

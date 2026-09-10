@@ -7,12 +7,12 @@ Do not edit manually.
 
 ## Summary
 
-- Indexed files: **487**
+- Indexed files: **489**
 - Source-tree files: **338**
-- Test files: **127**
+- Test files: **129**
 - Repository modules: **176**
 - Repository dependency edges: **713**
-- Test mappings: **167**
+- Test mappings: **169**
 
 Regenerate with `python tools/refactor/build_repo_index.py`.
 
@@ -32,7 +32,7 @@ Regenerate with `python tools/refactor/build_repo_index.py`.
 | Level | `src/Level/` | 21 | 1 | [open](subsystems/level.md) |
 | Navigation | `src/Navigation/` | 3 | 1 | [open](subsystems/navigation.md) |
 | Physics | `src/Physics/` | 28 | 16 | [open](subsystems/physics.md) |
-| Render | `src/Render/` | 129 | 12 | [open](subsystems/render.md) |
+| Render | `src/Render/` | 131 | 14 | [open](subsystems/render.md) |
 | Scene | `src/Scene/` | 3 | 0 | [open](subsystems/scene.md) |
 
 ## Navigation

@@ -16,7 +16,7 @@ auto ResolveMainPassMaterialPerm = [&](const auto& material, const auto& materia
 		MaterialPerm perm = MaterialPerm::UseShadow;
 		if (materialHandle.id != 0)
 		{
-			perm = EffectivePerm(scene.GetMaterial(materialHandle));
+			perm = EffectivePerm(frameView.GetMaterial(materialHandle));
 		}
 		else if (material.albedoDescIndex != 0)
 		{
@@ -28,14 +28,14 @@ auto ResolveMainPassMaterialPerm = [&](const auto& material, const auto& materia
 auto ResolveOpaqueEnvBinding = [&](const auto& materialHandle, int reflectionProbeIndex) -> ResolvedMaterialEnvBinding
 	{
 		ResolvedMaterialEnvBinding env{};
-		env.descIndex = scene.skyboxDescIndex;
+		env.descIndex = skyboxDescIndex;
 
 		if (materialHandle.id == 0)
 		{
 			return env;
 		}
 
-		const auto& mat = scene.GetMaterial(materialHandle);
+		const auto& mat = frameView.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || !settings_.enableReflectionCapture)
 		{
 			return env;
@@ -62,14 +62,14 @@ auto ResolveOpaqueEnvBinding = [&](const auto& materialHandle, int reflectionPro
 auto ResolveTransparentEnvBinding = [&](const auto& materialHandle) -> ResolvedMaterialEnvBinding
 	{
 		ResolvedMaterialEnvBinding env{};
-		env.descIndex = scene.skyboxDescIndex;
+		env.descIndex = skyboxDescIndex;
 
 		if (materialHandle.id == 0)
 		{
 			return env;
 		}
 
-		const auto& mat = scene.GetMaterial(materialHandle);
+		const auto& mat = frameView.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || !settings_.enableReflectionCapture)
 		{
 			return env;

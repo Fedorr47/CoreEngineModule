@@ -148,6 +148,7 @@ src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestLevelInstantiate
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestLevelWorld.cpp	imports
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestRenderCommandQueue.cpp	imports
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestRenderGraphFakeRHI.cpp	imports
+src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestRenderSceneExtractor.cpp	imports
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestRendererSettingsCommands.cpp	imports
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestRendererSettingsViewModels.cpp	imports
 src/Navigation/Recast/Navigation.cpp	tests/unit/RenderTests/TestThreadedRenderScheduler.cpp	imports
@@ -163,6 +164,7 @@ src/Physics/Jolt/JoltShapeFactory.cppm	tests/unit/PhysicsTests/TestJoltShapeFact
 src/Physics/LevelPhysicsRuntime.cpp	tests/unit/PhysicsTests/TestLevelPhysicsRuntime.cpp	name-match
 src/Physics/LevelPhysicsRuntime.h	tests/unit/PhysicsTests/TestLevelPhysicsRuntime.cpp	name-match
 src/Physics/PhysicsTypes.cppm	tests/unit/PhysicsTests/TestPhysicsTypes.cpp	name-match
+src/Render/Frame/RenderSceneExtractor.cppm	tests/unit/RenderTests/TestRenderSceneExtractor.cpp	name-match
 src/Render/ImGui/RendererSettingsViewModels.h	tests/unit/RenderTests/TestRendererSettingsViewModels.cpp	name-match
 src/Render/RenderCommandQueue.cppm	tests/unit/RenderTests/TestRenderCommandQueue.cpp	name-match
 src/Render/Scene/CameraController.cppm	tests/unit/InputTests/TestCameraController.cpp	name-match

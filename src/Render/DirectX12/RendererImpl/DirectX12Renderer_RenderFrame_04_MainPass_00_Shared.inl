@@ -24,8 +24,8 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 		EditorSelectionLists result{};
 		constexpr std::size_t kMaxSelectionInstances = 4096;
 
-		const std::size_t selectedStaticCount = scene.editorSelectedDrawItems.size();
-		const std::size_t selectedSkinnedCount = scene.editorSelectedSkinnedDrawItems.size();
+		const std::size_t selectedStaticCount = editorSelectedDrawItems.size();
+		const std::size_t selectedSkinnedCount = editorSelectedSkinnedDrawItems.size();
 		const std::size_t selectedTotal = selectedStaticCount + selectedSkinnedCount;
 		result.opaque.reserve(selectedTotal);
 		result.transparent.reserve(selectedTotal);
@@ -47,7 +47,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 				}
 			};
 
-		for (const int diIndex : scene.editorSelectedDrawItems)
+		for (const int diIndex : editorSelectedDrawItems)
 		{
 			if (diIndex < 0)
 			{
@@ -59,12 +59,12 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			}
 
 			const std::size_t idx = static_cast<std::size_t>(diIndex);
-			if (idx >= scene.drawItems.size())
+			if (idx >= drawItems.size())
 			{
 				continue;
 			}
 
-			const DrawItem& di = scene.drawItems[idx];
+			const DrawItem& di = drawItems[idx];
 			const rendern::MeshRHI* mesh = di.mesh ? &di.mesh->GetResource() : nullptr;
 			if (!mesh || mesh->indexCount == 0 || !mesh->vertexBuffer || !mesh->indexBuffer)
 			{
@@ -92,7 +92,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 
 			if (di.material.id != 0)
 			{
-				const auto& mat = scene.GetMaterial(di.material);
+				const auto& mat = frameView.GetMaterial(di.material);
 				const MaterialPerm perm = EffectivePerm(mat);
 				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
 			}
@@ -116,7 +116,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			}
 		}
 
-		for (const int skinnedIndex : scene.editorSelectedSkinnedDrawItems)
+		for (const int skinnedIndex : editorSelectedSkinnedDrawItems)
 		{
 			if (skinnedIndex < 0)
 			{
@@ -136,9 +136,9 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			sel.boneCount = draw.boneCount;
 			sel.isSkinned = true;
 			sel.outlineWorldOffset = 0.01f;
-			if (static_cast<std::size_t>(skinnedIndex) < scene.skinnedDrawItems.size())
+			if (static_cast<std::size_t>(skinnedIndex) < skinnedDrawItems.size())
 			{
-				const SkinnedDrawItem& item = scene.skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
+				const SkinnedDrawItem& item = skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
 				if (item.asset)
 				{
 					const auto& bounds = item.asset->mesh.bounds.maxAnimatedBounds;
@@ -150,7 +150,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			}
 			if (draw.materialHandle.id != 0)
 			{
-				const auto& mat = scene.GetMaterial(draw.materialHandle);
+				const auto& mat = frameView.GetMaterial(draw.materialHandle);
 				const MaterialPerm perm = EffectivePerm(mat);
 				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
 			}
@@ -186,7 +186,7 @@ auto ComputeForwardGBufferReflectionMeta = [&](MaterialHandle materialHandle, in
 			return result;
 		}
 
-		const auto& mat = scene.GetMaterial(materialHandle);
+		const auto& mat = frameView.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || reflectionProbeIndex < 0 || static_cast<std::uint32_t>(reflectionProbeIndex) >= activeProbeCount)
 		{
 			return result;
@@ -205,7 +205,7 @@ auto ComputeDeferredGBufferReflectionMeta = [&](MaterialHandle materialHandle, i
 			return result;
 		}
 
-		const auto& mat = scene.GetMaterial(materialHandle);
+		const auto& mat = frameView.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture)
 		{
 			return result;

@@ -10,7 +10,7 @@ if (!selectionOpaque.empty())
 	att.clearDesc.clearStencil = false;
 
 	graph.AddPass("DeferredSelectionOpaque", std::move(att),
-		[this, &scene,
+		[&, this,
 		sceneColor,
 		depthRG,
 		dirLightViewProj,
@@ -25,7 +25,7 @@ if (!selectionOpaque.empty())
 				static_cast<int>(extent.width),
 				static_cast<int>(extent.height));
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 			const mathUtils::Mat4& viewProj = camera.viewProj;
 			const mathUtils::Vec3& camPosLocal = camera.camPos;
 			const mathUtils::Vec3& camFLocal = camera.camForward;
@@ -56,7 +56,7 @@ if (!transparentDraws.empty())
 	att.clearDesc.clearStencil = false;
 
 	graph.AddPass("DeferredTransparent", std::move(att),
-		[this, &scene,
+		[&, this,
 		shadowRG,
 		dirLightViewProj,
 		lightCount,
@@ -85,12 +85,12 @@ if (!transparentDraws.empty())
 			? (static_cast<float>(extent.width) / static_cast<float>(extent.height))
 			: 1.0f;
 
-		const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-		const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+		const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(renderCamera.fovYDeg), aspect, renderCamera.nearZ, renderCamera.farZ);
+		const mathUtils::Mat4 view = mathUtils::LookAt(renderCamera.position, renderCamera.target, renderCamera.up);
 		const mathUtils::Mat4 viewProj = proj * view;
 
-		const mathUtils::Vec3 camPosLocal = scene.camera.position;
-		const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+		const mathUtils::Vec3 camPosLocal = renderCamera.position;
+		const mathUtils::Vec3 camFLocal = mathUtils::Normalize(renderCamera.target - renderCamera.position);
 
 		// Bind dir shadow map at t1.
 		{
@@ -191,15 +191,15 @@ if (particleCount > 0u)
 	att.clearDesc.clearStencil = false;
 
 	graph.AddPass("DeferredParticles", std::move(att),
-		[this, &scene, particleCount](renderGraph::PassContext& ctx)
+		[&, this, particleCount](renderGraph::PassContext& ctx)
 		{
 			const auto extent = ctx.passExtent;
 			ctx.commandList.SetViewport(0, 0,
 				static_cast<int>(extent.width),
 				static_cast<int>(extent.height));
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
-			DrawParticleBillboards(ctx.commandList, scene, camera, particleCount);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
+			DrawParticleBillboards(ctx.commandList, renderCamera, camera, particleCount);
 		});
 }
 // --- Editor selection (transparent) over deferred SceneColor ---
@@ -214,7 +214,7 @@ if (!selectionTransparent.empty())
 	att.clearDesc.clearStencil = false;
 
 	graph.AddPass("DeferredSelectionTransparent", std::move(att),
-		[this, &scene,
+		[&, this,
 		dirLightViewProj,
 		selectionTransparent,
 		selectionTransparentStart,
@@ -230,7 +230,7 @@ if (!selectionTransparent.empty())
 				static_cast<int>(extent.width),
 				static_cast<int>(extent.height));
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 			const mathUtils::Mat4& viewProj = camera.viewProj;
 			const mathUtils::Vec3& camPosLocal = camera.camPos;
 			const mathUtils::Vec3& camFLocal = camera.camForward;

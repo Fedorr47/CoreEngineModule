@@ -54,12 +54,12 @@ if (canForwardSSAO)
 	att.clearDesc.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 	graph.AddPass("ForwardSSAO", std::move(att),
-		[this, &scene, depthRG](renderGraph::PassContext& ctx)
+		[&, this, depthRG](renderGraph::PassContext& ctx)
 		{
 			const auto extent = ctx.passExtent;
 			ctx.commandList.SetViewport(0, 0, static_cast<int>(extent.width), static_cast<int>(extent.height));
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 			const mathUtils::Mat4& invViewProjT = camera.invViewProjT;
 
 			SSAOConstants c{};
@@ -131,8 +131,8 @@ mainAtt.depth = depthRG;
 mainAtt.clearDesc = clearDesc;
 
 graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
+	&,
 	this,
-	&scene,
 	shadowRG,
 	dirLightViewProj,
 	lightCount,
@@ -159,7 +159,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	// If we ran a depth prepass, keep depth read-only in the main pass.
 	ctx.commandList.SetState(doDepthPrepass ? mainAfterPreDepthState_ : state_);
 
-	const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+	const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 	const mathUtils::Mat4& proj = camera.proj;
 	const mathUtils::Mat4& view = camera.view;
 	const mathUtils::Mat4& viewProj = camera.viewProj;
@@ -168,7 +168,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 
 	// --- Skybox draw ---
 	{
-		if (scene.skyboxDescIndex != 0)
+		if (skyboxDescIndex != 0)
 		{
 			mathUtils::Mat4 viewNoTranslation = view;
 			viewNoTranslation[3] = mathUtils::Vec4(0, 0, 0, 1);
@@ -181,7 +181,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 
 			ctx.commandList.SetState(skyboxState_);
 			ctx.commandList.BindPipeline(psoSkybox_);
-			ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+			ctx.commandList.BindTextureDesc(0, skyboxDescIndex);
 
 			ctx.commandList.BindInputLayout(skyboxMesh_.layout);
 			ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
@@ -373,8 +373,8 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	transparentAtt.clearDesc.clearStencil = false;
 
 	graph.AddPass("ForwardTransparentPass", std::move(transparentAtt), [
+		&,
 		this,
-		&scene,
 		shadowRG,
 		dirLightViewProj,
 		lightCount,
@@ -403,7 +403,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 			static_cast<int>(extent.width),
 			static_cast<int>(extent.height));
 
-		const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+		const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 		const mathUtils::Mat4& viewProj = camera.viewProj;
 		const mathUtils::Vec3& camPosLocal = camera.camPos;
 		const mathUtils::Vec3& camFLocal = camera.camForward;
@@ -508,7 +508,7 @@ graph.AddPass("ForwardOpaquePass", std::move(mainAtt), [
 	}
 	if (particleCount > 0u)
 	{
-		DrawParticleBillboards(ctx.commandList, scene, camera, particleCount);
+		DrawParticleBillboards(ctx.commandList, renderCamera, camera, particleCount);
 	}
 
 	// If selected objects are transparent, render outline/highlight AFTER the transparent pass
@@ -566,7 +566,7 @@ if (canForwardSSAO)
 
 if (settings_.enableFog && psoFog_)
 {
-	const FrameCameraData camera = BuildFrameCameraData(scene, scDesc.extent);
+	const FrameCameraData camera = BuildFrameCameraData(renderCamera, scDesc.extent);
 
 	FogConstants c{};
 	const mathUtils::Mat4& invViewProjT = camera.invViewProjT;

@@ -125,8 +125,8 @@ if (!skinnedPaletteMatrices.empty())
 
 particleBatches_.clear();
 std::vector<std::pair<rhi::TextureDescIndex, ParticleInstanceData>> particlePacked;
-particlePacked.reserve(std::min<std::size_t>(scene.particles.size(), static_cast<std::size_t>(kMaxParticles)));
-for (const Particle& particle : scene.particles)
+particlePacked.reserve(std::min<std::size_t>(particles.size(), static_cast<std::size_t>(kMaxParticles)));
+for (const Particle& particle : particles)
 {
 	if (!particle.alive || particle.size <= 0.0f || particle.color.w <= 0.0f)
 	{
@@ -143,9 +143,9 @@ for (const Particle& particle : scene.particles)
 	gpu.params0 = mathUtils::Vec4(particle.rotationRad, 0.0f, 0.0f, 0.0f);
 
 	rhi::TextureDescIndex textureDescIndex = 0;
-	if (particle.ownerEmitter >= 0 && static_cast<std::size_t>(particle.ownerEmitter) < scene.particleEmitters.size())
+	if (particle.ownerEmitter >= 0 && static_cast<std::size_t>(particle.ownerEmitter) < particleEmitters.size())
 	{
-		textureDescIndex = scene.particleEmitters[static_cast<std::size_t>(particle.ownerEmitter)].textureDescIndex;
+		textureDescIndex = particleEmitters[static_cast<std::size_t>(particle.ownerEmitter)].textureDescIndex;
 	}
 	particlePacked.emplace_back(textureDescIndex, gpu);
 }

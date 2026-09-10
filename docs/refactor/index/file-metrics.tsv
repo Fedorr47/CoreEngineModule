@@ -45,7 +45,7 @@ src/App/AppDebugVisualization.h	App	h	12	232		0	0
 src/App/AppLifecycle.cpp	App	cpp	732	30510		1	0
 src/App/AppLifecycle.h	App	h	202	6373		0	0
 src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	324	12008		0	0
-src/App/AppNavigationCoordinator.cpp	App	cpp	82	4261		1	0
+src/App/AppNavigationCoordinator.cpp	App	cpp	91	4380		1	0
 src/App/AppNavigationCoordinator.h	App	h	11	149		0	0
 src/App/AppRuntimeHelpers.h	App	h	114	3019		0	0
 src/App/DebugUiHost.cpp	App	cpp	366	12243		1	0
@@ -236,7 +236,7 @@ src/Render/DirectX12/DebugDrawRendererDX12.cppm	Render	cppm	268	8318	core:debug_
 src/Render/DirectX12/DebugTextRendererDX12.cppm	Render	cppm	419	13477	core:debug_text_renderer_dx12	4	0
 src/Render/DirectX12/DirectX12Core.cppm	Render	cppm	78	2040	core:dx12_core	0	0
 src/Render/DirectX12/DirectX12RHI.cppm	Render	cppm	258	6840	core:rhi_dx12	3	0
-src/Render/DirectX12/DirectX12Renderer.cppm	Render	cppm	646	23851	core:renderer_dx12	19	0
+src/Render/DirectX12/DirectX12Renderer.cppm	Render	cppm	668	25359	core:renderer_dx12	19	0
 src/Render/DirectX12/DirectX12TextureUploader.cppm	Render	cppm	610	15685	core:render_core_dx12	3	0
 src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl	Render	inl	27	1103		0	0
 src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_CapabilitiesAndDxc.inl	Render	inl	267	9224		0	0
@@ -269,31 +269,31 @@ src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_00_PathsSkyb
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_01_MainPipelines.inl	Render	inl	679	26294		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_02_ShadowPipelines.inl	Render	inl	302	11271		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_03_DynamicBuffers.inl	Render	inl	82	3225		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl	Render	inl	187	8326		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl	Render	inl	187	8321		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl	Render	inl	3	301		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_FinalizeAndUpload.inl	Render	inl	189	7345		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_MainTransparentReflectionPacking.inl	Render	inl	403	13119		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_ShadowAndLayeredShadow.inl	Render	inl	128	4056		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl	Render	inl	504	19486		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl	Render	inl	433	18034		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl	Render	inl	57	2610		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_FinalizeAndUpload.inl	Render	inl	189	7321		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_MainTransparentReflectionPacking.inl	Render	inl	403	13003		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_ShadowAndLayeredShadow.inl	Render	inl	128	4042		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl	Render	inl	504	19463		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl	Render	inl	433	18016		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl	Render	inl	57	2612		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass.inl	Render	inl	3	203		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_00_Shared.inl	Render	inl	478	16932		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_00_Shared.inl	Render	inl	478	16900		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01_Deferred.inl	Render	inl	8	322		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01a_DeferredGeometryAndLighting.inl	Render	inl	596	21935		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01b_DeferredPost.inl	Render	inl	103	3731		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01c_DeferredTransparentAndSelection.inl	Render	inl	567	19177		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_02_Forward.inl	Render	inl	907	33857		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01a_DeferredGeometryAndLighting.inl	Render	inl	596	21943		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01b_DeferredPost.inl	Render	inl	103	3721		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01c_DeferredTransparentAndSelection.inl	Render	inl	567	19185		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_02_Forward.inl	Render	inl	907	33865		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedMaterialEnvHelpers.inl	Render	inl	184	5297		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedPerBatchConstantsHelpers.inl	Render	inl	35	1662		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl	Render	inl	172	7564		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04b_PlanarReflections_MaskRT.inl	Render	inl	508	24783		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl	Render	inl	1203	45405		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl	Render	inl	172	7559		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04b_PlanarReflections_MaskRT.inl	Render	inl	508	24742		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl	Render	inl	1203	44692		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_Shutdown.inl	Render	inl	86	1797		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_UploadLights.inl	Render	inl	53	2201		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_UploadLights.inl	Render	inl	53	2189		0	0
 src/Render/FileSystem.cppm	Render	cppm	49	809	core:file_system	1	0
-src/Render/Frame/RenderFrameView.cppm	Render	cppm	66	1963	core:render_frame_view	1	0
-src/Render/Frame/RenderSceneExtractor.cppm	Render	cppm	49	2238	core:render_scene_extractor	2	0
+src/Render/Frame/RenderFrameView.cppm	Render	cppm	177	9648	core:render_frame_view	1	0
+src/Render/Frame/RenderSceneExtractor.cppm	Render	cppm	76	3343	core:render_scene_extractor	2	0
 src/Render/GpuMemory.cppm	Render	cppm	55	1339	core:render_gpu_memory	1	0
 src/Render/ImGui/Animation/ImGuiAnimationGraphBlend.inl	Animation	inl	615	29716		0	0
 src/Render/ImGui/Animation/ImGuiAnimationGraphDetails.inl	Animation	inl	814	38506		0	0
@@ -335,7 +335,7 @@ src/Render/OpenGL/OpenGLRHI_DeviceCommands.inl	Render	inl	422	11219		0	0
 src/Render/OpenGL/OpenGLRHI_DevicePrivate.inl	Render	inl	467	12272		0	0
 src/Render/OpenGL/OpenGLRHI_GlHelpers.inl	Render	inl	369	8091		0	0
 src/Render/OpenGL/OpenGLRHI_GlUtils.inl	Render	inl	409	9276		0	0
-src/Render/OpenGL/OpenGLRenderer.cppm	Render	cppm	428	13943	core:renderer_mesh_gl	10	0
+src/Render/OpenGL/OpenGLRenderer.cppm	Render	cppm	431	14105	core:renderer_mesh_gl	10	0
 src/Render/OpenGL/RenderGL.ixx	Render	ixx	7	199	core:render_gl	4	0
 src/Render/RHI.cppm	Render	cppm	910	23163	core:rhi	0	0
 src/Render/Render.ixx	Render	ixx	34	976	core:render	32	0
@@ -358,7 +358,7 @@ src/Scene/Scene_RuntimeSystems.inl	Scene	inl	319	9146		0	0
 src/Timer/GameTimer.cppm	Other	cppm	195	4415	core:gametimer_core	0	0
 src/Timer/GameTimer.ixx	Other	ixx	3	62	core:gametimer	1	0
 src/main.cpp	Other	cpp	33	579		1	0
-tests/CMakeLists.txt	Other	txt	368	13623		0	1
+tests/CMakeLists.txt	Other	txt	369	13679		0	1
 tests/FakeMeshIO.h	Other	h	113	2758		1	1
 tests/FakeRHI.cpp	Other	cpp	317	8493		0	1
 tests/FakeRHI.h	Other	h	147	5902		1	1
@@ -373,9 +373,10 @@ tests/TestSupport/TestFixtureLoader.h	Other	h	9	257		0	1
 tests/TestSupport/TestGlobalVariables.h	Other	h	3	61		0	1
 tests/TestSupport/TestTempPath.h	Other	h	39	905		0	1
 tests/TestSupport/TestThreadAffinity.h	Other	h	22	691		1	1
-tests/architecture/CMakeLists.txt	Other	txt	26	1269		0	1
+tests/architecture/CMakeLists.txt	Other	txt	28	1438		0	1
 tests/architecture/check_ai_dependencies.py	Other	py	59	2643		0	1
 tests/architecture/check_engine_dependencies.py	Other	py	78	2446		0	1
+tests/architecture/check_render_frame_view_boundary.py	Render	py	45	1613		0	1
 tests/architecture/module_dependencies.py	Other	py	75	2300		0	1
 tests/architecture/test_app_navigation_coordinator.py	App	py	38	1660		0	1
 tests/architecture/test_engine_dependencies.py	Other	py	72	2819		0	1
@@ -478,6 +479,7 @@ tests/unit/RenderTests/TestLevelInstantiateReferenceIntegrity.cpp	Render	cpp	174
 tests/unit/RenderTests/TestLevelWorld.cpp	Render	cpp	89	2601		1	1
 tests/unit/RenderTests/TestRenderCommandQueue.cpp	Render	cpp	136	3306		1	1
 tests/unit/RenderTests/TestRenderGraphFakeRHI.cpp	Render	cpp	453	17359		1	1
+tests/unit/RenderTests/TestRenderSceneExtractor.cpp	Render	cpp	55	2216		1	1
 tests/unit/RenderTests/TestRendererSettingsCommands.cpp	Render	cpp	87	3756		1	1
 tests/unit/RenderTests/TestRendererSettingsViewModels.cpp	Render	cpp	212	11141		1	1
 tests/unit/RenderTests/TestThreadedRenderScheduler.cpp	Render	cpp	398	12048		1	1

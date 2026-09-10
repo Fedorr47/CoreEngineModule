@@ -22,7 +22,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 
 		auto [planeN, planeD] = CanonicalizePlane(mirror.planeNormal, mirror.planePoint);
 		{
-			const mathUtils::Vec3 camPosLocal = scene.camera.position;
+			const mathUtils::Vec3 camPosLocal = renderCamera.position;
 			if (mathUtils::Dot(planeN, camPosLocal) + planeD < 0.0f)
 			{
 				planeN = -planeN;
@@ -100,7 +100,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			att.clearDesc.clearStencil = false;
 
 			graph.AddPass(std::string("PlanarMask_") + std::to_string(mirrorIndex), std::move(att),
-				[this, &scene, mirror, instStride](renderGraph::PassContext& ctx)
+				[&, this, mirror, instStride](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
@@ -111,14 +111,14 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					ctx.commandList.BindPipeline(psoHighlight_);
 
 					const float aspect = e.height ? (static_cast<float>(e.width) / static_cast<float>(e.height)) : 1.0f;
-					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(renderCamera.fovYDeg), aspect, renderCamera.nearZ, renderCamera.farZ);
+					const mathUtils::Mat4 view = mathUtils::LookAt(renderCamera.position, renderCamera.target, renderCamera.up);
 					const mathUtils::Mat4 viewProjT = mathUtils::Transpose(proj * view);
 
 					PerBatchConstants constants{};
 					std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
 					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-					constants.uCameraAmbient = { scene.camera.position.x, scene.camera.position.y, scene.camera.position.z, 0.0f };
+					constants.uCameraAmbient = { renderCamera.position.x, renderCamera.position.y, renderCamera.position.z, 0.0f };
 					constants.uCameraForward = { 0.0f, 0.0f, 0.0f, 0.0f };
 					// CORE_HIGHLIGHT path uses uBaseColor; write mask into alpha.
 					constants.uBaseColor = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -153,34 +153,34 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 
 			graph.AddPass(std::string("PlanarReflScene_") + std::to_string(mirrorIndex), std::move(att),
 				[
-				this, 
-				&scene, 
-				ResolveMainPassMaterialPerm, 
-				ResolveOpaqueEnvBinding, 
-				BindMainPassMaterialTextures, 
+				&,
+				this,
+				ResolveMainPassMaterialPerm,
+				ResolveOpaqueEnvBinding,
+				BindMainPassMaterialTextures,
 				BuildMainPassMaterialFlags,
-				FillMainPassMaterialTextureIndices, 
-				shadowRG, 
-				dirLightViewProj, 
-				lightCount, 
-				spotShadows, 
-				pointShadows, 
-				mainBatches, 
-				captureMainBatchesNoCull, 
-				skinnedOpaqueDraws, 
-				instStride, 
-				planeN, 
+				FillMainPassMaterialTextureIndices,
+				shadowRG,
+				dirLightViewProj,
+				lightCount,
+				spotShadows,
+				pointShadows,
+				mainBatches,
+				captureMainBatchesNoCull,
+				skinnedOpaqueDraws,
+				instStride,
+				planeN,
 				planeD](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
 
 					const float aspect = e.height ? (static_cast<float>(e.width) / static_cast<float>(e.height)) : 1.0f;
-					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(renderCamera.fovYDeg), aspect, renderCamera.nearZ, renderCamera.farZ);
+					const mathUtils::Mat4 view = mathUtils::LookAt(renderCamera.position, renderCamera.target, renderCamera.up);
 					const mathUtils::Mat4 viewProj = proj * view;
-					const mathUtils::Vec3 camPosLocal = scene.camera.position;
-					const mathUtils::Vec3 camFLocal = mathUtils::Normalize(scene.camera.target - scene.camera.position);
+					const mathUtils::Vec3 camPosLocal = renderCamera.position;
+					const mathUtils::Vec3 camFLocal = mathUtils::Normalize(renderCamera.target - renderCamera.position);
 
 					const mathUtils::Mat4 reflectW = mathUtils::MakeReflectionMatrix(planeN, planeD);
 					const mathUtils::Mat4 viewProjReflT = mathUtils::Transpose(viewProj * reflectW);
@@ -190,11 +190,11 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 
 					// --- Skybox in planar reflection: draw into reflColor (background) ---
 	// reflDepth was cleared to 1.0f, so regular skybox depth-test works here.
-					if (scene.skyboxDescIndex != 0)
+					if (skyboxDescIndex != 0)
 					{
 						const mathUtils::Vec3 camPosRefl = ReflectPoint(camPosLocal, planeN, planeD);
 						const mathUtils::Vec3 camFwdRefl = ReflectVector(camFLocal, planeN);
-						const mathUtils::Vec3 camUpRefl = ReflectVector(scene.camera.up, planeN);
+						const mathUtils::Vec3 camUpRefl = ReflectVector(renderCamera.up, planeN);
 
 						const mathUtils::Mat4 viewRefl = mathUtils::LookAt(
 							camPosRefl,
@@ -216,7 +216,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 
 						ctx.commandList.SetState(skyState);
 						ctx.commandList.BindPipeline(psoSkybox_);
-						ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+						ctx.commandList.BindTextureDesc(0, skyboxDescIndex);
 						ctx.commandList.BindInputLayout(skyboxMesh_.layout);
 						ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
 						ctx.commandList.BindIndexBuffer(skyboxMesh_.indexBuffer, skyboxMesh_.indexType, 0);
@@ -263,7 +263,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						MaterialPerm perm = MaterialPerm::UseShadow;
 						if (batch.materialHandle.id != 0)
 						{
-							perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
+							perm = EffectivePerm(frameView.GetMaterial(batch.materialHandle));
 						}
 						else if (batch.material.albedoDescIndex != 0)
 						{
@@ -286,12 +286,12 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 						ctx.commandList.BindTextureDesc(15, batch.material.aoDescIndex);
 						ctx.commandList.BindTextureDesc(16, batch.material.emissiveDescIndex);
 
-						rhi::TextureDescIndex envDescIndex = scene.skyboxDescIndex;
+						rhi::TextureDescIndex envDescIndex = skyboxDescIndex;
 						bool usingReflectionProbeEnv = false;
 						rhi::TextureHandle envArrayTexture{};
 						if (batch.materialHandle.id != 0)
 						{
-							const auto& mat = scene.GetMaterial(batch.materialHandle);
+							const auto& mat = frameView.GetMaterial(batch.materialHandle);
 							if (mat.envSource == EnvSource::ReflectionCapture && settings_.enableReflectionCapture)
 							{
 								if (batch.reflectionProbeIndex >= 0 && static_cast<std::size_t>(batch.reflectionProbeIndex) < reflectionProbes_.size())
@@ -467,7 +467,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			att.clearDesc.clearStencil = false;
 
 			graph.AddPass(std::string("PlanarStencilClear_") + std::to_string(mirrorIndex), std::move(att),
-				[this, &scene, mirror, instStride](renderGraph::PassContext& ctx)
+				[&, this, mirror, instStride](renderGraph::PassContext& ctx)
 				{
 					const auto e = ctx.passExtent;
 					ctx.commandList.SetViewport(0, 0, static_cast<int>(e.width), static_cast<int>(e.height));
@@ -477,14 +477,14 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 					ctx.commandList.BindPipeline(psoHighlight_);
 
 					const float aspect = e.height ? (static_cast<float>(e.width) / static_cast<float>(e.height)) : 1.0f;
-					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const mathUtils::Mat4 view = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Mat4 proj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(renderCamera.fovYDeg), aspect, renderCamera.nearZ, renderCamera.farZ);
+					const mathUtils::Mat4 view = mathUtils::LookAt(renderCamera.position, renderCamera.target, renderCamera.up);
 					const mathUtils::Mat4 viewProjT = mathUtils::Transpose(proj * view);
 
 					PerBatchConstants constants{};
 					std::memcpy(constants.uViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
 					std::memcpy(constants.uLightViewProj.data(), mathUtils::ValuePtr(viewProjT), sizeof(float) * 16);
-					constants.uCameraAmbient = { scene.camera.position.x, scene.camera.position.y, scene.camera.position.z, 0.0f };
+					constants.uCameraAmbient = { renderCamera.position.x, renderCamera.position.y, renderCamera.position.z, 0.0f };
 					constants.uCameraForward = { 0.0f, 0.0f, 0.0f, 0.0f };
 					constants.uBaseColor = { 0.0f, 0.0f, 0.0f, 0.0f };
 					constants.uMaterialFlags = { 0.0f, 0.0f, 0.0f, AsFloatBits(0u) };
