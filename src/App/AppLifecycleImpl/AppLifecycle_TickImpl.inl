@@ -265,8 +265,7 @@ static void UpdateGameplayAfterPhysicsAndAnimation(
         app.runtimeState.gameplayRuntime->PostAnimationUpdate(gameplayCtx);
     }
     
-    UpdateGameplayMovementDebug(app);
-    UpdateAnimationRuntimeDebug(app);
+    appDebugVisualization::UpdateRuntimeDebugSamples(app);
     app.runtimeState.scene.UpdateParticles(deltaSeconds);
 }
 
