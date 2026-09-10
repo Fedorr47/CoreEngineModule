@@ -8,7 +8,7 @@ export import :render_scheduler;
 export import :render_bindless;
 export import :render_gpu_memory;
 export import :render_renderer;
-export import :render_frame_view;
+export import :render_frame_packet;
 export import :render_scene_extractor;
 export import :scene;
 export import :visibility;

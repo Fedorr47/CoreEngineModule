@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 import core;
 
@@ -32,8 +34,8 @@ TEST(RenderSceneExtractor, WorldDataIsCapturedIndependentlyFromSceneStorage)
     scene.particleEmitters.push_back(emitter);
     scene.skyboxDescIndex = 17;
 
-    const RenderFrameView view = RenderSceneExtractor::BuildFrameView(scene);
-    const RenderWorldSnapshot& world = view.GetWorld();
+    const RenderFramePacket packet = RenderSceneExtractor::BuildFramePacket(scene);
+    const RenderWorldSnapshot& world = packet.GetWorld();
 
     scene.camera.fovYDeg = 45.0f;
     scene.materials.front().params.metallic = 0.9f;
@@ -70,13 +72,13 @@ TEST(RenderSceneExtractor, SkinnedFrameMatricesAreCapturedWithoutAnimatorState)
     item.animator.globalMatrices.emplace_back(4.0f);
     scene.skinnedDrawItems.push_back(std::move(item));
 
-    const RenderFrameView view = RenderSceneExtractor::BuildFrameView(scene);
+    const RenderFramePacket packet = RenderSceneExtractor::BuildFramePacket(scene);
     scene.skinnedDrawItems.front().transform.position.y = 7.0f;
     scene.skinnedDrawItems.front().animator.skinMatrices.front()[0][0] = 8.0f;
     scene.skinnedDrawItems.front().animator.globalMatrices.front()[0][0] = 9.0f;
     scene.skinnedDrawItems.reserve(64);
 
-    const auto items = view.GetWorld().GetSkinnedDrawItems();
+    const auto items = packet.GetWorld().GetSkinnedDrawItems();
     ASSERT_EQ(items.size(), 1u);
     EXPECT_FLOAT_EQ(items.front().transform.position.y, 3.0f);
     ASSERT_EQ(items.front().skinMatrices.size(), 1u);
@@ -114,8 +116,8 @@ TEST(RenderSceneExtractor, DebugDataIsCapturedIndependentlyFromSceneStorage)
     sphere.radius = 8.0f;
     scene.externalDebugSpheres.push_back(sphere);
 
-    const RenderFrameView view = RenderSceneExtractor::BuildFrameView(scene);
-    const RenderDebugSnapshot& debug = view.GetDebug();
+    const RenderFramePacket packet = RenderSceneExtractor::BuildFramePacket(scene);
+    const RenderDebugSnapshot& debug = packet.GetDebug();
 
     scene.debugPickRay.enabled = false;
     scene.debugPickRay.origin.x = 10.0f;
@@ -154,28 +156,84 @@ TEST(RenderSceneExtractor, DebugDataIsCapturedIndependentlyFromSceneStorage)
     EXPECT_FLOAT_EQ(debug.GetSpheres().front().radius, 8.0f);
 }
 
-TEST(RenderSceneExtractor, EditorRemainsBorrowedAndOverlayIsCopied)
+TEST(RenderSceneExtractor, EditorAndOverlayDataAreCapturedIndependentlyFromSceneStorage)
 {
     Scene scene{};
-    scene.editorSelectedLights.push_back(3);
+    scene.editorSelectedLights = { 3, 5 };
+    scene.editorSelectedParticleEmitter = 7;
+    scene.editorSelectedDrawItems = { 11, 13 };
+    scene.editorSelectedSkinnedDrawItems = { 17, 19 };
+    scene.editorDrawSelectedSkinnedSkeleton = true;
+    scene.editorDrawSelectedSkinnedBounds = true;
+    scene.editorGizmoMode = GizmoMode::Rotate;
+    scene.editorTranslateGizmo.pivotWorld.x = 2.0f;
+    scene.editorRotateGizmo.ringRadiusWorld = 4.0f;
+    scene.editorScaleGizmo.uniformHandleRadiusWorld = 0.5f;
     AnimationRuntimeDebugSample sample{};
     sample.nodeName = "Character";
     scene.animationRuntimeDebug.samples.push_back(sample);
 
-    const RenderFrameView view = RenderSceneExtractor::BuildFrameView(scene);
+    const RenderFramePacket packet = RenderSceneExtractor::BuildFramePacket(scene);
+    const RenderEditorSnapshot& editor = packet.GetEditor();
 
-    EXPECT_EQ(view.GetEditor().GetSelectedLights().data(), scene.editorSelectedLights.data());
+    scene.editorSelectedLights.clear();
+    scene.editorSelectedLights.reserve(64);
+    scene.editorSelectedParticleEmitter = -1;
+    scene.editorSelectedDrawItems = { 23, 29, 31 };
+    scene.editorSelectedSkinnedDrawItems.clear();
+    scene.editorSelectedSkinnedDrawItems.reserve(64);
+    scene.editorDrawSelectedSkinnedSkeleton = false;
+    scene.editorDrawSelectedSkinnedBounds = false;
+    scene.editorGizmoMode = GizmoMode::Scale;
+    scene.editorTranslateGizmo.pivotWorld.x = 20.0f;
+    scene.editorRotateGizmo.ringRadiusWorld = 40.0f;
+    scene.editorScaleGizmo.uniformHandleRadiusWorld = 5.0f;
     scene.animationRuntimeDebug.samples.front().nodeName = "Changed";
-    EXPECT_EQ(view.GetAnimationRuntimeOverlaySnapshot().samples.front().nodeLabel, "Character");
+
+    EXPECT_EQ(editor.GetSelectedLights(), (std::vector<int>{ 3, 5 }));
+    EXPECT_EQ(editor.GetSelectedParticleEmitter(), 7);
+    EXPECT_EQ(editor.GetSelectedDrawItems(), (std::vector<int>{ 11, 13 }));
+    EXPECT_EQ(editor.GetSelectedSkinnedDrawItems(), (std::vector<int>{ 17, 19 }));
+    EXPECT_TRUE(editor.GetDrawSelectedSkinnedSkeleton());
+    EXPECT_TRUE(editor.GetDrawSelectedSkinnedBounds());
+    EXPECT_EQ(editor.GetGizmoMode(), GizmoMode::Rotate);
+    EXPECT_FLOAT_EQ(editor.GetTranslateGizmo().pivotWorld.x, 2.0f);
+    EXPECT_FLOAT_EQ(editor.GetRotateGizmo().ringRadiusWorld, 4.0f);
+    EXPECT_FLOAT_EQ(editor.GetScaleGizmo().uniformHandleRadiusWorld, 0.5f);
+    EXPECT_EQ(packet.GetAnimationRuntimeOverlaySnapshot().samples.front().nodeLabel, "Character");
 }
 
-TEST(RenderFrameView, MaterialLookupPreservesSceneSemantics)
+TEST(RenderSceneExtractor, PacketRemainsUsableAfterSourceSceneIsDestroyed)
+{
+    const auto BuildPacket = []
+    {
+        Scene scene{};
+        scene.camera.fovYDeg = 61.0f;
+        scene.externalDebugLines.push_back(ExternalDebugLine{});
+        scene.editorSelectedLights = { 2, 4 };
+        scene.editorTranslateGizmo.axisLengthWorld = 3.0f;
+        AnimationRuntimeDebugSample sample{};
+        sample.nodeName = "Lifetime sample";
+        scene.animationRuntimeDebug.samples.push_back(std::move(sample));
+        return RenderSceneExtractor::BuildFramePacket(scene);
+    };
+
+    const RenderFramePacket packet = BuildPacket();
+
+    EXPECT_FLOAT_EQ(packet.GetWorld().GetCamera().fovYDeg, 61.0f);
+    EXPECT_EQ(packet.GetDebug().GetLines().size(), 1u);
+    EXPECT_EQ(packet.GetEditor().GetSelectedLights(), (std::vector<int>{ 2, 4 }));
+    EXPECT_FLOAT_EQ(packet.GetEditor().GetTranslateGizmo().axisLengthWorld, 3.0f);
+    EXPECT_EQ(packet.GetAnimationRuntimeOverlaySnapshot().samples.front().nodeLabel, "Lifetime sample");
+}
+
+TEST(RenderFramePacket, MaterialLookupPreservesSceneSemantics)
 {
     Scene scene{};
     const MaterialHandle handle = scene.AddMaterial(Material{});
-    const RenderFrameView view = RenderSceneExtractor::BuildFrameView(scene);
+    const RenderFramePacket packet = RenderSceneExtractor::BuildFramePacket(scene);
 
-    EXPECT_NE(&view.GetWorld().GetMaterial(handle), &scene.materials.front());
-    EXPECT_THROW(view.GetWorld().GetMaterial(MaterialHandle{}), std::runtime_error);
-    EXPECT_THROW(view.GetWorld().GetMaterial(MaterialHandle{ 2u }), std::runtime_error);
+    EXPECT_NE(&packet.GetWorld().GetMaterial(handle), &scene.materials.front());
+    EXPECT_THROW(packet.GetWorld().GetMaterial(MaterialHandle{}), std::runtime_error);
+    EXPECT_THROW(packet.GetWorld().GetMaterial(MaterialHandle{ 2u }), std::runtime_error);
 }

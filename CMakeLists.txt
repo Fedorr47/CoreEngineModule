@@ -601,7 +601,7 @@ set(COMMON_MODULES
         Render/GpuMemory.cppm
         Render/RendererSettings.cppm
         Render/Renderer.cppm
-        Render/Frame/RenderFrameView.cppm
+        Render/Frame/RenderFramePacket.cppm
         Render/Frame/RenderSceneExtractor.cppm
 
         Render/Sync.cppm

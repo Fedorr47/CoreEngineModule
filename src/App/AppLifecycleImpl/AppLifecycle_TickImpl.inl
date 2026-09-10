@@ -305,7 +305,7 @@ static void RenderMainViewport(AppState& app)
 
     app.graphicsState.renderer->SetSettings(app.graphicsState.rendererSettings);
     app.graphicsState.renderer->RenderFrame(
-        *app.graphicsState.swapChain, rendern::RenderSceneExtractor::BuildFrameView(app.runtimeState.scene), /*imguiDrawData=*/nullptr);
+        *app.graphicsState.swapChain, rendern::RenderSceneExtractor::BuildFramePacket(app.runtimeState.scene), /*imguiDrawData=*/nullptr);
 }
 
 static void RenderDebugWindowIfNeeded(AppState& app, const void* imguiDrawData)

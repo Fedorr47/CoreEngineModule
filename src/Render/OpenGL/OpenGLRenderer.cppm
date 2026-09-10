@@ -15,7 +15,7 @@ module;
 export module core:renderer_mesh_gl;
 
 import :rhi;
-import :render_frame_view;
+import :render_frame_packet;
 import :scene;
 import :math_utils;
 import :renderer_settings;
@@ -44,10 +44,10 @@ export namespace rendern
 			settings_ = settings;
 		}
 
-		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView)
+		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket)
 		{
-			const RenderWorldSnapshot& world = frameView.GetWorld();
-			const RenderEditorView& editor = frameView.GetEditor();
+			const RenderWorldSnapshot& world = framePacket.GetWorld();
+			const RenderEditorSnapshot& editor = framePacket.GetEditor();
 			const Camera& camera = world.GetCamera();
 			const auto drawItems = world.GetDrawItems();
 			const auto editorSelectedDrawItems = editor.GetSelectedDrawItems();

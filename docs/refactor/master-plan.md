@@ -308,7 +308,7 @@ EditorSceneState
     transient editor-only state
 
 RenderFramePacket
-    immutable renderer-facing frame representation
+    frame-owned renderer-facing extraction of Scene state
 ```
 
 Target dependency flow:
@@ -328,6 +328,11 @@ Renderer
 ```
 
 Renderer must eventually stop traversing live `Scene`.
+
+`RenderFramePacket` owns the Scene-derived mutable frame description and is
+independent of Scene lifetime after extraction. Resource handles retain their
+existing ownership and synchronization semantics; cross-thread resource safety
+belongs to Phase 5.
 
 Move editor-only selection/gizmo/transient state out of runtime Scene where practical.
 

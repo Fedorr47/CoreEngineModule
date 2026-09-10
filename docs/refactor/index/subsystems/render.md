@@ -44,7 +44,7 @@ Inferred mechanically from fan-in and common entry-point names.
 - `src/Render/Model/Mesh/Mesh.cppm`
 - `src/Render/Model/SkinnedMesh.cppm`
 - `src/Render/RenderCore.cppm`
-- `src/Render/Frame/RenderFrameView.cppm`
+- `src/Render/Frame/RenderFramePacket.cppm`
 - `src/Render/RendererSettings.cppm`
 - `src/Render/RenderGraph.cppm`
 - `src/Render/Debug/DebugDraw.cppm`
@@ -84,7 +84,7 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 
 ## Tests
 
-- `tests/architecture/check_render_frame_view_boundary.py`
+- `tests/architecture/check_render_frame_packet_boundary.py`
 - `tests/unit/InputTests/TestCameraController.cpp`
 - `tests/unit/RenderTests/LevelInstantiateTestHelper.h`
 - `tests/unit/RenderTests/TestAssimpImportContracts.cpp`
