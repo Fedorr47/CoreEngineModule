@@ -23,7 +23,7 @@ for (const auto& item : drawItems)
 
 	if (item.material.id != 0)
 	{
-		const auto& mat = frameView.GetMaterial(item.material);
+		const auto& mat = world.GetMaterial(item.material);
 		itemEnvSource = static_cast<std::uint32_t>(mat.envSource);
 		params = mat.params;
 		perm = EffectivePerm(mat);

@@ -18,7 +18,7 @@ Score = capped points for each 250 LOC, 20 KB, four imports, module fan-in/fan-o
 | 15 | `src/Gameplay/Runtime/GameplayRuntime.cppm` | Gameplay | 289 LOC; 40 imports; fan-in 2; fan-out 40 |
 | 15 | `src/Render/Render.ixx` | Render | 34 LOC; 32 imports; fan-in 3; fan-out 32 |
 | 14 | `src/Core/Core.ixx` | Core | 105 LOC; 99 imports; fan-in 0; fan-out 99 |
-| 14 | `src/Render/DirectX12/DirectX12Renderer.cppm` | Render | 668 LOC; 19 imports; fan-in 1; fan-out 19 |
+| 14 | `src/Render/DirectX12/DirectX12Renderer.cppm` | Render | 671 LOC; 19 imports; fan-in 1; fan-out 19 |
 | 13 | `src/Gameplay/AI/Navigation/AIFollowRouteAction.cppm` | AI | 121 LOC; 13 imports; fan-in 3; fan-out 13 |
 | 13 | `src/Gameplay/AI/Navigation/AIFollowRouteActionRuntime.cppm` | AI | 361 LOC; 14 imports; fan-in 2; fan-out 14 |
 | 13 | `src/Gameplay/GameplayWorld.cppm` | Gameplay | 211 LOC; 9 imports; fan-in 39; fan-out 9 |
@@ -37,7 +37,7 @@ Score = capped points for each 250 LOC, 20 KB, four imports, module fan-in/fan-o
 | 7 | `src/Animation/Runtime/AnimationController.cppm` | Animation | 354 LOC; 4 imports; fan-in 9; fan-out 4 |
 | 7 | `src/Gameplay/Navigation/GameplayObstacleAvoidance.cppm` | Gameplay | 570 LOC; 2 imports; fan-in 11; fan-out 2 |
 | 7 | `src/Gameplay/Runtime/GameplayRuntimeCommon.cppm` | Gameplay | 69 LOC; 6 imports; fan-in 6; fan-out 6 |
-| 7 | `src/Render/OpenGL/OpenGLRenderer.cppm` | Render | 431 LOC; 10 imports; fan-in 2; fan-out 10 |
+| 7 | `src/Render/OpenGL/OpenGLRenderer.cppm` | Render | 433 LOC; 10 imports; fan-in 2; fan-out 10 |
 | 7 | `src/Render/RenderCore.cppm` | Render | 371 LOC; 6 imports; fan-in 6; fan-out 6 |
 | 6 | `src/Editor/EditorGizmo.cppm` | Editor | 603 LOC; 5 imports; fan-in 1; fan-out 5 |
 | 6 | `src/Editor/EditorScaleGizmo.cppm` | Editor | 536 LOC; 5 imports; fan-in 1; fan-out 5 |

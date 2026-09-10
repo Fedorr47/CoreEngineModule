@@ -32,7 +32,7 @@ auto IsReflectionCaptureReceiver = [&](int drawItemIndex) -> bool
 		if (di.material.id == 0)
 			return false;
 
-		const auto& mat = frameView.GetMaterial(di.material);
+		const auto& mat = world.GetMaterial(di.material);
 		return mat.envSource == EnvSource::ReflectionCapture;
 	};
 
@@ -82,7 +82,7 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < drawItems.size(); ++drawItem
 	std::uint32_t itemEnvSource = 0u;
 	if (item.material.id != 0)
 	{
-		const auto& mat = frameView.GetMaterial(item.material);
+		const auto& mat = world.GetMaterial(item.material);
 		itemEnvSource = static_cast<std::uint32_t>(mat.envSource);
 		params = mat.params;
 		perm = EffectivePerm(mat);
@@ -254,7 +254,7 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < skinnedDrawItems.size(
 		MaterialPerm perm = MaterialPerm::UseShadow;
 		if (materialHandle.id != 0)
 		{
-			const auto& mat = frameView.GetMaterial(materialHandle);
+			const auto& mat = world.GetMaterial(materialHandle);
 			params = mat.params;
 			perm = EffectivePerm(mat);
 		}

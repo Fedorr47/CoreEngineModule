@@ -92,7 +92,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 
 			if (di.material.id != 0)
 			{
-				const auto& mat = frameView.GetMaterial(di.material);
+				const auto& mat = world.GetMaterial(di.material);
 				const MaterialPerm perm = EffectivePerm(mat);
 				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
 			}
@@ -150,7 +150,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			}
 			if (draw.materialHandle.id != 0)
 			{
-				const auto& mat = frameView.GetMaterial(draw.materialHandle);
+				const auto& mat = world.GetMaterial(draw.materialHandle);
 				const MaterialPerm perm = EffectivePerm(mat);
 				sel.isTransparent = HasFlag(perm, MaterialPerm::Transparent);
 			}
@@ -186,7 +186,7 @@ auto ComputeForwardGBufferReflectionMeta = [&](MaterialHandle materialHandle, in
 			return result;
 		}
 
-		const auto& mat = frameView.GetMaterial(materialHandle);
+		const auto& mat = world.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture || reflectionProbeIndex < 0 || static_cast<std::uint32_t>(reflectionProbeIndex) >= activeProbeCount)
 		{
 			return result;
@@ -205,7 +205,7 @@ auto ComputeDeferredGBufferReflectionMeta = [&](MaterialHandle materialHandle, i
 			return result;
 		}
 
-		const auto& mat = frameView.GetMaterial(materialHandle);
+		const auto& mat = world.GetMaterial(materialHandle);
 		if (mat.envSource != EnvSource::ReflectionCapture)
 		{
 			return result;

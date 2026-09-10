@@ -117,25 +117,28 @@ export namespace rendern
 				{
 					return std::chrono::duration<double, std::milli>(b - a).count();
 				};
-			const Camera& renderCamera = frameView.GetCamera();
-			const auto drawItems = frameView.GetDrawItems();
-			const auto skinnedDrawItems = frameView.GetSkinnedDrawItems();
-			const auto lights = frameView.GetLights();
-			const auto particles = frameView.GetParticles();
-			const auto particleEmitters = frameView.GetParticleEmitters();
-			const auto skyboxDescIndex = frameView.GetSkyboxDescIndex();
-			const DebugRay& debugPickRay = frameView.GetDebugPickRay();
-			const GameplayMovementDebugState& gameplayMovementDebug = frameView.GetGameplayMovementDebug();
-			const auto editorSelectedLights = frameView.GetEditorSelectedLights();
-			const auto editorSelectedDrawItems = frameView.GetEditorSelectedDrawItems();
-			const auto editorSelectedSkinnedDrawItems = frameView.GetEditorSelectedSkinnedDrawItems();
-			const int editorSelectedParticleEmitter = frameView.GetEditorSelectedParticleEmitter();
-			const bool editorDrawSelectedSkinnedSkeleton = frameView.GetEditorDrawSelectedSkinnedSkeleton();
-			const bool editorDrawSelectedSkinnedBounds = frameView.GetEditorDrawSelectedSkinnedBounds();
-			const GizmoMode editorGizmoMode = frameView.GetEditorGizmoMode();
-			const TranslateGizmoState& editorTranslateGizmo = frameView.GetEditorTranslateGizmo();
-			const RotateGizmoState& editorRotateGizmo = frameView.GetEditorRotateGizmo();
-			const ScaleGizmoState& editorScaleGizmo = frameView.GetEditorScaleGizmo();
+			const RenderWorldView& world = frameView.GetWorld();
+			const RenderDebugView& debug = frameView.GetDebug();
+			const RenderEditorView& editor = frameView.GetEditor();
+			const Camera& renderCamera = world.GetCamera();
+			const auto drawItems = world.GetDrawItems();
+			const auto skinnedDrawItems = world.GetSkinnedDrawItems();
+			const auto lights = world.GetLights();
+			const auto particles = world.GetParticles();
+			const auto particleEmitters = world.GetParticleEmitters();
+			const auto skyboxDescIndex = world.GetSkyboxDescIndex();
+			const DebugRay& debugPickRay = debug.GetPickRay();
+			const GameplayMovementDebugState& gameplayMovementDebug = debug.GetGameplayMovement();
+			const auto editorSelectedLights = editor.GetSelectedLights();
+			const auto editorSelectedDrawItems = editor.GetSelectedDrawItems();
+			const auto editorSelectedSkinnedDrawItems = editor.GetSelectedSkinnedDrawItems();
+			const int editorSelectedParticleEmitter = editor.GetSelectedParticleEmitter();
+			const bool editorDrawSelectedSkinnedSkeleton = editor.GetDrawSelectedSkinnedSkeleton();
+			const bool editorDrawSelectedSkinnedBounds = editor.GetDrawSelectedSkinnedBounds();
+			const GizmoMode editorGizmoMode = editor.GetGizmoMode();
+			const TranslateGizmoState& editorTranslateGizmo = editor.GetTranslateGizmo();
+			const RotateGizmoState& editorRotateGizmo = editor.GetRotateGizmo();
+			const ScaleGizmoState& editorScaleGizmo = editor.GetScaleGizmo();
 			const auto IsEditorLightSelected = [editorSelectedLights](int lightIndex) noexcept
 			{
 				return std::ranges::find(editorSelectedLights, lightIndex) != editorSelectedLights.end();
