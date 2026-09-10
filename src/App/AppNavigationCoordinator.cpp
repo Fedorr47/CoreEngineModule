@@ -2,6 +2,15 @@ import core;
 import std;
 
 #include "AppNavigationCoordinator.h"
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "AppLifecycle.h"
 
 namespace appNavigationCoordinator
