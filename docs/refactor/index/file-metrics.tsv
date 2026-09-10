@@ -16,6 +16,9 @@ assets/ai/routes/access_key.routes.json	AI	json	65	852		0	0
 assets/ai/routes/access_key_jump.routes.json	AI	json	76	1033		0	0
 docs/architecture/editor-ui-architecture.md	Editor	md	272	25793		0	0
 docs/architecture/scene-level-editor-render-boundaries.md	Editor	md	53	2420		0	0
+docs/refactor/README.md	Other	md	34	990		0	0
+docs/refactor/baseline.md	Other	md	53	3461		0	0
+docs/refactor/debt-register.md	Other	md	8	308		0	0
 docs/refactor/master-plan.md	Other	md	747	14316		0	0
 src/Animation/Assets/AnimationClip.cppm	Animation	cppm	203	4409	core:animation_clip	1	0
 src/Animation/Assets/Skeleton.cppm	Animation	cppm	79	1954	core:skeleton	1	0
@@ -366,8 +369,11 @@ tests/TestSupport/TestFixtureLoader.h	Other	h	9	257		0	1
 tests/TestSupport/TestGlobalVariables.h	Other	h	3	61		0	1
 tests/TestSupport/TestTempPath.h	Other	h	39	905		0	1
 tests/TestSupport/TestThreadAffinity.h	Other	h	22	691		1	1
-tests/architecture/CMakeLists.txt	Other	txt	17	699		0	1
-tests/architecture/check_ai_dependencies.py	Other	py	80	3511		0	1
+tests/architecture/CMakeLists.txt	Other	txt	24	1101		0	1
+tests/architecture/check_ai_dependencies.py	Other	py	59	2643		0	1
+tests/architecture/check_engine_dependencies.py	Other	py	78	2446		0	1
+tests/architecture/module_dependencies.py	Other	py	75	2300		0	1
+tests/architecture/test_engine_dependencies.py	Other	py	72	2819		0	1
 tests/assets/json/invalid/malformed_config.json	Assets	json	4	40		0	1
 tests/assets/json/valid/minimal_config.json	Assets	json	4	42		0	1
 tests/assets/json/valid/nested_config.json	Assets	json	9	123		0	1

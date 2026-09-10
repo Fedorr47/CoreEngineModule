@@ -7,9 +7,9 @@ Do not edit manually.
 
 ## Summary
 
-- Indexed files: **476**
+- Indexed files: **482**
 - Source-tree files: **334**
-- Test files: **123**
+- Test files: **126**
 - Repository modules: **176**
 - Repository dependency edges: **713**
 - Test mappings: **167**
