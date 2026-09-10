@@ -46,7 +46,7 @@ export namespace rendern
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView)
 		{
-			const RenderWorldView& world = frameView.GetWorld();
+			const RenderWorldSnapshot& world = frameView.GetWorld();
 			const RenderEditorView& editor = frameView.GetEditor();
 			const Camera& camera = world.GetCamera();
 			const auto drawItems = world.GetDrawItems();

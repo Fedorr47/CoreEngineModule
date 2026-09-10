@@ -117,7 +117,7 @@ export namespace rendern
 				{
 					return std::chrono::duration<double, std::milli>(b - a).count();
 				};
-			const RenderWorldView& world = frameView.GetWorld();
+			const RenderWorldSnapshot& world = frameView.GetWorld();
 			const RenderDebugView& debug = frameView.GetDebug();
 			const RenderEditorView& editor = frameView.GetEditor();
 			const Camera& renderCamera = world.GetCamera();

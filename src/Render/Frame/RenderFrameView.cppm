@@ -41,35 +41,48 @@ export namespace rendern
         }
     };
 
-    struct RenderWorldView
+    // Renderer-only skinned payload. Asset ownership deliberately holds the
+    // resource lifetime; mutable animation runtime state is copied separately.
+    struct RenderSkinnedDrawItem
     {
-        RenderWorldView(
-            const Camera& camera,
-            std::span<const Material> materials,
-            std::span<const DrawItem> drawItems,
-            std::span<const SkinnedDrawItem> skinnedDrawItems,
-            std::span<const Light> lights,
-            std::span<const Particle> particles,
-            std::span<const ParticleEmitter> particleEmitters,
+        SkinnedHandle asset{};
+        Transform transform{};
+        MaterialHandle material{};
+        std::vector<MaterialHandle> submeshMaterials{};
+        std::vector<mathUtils::Mat4> skinMatrices{};
+        std::vector<mathUtils::Mat4> globalMatrices{};
+        std::vector<int> skeletonParentIndices{};
+    };
+
+    struct RenderWorldSnapshot
+    {
+        RenderWorldSnapshot(
+            Camera camera,
+            std::vector<Material> materials,
+            std::vector<DrawItem> drawItems,
+            std::vector<RenderSkinnedDrawItem> skinnedDrawItems,
+            std::vector<Light> lights,
+            std::vector<Particle> particles,
+            std::vector<ParticleEmitter> particleEmitters,
             rhi::TextureDescIndex skyboxDescIndex) noexcept
-            : camera_(&camera)
-            , materials_(materials)
-            , drawItems_(drawItems)
-            , skinnedDrawItems_(skinnedDrawItems)
-            , lights_(lights)
-            , particles_(particles)
-            , particleEmitters_(particleEmitters)
+            : camera_(std::move(camera))
+            , materials_(std::move(materials))
+            , drawItems_(std::move(drawItems))
+            , skinnedDrawItems_(std::move(skinnedDrawItems))
+            , lights_(std::move(lights))
+            , particles_(std::move(particles))
+            , particleEmitters_(std::move(particleEmitters))
             , skyboxDescIndex_(skyboxDescIndex)
         {
         }
 
-        [[nodiscard]] const Camera& GetCamera() const noexcept { return *camera_; }
-        [[nodiscard]] std::span<const Material> GetMaterials() const noexcept { return materials_; }
-        [[nodiscard]] std::span<const DrawItem> GetDrawItems() const noexcept { return drawItems_; }
-        [[nodiscard]] std::span<const SkinnedDrawItem> GetSkinnedDrawItems() const noexcept { return skinnedDrawItems_; }
-        [[nodiscard]] std::span<const Light> GetLights() const noexcept { return lights_; }
-        [[nodiscard]] std::span<const Particle> GetParticles() const noexcept { return particles_; }
-        [[nodiscard]] std::span<const ParticleEmitter> GetParticleEmitters() const noexcept { return particleEmitters_; }
+        [[nodiscard]] const Camera& GetCamera() const noexcept { return camera_; }
+        [[nodiscard]] const std::vector<Material>& GetMaterials() const noexcept { return materials_; }
+        [[nodiscard]] const std::vector<DrawItem>& GetDrawItems() const noexcept { return drawItems_; }
+        [[nodiscard]] const std::vector<RenderSkinnedDrawItem>& GetSkinnedDrawItems() const noexcept { return skinnedDrawItems_; }
+        [[nodiscard]] const std::vector<Light>& GetLights() const noexcept { return lights_; }
+        [[nodiscard]] const std::vector<Particle>& GetParticles() const noexcept { return particles_; }
+        [[nodiscard]] const std::vector<ParticleEmitter>& GetParticleEmitters() const noexcept { return particleEmitters_; }
         [[nodiscard]] rhi::TextureDescIndex GetSkyboxDescIndex() const noexcept { return skyboxDescIndex_; }
 
         [[nodiscard]] const Material& GetMaterial(MaterialHandle handle) const
@@ -82,13 +95,13 @@ export namespace rendern
         }
 
     private:
-        const Camera* camera_;
-        std::span<const Material> materials_;
-        std::span<const DrawItem> drawItems_;
-        std::span<const SkinnedDrawItem> skinnedDrawItems_;
-        std::span<const Light> lights_;
-        std::span<const Particle> particles_;
-        std::span<const ParticleEmitter> particleEmitters_;
+        Camera camera_;
+        std::vector<Material> materials_;
+        std::vector<DrawItem> drawItems_;
+        std::vector<RenderSkinnedDrawItem> skinnedDrawItems_;
+        std::vector<Light> lights_;
+        std::vector<Particle> particles_;
+        std::vector<ParticleEmitter> particleEmitters_;
         rhi::TextureDescIndex skyboxDescIndex_;
     };
 
@@ -184,25 +197,25 @@ export namespace rendern
         const ScaleGizmoState* scaleGizmo_;
     };
 
-    // RenderFrameView and its nested views are non-owning synchronous views.
-    // Every borrowed reference/span must remain valid for the immediate
-    // RenderFrame call. Do not queue, retain, cache, or consume them
-    // asynchronously.
+    // Mixed lifetime contract: World and the animation overlay are owned frame
+    // snapshots; Debug and Editor are borrowed synchronous views. Their
+    // references/spans must remain valid for the immediate RenderFrame call, so
+    // the complete RenderFrameView cannot yet be queued or retained.
     struct RenderFrameView
     {
         RenderFrameView(
-            RenderWorldView world,
+            RenderWorldSnapshot world,
             RenderDebugView debug,
             RenderEditorView editor,
             AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot)
-            : world_(world)
+            : world_(std::move(world))
             , debug_(debug)
             , editor_(editor)
             , animationRuntimeOverlaySnapshot_(std::move(animationRuntimeOverlaySnapshot))
         {
         }
 
-        [[nodiscard]] const RenderWorldView& GetWorld() const noexcept { return world_; }
+        [[nodiscard]] const RenderWorldSnapshot& GetWorld() const noexcept { return world_; }
         [[nodiscard]] const RenderDebugView& GetDebug() const noexcept { return debug_; }
         [[nodiscard]] const RenderEditorView& GetEditor() const noexcept { return editor_; }
         [[nodiscard]] const AnimationRuntimeOverlaySnapshot& GetAnimationRuntimeOverlaySnapshot() const noexcept
@@ -211,7 +224,7 @@ export namespace rendern
         }
 
     private:
-        RenderWorldView world_;
+        RenderWorldSnapshot world_;
         RenderDebugView debug_;
         RenderEditorView editor_;
         AnimationRuntimeOverlaySnapshot animationRuntimeOverlaySnapshot_{};

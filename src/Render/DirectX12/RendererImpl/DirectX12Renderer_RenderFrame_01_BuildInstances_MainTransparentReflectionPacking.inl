@@ -216,7 +216,7 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < drawItems.size(); ++drawItem
 
 for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < skinnedDrawItems.size(); ++skinnedDrawIndex)
 {
-	const SkinnedDrawItem& item = skinnedDrawItems[skinnedDrawIndex];
+	const RenderSkinnedDrawItem& item = skinnedDrawItems[skinnedDrawIndex];
 	if (!item.asset)
 	{
 		continue;
@@ -230,15 +230,15 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < skinnedDrawItems.size(
 	{
 		continue;
 	}
-	if (item.animator.skinMatrices.empty())
+	if (item.skinMatrices.empty())
 	{
 		continue;
 	}
 
 	const SkinnedMeshRHI& skinnedMesh = GetOrCreateSkinnedMeshRHI(item.asset);
 	const std::uint32_t paletteOffset = static_cast<std::uint32_t>(skinnedPaletteMatrices.size());
-	const std::uint32_t boneCount = static_cast<std::uint32_t>(item.animator.skinMatrices.size());
-	for (const mathUtils::Mat4& skin : item.animator.skinMatrices)
+	const std::uint32_t boneCount = static_cast<std::uint32_t>(item.skinMatrices.size());
+	for (const mathUtils::Mat4& skin : item.skinMatrices)
 	{
 		skinnedPaletteMatrices.push_back(item.asset->mesh.skinningSkeletonToMeshSpace * skin);
 	}
