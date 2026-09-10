@@ -12,7 +12,7 @@ export module core:render_renderer;
 export import :renderer_settings;
 
 import :rhi;
-import :render_frame_view;
+import :render_frame_packet;
 import :thread_affinity;
 
 #if defined(CORE_USE_GL)
@@ -33,7 +33,7 @@ namespace rendern
         struct IRendererImpl
         {
             virtual ~IRendererImpl() = default;
-            virtual void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData) = 0;
+            virtual void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket, const void* imguiDrawData) = 0;
             virtual void SetSettings(const RendererSettings& settings) = 0;
             virtual RendererCpuTimingSnapshot GetLastCpuTimings() const = 0;
             virtual void Shutdown() = 0;
@@ -42,7 +42,7 @@ namespace rendern
         class NullRendererImpl final : public IRendererImpl
         {
         public:
-            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView&, const void*) override
+            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket&, const void*) override
             {
                 swapChain.Present();
             }
@@ -59,9 +59,9 @@ namespace rendern
                 : impl_(device, std::move(settings))
             {}
 
-            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData) override
+            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket, const void* imguiDrawData) override
             {
-                impl_.RenderFrame(swapChain, frameView);
+                impl_.RenderFrame(swapChain, framePacket);
             }
             void SetSettings(const RendererSettings& settings) override
             {
@@ -91,9 +91,9 @@ namespace rendern
                 : impl_(device, std::move(settings))
             {}
 
-            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData) override
+            void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket, const void* imguiDrawData) override
             {
-                impl_.RenderFrame(swapChain, frameView, imguiDrawData);
+                impl_.RenderFrame(swapChain, framePacket, imguiDrawData);
             }
 
             void SetSettings(const RendererSettings& settings) override
@@ -154,12 +154,12 @@ namespace rendern
             }
         }
 
-        void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData = nullptr)
+        void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket, const void* imguiDrawData = nullptr)
         {
             CORE_ASSERT_RENDER_THREAD();
 
             swapChain.SetVSyncEnabled(settings_.enableVSync);
-            impl_->RenderFrame(swapChain, frameView, imguiDrawData);
+            impl_->RenderFrame(swapChain, framePacket, imguiDrawData);
             lastPresentDiagnostics_ = swapChain.GetPresentDiagnostics();
         }
 

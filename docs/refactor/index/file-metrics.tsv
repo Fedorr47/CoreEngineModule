@@ -15,11 +15,11 @@ assets/ai/goap/target_recovery.goap.json	AI	json	50	812		0	0
 assets/ai/routes/access_key.routes.json	AI	json	65	852		0	0
 assets/ai/routes/access_key_jump.routes.json	AI	json	76	1033		0	0
 docs/architecture/editor-ui-architecture.md	Editor	md	272	25793		0	0
-docs/architecture/scene-level-editor-render-boundaries.md	Editor	md	53	2420		0	0
+docs/architecture/scene-level-editor-render-boundaries.md	Editor	md	54	2032		0	0
 docs/refactor/README.md	Other	md	34	990		0	0
 docs/refactor/baseline.md	Other	md	53	3461		0	0
 docs/refactor/debt-register.md	Other	md	8	308		0	0
-docs/refactor/master-plan.md	Other	md	747	14316		0	0
+docs/refactor/master-plan.md	Other	md	752	14577		0	0
 src/Animation/Assets/AnimationClip.cppm	Animation	cppm	203	4409	core:animation_clip	1	0
 src/Animation/Assets/Skeleton.cppm	Animation	cppm	79	1954	core:skeleton	1	0
 src/Animation/Runtime/AnimationController.cppm	Animation	cppm	354	10911	core:animation_controller	4	0
@@ -44,7 +44,7 @@ src/App/AppDebugVisualization.cpp	App	cpp	515	24981		1	0
 src/App/AppDebugVisualization.h	App	h	12	232		0	0
 src/App/AppLifecycle.cpp	App	cpp	732	30510		1	0
 src/App/AppLifecycle.h	App	h	202	6373		0	0
-src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	324	12008		0	0
+src/App/AppLifecycleImpl/AppLifecycle_TickImpl.inl	App	inl	324	12010		0	0
 src/App/AppNavigationCoordinator.cpp	App	cpp	91	4380		1	0
 src/App/AppNavigationCoordinator.h	App	h	11	149		0	0
 src/App/AppRuntimeHelpers.h	App	h	114	3019		0	0
@@ -236,7 +236,7 @@ src/Render/DirectX12/DebugDrawRendererDX12.cppm	Render	cppm	268	8318	core:debug_
 src/Render/DirectX12/DebugTextRendererDX12.cppm	Render	cppm	419	13477	core:debug_text_renderer_dx12	4	0
 src/Render/DirectX12/DirectX12Core.cppm	Render	cppm	78	2040	core:dx12_core	0	0
 src/Render/DirectX12/DirectX12RHI.cppm	Render	cppm	258	6840	core:rhi_dx12	3	0
-src/Render/DirectX12/DirectX12Renderer.cppm	Render	cppm	671	25394	core:renderer_dx12	19	0
+src/Render/DirectX12/DirectX12Renderer.cppm	Render	cppm	671	25418	core:renderer_dx12	19	0
 src/Render/DirectX12/DirectX12TextureUploader.cppm	Render	cppm	610	15685	core:render_core_dx12	3	0
 src/Render/DirectX12/RHIImpl/DirectX12RHI_Device.inl	Render	inl	27	1103		0	0
 src/Render/DirectX12/RHIImpl/DirectX12RHI_Device_CapabilitiesAndDxc.inl	Render	inl	267	9224		0	0
@@ -272,13 +272,13 @@ src/Render/DirectX12/RendererImpl/DirectX12Renderer_CreateResources_03_DynamicBu
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_00_SetupCSM.inl	Render	inl	187	8321		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances.inl	Render	inl	3	301		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_FinalizeAndUpload.inl	Render	inl	189	7321		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_MainTransparentReflectionPacking.inl	Render	inl	403	12991		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_MainTransparentReflectionPacking.inl	Render	inl	403	12971		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_01_BuildInstances_ShadowAndLayeredShadow.inl	Render	inl	128	4038		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ReflectionCapture.inl	Render	inl	504	19463		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_02_ShadowPasses.inl	Render	inl	433	18016		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_03_PreDepth.inl	Render	inl	57	2612		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass.inl	Render	inl	3	203		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_00_Shared.inl	Render	inl	478	16884		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_00_Shared.inl	Render	inl	478	16891		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01_Deferred.inl	Render	inl	8	322		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01a_DeferredGeometryAndLighting.inl	Render	inl	596	21935		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_MainPass_01b_DeferredPost.inl	Render	inl	103	3721		0	0
@@ -288,12 +288,12 @@ src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedMateria
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04_SharedPerBatchConstantsHelpers.inl	Render	inl	35	1662		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04a_PlanarReflections.inl	Render	inl	172	7559		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_04b_PlanarReflections_MaskRT.inl	Render	inl	508	24734		0	0
-src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl	Render	inl	1203	44590		0	0
+src/Render/DirectX12/RendererImpl/DirectX12Renderer_RenderFrame_05_DebugAndPresent.inl	Render	inl	1202	44504		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_Shutdown.inl	Render	inl	86	1797		0	0
 src/Render/DirectX12/RendererImpl/DirectX12Renderer_UploadLights.inl	Render	inl	53	2189		0	0
 src/Render/FileSystem.cppm	Render	cppm	49	809	core:file_system	1	0
-src/Render/Frame/RenderFrameView.cppm	Render	cppm	219	9684	core:render_frame_view	1	0
-src/Render/Frame/RenderSceneExtractor.cppm	Render	cppm	83	3542	core:render_scene_extractor	2	0
+src/Render/Frame/RenderFramePacket.cppm	Render	cppm	232	10439	core:render_frame_packet	1	0
+src/Render/Frame/RenderSceneExtractor.cppm	Render	cppm	109	4791	core:render_scene_extractor	2	0
 src/Render/GpuMemory.cppm	Render	cppm	55	1339	core:render_gpu_memory	1	0
 src/Render/ImGui/Animation/ImGuiAnimationGraphBlend.inl	Animation	inl	615	29716		0	0
 src/Render/ImGui/Animation/ImGuiAnimationGraphDetails.inl	Animation	inl	814	38506		0	0
@@ -335,16 +335,16 @@ src/Render/OpenGL/OpenGLRHI_DeviceCommands.inl	Render	inl	422	11219		0	0
 src/Render/OpenGL/OpenGLRHI_DevicePrivate.inl	Render	inl	467	12272		0	0
 src/Render/OpenGL/OpenGLRHI_GlHelpers.inl	Render	inl	369	8091		0	0
 src/Render/OpenGL/OpenGLRHI_GlUtils.inl	Render	inl	409	9276		0	0
-src/Render/OpenGL/OpenGLRenderer.cppm	Render	cppm	433	14191	core:renderer_mesh_gl	10	0
+src/Render/OpenGL/OpenGLRenderer.cppm	Render	cppm	433	14209	core:renderer_mesh_gl	10	0
 src/Render/OpenGL/RenderGL.ixx	Render	ixx	7	199	core:render_gl	4	0
 src/Render/RHI.cppm	Render	cppm	910	23163	core:rhi	0	0
-src/Render/Render.ixx	Render	ixx	34	976	core:render	32	0
+src/Render/Render.ixx	Render	ixx	34	978	core:render	32	0
 src/Render/RenderCommandQueue.cppm	Render	cppm	216	5853	core:render_command_queue	0	0
 src/Render/RenderCore.cppm	Render	cppm	371	8583	core:render_core	6	0
 src/Render/RenderGraph.cppm	Render	cppm	424	12664	core:render_graph	1	0
 src/Render/RenderScheduler.cppm	Render	cppm	302	8229	core:render_scheduler	1	0
 src/Render/Render_overview.md	Render	md	1	1		0	0
-src/Render/Renderer.cppm	Render	cppm	194	5887	core:render_renderer	6	0
+src/Render/Renderer.cppm	Render	cppm	194	5913	core:render_renderer	6	0
 src/Render/RendererSettings.cppm	Render	cppm	486	16333	core:renderer_settings	1	0
 src/Render/Scene/CameraController.cppm	Render	cppm	202	6262	core:camera_controller	4	0
 src/Render/Scene/SceneBridge.cppm	Render	cppm	53	851	core:scene_bridge	2	0
@@ -373,10 +373,10 @@ tests/TestSupport/TestFixtureLoader.h	Other	h	9	257		0	1
 tests/TestSupport/TestGlobalVariables.h	Other	h	3	61		0	1
 tests/TestSupport/TestTempPath.h	Other	h	39	905		0	1
 tests/TestSupport/TestThreadAffinity.h	Other	h	22	691		1	1
-tests/architecture/CMakeLists.txt	Other	txt	28	1438		0	1
+tests/architecture/CMakeLists.txt	Other	txt	28	1444		0	1
 tests/architecture/check_ai_dependencies.py	Other	py	59	2643		0	1
 tests/architecture/check_engine_dependencies.py	Other	py	78	2446		0	1
-tests/architecture/check_render_frame_view_boundary.py	Render	py	64	2362		0	1
+tests/architecture/check_render_frame_packet_boundary.py	Render	py	126	5998		0	1
 tests/architecture/module_dependencies.py	Other	py	75	2300		0	1
 tests/architecture/test_app_navigation_coordinator.py	App	py	38	1660		0	1
 tests/architecture/test_engine_dependencies.py	Other	py	72	2819		0	1
@@ -403,7 +403,7 @@ tests/unit/AppTests/TestGameplayPhysicsCharacterIntegration.cpp	App	cpp	1145	503
 tests/unit/CoreTests/TestFileUtils.cpp	Core	cpp	131	3605		1	1
 tests/unit/CoreTests/TestJsonUtils.cpp	Core	cpp	207	6936		1	1
 tests/unit/CoreTests/TestStringHashUtils.cpp	Core	cpp	120	3877		1	1
-tests/unit/CoreTests/TestThreadAffinity.cpp	Core	cpp	221	8557		1	1
+tests/unit/CoreTests/TestThreadAffinity.cpp	Core	cpp	221	8559		1	1
 tests/unit/EditorTests/TestEditorSelectionService.cpp	Editor	cpp	122	5046		1	1
 tests/unit/GameplayTests/AI/TestAIActionBinding.cpp	AI	cpp	59	1754		1	1
 tests/unit/GameplayTests/AI/TestAIActionRuntime.cpp	AI	cpp	170	5664		1	1
@@ -479,7 +479,7 @@ tests/unit/RenderTests/TestLevelInstantiateReferenceIntegrity.cpp	Render	cpp	174
 tests/unit/RenderTests/TestLevelWorld.cpp	Render	cpp	89	2601		1	1
 tests/unit/RenderTests/TestRenderCommandQueue.cpp	Render	cpp	136	3306		1	1
 tests/unit/RenderTests/TestRenderGraphFakeRHI.cpp	Render	cpp	453	17359		1	1
-tests/unit/RenderTests/TestRenderSceneExtractor.cpp	Render	cpp	63	2654		1	1
+tests/unit/RenderTests/TestRenderSceneExtractor.cpp	Render	cpp	239	9989		1	1
 tests/unit/RenderTests/TestRendererSettingsCommands.cpp	Render	cpp	87	3756		1	1
 tests/unit/RenderTests/TestRendererSettingsViewModels.cpp	Render	cpp	212	11141		1	1
 tests/unit/RenderTests/TestThreadedRenderScheduler.cpp	Render	cpp	398	12048		1	1

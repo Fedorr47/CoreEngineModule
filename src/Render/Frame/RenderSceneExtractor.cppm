@@ -4,14 +4,14 @@ export module core:render_scene_extractor;
 
 import std;
 import :scene;
-import :render_frame_view;
+import :render_frame_packet;
 
 export namespace rendern
 {
     class RenderSceneExtractor
     {
     public:
-        [[nodiscard]] static RenderFrameView BuildFrameView(const Scene& scene)
+        [[nodiscard]] static RenderFramePacket BuildFramePacket(const Scene& scene)
         {
             RenderWorldSnapshot world(
                 scene.camera,
@@ -31,7 +31,7 @@ export namespace rendern
                 scene.externalDebugArrows,
                 scene.externalDebugBoxes,
                 scene.externalDebugSpheres);
-            const RenderEditorView editor(
+            RenderEditorSnapshot editor(
                 scene.editorSelectedLights,
                 scene.editorSelectedParticleEmitter,
                 scene.editorSelectedDrawItems,
@@ -43,10 +43,10 @@ export namespace rendern
                 scene.editorRotateGizmo,
                 scene.editorScaleGizmo);
 
-            return RenderFrameView(
+            return RenderFramePacket(
                 std::move(world),
                 std::move(debug),
-                editor,
+                std::move(editor),
                 BuildAnimationRuntimeOverlaySnapshot(scene));
         }
     private:

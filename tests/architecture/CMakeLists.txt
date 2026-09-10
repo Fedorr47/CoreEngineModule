@@ -18,11 +18,11 @@ add_test(NAME Engine.ImportBoundaryLogic
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_engine_dependencies.py")
 add_test(NAME App.NavigationCoordinator
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_app_navigation_coordinator.py")
-add_test(NAME Render.SceneFreeFrameView
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_render_frame_view_boundary.py")
+add_test(NAME Render.SceneFreeFramePacket
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_render_frame_packet_boundary.py")
 set_tests_properties(AI.ImportBoundaries AI.AssetComposition PROPERTIES
     LABELS "ai;architecture"
     TIMEOUT 60)
-set_tests_properties(Engine.ImportBoundaries Engine.ImportBoundaryLogic App.NavigationCoordinator Render.SceneFreeFrameView PROPERTIES
+set_tests_properties(Engine.ImportBoundaries Engine.ImportBoundaryLogic App.NavigationCoordinator Render.SceneFreeFramePacket PROPERTIES
     LABELS "engine;architecture"
     TIMEOUT 60)

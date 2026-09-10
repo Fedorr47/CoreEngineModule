@@ -35,7 +35,7 @@ module;
 export module core:renderer_dx12;
 
 import :rhi;
-import :render_frame_view;
+import :render_frame_packet;
 import :scene;
 import :visibility;
 import :math_utils;
@@ -108,7 +108,7 @@ export namespace rendern
 			EnsureReflectionCaptureResources();
 		}
 
-		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView, const void* imguiDrawData)
+		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFramePacket& framePacket, const void* imguiDrawData)
 		{
 			CORE_ASSERT_RENDER_THREAD();
 
@@ -117,9 +117,9 @@ export namespace rendern
 				{
 					return std::chrono::duration<double, std::milli>(b - a).count();
 				};
-			const RenderWorldSnapshot& world = frameView.GetWorld();
-			const RenderDebugSnapshot& debug = frameView.GetDebug();
-			const RenderEditorView& editor = frameView.GetEditor();
+			const RenderWorldSnapshot& world = framePacket.GetWorld();
+			const RenderDebugSnapshot& debug = framePacket.GetDebug();
+			const RenderEditorSnapshot& editor = framePacket.GetEditor();
 			const Camera& renderCamera = world.GetCamera();
 			const auto drawItems = world.GetDrawItems();
 			const auto skinnedDrawItems = world.GetSkinnedDrawItems();

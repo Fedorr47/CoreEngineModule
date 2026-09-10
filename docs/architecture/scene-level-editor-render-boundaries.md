@@ -1,8 +1,8 @@
-# Scene / Level / Editor / Render boundaries (first-step refactor)
+# Scene / Level / Editor / Render boundaries
 
 _Date: 2026-05-10_
 
-This note records the intended ownership split and the **safe first step** taken in this patch.
+This note records the current ownership split at the Scene-to-renderer boundary.
 
 ## Intentional ownership model
 
@@ -22,32 +22,33 @@ This note records the intended ownership split and the **safe first step** taken
   - Transient editor-only state (selection, gizmo interaction, editor overlays).
   - Should move out of Scene as a dedicated structure once extraction risk is reduced.
 
-- **RenderScene / RenderFrameView (future extraction)**
-  - Renderer-facing extracted view of scene data.
-  - Renderer should consume this view rather than the full Scene object.
+- **RenderSceneExtractor (`core:render_scene_extractor`)**
+  - Conversion boundary that copies the already-computed render state from Scene.
 
-## What changed in this patch
+- **RenderFramePacket (`core:render_frame_packet`)**
+  - Frame-owned renderer-facing extraction of Scene state, grouped into World, Debug, Editor, and animation-runtime-overlay snapshots.
+  - Independent of Scene lifetime and mutable Scene container storage after extraction.
+  - Resource handles retain their existing ownership and synchronization semantics; cross-thread resource safety remains future work.
 
-- Introduced top-level `src/Scene/` physical area.
-- Moved `core:scene` module implementation from `src/Render/Scene/Scene.cppm` to `src/Scene/Scene.cppm`.
-- Kept the exported module name (`core:scene`) and public API stable to avoid behavior and dependency churn.
-- Updated build and docs references accordingly.
+## Dependency direction
 
-## Why this is intentionally limited
+```text
+LevelAsset
+    ↓
+LevelInstance
+    ↓
+Scene
+    ↓
+RenderSceneExtractor
+    ↓
+RenderFramePacket
+    ↓
+Renderer
+```
 
-This patch is boundary preparation only. It avoids renderer/gameplay semantic rewrites so runtime behavior remains unchanged.
-
-## Follow-up sequence
-
-1. Extract editor-only state into `EditorSceneState`.
-2. Move `LevelAsset` / `LevelInstance` / `LevelECS` into a top-level `src/Level/` area.
-3. Introduce `RenderScene` / `RenderFrameView` extraction path.
-4. Make `Renderer::RenderFrame` consume `RenderFrameView` instead of full `Scene`.
-5. Stop mutating `LevelAsset` directly from gameplay runtime; use runtime-owned scene/world state.
-
-## Temporary constraints to preserve during follow-ups
+## Constraints to preserve
 
 - Keep module dependency direction acyclic:
   - Scene/Level runtime data -> render extraction -> renderer.
 - Keep `core:scene` module name stable unless a dedicated migration patch is planned.
-- Prefer behavior-preserving moves before semantic ownership rewrites.
+- Do not interpret packet ownership as permission to queue resources across threads without a separate handoff and synchronization contract.

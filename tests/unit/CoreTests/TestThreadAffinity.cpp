@@ -213,7 +213,7 @@ TEST(ThreadAffinitySmoke, InlineModeGuardsAllowGameplayAndRendererEntryPoints)
     });
 
     rendern::Renderer renderer(device);
-    renderer.RenderFrame(swapChain, rendern::RenderSceneExtractor::BuildFrameView(scene));
+    renderer.RenderFrame(swapChain, rendern::RenderSceneExtractor::BuildFramePacket(scene));
 
     EXPECT_EQ(swapChain.GetPresentCount(), 1u);
 

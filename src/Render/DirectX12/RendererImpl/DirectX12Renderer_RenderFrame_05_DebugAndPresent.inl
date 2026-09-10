@@ -27,7 +27,7 @@ for (const ExternalDebugArrow& arrow : debug.GetArrows())
 {
 	debugList.AddArrow(arrow.start, arrow.end, arrow.rgba);
 }
-const AnimationRuntimeOverlaySnapshot& animationRuntimeOverlaySnapshot = frameView.GetAnimationRuntimeOverlaySnapshot();
+const AnimationRuntimeOverlaySnapshot& animationRuntimeOverlaySnapshot = framePacket.GetAnimationRuntimeOverlaySnapshot();
 
 const auto animOverlayStart = std::chrono::steady_clock::now();
 if (settings_.drawAnimationRuntimeOverlay && !animationRuntimeOverlaySnapshot.Empty())
