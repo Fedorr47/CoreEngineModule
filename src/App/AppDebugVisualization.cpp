@@ -5,6 +5,15 @@ import core;
 import std;
 
 #include "AppDebugVisualization.h"
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "AppLifecycle.h"
 
 namespace appDebugVisualization
@@ -369,7 +378,7 @@ namespace appDebugVisualization
 	        }
 	    }
 	    if (app.graphicsState.rendererSettings.drawNavigationMesh
-               && runtime.navigationState == AppRuntimeState::NavigationState::Ready
+               && runtime.navigationState == appLifecycle::AppRuntimeState::NavigationState::Ready
                && runtime.navigationProfiles)
 	    {
 	        app::debugDraw::AppendNavigationGeometry(
