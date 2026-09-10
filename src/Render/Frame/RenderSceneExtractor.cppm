@@ -13,11 +13,11 @@ export namespace rendern
     public:
         [[nodiscard]] static RenderFrameView BuildFrameView(const Scene& scene)
         {
-            const RenderWorldView world(
+            RenderWorldSnapshot world(
                 scene.camera,
                 scene.materials,
                 scene.drawItems,
-                scene.skinnedDrawItems,
+                BuildSkinnedDrawItems(scene),
                 scene.lights,
                 scene.particles,
                 scene.particleEmitters,
@@ -44,12 +44,38 @@ export namespace rendern
                 scene.editorScaleGizmo);
 
             return RenderFrameView(
-                world,
+                std::move(world),
                 debug,
                 editor,
                 BuildAnimationRuntimeOverlaySnapshot(scene));
         }
     private:
+        [[nodiscard]] static std::vector<RenderSkinnedDrawItem> BuildSkinnedDrawItems(const Scene& scene)
+        {
+            std::vector<RenderSkinnedDrawItem> result;
+            result.reserve(scene.skinnedDrawItems.size());
+            for (const SkinnedDrawItem& source : scene.skinnedDrawItems)
+            {
+                RenderSkinnedDrawItem item{};
+                item.asset = source.asset;
+                item.transform = source.transform;
+                item.material = source.material;
+                item.submeshMaterials = source.submeshMaterials;
+                item.skinMatrices = source.animator.skinMatrices;
+                item.globalMatrices = source.animator.globalMatrices;
+                if (source.animator.skeleton != nullptr)
+                {
+                    item.skeletonParentIndices.reserve(source.animator.skeleton->bones.size());
+                    for (const SkeletonBone& bone : source.animator.skeleton->bones)
+                    {
+                        item.skeletonParentIndices.push_back(bone.parentIndex);
+                    }
+                }
+                result.push_back(std::move(item));
+            }
+            return result;
+        }
+
         [[nodiscard]] static AnimationRuntimeOverlaySnapshot BuildAnimationRuntimeOverlaySnapshot(const Scene& scene)
         {
             AnimationRuntimeOverlaySnapshot overlaySnapshot{};

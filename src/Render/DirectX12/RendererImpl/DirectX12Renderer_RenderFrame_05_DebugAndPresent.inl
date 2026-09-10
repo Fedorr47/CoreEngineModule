@@ -870,7 +870,7 @@ if (editorDrawSelectedSkinnedSkeleton || editorDrawSelectedSkinnedBounds)
 		{
 			continue;
 		}
-		const SkinnedDrawItem& item = skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
+		const RenderSkinnedDrawItem& item = skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
 		if (!item.asset)
 		{
 			continue;
@@ -892,16 +892,15 @@ if (editorDrawSelectedSkinnedSkeleton || editorDrawSelectedSkinnedBounds)
 		}
 
 		if (editorDrawSelectedSkinnedSkeleton &&
-			item.animator.skeleton != nullptr &&
-			item.animator.globalMatrices.size() == item.animator.skeleton->bones.size())
+			item.globalMatrices.size() == item.skeletonParentIndices.size())
 		{
-			for (std::size_t boneIndex = 0; boneIndex < item.animator.skeleton->bones.size(); ++boneIndex)
+			for (std::size_t boneIndex = 0; boneIndex < item.skeletonParentIndices.size(); ++boneIndex)
 			{
-				const auto& bone = item.animator.skeleton->bones[boneIndex];
-				const mathUtils::Vec3 bonePos = mathUtils::TransformPoint(model * item.animator.globalMatrices[boneIndex], mathUtils::Vec3(0.0f, 0.0f, 0.0f));
-				if (bone.parentIndex >= 0 && static_cast<std::size_t>(bone.parentIndex) < item.animator.globalMatrices.size())
+				const int parentIndex = item.skeletonParentIndices[boneIndex];
+				const mathUtils::Vec3 bonePos = mathUtils::TransformPoint(model * item.globalMatrices[boneIndex], mathUtils::Vec3(0.0f, 0.0f, 0.0f));
+				if (parentIndex >= 0 && static_cast<std::size_t>(parentIndex) < item.globalMatrices.size())
 				{
-					const mathUtils::Vec3 parentPos = mathUtils::TransformPoint(model * item.animator.globalMatrices[static_cast<std::size_t>(bone.parentIndex)], mathUtils::Vec3(0.0f, 0.0f, 0.0f));
+					const mathUtils::Vec3 parentPos = mathUtils::TransformPoint(model * item.globalMatrices[static_cast<std::size_t>(parentIndex)], mathUtils::Vec3(0.0f, 0.0f, 0.0f));
 					debugList.AddLine(parentPos, bonePos, skeletonColor, true);
 				}
 				else

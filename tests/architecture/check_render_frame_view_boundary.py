@@ -25,11 +25,30 @@ def main():
         if re.search(pattern, frame_view):
             violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
 
-    for view_type in ("RenderWorldView", "RenderDebugView", "RenderEditorView"):
+    for view_type in ("RenderWorldSnapshot", "RenderDebugView", "RenderEditorView"):
         if not re.search(rf"\bstruct\s+{view_type}\b", frame_view):
             violations.append(
                 f"{FRAME_VIEW.relative_to(ROOT)}: missing grouped {view_type} contract"
             )
+
+    world_start = frame_view.find("struct RenderSkinnedDrawItem")
+    world_end = frame_view.find("struct RenderDebugView")
+    if world_start < 0 or world_end < 0 or world_start >= world_end:
+        violations.append(
+            f"{FRAME_VIEW.relative_to(ROOT)}: cannot isolate owned World snapshot contract"
+        )
+    else:
+        owned_world_contract = frame_view[world_start:world_end]
+        owned_world_checks = {
+            "owned World contract uses std::span": r"\bstd::span\b",
+            "owned World contract exposes AnimatorState": r"\bAnimatorState\b",
+            "owned World contract exposes AnimationControllerRuntime": r"\bAnimationControllerRuntime\b",
+            "owned World contract stores a Scene pointer": r"\bScene\s*(?:const\s*)?\*",
+            "owned World contract stores a Scene reference": r"\bScene\s*(?:const\s*)?&",
+        }
+        for message, pattern in owned_world_checks.items():
+            if re.search(pattern, owned_world_contract):
+                violations.append(f"{FRAME_VIEW.relative_to(ROOT)}: {message}")
 
     flat_accessors = (
         "GetCamera",

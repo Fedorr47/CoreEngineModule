@@ -138,7 +138,7 @@ auto BuildEditorSelectionLists = [&]() -> EditorSelectionLists
 			sel.outlineWorldOffset = 0.01f;
 			if (static_cast<std::size_t>(skinnedIndex) < skinnedDrawItems.size())
 			{
-				const SkinnedDrawItem& item = skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
+				const RenderSkinnedDrawItem& item = skinnedDrawItems[static_cast<std::size_t>(skinnedIndex)];
 				if (item.asset)
 				{
 					const auto& bounds = item.asset->mesh.bounds.maxAnimatedBounds;
