@@ -1,42 +1,42 @@
 std::unordered_map<BatchKey, BatchTemp, hashUtils::BatchKeyHash, BatchKeyEq> mainTmp;
-mainTmp.reserve(scene.drawItems.size());
+mainTmp.reserve(drawItems.size());
 
 std::vector<InstanceData> transparentInstances;
-transparentInstances.reserve(scene.drawItems.size());
+transparentInstances.reserve(drawItems.size());
 
 std::vector<TransparentTemp> transparentTmp;
-transparentTmp.reserve(scene.drawItems.size());
+transparentTmp.reserve(drawItems.size());
 
 std::vector<InstanceData> planarMirrorInstances;
-planarMirrorInstances.reserve(std::min<std::size_t>(scene.drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
+planarMirrorInstances.reserve(std::min<std::size_t>(drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
 
 std::vector<PlanarMirrorDraw> planarMirrorDraws;
-planarMirrorDraws.reserve(std::min<std::size_t>(scene.drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
+planarMirrorDraws.reserve(std::min<std::size_t>(drawItems.size(), static_cast<std::size_t>(settings_.planarReflectionMaxMirrors)));
 
 std::vector<SkinnedOpaqueDraw> skinnedOpaqueDraws;
-skinnedOpaqueDraws.reserve(scene.GetSkinnedDrawItems().size());
+skinnedOpaqueDraws.reserve(skinnedDrawItems.size());
 
 std::vector<mathUtils::Mat4> skinnedPaletteMatrices;
 
 // ---------------- Reflection probe assignment (multi-probe) ----------------
-drawItemReflectionProbeIndices_.assign(scene.drawItems.size(), -1);
+drawItemReflectionProbeIndices_.assign(drawItems.size(), -1);
 reflectiveOwnerDrawItems_.clear();
-reflectiveOwnerDrawItems_.reserve(scene.drawItems.size());
+reflectiveOwnerDrawItems_.reserve(drawItems.size());
 
-auto IsReflectionCaptureReceiver = [&scene](int drawItemIndex) -> bool
+auto IsReflectionCaptureReceiver = [&](int drawItemIndex) -> bool
 	{
-		if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= scene.drawItems.size())
+		if (drawItemIndex < 0 || static_cast<std::size_t>(drawItemIndex) >= drawItems.size())
 			return false;
 
-		const DrawItem& di = scene.drawItems[static_cast<std::size_t>(drawItemIndex)];
+		const DrawItem& di = drawItems[static_cast<std::size_t>(drawItemIndex)];
 		if (di.material.id == 0)
 			return false;
 
-		const auto& mat = scene.GetMaterial(di.material);
+		const auto& mat = frameView.GetMaterial(di.material);
 		return mat.envSource == EnvSource::ReflectionCapture;
 	};
 
-for (std::size_t i = 0; i < scene.drawItems.size(); ++i)
+for (std::size_t i = 0; i < drawItems.size(); ++i)
 {
 	if (!IsReflectionCaptureReceiver(static_cast<int>(i)))
 		continue;
@@ -58,11 +58,11 @@ const bool buildCaptureNoCull = settings_.enableReflectionCapture || settings_.S
 std::unordered_map<BatchKey, BatchTemp, hashUtils::BatchKeyHash, BatchKeyEq> captureTmp;
 if (buildCaptureNoCull)
 {
-	captureTmp.reserve(scene.drawItems.size());
+	captureTmp.reserve(drawItems.size());
 }
-for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++drawItemIndex)
+for (std::size_t drawItemIndex = 0; drawItemIndex < drawItems.size(); ++drawItemIndex)
 {
-	const auto& item = scene.drawItems[drawItemIndex];
+	const auto& item = drawItems[drawItemIndex];
 	const rendern::MeshRHI* mesh = item.mesh ? &item.mesh->GetResource() : nullptr;
 	if (!mesh || mesh->indexCount == 0)
 	{
@@ -82,7 +82,7 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	std::uint32_t itemEnvSource = 0u;
 	if (item.material.id != 0)
 	{
-		const auto& mat = scene.GetMaterial(item.material);
+		const auto& mat = frameView.GetMaterial(item.material);
 		itemEnvSource = static_cast<std::uint32_t>(mat.envSource);
 		params = mat.params;
 		perm = EffectivePerm(mat);
@@ -214,9 +214,9 @@ for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++dr
 	bucket.inst.push_back(inst);
 }
 
-for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawItems().size(); ++skinnedDrawIndex)
+for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < skinnedDrawItems.size(); ++skinnedDrawIndex)
 {
-	const SkinnedDrawItem& item = scene.GetSkinnedDrawItems()[skinnedDrawIndex];
+	const SkinnedDrawItem& item = skinnedDrawItems[skinnedDrawIndex];
 	if (!item.asset)
 	{
 		continue;
@@ -254,7 +254,7 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawIt
 		MaterialPerm perm = MaterialPerm::UseShadow;
 		if (materialHandle.id != 0)
 		{
-			const auto& mat = scene.GetMaterial(materialHandle);
+			const auto& mat = frameView.GetMaterial(materialHandle);
 			params = mat.params;
 			perm = EffectivePerm(mat);
 		}
@@ -301,7 +301,7 @@ for (std::size_t skinnedDrawIndex = 0; skinnedDrawIndex < scene.GetSkinnedDrawIt
 }
 
 std::vector<InstanceData> mainInstances;
-mainInstances.reserve(scene.drawItems.size());
+mainInstances.reserve(drawItems.size());
 
 std::vector<Batch> mainBatches;
 mainBatches.reserve(mainTmp.size());
@@ -332,7 +332,7 @@ std::vector<Batch> captureMainBatchesNoCull;
 
 if (buildCaptureNoCull && !captureTmp.empty())
 {
-	captureMainInstancesNoCull.reserve(scene.drawItems.size());
+	captureMainInstancesNoCull.reserve(drawItems.size());
 	captureMainBatchesNoCull.reserve(captureTmp.size());
 
 	for (auto& [key, bt] : captureTmp)

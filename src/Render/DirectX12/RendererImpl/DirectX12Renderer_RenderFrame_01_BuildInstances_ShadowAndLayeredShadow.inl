@@ -6,9 +6,9 @@
 // Then we concatenate them into a single instanceBuffer_ update.
 // ---- Shadow packing (per mesh) ----
 std::unordered_map<const rendern::MeshRHI*, std::vector<InstanceData>> shadowTmp;
-shadowTmp.reserve(scene.drawItems.size());
+shadowTmp.reserve(drawItems.size());
 
-for (const auto& item : scene.drawItems)
+for (const auto& item : drawItems)
 {
 	const rendern::MeshRHI* mesh = item.mesh ? &item.mesh->GetResource() : nullptr;
 	if (!mesh || mesh->indexCount == 0)
@@ -23,7 +23,7 @@ for (const auto& item : scene.drawItems)
 
 	if (item.material.id != 0)
 	{
-		const auto& mat = scene.GetMaterial(item.material);
+		const auto& mat = frameView.GetMaterial(item.material);
 		itemEnvSource = static_cast<std::uint32_t>(mat.envSource);
 		params = mat.params;
 		perm = EffectivePerm(mat);
@@ -56,7 +56,7 @@ for (const auto& item : scene.drawItems)
 
 std::vector<InstanceData> shadowInstances;
 std::vector<ShadowBatch> shadowBatches;
-shadowInstances.reserve(scene.drawItems.size());
+shadowInstances.reserve(drawItems.size());
 shadowBatches.reserve(shadowTmp.size());
 
 {

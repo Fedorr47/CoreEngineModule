@@ -7,10 +7,10 @@
 			// -------------------------------------------------------------------------
 
 			// --- camera (used for fallback lights too) ---
-			const mathUtils::Vec3 camPos = scene.camera.position;
+			const mathUtils::Vec3 camPos = renderCamera.position;
 
 			// Upload lights once per frame (t2 StructuredBuffer SRV)
-			const std::uint32_t lightCount = UploadLights(scene, camPos);
+			const std::uint32_t lightCount = UploadLights(lights, camPos);
 
 			// ---------------- Directional CSM (atlas) ----------------
 			// 3 cascades packed into a single D32 atlas:
@@ -29,7 +29,7 @@
 
 			// Choose first directional light (or a default).
 			mathUtils::Vec3 lightDir = mathUtils::Normalize(mathUtils::Vec3(-0.4f, -1.0f, -0.3f)); // FROM light towards scene
-			for (const auto& light : scene.lights)
+			for (const auto& light : lights)
 			{
 				if (light.type == LightType::Directional)
 				{
@@ -47,23 +47,23 @@
 				: 1.0f;
 
 
-			const mathUtils::Mat4 cameraProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-			const mathUtils::Mat4 cameraView = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+			const mathUtils::Mat4 cameraProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(renderCamera.fovYDeg), aspect, renderCamera.nearZ, renderCamera.farZ);
+			const mathUtils::Mat4 cameraView = mathUtils::LookAt(renderCamera.position, renderCamera.target, renderCamera.up);
 			const mathUtils::Mat4 cameraViewProj = cameraProj * cameraView;
 			const mathUtils::Frustum cameraFrustum = mathUtils::ExtractFrustumRH_ZO(cameraViewProj);
 			const bool doFrustumCulling = settings_.enableFrustumCulling;
 
 			// Limit how far we render directional shadows to keep resolution usable.
-			const float shadowFar = std::min(scene.camera.farZ, settings_.dirShadowDistance);
-			const float shadowNear = std::max(scene.camera.nearZ, 0.05f);
+			const float shadowFar = std::min(renderCamera.farZ, settings_.dirShadowDistance);
+			const float shadowNear = std::max(renderCamera.nearZ, 0.05f);
 
 			// Camera basis (orthonormal).
-			const mathUtils::Vec3 camF = mathUtils::Normalize(scene.camera.target - scene.camera.position);
-			mathUtils::Vec3 camR = mathUtils::Cross(camF, scene.camera.up);
+			const mathUtils::Vec3 camF = mathUtils::Normalize(renderCamera.target - renderCamera.position);
+			mathUtils::Vec3 camR = mathUtils::Cross(camF, renderCamera.up);
 			camR = mathUtils::Normalize(camR);
 			const mathUtils::Vec3 camU = mathUtils::Cross(camR, camF);
 
-			const float fovY = mathUtils::DegToRad(scene.camera.fovYDeg);
+			const float fovY = mathUtils::DegToRad(renderCamera.fovYDeg);
 			const float tanHalf = std::tan(fovY * 0.5f);
 
 			auto MakeFrustumCorner = [&](float dist, float sx, float sy) -> mathUtils::Vec3
@@ -71,7 +71,7 @@
 					// sx,sy are in {-1,+1} (left/right, bottom/top).
 					const float halfH = dist * tanHalf;
 					const float halfW = halfH * aspect;
-					const mathUtils::Vec3 planeCenter = scene.camera.position + camF * dist;
+					const mathUtils::Vec3 planeCenter = renderCamera.position + camF * dist;
 					return planeCenter + camU * (sy * halfH) + camR * (sx * halfW);
 				};
 

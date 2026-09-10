@@ -9,12 +9,13 @@ Do not edit manually.
 
 - `src/Render/`
 - `tests/unit/`
+- `tests/architecture/`
 
 ## Counts
 
-- Files: **129**
+- Files: **131**
 - Declared modules: **41**
-- Test files: **13**
+- Test files: **15**
 
 ## Modules
 
@@ -83,6 +84,7 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 
 ## Tests
 
+- `tests/architecture/check_render_frame_view_boundary.py`
 - `tests/unit/InputTests/TestCameraController.cpp`
 - `tests/unit/RenderTests/LevelInstantiateTestHelper.h`
 - `tests/unit/RenderTests/TestAssimpImportContracts.cpp`
@@ -93,6 +95,7 @@ For the complete machine-readable graph, see [`../module-deps.tsv`](../module-de
 - `tests/unit/RenderTests/TestLevelWorld.cpp`
 - `tests/unit/RenderTests/TestRenderCommandQueue.cpp`
 - `tests/unit/RenderTests/TestRenderGraphFakeRHI.cpp`
+- `tests/unit/RenderTests/TestRenderSceneExtractor.cpp`
 - `tests/unit/RenderTests/TestRendererSettingsCommands.cpp`
 - `tests/unit/RenderTests/TestRendererSettingsViewModels.cpp`
 - `tests/unit/RenderTests/TestThreadedRenderScheduler.cpp`

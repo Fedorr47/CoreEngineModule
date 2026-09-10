@@ -54,10 +54,10 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 		//   so the regular skybox pass won't fill the mirror region.
 		// - Draw skybox here, stencil-gated to the mirror, with depth-test disabled.
 		// ---------------------------------------------------------------------
-		if (scene.skyboxDescIndex != 0)
+		if (skyboxDescIndex != 0)
 		{
 			const auto extent = ctx.passExtent;
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 
 			mathUtils::Mat4 viewNoTranslation = camera.view;
 
@@ -95,7 +95,7 @@ if (settings_.enablePlanarReflections && !planarMirrorDraws.empty())
 			ctx.commandList.SetStencilRef(1u + mirrorIndex);
 
 			ctx.commandList.BindPipeline(psoSkybox_);
-			ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex);
+			ctx.commandList.BindTextureDesc(0, skyboxDescIndex);
 			ctx.commandList.BindInputLayout(skyboxMesh_.layout);
 			ctx.commandList.BindVertexBuffer(0, skyboxMesh_.vertexBuffer, skyboxMesh_.vertexStrideBytes, 0);
 			ctx.commandList.BindIndexBuffer(skyboxMesh_.indexBuffer, skyboxMesh_.indexType, 0);

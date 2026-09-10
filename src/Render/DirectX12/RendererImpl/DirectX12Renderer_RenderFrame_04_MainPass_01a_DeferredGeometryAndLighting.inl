@@ -1,5 +1,5 @@
 {
-	const FrameCameraData frameCamera = BuildFrameCameraData(scene, scDesc.extent);
+	const FrameCameraData frameCamera = BuildFrameCameraData(renderCamera, scDesc.extent);
 	const mathUtils::Mat4& proj = frameCamera.proj;
 	const mathUtils::Mat4& view = frameCamera.view;
 	const mathUtils::Mat4& viewProj = frameCamera.viewProj;
@@ -131,8 +131,8 @@
 		att.clearDesc.stencil = 0;
 
 		graph.AddPass("GBufferPass", std::move(att),
-			[this,
-			&scene,
+			[&,
+			this,
 			dirLightViewProj,
 			lightCount,
 			mainBatches,
@@ -159,7 +159,7 @@
 			ctx.commandList.SetState(state_);
 			ctx.commandList.BindPipeline(psoDeferredGBuffer_);
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 			const mathUtils::Mat4& viewProj = camera.viewProj;
 			const mathUtils::Vec3& camPosLocal = camera.camPos;
 			const mathUtils::Vec3& camFLocal = camera.camForward;
@@ -184,7 +184,7 @@
 				MaterialPerm perm = MaterialPerm::None;
 				if (batch.materialHandle.id != 0)
 				{
-					perm = EffectivePerm(scene.GetMaterial(batch.materialHandle));
+					perm = EffectivePerm(frameView.GetMaterial(batch.materialHandle));
 				}
 				else
 				{
@@ -311,7 +311,7 @@
 				MaterialPerm perm = MaterialPerm::None;
 				if (draw.materialHandle.id != 0)
 				{
-					perm = EffectivePerm(scene.GetMaterial(draw.materialHandle));
+					perm = EffectivePerm(frameView.GetMaterial(draw.materialHandle));
 				}
 				else if (draw.material.albedoDescIndex != 0)
 				{
@@ -454,14 +454,14 @@
 		att.clearDesc.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 		graph.AddPass("SSAO", std::move(att),
-			[this, &scene, depthRG, gbuf1, ssaoRaw](renderGraph::PassContext& ctx)
+			[&, this, depthRG, gbuf1, ssaoRaw](renderGraph::PassContext& ctx)
 			{
 				const auto extent = ctx.passExtent;
 				ctx.commandList.SetViewport(0, 0,
 					static_cast<int>(extent.width),
 					static_cast<int>(extent.height));
 
-				const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+				const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 				const mathUtils::Mat4& invViewProjT = camera.invViewProjT;
 
 				SSAOConstants c{};
@@ -543,7 +543,7 @@
 		att.clearDesc.color = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 		graph.AddPass("DeferredLighting", std::move(att),
-			[this, &scene, gbuf0, gbuf1, gbuf2, gbuf3, depthRG, shadowRG, spotShadows, pointShadows, deferredConstants, ssaoBlur, activeReflectionProbeCount](renderGraph::PassContext& ctx)
+			[&, this, gbuf0, gbuf1, gbuf2, gbuf3, depthRG, shadowRG, spotShadows, pointShadows, deferredConstants, ssaoBlur, activeReflectionProbeCount](renderGraph::PassContext& ctx)
 			{
 				const auto extent = ctx.passExtent;
 
@@ -579,7 +579,7 @@
 				}
 
 				// Env cubemaps for IBL (t15 skybox, t17 reflection capture)
-				ctx.commandList.BindTextureDesc(15, scene.skyboxDescIndex);
+				ctx.commandList.BindTextureDesc(15, skyboxDescIndex);
 
 				// Lights (t16) and SSAO (t18); t19 = full reflection cube-array
 				ctx.commandList.BindStructuredBufferSRV(16, lightsBuffer_);

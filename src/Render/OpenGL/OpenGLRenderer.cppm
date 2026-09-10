@@ -46,7 +46,10 @@ export namespace rendern
 
 		void RenderFrame(rhi::IRHISwapChain& swapChain, const RenderFrameView& frameView)
 		{
-			const Scene& scene = frameView.GetScene();
+			const Camera& camera = frameView.GetCamera();
+			const auto drawItems = frameView.GetDrawItems();
+			const auto editorSelectedDrawItems = frameView.GetEditorSelectedDrawItems();
+			const auto skyboxDescIndex = frameView.GetSkyboxDescIndex();
 			renderGraph::RenderGraph graph;
 
 			rhi::ClearDesc clearDesc{};
@@ -59,7 +62,7 @@ export namespace rendern
 			graph.AddSwapChainPass(
 				"MainPass",
 				clearDesc,
-				[this, &scene](renderGraph::PassContext& ctx)
+				[this, &frameView, &camera, drawItems, editorSelectedDrawItems, skyboxDescIndex](renderGraph::PassContext& ctx)
 				{
 					const auto extent = ctx.passExtent;
 
@@ -92,13 +95,13 @@ export namespace rendern
 						};
 
 					// OpenGL clip space: Z in [-1..1]
-					const glm::mat4 proj = glm::perspective(glm::radians(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const glm::mat4 view = glm::lookAt(ToGlmVec3(scene.camera.position), ToGlmVec3(scene.camera.target), ToGlmVec3(scene.camera.up));
+					const glm::mat4 proj = glm::perspective(glm::radians(camera.fovYDeg), aspect, camera.nearZ, camera.farZ);
+					const glm::mat4 view = glm::lookAt(ToGlmVec3(camera.position), ToGlmVec3(camera.target), ToGlmVec3(camera.up));
 
 					// Culling frustum (world-space). We intentionally build it via our mathUtils
 					// D3D-style projection; it represents the same geometric frustum.
-					const mathUtils::Mat4 cullProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(scene.camera.fovYDeg), aspect, scene.camera.nearZ, scene.camera.farZ);
-					const mathUtils::Mat4 cullView = mathUtils::LookAt(scene.camera.position, scene.camera.target, scene.camera.up);
+					const mathUtils::Mat4 cullProj = mathUtils::PerspectiveRH_ZO(mathUtils::DegToRad(camera.fovYDeg), aspect, camera.nearZ, camera.farZ);
+					const mathUtils::Mat4 cullView = mathUtils::LookAt(camera.position, camera.target, camera.up);
 					const mathUtils::Frustum cameraFrustum = mathUtils::ExtractFrustumRH_ZO(cullProj * cullView);
 					const bool doFrustumCulling = settings_.enableFrustumCulling;
 
@@ -121,9 +124,9 @@ export namespace rendern
 
 						ctx.commandList.SetUniformMat4("uVP", vpArr);
 
-						if (scene.skyboxDescIndex != 0)
+						if (skyboxDescIndex != 0)
 						{
-							ctx.commandList.BindTextureDesc(0, scene.skyboxDescIndex); // slot t0
+							ctx.commandList.BindTextureDesc(0, skyboxDescIndex); // slot t0
 						}
 						ctx.commandList.DrawIndexed(skyboxMesh_.indexCount, skyboxMesh_.indexType, 0, 0);
 
@@ -174,8 +177,8 @@ export namespace rendern
 						};
 
 					bool drewAny = false;
-					std::vector<bool> selectedDrawItemMask(scene.drawItems.size(), false);
-					for (const int di : scene.editorSelectedDrawItems)
+					std::vector<bool> selectedDrawItemMask(drawItems.size(), false);
+					for (const int di : editorSelectedDrawItems)
 					{
 						if (di >= 0 && static_cast<std::size_t>(di) < selectedDrawItemMask.size())
 						{
@@ -183,9 +186,9 @@ export namespace rendern
 						}
 					}
 
-					for (std::size_t drawItemIndex = 0; drawItemIndex < scene.drawItems.size(); ++drawItemIndex)
+					for (std::size_t drawItemIndex = 0; drawItemIndex < drawItems.size(); ++drawItemIndex)
 					{
-						const auto& item = scene.drawItems[drawItemIndex];
+						const auto& item = drawItems[drawItemIndex];
 						if (!item.mesh)
 							continue;
 
@@ -197,7 +200,7 @@ export namespace rendern
 						MaterialParams mat{};
 						if (item.material.id != 0)
 						{
-							mat = scene.GetMaterial(item.material).params;
+							mat = frameView.GetMaterial(item.material).params;
 						}
 						else
 						{

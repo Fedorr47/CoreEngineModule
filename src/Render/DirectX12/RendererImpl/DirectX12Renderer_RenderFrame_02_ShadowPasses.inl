@@ -102,15 +102,15 @@
 					});
 			}
 
-			// Collect up to kMaxSpotShadows / kMaxPointShadows from scene.lights (index aligns with UploadLights()).
-			for (std::uint32_t lightIndex = 0; lightIndex < static_cast<std::uint32_t>(scene.lights.size()); ++lightIndex)
+			// Collect up to kMaxSpotShadows / kMaxPointShadows from lights (index aligns with UploadLights()).
+			for (std::uint32_t lightIndex = 0; lightIndex < static_cast<std::uint32_t>(lights.size()); ++lightIndex)
 			{
 				if (lightIndex >= kMaxLights)
 				{
 					break;
 				}
 
-				const auto& light = scene.lights[lightIndex];
+				const auto& light = lights[lightIndex];
 
 				if (light.type == LightType::Spot && spotShadows.size() < kMaxSpotShadows)
 				{

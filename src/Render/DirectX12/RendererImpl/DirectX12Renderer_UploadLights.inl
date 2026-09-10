@@ -1,7 +1,7 @@
 			std::vector<GPULight> gpu;
-			gpu.reserve(std::min<std::size_t>(scene.lights.size(), kMaxLights));
+			gpu.reserve(std::min<std::size_t>(lights.size(), kMaxLights));
 
-			for (const auto& light : scene.lights)
+			for (const auto& light : lights)
 			{
 				if (gpu.size() >= kMaxLights)
 				{

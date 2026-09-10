@@ -10,7 +10,7 @@ if (doDepthPrepass && psoShadow_)
 	preClear.depth = 1.0f;
 
 	graph.AddSwapChainPass("PreDepthPass", preClear,
-		[this, &scene, shadowBatches, skinnedOpaqueDraws, instStride](renderGraph::PassContext& ctx) mutable
+		[&, this, shadowBatches, skinnedOpaqueDraws, instStride](renderGraph::PassContext& ctx) mutable
 		{
 			const auto extent = ctx.passExtent;
 			ctx.commandList.SetViewport(0, 0,
@@ -21,7 +21,7 @@ if (doDepthPrepass && psoShadow_)
 			ctx.commandList.SetState(preDepthState_);
 			ctx.commandList.BindPipeline(psoShadow_);
 
-			const FrameCameraData camera = BuildFrameCameraData(scene, extent);
+			const FrameCameraData camera = BuildFrameCameraData(renderCamera, extent);
 
 			SingleMatrixPassConstants c{};
 			const mathUtils::Mat4 vpT = mathUtils::Transpose(camera.viewProj);
