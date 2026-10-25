@@ -1,0 +1,22 @@
+%% title: Один update решения: два прохода наблюдения и реакций вокруг GOAP-обновления
+%% kind: sequence
+%% level: детали
+%% refs: GG-INSTANCE-UPDATE, GR-UPDATE-DECISIONS, DR-UPDATE, BR-START, CP-PURCHASE-RT, CP-LEDGER-OBSERVE, CP-HIDE
+sequenceDiagram
+  participant GR as GameplayRuntime
+  participant I as GameplayGOAPDecisionInstance
+  participant C as ComposedContext (наблюдения)
+  participant R as реакции
+  participant D as GameplayGOAPDecision / AIDecisionRuntime
+  participant S as AISystem и runtime действия
+  GR->>I: Update(aiSystem, {world, currentWorldEvents_, &currentWorldEvents_})
+  I->>I: reactionEvents_.clear()
+  I->>C: Observe(world, внешние события, facts)
+  I->>R: React(world, внешние события, facts, reactionEvents_)
+  I->>I: runtimeEvents_.clear()
+  I->>D: Update(aiSystem, world)
+  D->>S: StartAction / опрос статуса
+  S-->>I: runtime может дописать событие в runtimeEvents_ (покупка)
+  I->>C: ObserveActionEvents(world, runtimeEvents_, facts)
+  I->>R: React(world, runtimeEvents_, facts, reactionEvents_)
+  I->>GR: дописать runtimeEvents_ и reactionEvents_ в eventOutput

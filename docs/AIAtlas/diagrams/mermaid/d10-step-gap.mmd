@@ -1,0 +1,21 @@
+%% title: Задержки между событиями кадров: успех шага, подтверждение, старт следующего шага
+%% kind: sequence (по кадрам)
+%% level: детали
+%% refs: AS-UPDATE, BR-SYNC, DR-UPDATE, DR-REMAINING, GR-AI-ORDER, PK-SYSTEM, GR-RESET-FRAME
+sequenceDiagram
+  participant F as кадр
+  participant D as решение
+  participant S as AISystem
+  participant M as мотор и физика
+  Note over F: кадр N
+  S->>S: Tick шага k → Succeeded (агент у монеты)
+  S-->>M: команда не выдана → мотор тормозит
+  Note over F: кадр N+1
+  F->>F: BeginFrame очищает команду, pickup: PickupCollected
+  D->>D: Observe: coins+1, atCoinC
+  D->>S: sync: шаг k Succeeded → ReadyToStartStep, проверка остатка плана, возврат
+  S-->>M: задача terminal, команды нет
+  Note over F: кадр N+2
+  D->>S: старт шага k+1 (Start)
+  S->>S: тот же кадр: Tick → команда
+  S-->>M: движение продолжается

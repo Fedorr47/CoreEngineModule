@@ -1,0 +1,28 @@
+%% title: Marker Visit от данных до подтверждённой цели (сквозной разбор)
+%% kind: sequence
+%% level: обзор
+%% refs: AS-MARKER-GOAP, AS-MARKER-BEHAVIOR, AS-MARKER-BINDINGS, SC-START-DECISION, GR-START-DECISION, CO-FROM-TEMPLATE, PL-FIND, BR-START, NA-ROUTE-TICK, CP-SPATIAL-OBSERVE
+sequenceDiagram
+  participant SC as сценарий ai-goap-marker-visit
+  participant GR as GameplayRuntime
+  participant F as фабрика marker_visit (template)
+  participant I as instance решения
+  participant S as AISystem / FollowRoute
+  participant W as мир + физика
+  SC->>GR: setup: ensureNodeBoundEntity, ensureAI, ensureInteractionPoint(goal)
+  SC->>GR: start: reset агента, startAIDecision(agent, "marker_visit")
+  GR->>F: Create(context): роли origin, destination по узлам уровня
+  F-->>GR: instance: наблюдения, move_to/visitMarker, bindings
+  GR->>I: первый Update: markerPresent = 1, markerReached = 0
+  I->>I: цель visitMarker, FindAIPlan → [move_to/visitMarker], Ready
+  GR-->>SC: true, instance сохранён
+  GR->>I: PrePhysicsUpdate: старт шага → маршрут origin → destination
+  I->>S: StartAction → follower Running
+  loop кадры движения
+    S->>W: команда (Arrival, бег) → мотор → Jolt
+    W-->>I: Observe: markerReached по 3D-дистанции ≤ 0.8
+  end
+  S-->>I: follower: d_xz ≤ 0.801 → Succeeded
+  I->>I: sync шага → план Succeeded
+  I->>I: если markerReached = 1 → нет невыполненных целей → Succeeded
+  GR-->>SC: GetAIDecisionStatus = Succeeded → результат сценария Succeeded

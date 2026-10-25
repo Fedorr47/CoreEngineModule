@@ -1,0 +1,103 @@
+{
+ "g13-seek-flee": {
+  "title": "Seek и Flee для агента в (0,0,0) и точки (3,0,4)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "ST-SEEK",
+   "ST-FLEE"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g13-arrival-profile": {
+  "title": "Профиль Arrival: magnitude от горизонтальной дистанции",
+  "kind": "график (вычислено)",
+  "level": "детали",
+  "refs": [
+   "ST-ARRIVAL",
+   "ST-ARRIVAL-SETTINGS"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-lookahead": {
+  "title": "Look-ahead: виртуальная цель на исходящем сегменте (L = 0.75)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "RF-LOOKAHEAD"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-corner-plane": {
+  "title": "Плоскость перехода угла +X → +Z и точка (−0.2, 0.3)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "RF-PASSED"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g14-flee-hysteresis": {
+  "title": "Гистерезис FleeTarget: trigger 5, safe 7 (Steering Playground)",
+  "kind": "график (вычислено)",
+  "level": "детали",
+  "refs": [
+   "NA-FLEE-HYST",
+   "AS-SC-PLAYGROUND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g15-feelers": {
+  "title": "Три feelers и escape-кандидаты перед наклонной стеной (учебные числа)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "OA-FEELERS",
+   "OA-ESCAPE",
+   "OA-SANITIZE"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g15-support": {
+  "title": "Support probe: вынос 0.75, подъём 0.25, допустимое падение 0.35 (вид сбоку)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "OA-SUPPORT",
+   "OA-SETTINGS"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g05-access-key-map": {
+  "title": "Access Key: авторский граф маршрутов на позициях уровня и оптимальный план (стоимость 42.09)",
+  "kind": "геометрия (вычислено из ассетов)",
+  "level": "обзор",
+  "refs": [
+   "AS-ACCESS-ROUTES",
+   "CP-MOVE-GRAPH",
+   "RS-FIND",
+   "PL-FIND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-playground-turn": {
+  "title": "Steering Playground: острый поворот Corner → Goal, look-ahead и плоскость перехода (реальные узлы, увеличено у угла)",
+  "kind": "геометрия (вычислено из уровня)",
+  "level": "детали",
+  "refs": [
+   "RF-LOOKAHEAD",
+   "RF-PASSED",
+   "AS-SC-PLAYGROUND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ }
+}

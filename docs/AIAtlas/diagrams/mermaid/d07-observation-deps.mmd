@@ -1,0 +1,12 @@
+%% title: Access Key: наблюдения как производители и потребители фактов
+%% kind: граф зависимостей (writer → факт → reader)
+%% level: детали
+%% refs: CO-ORDER, CO-ORDER-PICK, CP-LEDGER, CP-PICKUP-AVAIL, CP-NEAREST, CP-SPATIAL, AS-ACCESS-BEHAVIOR
+flowchart LR
+  L["resource_ledger"] -->|"пишет"| F1(["coins (int)"])
+  L -->|"пишет"| F2(["coinA/B/CCollected"])
+  L -->|"пишет"| F3(["hasAccessKey"])
+  P["pickup_available x3"] -->|"пишет"| F4(["coinA/B/CAvailable"])
+  N["nearest_location"] -->|"пишет one-hot"| F5(["atStart, atCoinA..C,<br/>atAccessKeyShop, atGoal"])
+  F3 -->|"читает (requiredFacts)"| W["within_distance<br/>(goal, 0.6, latch)"]
+  W -->|"пишет"| F6(["atDestination"])

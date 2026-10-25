@@ -1,0 +1,23 @@
+%% title: GameplayRouteFollower::Tick — выбор цели steering на одном тике
+%% kind: flowchart (алгоритм)
+%% level: детали
+%% refs: RF-TICK, RF-SLOWING, RF-LOOKAHEAD, RF-PASSED, ST-ARRIVAL, ST-SEEK
+flowchart TB
+  A(["Tick(position)"]) --> B{"статус Following?"}
+  B -->|"TraversalRequired"| Z0(["вернуть link текущего сегмента"])
+  B -->|"другое"| Z1(["вернуть статус"])
+  B -->|"да"| C{"есть сегмент i?"}
+  C -->|"нет"| Z2(["Succeeded"])
+  C -->|"да"| D{"сегмент i аннотирован?"}
+  D -->|"да"| Z3(["TraversalRequired + link"])
+  D -->|"нет"| E["Arrival к углу points[i+1]:<br/>промежуточный — slowing = acceptance,<br/>финальный — настроенный slowing"]
+  E --> F{"Arrived?"}
+  F -->|"да"| G["i++ (без ограничения числа за тик)"] --> C
+  F -->|"нет"| H["look-ahead цель q, если есть следующий<br/>сегмент без traversal, оба невырождены, d < L"]
+  H --> I{"q есть, ещё не продвигались<br/>look-ahead и угол пройден?"}
+  I -->|"да"| J["i++ (не более одного раза за тик)"] --> C
+  I -->|"нет"| K{"q есть?"}
+  K -->|"да"| L["Seek к q (acceptance 0)"]
+  K -->|"нет"| M["намерение Arrival к углу"]
+  L --> N(["Following + намерение;<br/>если Seek вырожден — намерение к углу"])
+  M --> N

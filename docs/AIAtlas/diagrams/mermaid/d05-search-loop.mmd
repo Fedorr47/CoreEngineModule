@@ -1,0 +1,26 @@
+%% title: Цикл FindAIPlan: uniform-cost search с ленивым удалением дубликатов
+%% kind: flowchart (алгоритм)
+%% level: детали
+%% refs: PL-FIND, PL-INPUT, PL-EMPTY-PLAN, PL-SORT, PL-STALE, PL-GOALTEST, PL-RELAX
+flowchart TD
+  A(["FindAIPlan(initialState, goal, actions)"]) --> B{"IsInputValid?"}
+  B -->|"нет"| N1(["nullopt"])
+  B -->|"да"| C{"цель уже<br/>выполнена?"}
+  C -->|"да"| P0(["AIPlan с пустыми steps"])
+  C -->|"нет"| D["orderedActions: сортировка<br/>по (actionId, contextId)<br/>bestCosts[S0] = 0; push(S0, 0)"]
+  D --> E{"frontier пуст?"}
+  E -->|"да"| N2(["nullopt: цель недостижима"])
+  E -->|"нет"| F["pop: минимальный cost,<br/>затем минимальный sequence"]
+  F --> G{"cost == bestCosts[state]?"}
+  G -->|"нет: устаревшая запись"| E
+  G -->|"да"| H{"goal.desiredFacts<br/>выполнены?"}
+  H -->|"да"| P1(["AIPlan с copy of steps"])
+  H -->|"нет"| I["для каждого действия<br/>по порядку"]
+  I --> J{"preconditions и<br/>numericPreconditions?"}
+  J -->|"нет"| I
+  J -->|"да"| K["next = copy(state);<br/>эффекты; overflow → пропуск;<br/>nextCost = cost + baseCost"]
+  K --> L{"known и known ≤ nextCost?"}
+  L -->|"да: не лучше"| I
+  L -->|"нет"| M["bestCosts[next] = nextCost;<br/>push(next, nextCost, ++sequence,<br/>steps + шаг)"]
+  M --> I
+  I -->|"действия исчерпаны"| E

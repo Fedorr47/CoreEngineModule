@@ -1,0 +1,30 @@
+%% title: Владение и заимствование: от GameplayRuntime до runtime действия
+%% kind: class / ownership
+%% level: детали
+%% refs: GR-MEMBERS, AS-CLASS, AT-CLASS, GG-INSTANCE, GG-FIELD-ORDER, GG-DECISION, AB-REGISTRY, CP-MOVE-BINDING, CP-PURCHASE-RT, TV-EXEC-REG
+classDiagram
+  direction LR
+  class GameplayRuntime
+  class AISystem
+  class AIActionTask
+  class IAIActionRuntime
+  class GameplayGOAPDecisionInstance
+  class ComposedContext
+  class GameplayGOAPDecision
+  class AIActionBindingRegistry
+  class IAIActionBinding
+  class IGameplayGOAPCapability
+  class GameplayTraversalExecutorRegistry
+  GameplayRuntime *-- AISystem : по значению
+  GameplayRuntime *-- GameplayGOAPDecisionInstance : unique_ptr по entity
+  GameplayRuntime *-- GameplayTraversalExecutorRegistry : по значению
+  AISystem *-- AIActionTask : одна на entity
+  AIActionTask *-- IAIActionRuntime : unique_ptr
+  GameplayGOAPDecisionInstance *-- ComposedContext : unique_ptr (уничтожается последним)
+  GameplayGOAPDecisionInstance *-- GameplayGOAPDecision : по значению (уничтожается первым)
+  ComposedContext *-- IGameplayGOAPCapability : unique_ptr
+  GameplayGOAPDecision *-- IAIActionBinding : владеет (ownedBindings_)
+  GameplayGOAPDecision *-- AIActionBindingRegistry : actionId → сырой указатель
+  IAIActionBinding ..> IGameplayGOAPCapability : заимствует (провайдер запроса)
+  IAIActionRuntime ..> GameplayGOAPDecisionInstance : покупка заимствует facts_ и runtimeEvents_
+  IAIActionRuntime ..> GameplayTraversalExecutorRegistry : заимствует (FollowRoute)

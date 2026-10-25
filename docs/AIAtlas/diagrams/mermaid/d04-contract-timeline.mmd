@@ -1,0 +1,15 @@
+%% title: Три контракта действия во времени: предусловия, продолжение, эффекты
+%% kind: flowchart (жизненный цикл шага)
+%% level: детали
+%% refs: PL-FIND, DR-REMAINING, DR-CONTINUATION, BR-START, BR-SYNC, CP-SPATIAL-OBSERVE
+flowchart LR
+  subgraph Plan["Время поиска (копии состояния)"]
+    P1["preconditions выполнены<br/>в предсказанном S"] -->|"применить effects"| P2["S′ = прогноз"]
+  end
+  subgraph Run["Время исполнения (факты агента)"]
+    R1["ReadyToStartStep:<br/>IsRemainingPlanValid_ —<br/>preconditions + effects всех<br/>оставшихся шагов по фактам"] -->|"старт runtime"| R2["RunningStep:<br/>каждый update —<br/>continuationConditions"]
+    R2 -->|"runtime Succeeded"| R3["шаг завершён;<br/>effects НЕ применяются"]
+    R3 -->|"наблюдение"| R4["факт подтверждён<br/>или нет"]
+    R2 -->|"continuation нарушено"| R5["инвалидация →<br/>перепланирование / Failed"]
+  end
+  P2 -.->|"план = последовательность<br/>шагов"| R1

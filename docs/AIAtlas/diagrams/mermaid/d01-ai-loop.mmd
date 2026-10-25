@@ -1,0 +1,17 @@
+%% title: Замкнутый цикл AI: решение → исполнение → движение → физика → наблюдение
+%% kind: data-flow + вызовы
+%% level: обзор
+%% refs: GG-INSTANCE-UPDATE, DR-UPDATE, BR-START, AS-UPDATE, NA-ROUTE-TICK, ST-APPLY, CM-MOVEMENT, AP-PHYSICS, CP-SPATIAL-OBSERVE
+flowchart TB
+  W["Мир: GameplayWorld + Jolt<br/>позиции, InteractionPoint, pickup"] -->|"Observe (данные)"| F["Факты агента<br/>AIAgentWorldState"]
+  E["События кадра<br/>PickupCollected, ResourcePurchased"] -->|"Observe / ObserveActionEvents"| F
+  F -->|"SelectAIGoal"| G["Выбранная цель"]
+  G -->|"FindAIPlan при необходимости"| P["План: шаги (actionId, contextId)"]
+  P -->|"StartReadyPlanStep (вызов)"| B["IAIActionBinding::CreateRuntime"]
+  B -->|"владение runtime → AIActionTask"| S["AISystem: одна задача на агента"]
+  S -->|"Start / Tick (вызов)"| R["Action runtime:<br/>FollowRoute, Purchase, Follow, Flee"]
+  R -->|"route + steering + avoidance"| C["GameplayCharacterCommandComponent"]
+  R -->|"ResourcePurchased (событие)"| E
+  C -->|"мотор → desiredVelocity"| M["Движение персонажа"]
+  M -->|"физический шаг"| W
+  S -.->|"статус задачи (опрос)"| P

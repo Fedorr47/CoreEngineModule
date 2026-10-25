@@ -1,0 +1,20 @@
+%% title: Состояния AIPlanExecution и переходы по статусам шагов
+%% kind: state
+%% level: детали
+%% refs: PE-STATUS, PE-CLASS, PE-APPLY, BR-START, BR-SYNC, BR-CANCEL
+stateDiagram-v2
+  [*] --> NotStarted: AIPlanExecution(plan)
+  NotStarted --> Failed: невалидная цель или шаг (в конструкторе)
+  NotStarted --> Succeeded: Start(), шагов нет
+  NotStarted --> ReadyToStartStep: Start()
+  ReadyToStartStep --> RunningStep: MarkCurrentStepStarted (runtime Running или Succeeded)
+  ReadyToStartStep --> Failed: MarkCurrentStepStartFailed (нет binding, runtime, старт неуспешен)
+  RunningStep --> ReadyToStartStep: шаг Succeeded и есть следующий
+  RunningStep --> Succeeded: шаг Succeeded, шагов больше нет
+  RunningStep --> Failed: шаг Failed (или задача пропала: NotStarted)
+  RunningStep --> Cancelled: шаг Cancelled
+  ReadyToStartStep --> Cancelled: Cancel()
+  RunningStep --> Cancelled: CancelPlanExecution
+  Succeeded --> [*]
+  Failed --> [*]
+  Cancelled --> [*]

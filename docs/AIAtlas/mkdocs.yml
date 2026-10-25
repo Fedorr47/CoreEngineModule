@@ -1,0 +1,127 @@
+site_name: CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+site_description: Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+strict: true
+
+theme:
+  name: material
+  language: ru
+  font: false                 # офлайн: без Google Fonts
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: indigo
+      toggle: {icon: material/weather-night, name: Тёмная тема}
+    - scheme: slate
+      primary: blue grey
+      accent: light blue
+      toggle: {icon: material/weather-sunny, name: Светлая тема}
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - navigation.path
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search:
+      lang: [ru, en]
+      # camelCase и '::' делятся на токены: «Decision» находит AIDecisionRuntime, «Update» — ::Update
+      separator: '[\s\-,:!=\[\]()"/`]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - offline                   # поиск и навигация работают из file:// без сервера
+
+validation:
+  omitted_files: info
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+extra_css:
+  - assets/katex/katex.min.css
+  - assets/css/atlas-responsive.css
+  - assets/css/atlas.css
+
+extra_javascript:
+  - assets/js/atlas-diagram-viewer.js
+  - assets/js/atlas-reveal.js
+  - assets/js/atlas-demo-data.js
+  - assets/js/atlas-demos.js
+
+hooks:
+  - hooks/atlas_hooks.py
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - def_list
+  - footnotes
+  - abbr
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.caret
+  - pymdownx.tilde
+
+nav:
+  - Главная: index.md
+  - Основы:
+      - 00 Как читать атлас: chapters/00-how-to-read.md
+      - 01 Полная архитектура AI: chapters/01-architecture.md
+      - 02 GOAP и STRIPS: chapters/02-goap-strips.md
+      - 03 Модель состояния: chapters/03-state-model.md
+      - 04 Цели и контракты действий: chapters/04-goals-actions.md
+      - 05 Планировщик: chapters/05-planner.md
+  - Решение и исполнение:
+      - 06 Ассеты и композиция: chapters/06-assets-composition.md
+      - 07 Наблюдения и события: chapters/07-observations-events.md
+      - 08 Decision runtime: chapters/08-decision-runtime.md
+      - 09 Исполнение и lifetime: chapters/09-execution-lifetime.md
+      - 10 Порядок кадра: chapters/10-frame-order.md
+  - Движение:
+      - 11 Пространственные маршруты: chapters/11-spatial-routes.md
+      - 12 RouteFollower: chapters/12-route-follower.md
+      - 13 Steering: chapters/13-steering.md
+      - 14 FollowTarget и FleeTarget: chapters/14-temporal-behaviors.md
+      - 15 Obstacle avoidance: chapters/15-obstacle-avoidance.md
+      - 16 Traversal и физика: chapters/16-traversal-physics.md
+  - Практика:
+      - 17 Ресурсы и несколько агентов: chapters/17-resources-multiagent.md
+      - 18 Авторинг и сценарии: chapters/18-authoring-scenarios.md
+      - 19 Диагностика и проверка: chapters/19-diagnostics.md
+      - 20 Ограничения и развитие: chapters/20-limits-future.md
+  - Учебные модели:
+      - GOAP-поиск по шагам: demos/goap-search.md
+      - Arrival и гистерезис Flee: demos/arrival-flee.md
+  - Справочник:
+      - "Runtime: быстрый справочник": reference/runtime-quick-reference.md
+      - Индекс сущностей: reference/class-index.md
+      - Реестр источников: reference/source-references.md
+      - Каталог схем: reference/diagrams.md
+      - Словарь: reference/glossary.md
+      - Внешние источники: reference/external-sources.md
+      - Сборка и обновление: reference/build.md
+      - Отчёт автоматических проверок: reference/validation-report.md
+
+extra:
+  # Локальная копия iframe-worker 1.0.4 (MIT) вместо CDN unpkg, который offline-плагин Material подставляет
+  # по умолчанию: без неё поиск из file:// требует сети.
+  polyfills:
+    - assets/js/vendor/iframe-worker-shim.js

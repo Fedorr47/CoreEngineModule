@@ -1,0 +1,30 @@
+%% title: Передача сегмента маршрута traversal-исполнителю и возврат управления
+%% kind: sequence
+%% level: детали
+%% refs: NA-ROUTE-TICK, NA-ROUTE-TRAVERSAL, RF-TICK, RF-COMPLETE, TV-LINK-REG, TV-EXEC-REG, TV-EXECUTOR
+sequenceDiagram
+  participant RT as AIFollowRouteActionRuntime
+  participant FO as GameplayRouteFollower
+  participant LR as GameplayTraversalLinkRegistry
+  participant ER as GameplayTraversalExecutorRegistry
+  participant EX as executor (Jump / Door)
+  RT->>FO: Tick(position)
+  FO-->>RT: TraversalRequired + link handle
+  RT->>RT: сбросить память avoidance и steering debug
+  RT->>LR: Find(handle): link валиден, цель жива
+  RT->>ER: Find(link.traversalTypeId)
+  RT->>EX: Start(context{agent, link, type, target})
+  alt Running
+    EX-->>RT: Running → activeTraversal_
+    loop каждый tick задачи
+      RT->>EX: Tick(context, dt)
+    end
+    EX-->>RT: Succeeded
+    RT->>FO: CompleteTraversal(тот же handle) → следующий сегмент
+    RT->>FO: в том же tick AdvanceFollower_
+  else Succeeded сразу
+    RT->>FO: CompleteTraversal, движение — со следующего tick
+  else Failed
+    EX-->>RT: Failed → остановка, задача Failed
+  end
+  Note over RT,EX: Cancel задачи: executor.Cancel(context), follower.Reset

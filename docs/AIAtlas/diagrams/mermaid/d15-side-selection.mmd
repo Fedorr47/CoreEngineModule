@@ -1,0 +1,23 @@
+%% title: Выбор стороны обхода: опора важнее просвета, память стороны с порогом смены
+%% kind: flowchart (алгоритм)
+%% level: детали
+%% refs: OA-APPLY, OA-SIDE, OA-SUPPORT, OA-ESCAPE
+flowchart TB
+  A(["движение есть, forward probe попал"]) --> B["escape left / right =<br/>norm(0.6·feeler + 0.4·касательная + 0.3·нормаль)"]
+  B --> C["HasSupport(escape left),<br/>HasSupport(escape right)"]
+  C --> D{"опора есть?"}
+  D -->|"ни одной"| Z0(["нулевая команда,<br/>память стороны = None"])
+  D -->|"только одна сторона"| Z1(["выбрать её<br/>(даже вопреки памяти)"])
+  D -->|"обе"| E{"память стороны?"}
+  E -->|"None"| F["preferred: left, если<br/>clear_L ≥ clear_R, иначе right"]
+  E -->|"Left"| G{"clear_R > clear_L + 0.15?"}
+  E -->|"Right"| H{"clear_L > clear_R + 0.15?"}
+  G -->|"да"| R(["Right"])
+  G -->|"нет"| L(["Left"])
+  H -->|"да"| L
+  H -->|"нет"| R
+  F --> S(["выбранная сторона"])
+  L --> M["память = выбранная сторона;<br/>moveWorld = escape выбранной стороны;<br/>magnitude и wantsRun — от базового намерения"]
+  R --> M
+  S --> M
+  Z1 --> M

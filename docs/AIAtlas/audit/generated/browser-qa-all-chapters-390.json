@@ -1,0 +1,345 @@
+{
+ "pages": [
+  "chapters/00-how-to-read.html",
+  "chapters/01-architecture.html",
+  "chapters/02-goap-strips.html",
+  "chapters/03-state-model.html",
+  "chapters/04-goals-actions.html",
+  "chapters/05-planner.html",
+  "chapters/06-assets-composition.html",
+  "chapters/07-observations-events.html",
+  "chapters/08-decision-runtime.html",
+  "chapters/09-execution-lifetime.html",
+  "chapters/10-frame-order.html",
+  "chapters/11-spatial-routes.html",
+  "chapters/12-route-follower.html",
+  "chapters/13-steering.html",
+  "chapters/14-temporal-behaviors.html",
+  "chapters/15-obstacle-avoidance.html",
+  "chapters/16-traversal-physics.html",
+  "chapters/17-resources-multiagent.html",
+  "chapters/18-authoring-scenarios.html",
+  "chapters/19-diagnostics.html",
+  "chapters/20-limits-future.html"
+ ],
+ "widths": [
+  390
+ ],
+ "zooms": [
+  1
+ ],
+ "failures": [],
+ "jsErrors": [],
+ "consoleErrors": [],
+ "network": [],
+ "layout": [
+  {
+   "page": "chapters/00-how-to-read.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "chapters/01-architecture.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/02-goap-strips.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/03-state-model.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.62,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/04-goals-actions.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/06-assets-composition.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/07-observations-events.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/08-decision-runtime.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/09-execution-lifetime.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/10-frame-order.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/11-spatial-routes.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/12-route-follower.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.66
+   ]
+  },
+  {
+   "page": "chapters/14-temporal-behaviors.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.71
+   ]
+  },
+  {
+   "page": "chapters/15-obstacle-avoidance.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55,
+    0.57
+   ]
+  },
+  {
+   "page": "chapters/16-traversal-physics.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/17-resources-multiagent.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/18-authoring-scenarios.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.83,
+    0.55,
+    0.69
+   ]
+  },
+  {
+   "page": "chapters/19-diagnostics.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/20-limits-future.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55
+   ]
+  }
+ ],
+ "viewer": [],
+ "search": [],
+ "demos": {},
+ "screenshots": [
+  "chapters_00-how-to-read-390.png",
+  "chapters_01-architecture-390.png",
+  "chapters_02-goap-strips-390.png",
+  "chapters_03-state-model-390.png",
+  "chapters_04-goals-actions-390.png",
+  "chapters_05-planner-390.png",
+  "chapters_06-assets-composition-390.png",
+  "chapters_07-observations-events-390.png",
+  "chapters_08-decision-runtime-390.png",
+  "chapters_09-execution-lifetime-390.png",
+  "chapters_10-frame-order-390.png",
+  "chapters_11-spatial-routes-390.png",
+  "chapters_12-route-follower-390.png",
+  "chapters_13-steering-390.png",
+  "chapters_14-temporal-behaviors-390.png",
+  "chapters_15-obstacle-avoidance-390.png",
+  "chapters_16-traversal-physics-390.png",
+  "chapters_17-resources-multiagent-390.png",
+  "chapters_18-authoring-scenarios-390.png",
+  "chapters_19-diagnostics-390.png",
+  "chapters_20-limits-future-390.png"
+ ]
+}

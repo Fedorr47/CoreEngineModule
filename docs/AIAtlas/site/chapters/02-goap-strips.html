@@ -1,0 +1,2016 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc">
+      
+      
+      
+      
+        <link rel="prev" href="01-architecture.html">
+      
+      
+        <link rel="next" href="03-state-model.html">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>02 GOAP и STRIPS - CoreEngine AI Atlas — GOAP, Steering и контракты исполнения</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="../assets/js/vendor/iframe-worker-shim.js"></script>
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../assets/katex/katex.min.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas-responsive.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#02-goap-strips" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-header__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              02 GOAP и STRIPS
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Тёмная тема"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Тёмная тема" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Светлая тема"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Светлая тема" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-nav__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Главная
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Основы
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Основы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="00-how-to-read.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    00 Как читать атлас
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="01-architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="02-goap-strips.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-strips" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. STRIPS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. От множеств к вектору фактов
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Числовые расширения
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-goap" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. GOAP: стоимость, цели и регрессия против прогрессии
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5. Прогноз против мира
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-target-recovery-strips" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: Target Recovery в нотации STRIPS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="03-state-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    03 Модель состояния
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="04-goals-actions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    04 Цели и контракты действий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="05-planner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    05 Планировщик
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Решение и исполнение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Решение и исполнение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="06-assets-composition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    06 Ассеты и композиция
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="07-observations-events.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    07 Наблюдения и события
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="08-decision-runtime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    08 Decision runtime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="09-execution-lifetime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    09 Исполнение и lifetime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="10-frame-order.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Движение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Движение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="11-spatial-routes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    11 Пространственные маршруты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="12-route-follower.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    12 RouteFollower
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="13-steering.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    13 Steering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="14-temporal-behaviors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="15-obstacle-avoidance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    15 Obstacle avoidance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="16-traversal-physics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    16 Traversal и физика
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Практика
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Практика
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="17-resources-multiagent.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    17 Ресурсы и несколько агентов
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="18-authoring-scenarios.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    18 Авторинг и сценарии
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="19-diagnostics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    19 Диагностика и проверка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="20-limits-future.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    20 Ограничения и развитие
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Учебные модели
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Учебные модели
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/goap-search.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GOAP-поиск по шагам
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/arrival-flee.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Arrival и гистерезис Flee
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/runtime-quick-reference.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runtime: быстрый справочник
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/class-index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/source-references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Реестр источников
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/diagrams.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Каталог схем
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Словарь
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/external-sources.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Внешние источники
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/build.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Сборка и обновление
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/validation-report.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Отчёт автоматических проверок
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-strips" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. STRIPS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. От множеств к вектору фактов
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Числовые расширения
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-goap" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. GOAP: стоимость, цели и регрессия против прогрессии
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5. Прогноз против мира
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-target-recovery-strips" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: Target Recovery в нотации STRIPS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="02-goap-strips">02. GOAP и STRIPS: символическое планирование и прогноз против мира<a class="headerlink" href="#02-goap-strips" title="Permanent link">&para;</a></h1>
+<div class="admonition abstract">
+<p class="admonition-title">Коротко</p>
+<p>CoreEngine использует GOAP-планировщик с моделью действий в духе STRIPS: действие описано предусловиями и
+эффектами над фактами, план ищется как путь в пространстве состояний. В отличие от «чистого» STRIPS здесь
+состояние полностью задано (все факты явно true/false), есть целочисленные факты, стоимости и отдельный
+контракт продолжения выполняющегося шага. Главная мысль главы: <strong>план — это прогноз</strong>, а не изменение мира.
+Статус: <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span> для соответствий с кодом; исторические сведения о STRIPS/GOAP — внешняя теория.</p>
+</div>
+<h2 id="1">1. Задача и интуиция<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p>Предыдущая глава показала контур «наблюдение → решение → исполнение». Делиберативная часть этого контура должна
+отвечать на вопрос «какие действия и в каком порядке приведут к цели». Если описать каждое действие тем, <strong>когда
+его можно начать</strong> и <strong>что изменится, если оно удастся</strong>, задачу можно решать поиском, не программируя вручную
+дерево «если монета A есть, то…». Добавление нового действия (например, покупки) автоматически открывает
+новые планы — в этом практическая ценность подхода.</p>
+<h2 id="2">2. Теоретическая выкладка<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<h3 id="21-strips">2.1. STRIPS<a class="headerlink" href="#21-strips" title="Permanent link">&para;</a></h3>
+<p>STRIPS (R. Fikes, N. Nilsson, 1971) описывает мир конечным множеством атомов <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="script">F</mi></mrow><annotation encoding="application/x-tex">\mathcal F</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathcal" style="margin-right:0.0993em;">F</span></span></span></span></span> и состояние — множеством
+истинных атомов <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mo>⊆</mo><mi mathvariant="script">F</mi></mrow><annotation encoding="application/x-tex">s \subseteq \mathcal F</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7719em;vertical-align:-0.136em;"></span><span class="mord mathnormal">s</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊆</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathcal" style="margin-right:0.0993em;">F</span></span></span></span></span>. Действие <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span></span> — тройка списков:</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>a</mi><mo>=</mo><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mtext>  </mtext><mi mathvariant="normal">add</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mtext>  </mtext><mi mathvariant="normal">del</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">)</mo><mo separator="true">,</mo><mspace width="2em"/><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo separator="true">,</mo><mi mathvariant="normal">add</mi><mo>⁡</mo><mo separator="true">,</mo><mi mathvariant="normal">del</mi><mo>⁡</mo><mo>⊆</mo><mi mathvariant="script">F</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+a = \big(\operatorname{pre}(a),\; \operatorname{add}(a),\; \operatorname{del}(a)\big), \qquad
+\operatorname{pre}, \operatorname{add}, \operatorname{del} \subseteq \mathcal F .
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.2em;vertical-align:-0.35em;"></span><span class="mord"><span class="delimsizing size1">(</span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">del</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mord"><span class="delimsizing size1">)</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">del</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊆</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathcal" style="margin-right:0.0993em;">F</span><span class="mord">.</span></span></span></span></span></div>
+<p>Действие применимо в <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi></mrow><annotation encoding="application/x-tex">s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">s</span></span></span></span></span>, если <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo>⊆</mo><mi>s</mi></mrow><annotation encoding="application/x-tex">\operatorname{pre}(a) \subseteq s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊆</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">s</span></span></span></span></span>, и даёт</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>γ</mi><mo stretchy="false">(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo stretchy="false">)</mo><mo>=</mo><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo><mi>s</mi><mo>∖</mo><mi mathvariant="normal">del</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">)</mo><mo>∪</mo><mi mathvariant="normal">add</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+\gamma(s, a) = \big(s \setminus \operatorname{del}(a)\big) \cup \operatorname{add}(a).
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0556em;">γ</span><span class="mopen">(</span><span class="mord mathnormal">s</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.2em;vertical-align:-0.35em;"></span><span class="mord"><span class="delimsizing size1">(</span></span><span class="mord mathnormal">s</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∖</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.2em;vertical-align:-0.35em;"></span><span class="mop"><span class="mord mathrm">del</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mord"><span class="delimsizing size1">)</span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∪</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mord">.</span></span></span></span></span></div>
+<p>Цель <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi></mrow><annotation encoding="application/x-tex">g</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span></span></span></span></span> — множество атомов, которые должны быть истинны: план <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mn>1</mn></msub><mo separator="true">,</mo><mo>…</mo><mo separator="true">,</mo><msub><mi>a</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">a_1, \dots, a_k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="minner">…</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> решает задачу, если
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>⊆</mo><mi>γ</mi><mo stretchy="false">(</mo><mo>…</mo><mi>γ</mi><mo stretchy="false">(</mo><msub><mi>s</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>a</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>…</mo><mo separator="true">,</mo><msub><mi>a</mi><mi>k</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">g \subseteq \gamma(\dots\gamma(s_0, a_1)\dots, a_k)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8304em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊆</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0556em;">γ</span><span class="mopen">(</span><span class="minner">…</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0556em;">γ</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="minner">…</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span>. Всё, что действие не упоминает, сохраняется
+(<strong>допущение STRIPS</strong> — решение «проблемы фрейма» для этой модели).</p>
+<h3 id="22">2.2. От множеств к вектору фактов<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<p>CoreEngine хранит не множество истинных атомов, а <strong>вектор всех фактов</strong> (глава <a href="03-state-model.html">03</a>):
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>∈</mo><mo stretchy="false">{</mo><mn>0</mn><mo separator="true">,</mo><mn>1</mn><msup><mo stretchy="false">}</mo><mi>n</mi></msup></mrow><annotation encoding="application/x-tex">B \in \{0,1\}^{n}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7224em;vertical-align:-0.0391em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">1</span><span class="mclose"><span class="mclose">}</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span></span></span></span></span></span></span></span></span></span></span></span></span>. Перевод:</p>
+<ul>
+<li>атом <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo>∈</mo><mi>s</mi></mrow><annotation encoding="application/x-tex">f \in s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">s</span></span></span></span></span> ⇔ <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>f</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B_f = 1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span></span>;</li>
+<li><span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">add</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{add}(a)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span></span></span></span></span> ⇔ эффекты <code>{"fact": f, "value": true}</code>, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">del</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{del}(a)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">del</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span></span></span></span></span> ⇔ эффекты <code>value: false</code>;</li>
+<li><span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{pre}(a)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span></span></span></span></span> расширено: условие может требовать и <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>f</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B_f = 1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span></span>, и <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>f</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">B_f = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span> (<code>coinACollected == false</code>).
+  В классическом STRIPS «отрицательные предусловия» отсутствуют; здесь они естественны, потому что состояние
+  полное — <strong>допущение замкнутого мира</strong> (closed world): ложь записана явно, а не выведена из отсутствия.</li>
+</ul>
+<p>Переход становится покомпонентным присваиванием:</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msubsup><mi>B</mi><mi>f</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msubsup><mo>=</mo><mrow><mo fence="true">{</mo><mtable rowspacing="0.36em" columnalign="left left" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>v</mi><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo stretchy="false">(</mo><mi>f</mi><mo separator="true">,</mo><mi>v</mi><mo stretchy="false">)</mo><mo>∈</mo><mi mathvariant="normal">eff</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><msub><mi>B</mi><mi>f</mi></msub><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>иначе</mtext><mo separator="true">,</mo></mrow></mstyle></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">
+B&#x27;_f =
+\begin{cases}
+v, &amp; (f, v) \in \operatorname{eff}(a),\\
+B_f, &amp; \text{иначе},
+\end{cases}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.185em;vertical-align:-0.3831em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8019em;"><span style="top:-2.453em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span></span></span><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3831em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:3em;vertical-align:-1.25em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;"><span class="delimsizing size4">{</span></span><span class="mord"><span class="mtable"><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">v</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span><span class="arraycolsep" style="width:1em;"></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">v</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mop"><span class="mord mathrm" style="margin-right:0.0778em;">eff</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">иначе</span></span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></div>
+<p>что и делает <code>ApplyFactEffects</code> (<a class="cite" href="../reference/source-references.html#so-apply-facts">SO-APPLY-FACTS</a>). Если один факт упомянут в эффектах дважды, побеждает
+последний (запись идёт по порядку) — это деталь реализации, а не часть модели, и в ассетах её лучше избегать.</p>
+<h3 id="23">2.3. Числовые расширения<a class="headerlink" href="#23" title="Permanent link">&para;</a></h3>
+<p>STRIPS не умеет считать. CoreEngine добавляет целочисленные факты <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi></mrow><annotation encoding="application/x-tex">I</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0785em;">I</span></span></span></span></span> с условиями <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>I</mi><mi>j</mi></msub><mtext>  </mtext><mi mathvariant="normal">□</mi><mtext>  </mtext><mi>c</mi></mrow><annotation encoding="application/x-tex">I_j \;\square\; c</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">I</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0572em;">j</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord amsrm">□</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord mathnormal">c</span></span></span></span></span>, где
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">□</mi><mo>∈</mo><mo stretchy="false">{</mo><mo>=</mo><mo separator="true">,</mo><mo mathvariant="normal">≠</mo><mo separator="true">,</mo><mo>&lt;</mo><mo separator="true">,</mo><mo>≤</mo><mo separator="true">,</mo><mo>&gt;</mo><mo separator="true">,</mo><mo>≥</mo><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\square \in \{=,\ne,&lt;,\le,&gt;,\ge\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7141em;vertical-align:-0.0391em;"></span><span class="mord amsrm">□</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mrel">=</span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel"><span class="mrel"><span class="mord vbox"><span class="thinbox"><span class="rlap"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="inner"><span class="mord"><span class="mrel"></span></span></span><span class="fix"></span></span></span></span></span><span class="mspace nobreak"></span><span class="mrel">=</span></span></span><span class="base"><span class="strut" style="height:0.7335em;vertical-align:-0.1944em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span></span><span class="base"><span class="strut" style="height:0.8304em;vertical-align:-0.1944em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span></span><span class="base"><span class="strut" style="height:0.7335em;vertical-align:-0.1944em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&gt;</span></span><span class="base"><span class="strut" style="height:0.8304em;vertical-align:-0.1944em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≥</span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mclose">}</span></span></span></span></span>, и эффектами <code>set c</code> или <code>add c</code> с контролем переполнения
+(<a class="cite" href="../reference/source-references.html#so-apply-num">SO-APPLY-NUM</a>). Это превращает модель в упрощённый <em>numeric planning</em>: пространство остаётся дискретным, но
+может стать неограниченным, если действие увеличивает счётчик без предусловия-ограничителя (глава
+<a href="05-planner.html">05</a> §2.2).</p>
+<h3 id="24-goap">2.4. GOAP: стоимость, цели и регрессия против прогрессии<a class="headerlink" href="#24-goap" title="Permanent link">&para;</a></h3>
+<p>GOAP (J. Orkin, «Three States and a Plan: The A.I. of F.E.A.R.», GDC 2006) перенёс STRIPS-подобное
+планирование в игры и добавил <strong>стоимость</strong> действий и <strong>выбор цели</strong> по приоритету. В оригинальном описании
+F.E.A.R. поиск шёл <strong>регрессией</strong> — от цели назад к текущему состоянию с A<em>. CoreEngine выполняет </em><em>прогрессию</em>*
+(forward search) — от наблюдаемого состояния вперёд — uniform-cost search без эвристики (<a class="cite" href="../reference/source-references.html#pl-find">PL-FIND</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Свойство</th>
+<th>Регрессия (F.E.A.R.)</th>
+<th>Прогрессия (CoreEngine)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Узел поиска</td>
+<td>частичное состояние «что ещё нужно»</td>
+<td>полное состояние агента</td>
+</tr>
+<tr>
+<td>Числа и отрицательные условия</td>
+<td>неудобны</td>
+<td>естественны: применяем эффекты к полному вектору</td>
+</tr>
+<tr>
+<td>Повторные состояния</td>
+<td>сложнее распознавать</td>
+<td>равенство вектора (<a class="cite" href="../reference/source-references.html#ws-equal">WS-EQUAL</a>)</td>
+</tr>
+<tr>
+<td>Ветвление</td>
+<td>по действиям, достигающим подцели</td>
+<td>по всем применимым действиям</td>
+</tr>
+</tbody>
+</table>
+<p>Выбор прогрессии оправдан маленькими доменами и полным состоянием: каждый узел — просто копия вектора.</p>
+<h3 id="25">2.5. Прогноз против мира<a class="headerlink" href="#25" title="Permanent link">&para;</a></h3>
+<p>Эффект действия в поиске — <strong>модельная гипотеза</strong>: «если <code>move_to/visitMarker</code> завершится успешно, маркер будет
+достигнут». Мир может не согласиться: агент упрётся в стену, цель исчезнет, другой агент заберёт монету. Отсюда три
+принципа CoreEngine:</p>
+<ol>
+<li><strong>Факты пишет только наблюдение.</strong> Эффекты никогда не записываются в факты агента (рис. ниже).</li>
+<li><strong>Успех действия ≠ достижение цели.</strong> Статус runtime сообщает, что исполнитель закончил работу; истинность цели
+   проверяет наблюдение. Если план выполнен, а цель не подтверждена, решение планирует заново
+   (<a class="cite" href="../reference/source-references.html#dr-update">DR-UPDATE</a>).</li>
+<li><strong>План проверяется во время исполнения.</strong> Перед стартом каждого шага остаток плана прогоняется по текущим
+   фактам; для выполняющегося шага проверяются условия продолжения (глава <a href="04-goals-actions.html">04</a>).</li>
+</ol>
+<p>Это ответ на <em>qualification problem</em>: невозможно перечислить в предусловиях всё, что может помешать действию,
+поэтому вместо полноты модели используется проверка результата.</p>
+<h2 id="3">3. Визуальное объяснение<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<figure class="diagram" id="fig-d02-strips-mapping"><div class="diagram-viewport" role="img" aria-label="Соответствие понятий STRIPS/GOAP и типов CoreEngine. Стрелки означают «воплощается как»."><svg width="761" height="680" style="--diagram-width:761.00" focusable="false" id="svg-d02-strips-mapping" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" viewBox="0 -1 761 679.5" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#svg-d02-strips-mapping{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d02-strips-mapping .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d02-strips-mapping .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d02-strips-mapping .error-icon{fill:#fff7e6;}#svg-d02-strips-mapping .error-text{fill:#000819;stroke:#000819;}#svg-d02-strips-mapping .edge-thickness-normal{stroke-width:1px;}#svg-d02-strips-mapping .edge-thickness-thick{stroke-width:3.5px;}#svg-d02-strips-mapping .edge-pattern-solid{stroke-dasharray:0;}#svg-d02-strips-mapping .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d02-strips-mapping .edge-pattern-dashed{stroke-dasharray:3;}#svg-d02-strips-mapping .edge-pattern-dotted{stroke-dasharray:2;}#svg-d02-strips-mapping .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d02-strips-mapping .marker.cross{stroke:#3d4a57;}#svg-d02-strips-mapping svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d02-strips-mapping p{margin:0;}#svg-d02-strips-mapping .label{font-family:Segoe UI,Noto Sans,Arial,sans-serif;color:#14212e;}#svg-d02-strips-mapping .cluster-label text{fill:#000819;}#svg-d02-strips-mapping .cluster-label span{color:#000819;}#svg-d02-strips-mapping .cluster-label span p{background-color:transparent;}#svg-d02-strips-mapping .label text,#svg-d02-strips-mapping span{fill:#14212e;color:#14212e;}#svg-d02-strips-mapping .node rect,#svg-d02-strips-mapping .node circle,#svg-d02-strips-mapping .node ellipse,#svg-d02-strips-mapping .node polygon,#svg-d02-strips-mapping .node path{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d02-strips-mapping .rough-node .label text,#svg-d02-strips-mapping .node .label text,#svg-d02-strips-mapping .image-shape .label,#svg-d02-strips-mapping .icon-shape .label{text-anchor:middle;}#svg-d02-strips-mapping .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#svg-d02-strips-mapping .rough-node .label,#svg-d02-strips-mapping .node .label,#svg-d02-strips-mapping .image-shape .label,#svg-d02-strips-mapping .icon-shape .label{text-align:center;}#svg-d02-strips-mapping .node.clickable{cursor:pointer;}#svg-d02-strips-mapping .root .anchor path{fill:#3d4a57!important;stroke-width:0;stroke:#3d4a57;}#svg-d02-strips-mapping .arrowheadPath{fill:#0b0b0b;}#svg-d02-strips-mapping .edgePaths .path{stroke:#3d4a57;stroke-width:1px;}#svg-d02-strips-mapping .flowchart-link{stroke:#3d4a57;fill:none;}#svg-d02-strips-mapping .edgeLabel{background-color:#ffffff;text-align:center;}#svg-d02-strips-mapping .edgeLabel p{background-color:#ffffff;}#svg-d02-strips-mapping .edgeLabel rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d02-strips-mapping .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#svg-d02-strips-mapping .cluster rect{fill:#f6f8fa;stroke:#9aa8b6;stroke-width:1px;}#svg-d02-strips-mapping .cluster text{fill:#000819;}#svg-d02-strips-mapping .cluster span{color:#000819;}#svg-d02-strips-mapping .node .collapsed-indicator{fill:#9aa8b6;stroke:none;opacity:0.6;}#svg-d02-strips-mapping .node .collapsed-separator{stroke:#9aa8b6;stroke-width:0.75px;}#svg-d02-strips-mapping div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:12px;background:#fff7e6;border:1px solid hsl(40.8, 60%, 85.0980392157%);border-radius:2px;pointer-events:none;z-index:100;}#svg-d02-strips-mapping .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#14212e;}#svg-d02-strips-mapping rect.text{fill:none;stroke-width:0;}#svg-d02-strips-mapping .icon-shape,#svg-d02-strips-mapping .image-shape{background-color:#ffffff;text-align:center;}#svg-d02-strips-mapping .icon-shape p,#svg-d02-strips-mapping .image-shape p{background-color:#ffffff;padding:2px;}#svg-d02-strips-mapping .icon-shape .label rect,#svg-d02-strips-mapping .image-shape .label rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d02-strips-mapping .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#svg-d02-strips-mapping .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#svg-d02-strips-mapping .node .neo-node{stroke:#3f6ea3;}#svg-d02-strips-mapping [data-look="neo"].node rect,#svg-d02-strips-mapping [data-look="neo"].cluster rect,#svg-d02-strips-mapping [data-look="neo"].node polygon{stroke:url(#svg-d02-strips-mapping-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-strips-mapping [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d02-strips-mapping [data-look="neo"].node path{stroke:url(#svg-d02-strips-mapping-gradient);stroke-width:1px;}#svg-d02-strips-mapping [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-strips-mapping [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d02-strips-mapping [data-look="neo"].node circle{stroke:url(#svg-d02-strips-mapping-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-strips-mapping [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d02-strips-mapping [data-look="neo"].icon-shape .icon{fill:url(#svg-d02-strips-mapping-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-strips-mapping [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d02-strips-mapping-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-strips-mapping .edgeLabel rect,#svg-d02-strips-mapping .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d02-strips-mapping .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d02-strips-mapping :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="svg-d02-strips-mapping_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="svg-d02-strips-mapping_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"><g class="cluster" id="svg-d02-strips-mapping-C" data-look="classic"><rect style="" x="402.9375" y="8" width="350.0625" height="662.5"/><g class="cluster-label" transform="translate(539.885498046875, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">CoreEngine</tspan></tspan></text></g></g></g><g class="cluster" id="svg-d02-strips-mapping-T" data-look="classic"><rect style="" x="8" y="16.25" width="346.9375" height="646"/><g class="cluster-label" transform="translate(104.171875, 16.25)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Теория</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (STRIPS,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GOAP)</tspan></tspan></text></g></g></g></g><g class="edgePaths"><path d="M257.226,66.25L273.511,66.25C289.796,66.25,322.367,66.25,342.652,66.25C362.938,66.25,370.938,66.25,378.938,66.25C386.938,66.25,394.938,66.25,408.467,66.25C421.997,66.25,441.057,66.25,450.587,66.25L460.117,66.25" id="svg-d02-strips-mapping-L_A1_B1_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A1_B1_0" data-points="W3sieCI6MjU3LjIyNTU4NTkzNzUsInkiOjY2LjI1fSx7IngiOjM1NC45Mzc1LCJ5Ijo2Ni4yNX0seyJ4IjozNzguOTM3NSwieSI6NjYuMjV9LHsieCI6NDAyLjkzNzUsInkiOjY2LjI1fSx7IngiOjQ2NC4xMTcxODc1LCJ5Ijo2Ni4yNX1d" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M284.411,162.75L296.166,162.75C307.92,162.75,331.429,162.75,347.183,162.75C362.938,162.75,370.938,162.75,378.938,162.75C386.938,162.75,394.938,162.75,405.788,162.75C416.638,162.75,430.339,162.75,437.189,162.75L444.039,162.75" id="svg-d02-strips-mapping-L_A2_B2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A2_B2_0" data-points="W3sieCI6Mjg0LjQxMTM3Njk1MzEyNSwieSI6MTYyLjc1fSx7IngiOjM1NC45Mzc1LCJ5IjoxNjIuNzV9LHsieCI6Mzc4LjkzNzUsInkiOjE2Mi43NX0seyJ4Ijo0MDIuOTM3NSwieSI6MTYyLjc1fSx7IngiOjQ0OC4wMzkwNjI1LCJ5IjoxNjIuNzV9XQ==" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M267.266,259.25L281.878,259.25C296.49,259.25,325.714,259.25,344.326,259.25C362.938,259.25,370.938,259.25,378.938,259.25C386.938,259.25,394.938,259.25,403.404,259.25C411.87,259.25,420.802,259.25,425.268,259.25L429.734,259.25" id="svg-d02-strips-mapping-L_A3_B3_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A3_B3_0" data-points="W3sieCI6MjY3LjI2NTYyNSwieSI6MjU5LjI1fSx7IngiOjM1NC45Mzc1LCJ5IjoyNTkuMjV9LHsieCI6Mzc4LjkzNzUsInkiOjI1OS4yNX0seyJ4Ijo0MDIuOTM3NSwieSI6MjU5LjI1fSx7IngiOjQzMy43MzQzNzUsInkiOjI1OS4yNX1d" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M244.641,355.75L263.023,355.75C281.406,355.75,318.172,355.75,340.555,355.75C362.938,355.75,370.938,355.75,378.938,355.75C386.938,355.75,394.938,355.75,402.271,355.75C409.604,355.75,416.271,355.75,419.604,355.75L422.938,355.75" id="svg-d02-strips-mapping-L_A4_B4_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A4_B4_0" data-points="W3sieCI6MjQ0LjY0MDYyNSwieSI6MzU1Ljc1fSx7IngiOjM1NC45Mzc1LCJ5IjozNTUuNzV9LHsieCI6Mzc4LjkzNzUsInkiOjM1NS43NX0seyJ4Ijo0MDIuOTM3NSwieSI6MzU1Ljc1fSx7IngiOjQyNi45Mzc1LCJ5IjozNTUuNzV9XQ==" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M300.01,444L309.165,444C318.319,444,336.628,444,349.783,444C362.938,444,370.938,444,378.938,444C386.938,444,394.938,444,407.633,444C420.328,444,437.719,444,446.414,444L455.109,444" id="svg-d02-strips-mapping-L_A5_B5_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A5_B5_0" data-points="W3sieCI6MzAwLjAxMDAwOTc2NTYyNSwieSI6NDQ0fSx7IngiOjM1NC45Mzc1LCJ5Ijo0NDR9LHsieCI6Mzc4LjkzNzUsInkiOjQ0NH0seyJ4Ijo0MDIuOTM3NSwieSI6NDQ0fSx7IngiOjQ1OS4xMDkzNzUsInkiOjQ0NH1d" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M330.938,524L334.938,524C338.938,524,346.938,524,354.938,524C362.938,524,370.938,524,378.938,524C386.938,524,394.938,524,405.805,524C416.672,524,430.406,524,437.273,524L444.141,524" id="svg-d02-strips-mapping-L_A6_B6_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A6_B6_0" data-points="W3sieCI6MzMwLjkzNzUsInkiOjUyNH0seyJ4IjozNTQuOTM3NSwieSI6NTI0fSx7IngiOjM3OC45Mzc1LCJ5Ijo1MjR9LHsieCI6NDAyLjkzNzUsInkiOjUyNH0seyJ4Ijo0NDguMTQwNjI1LCJ5Ijo1MjR9XQ==" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/><path d="M296.07,612.25L305.882,612.25C315.693,612.25,335.315,612.25,349.126,612.25C362.938,612.25,370.938,612.25,378.938,612.25C386.938,612.25,394.938,612.25,408.379,612.25C421.82,612.25,440.703,612.25,450.145,612.25L459.586,612.25" id="svg-d02-strips-mapping-L_A7_B7_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A7_B7_0" data-points="W3sieCI6Mjk2LjA3MDMxMjUsInkiOjYxMi4yNX0seyJ4IjozNTQuOTM3NSwieSI6NjEyLjI1fSx7IngiOjM3OC45Mzc1LCJ5Ijo2MTIuMjV9LHsieCI6NDAyLjkzNzUsInkiOjYxMi4yNX0seyJ4Ijo0NjMuNTg1OTM3NSwieSI6NjEyLjI1fV0=" data-look="classic" marker-end="url(#svg-d02-strips-mapping_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A1_B1_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A2_B2_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A3_B3_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A4_B4_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A5_B5_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A6_B6_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_A7_B7_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g></g><g class="nodes"><g class="node default" id="svg-d02-strips-mapping-flowchart-A1-0" data-look="classic" transform="translate(181.46875, 66.25)"><rect class="basic label-container" style="" x="-75.7568359375" y="-20" width="151.513671875" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">атом</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> предикат</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A2-1" data-look="classic" transform="translate(181.46875, 162.75)"><rect class="basic label-container" style="" x="-102.942626953125" y="-28.25" width="205.88525390625" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">состояние</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> множество</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">истинных</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> атомов</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A3-2" data-look="classic" transform="translate(181.46875, 259.25)"><rect class="basic label-container" style="" x="-85.796875" y="-20" width="171.59375" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">предусловие</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> pre(a)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A4-3" data-look="classic" transform="translate(181.46875, 355.75)"><rect class="basic label-container" style="" x="-63.171875" y="-20" width="126.34375" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">add(a),</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> del(a)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A5-4" data-look="classic" transform="translate(181.46875, 444)"><rect class="basic label-container" style="" x="-118.541259765625" y="-20" width="237.08251953125" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">цель</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> частичное</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> состояние</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A6-5" data-look="classic" transform="translate(181.46875, 524)"><rect class="basic label-container" style="" x="-149.46875" y="-20" width="298.9375" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">план</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> последовательность</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> действий</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-A7-6" data-look="classic" transform="translate(181.46875, 612.25)"><rect class="basic label-container" style="" x="-114.6015625" y="-20" width="229.203125" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">стоимость</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> действия</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (GOAP)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B1-7" data-look="classic" transform="translate(577.96875, 66.25)"><rect class="basic label-container" style="" x="-113.8515625" y="-28.25" width="227.703125" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIWorldFactId</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (bool)</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIWorldIntegerFactId</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (int32)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B2-8" data-look="classic" transform="translate(577.96875, 162.75)"><rect class="basic label-container" style="" x="-129.9296875" y="-28.25" width="259.859375" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIAgentWorldState:</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">все</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> факты</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> явно</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> true/false,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> числа</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B3-9" data-look="classic" transform="translate(577.96875, 259.25)"><rect class="basic label-container" style="" x="-144.234375" y="-28.25" width="288.46875" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIFactCondition,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AINumericCondition</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">(preconditions)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B4-10" data-look="classic" transform="translate(577.96875, 355.75)"><rect class="basic label-container" style="" x="-151.03125" y="-28.25" width="302.0625" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIFactEffect:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> bValue</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> true</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> add,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">false</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> delete;</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AINumericEffect</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Set/Add</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B5-11" data-look="classic" transform="translate(577.96875, 444)"><rect class="basic label-container" style="" x="-118.859375" y="-20" width="237.71875" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIGoalDefinition::desiredFacts</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B6-12" data-look="classic" transform="translate(577.96875, 524)"><rect class="basic label-container" style="" x="-129.828125" y="-20" width="259.65625" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIPlan::steps</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (actionId,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> contextId)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d02-strips-mapping-flowchart-B7-13" data-look="classic" transform="translate(577.96875, 612.25)"><rect class="basic label-container" style="" x="-114.3828125" y="-28.25" width="228.765625" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIActionDefinition::baseCost</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">(или</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> route</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> cost)</tspan></tspan></text></g></g></g></g></g></g><defs><filter id="svg-d02-strips-mapping-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="svg-d02-strips-mapping-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="svg-d02-strips-mapping-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3f6ea3" stop-opacity="1"/><stop offset="100%" stop-color="hsl(120, 0%, 85.0980392157%)" stop-opacity="1"/></linearGradient></svg></div><figcaption><span class="fig-title">Соответствие понятий STRIPS/GOAP и типов CoreEngine. Стрелки означают «воплощается как».</span><span class="fig-meta">вид: соответствие понятий · уровень: обзор · источник: <code>diagrams/mermaid/d02-strips-mapping.mmd</code> · код: <a class="cite" href="../reference/source-references.html#ws-class">WS-CLASS</a>, <a class="cite" href="../reference/source-references.html#dc-fact-cond">DC-FACT-COND</a>, <a class="cite" href="../reference/source-references.html#dc-action">DC-ACTION</a>, <a class="cite" href="../reference/source-references.html#dc-goal">DC-GOAL</a>, <a class="cite" href="../reference/source-references.html#dc-plan">DC-PLAN</a>, <a class="cite" href="../reference/source-references.html#so-apply-facts">SO-APPLY-FACTS</a>, <a class="cite" href="../reference/source-references.html#so-apply-num">SO-APPLY-NUM</a>, <a class="cite" href="../reference/source-references.html#pl-find">PL-FIND</a> · <a href="../assets/diagrams/d02-strips-mapping.svg">SVG</a> · <a href="../reference/diagrams.html#d02-strips-mapping">каталог</a></span></figcaption></figure>
+<figure class="diagram" id="fig-d02-transition-example"><div class="diagram-viewport" role="img" aria-label="Target Recovery как задача STRIPS: из S0 одно применимое действие ведёт к цели; в X0 (цель недоступна) применимых действий нет и поиск возвращает «плана нет»."><svg width="902" height="257" style="--diagram-width:902.45" focusable="false" id="svg-d02-transition-example" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="statediagram" viewBox="0 0 902.453125 257" role="graphics-document document" aria-roledescription="stateDiagram"><style>#svg-d02-transition-example{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d02-transition-example .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d02-transition-example .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d02-transition-example .error-icon{fill:#fff7e6;}#svg-d02-transition-example .error-text{fill:#000819;stroke:#000819;}#svg-d02-transition-example .edge-thickness-normal{stroke-width:1px;}#svg-d02-transition-example .edge-thickness-thick{stroke-width:3.5px;}#svg-d02-transition-example .edge-pattern-solid{stroke-dasharray:0;}#svg-d02-transition-example .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d02-transition-example .edge-pattern-dashed{stroke-dasharray:3;}#svg-d02-transition-example .edge-pattern-dotted{stroke-dasharray:2;}#svg-d02-transition-example .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d02-transition-example .marker.cross{stroke:#3d4a57;}#svg-d02-transition-example svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d02-transition-example p{margin:0;}#svg-d02-transition-example defs [id$="-barbEnd"]{fill:#3d4a57;stroke:#3d4a57;}#svg-d02-transition-example g.stateGroup text{fill:#3f6ea3;stroke:none;font-size:10px;}#svg-d02-transition-example g.stateGroup text{fill:#14212e;stroke:none;font-size:10px;}#svg-d02-transition-example g.stateGroup .state-title{font-weight:bolder;fill:#14212e;}#svg-d02-transition-example g.stateGroup rect{fill:#e8f1fb;stroke:#3f6ea3;}#svg-d02-transition-example g.stateGroup line{stroke:#3d4a57;stroke-width:1;}#svg-d02-transition-example .transition{stroke:#3d4a57;stroke-width:1;fill:none;}#svg-d02-transition-example .stateGroup .composit{fill:#f4f4f4;border-bottom:1px;}#svg-d02-transition-example .stateGroup .alt-composit{fill:#e0e0e0;border-bottom:1px;}#svg-d02-transition-example .state-note{stroke:#c9a83a;fill:#fff7d6;}#svg-d02-transition-example .state-note text{fill:#333;stroke:none;font-size:10px;}#svg-d02-transition-example .stateLabel .box{stroke:none;stroke-width:0;fill:#e8f1fb;opacity:0.5;}#svg-d02-transition-example .edgeLabel .label rect{fill:#e8f1fb;opacity:0.5;}#svg-d02-transition-example .edgeLabel{background-color:#ffffff;text-align:center;}#svg-d02-transition-example .edgeLabel p{background-color:#ffffff;}#svg-d02-transition-example .edgeLabel rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d02-transition-example .edgeLabel .label text{fill:#14212e;}#svg-d02-transition-example .label div .edgeLabel{color:#14212e;}#svg-d02-transition-example .stateLabel text{fill:#14212e;font-size:10px;font-weight:bold;}#svg-d02-transition-example .node circle.state-start{fill:#3d4a57;stroke:#3d4a57;}#svg-d02-transition-example .node .fork-join{fill:#3d4a57;stroke:#3d4a57;}#svg-d02-transition-example .node circle.state-end{fill:#3f6ea3;stroke:#f4f4f4;stroke-width:1.5;}#svg-d02-transition-example .end-state-inner{fill:#f4f4f4;stroke-width:1.5;}#svg-d02-transition-example .node rect{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d02-transition-example .node polygon{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d02-transition-example [id$="-barbEnd"]{fill:#3d4a57;}#svg-d02-transition-example .statediagram-cluster rect{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d02-transition-example .cluster-label,#svg-d02-transition-example .nodeLabel{color:#14212e;}#svg-d02-transition-example .statediagram-cluster rect.outer{rx:5px;ry:5px;}#svg-d02-transition-example .statediagram-state .divider{stroke:#3f6ea3;}#svg-d02-transition-example .statediagram-state .title-state{rx:5px;ry:5px;}#svg-d02-transition-example .statediagram-cluster.statediagram-cluster .inner{fill:#f4f4f4;}#svg-d02-transition-example .statediagram-cluster.statediagram-cluster-alt .inner{fill:#fff7e6;}#svg-d02-transition-example .statediagram-cluster .inner{rx:0;ry:0;}#svg-d02-transition-example .statediagram-state rect.basic{rx:5px;ry:5px;}#svg-d02-transition-example .statediagram-state rect.divider{stroke-dasharray:10,10;fill:#fff7e6;}#svg-d02-transition-example .note-edge{stroke-dasharray:5;}#svg-d02-transition-example .statediagram-note rect{fill:#fff7d6;stroke:#c9a83a;stroke-width:1px;rx:0;ry:0;}#svg-d02-transition-example .statediagram-note rect{fill:#fff7d6;stroke:#c9a83a;stroke-width:1px;rx:0;ry:0;}#svg-d02-transition-example .statediagram-note text{fill:#333;}#svg-d02-transition-example .statediagram-note .nodeLabel{color:#333;}#svg-d02-transition-example .statediagram .edgeLabel{color:red;}#svg-d02-transition-example [id$="-dependencyStart"],#svg-d02-transition-example [id$="-dependencyEnd"]{fill:#3d4a57;stroke:#3d4a57;stroke-width:1;}#svg-d02-transition-example .statediagramTitleText{text-anchor:middle;font-size:18px;fill:#14212e;}#svg-d02-transition-example [data-look="neo"].statediagram-cluster rect{fill:#e8f1fb;stroke:url(#svg-d02-transition-example-gradient);stroke-width:1;}#svg-d02-transition-example [data-look="neo"].statediagram-cluster rect.outer{rx:5px;ry:5px;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example .node .neo-node{stroke:#3f6ea3;}#svg-d02-transition-example [data-look="neo"].node rect,#svg-d02-transition-example [data-look="neo"].cluster rect,#svg-d02-transition-example [data-look="neo"].node polygon{stroke:url(#svg-d02-transition-example-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d02-transition-example [data-look="neo"].node path{stroke:url(#svg-d02-transition-example-gradient);stroke-width:1px;}#svg-d02-transition-example [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d02-transition-example [data-look="neo"].node circle{stroke:url(#svg-d02-transition-example-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d02-transition-example [data-look="neo"].icon-shape .icon{fill:url(#svg-d02-transition-example-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d02-transition-example-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d02-transition-example .edgeLabel rect,#svg-d02-transition-example .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d02-transition-example .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d02-transition-example :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><defs><marker id="svg-d02-transition-example_stateDiagram-barbEnd" refX="19" refY="7" markerWidth="20" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto"><path d="M 19,7 L9,13 L14,7 L9,1 Z"/></marker></defs><g class="root"><g class="clusters"><g class="note-cluster" id="svg-d02-transition-example-state-X0----parent-1"><rect x="523.078125" y="89.5" width="371.375" height="159.5" fill="none"/></g></g><g class="edgePaths"><path d="M284.844,36.5L304.775,36.5C324.706,36.5,364.568,36.5,404.273,36.5C443.979,36.5,483.529,36.5,507.47,36.5C531.411,36.5,539.745,36.5,543.911,36.5L548.078,36.5" id="svg-d02-transition-example-edge0" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge0" data-points="W3sieCI6Mjg0Ljg0Mzc1LCJ5IjozNi41fSx7IngiOjQwNC40Mjk2ODc1LCJ5IjozNi41fSx7IngiOjUyMy4wNzgxMjUsInkiOjM2LjV9LHsieCI6NTQ4LjA3ODEyNSwieSI6MzYuNX1d" data-look="classic" marker-end="url(#svg-d02-transition-example_stateDiagram-barbEnd)"/><path d="M285.781,169.25L305.556,169.25C325.331,169.25,364.88,169.25,404.43,169.25C443.979,169.25,483.529,169.25,510.754,169.25C537.979,169.25,552.88,169.25,560.331,169.25L567.781,169.25" id="svg-d02-transition-example-X0-X0----note-1" class="edge-thickness-normal edge-pattern-solid transition note-edge" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="X0-X0----note-1" data-points="W3sieCI6Mjg1Ljc4MTI1LCJ5IjoxNjkuMjV9LHsieCI6NDA0LjQyOTY4NzUsInkiOjE2OS4yNX0seyJ4Ijo1MjMuMDc4MTI1LCJ5IjoxNjkuMjV9LHsieCI6NTY3Ljc4MTI1LCJ5IjoxNjkuMjV9XQ==" data-look="classic"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(404.4296875, 36.5)"><g class="label" data-id="edge0" transform="translate(0, -25.5)"><g><rect class="background" style="" x="-93.6484375" y="-3" width="187.296875" height="57"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">move_to/destination,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> cost</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> 1</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">(pre</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> goalAvailable=1,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> eff</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="2.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">atDestination=1)</tspan></tspan></text></g></g></g><g class="edgeLabel"><g class="label" data-id="X0-X0----note-1" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g></g><g class="nodes"><g class="node  statediagram-state" id="svg-d02-transition-example-state-S0-0" data-look="classic" transform="translate(146.890625, 36.5)"><rect class="basic label-container" style="" rx="5" ry="5" x="-137.953125" y="-18" width="275.90625" height="36"/><g class="label" style="" transform="translate(-129.953125, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">S0</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> —</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> goalAvailable=1,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> atDestination=0</tspan></tspan></text></g></g></g><g class="node  statediagram-state" id="svg-d02-transition-example-state-S1-0" data-look="classic" transform="translate(708.765625, 36.5)"><rect class="basic label-container" style="" rx="5" ry="5" x="-160.6875" y="-18" width="321.375" height="36"/><g class="label" style="" transform="translate(-152.6875, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">S1</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> —</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> goalAvailable=1,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> atDestination=1</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (цель)</tspan></tspan></text></g></g></g><g class="node  statediagram-state" id="svg-d02-transition-example-state-X0-1" data-look="classic" transform="translate(146.890625, 169.25)"><rect class="basic label-container" style="" rx="5" ry="5" x="-138.890625" y="-18" width="277.78125" height="36"/><g class="label" style="" transform="translate(-130.890625, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">X0</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> —</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> goalAvailable=0,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> atDestination=0</tspan></tspan></text></g></g></g><g class="node statediagram-note" id="svg-d02-transition-example-state-X0----note-1" data-look="classic" transform="translate(708.765625, 169.25)"><g class="basic label-container outer-path"><path d="M-140.984375 -44.75 L140.984375 -44.75 L140.984375 44.75 L-140.984375 44.75" stroke="none" stroke-width="0" fill="#fff7d6" style=""/><path d="M-140.984375 -44.75 C-73.33116526177842 -44.75, -5.677955523556847 -44.75, 140.984375 -44.75 M-140.984375 -44.75 C-57.44597671997684 -44.75, 26.09242156004632 -44.75, 140.984375 -44.75 M140.984375 -44.75 C140.984375 -16.115713199621734, 140.984375 12.518573600756532, 140.984375 44.75 M140.984375 -44.75 C140.984375 -16.591387819438513, 140.984375 11.567224361122975, 140.984375 44.75 M140.984375 44.75 C68.37629851774226 44.75, -4.231777964515487 44.75, -140.984375 44.75 M140.984375 44.75 C51.97212060641047 44.75, -37.04013378717906 44.75, -140.984375 44.75 M-140.984375 44.75 C-140.984375 26.396710952613912, -140.984375 8.043421905227824, -140.984375 -44.75 M-140.984375 44.75 C-140.984375 16.388516046222733, -140.984375 -11.972967907554533, -140.984375 -44.75" stroke="#c9a83a" stroke-width="1.3" fill="none" stroke-dasharray="0 0" style=""/></g><g class="label noteLabel" style="" transform="translate(-130.984375, -33.75)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">нет</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> применимых</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> действий:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> плана</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> нет;</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">поиск</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> не</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> «ждёт»</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> возврата</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> цели;</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="2.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">его</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> повторит</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> decision</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> runtime</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="3.2em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">на</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> следующем</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> update</tspan></tspan></text></g></g></g></g></g></g><defs><filter id="svg-d02-transition-example-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="svg-d02-transition-example-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="svg-d02-transition-example-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3f6ea3" stop-opacity="1"/><stop offset="100%" stop-color="hsl(120, 0%, 85.0980392157%)" stop-opacity="1"/></linearGradient></svg></div><figcaption><span class="fig-title">Target Recovery как задача STRIPS: из S0 одно применимое действие ведёт к цели; в X0 (цель недоступна) применимых действий нет и поиск возвращает «плана нет».</span><span class="fig-meta">вид: state (поисковые состояния) · уровень: детали · источник: <code>diagrams/mermaid/d02-transition-example.mmd</code> · код: <a class="cite" href="../reference/source-references.html#as-recovery-goap">AS-RECOVERY-GOAP</a>, <a class="cite" href="../reference/source-references.html#pl-find">PL-FIND</a>, <a class="cite" href="../reference/source-references.html#so-eval-fact">SO-EVAL-FACT</a> · <a href="../assets/diagrams/d02-transition-example.svg">SVG</a> · <a href="../reference/diagrams.html#d02-transition-example">каталог</a></span></figcaption></figure>
+<p>Что заметить: недоступность цели не создаёт «ожидающего» действия. Модель не умеет ждать; ждёт контур решения,
+повторяя поиск на следующих обновлениях (глава <a href="08-decision-runtime.html">08</a>).</p>
+<h2 id="4-coreengine">4. Как это реализовано в CoreEngine<a class="headerlink" href="#4-coreengine" title="Permanent link">&para;</a></h2>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/AI/GOAP/AIDecisionContracts.cppm:76–89</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">AIActionDefinition</span>
+</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">        </span><span class="n">AIActionId</span><span class="w"> </span><span class="n">actionId</span><span class="p">{};</span>
+</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AIFactCondition</span><span class="o">&gt;</span><span class="w"> </span><span class="n">preconditions</span><span class="p">{};</span>
+</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AIFactEffect</span><span class="o">&gt;</span><span class="w"> </span><span class="n">effects</span><span class="p">{};</span>
+</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="w">        </span><span class="n">AIActionContextId</span><span class="w"> </span><span class="n">contextId</span><span class="p">{};</span>
+</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">        </span><span class="kt">float</span><span class="w"> </span><span class="n">baseCost</span><span class="p">{</span><span class="w"> </span><span class="mf">1.0f</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AINumericCondition</span><span class="o">&gt;</span><span class="w"> </span><span class="n">numericPreconditions</span><span class="p">{};</span>
+</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AINumericEffect</span><span class="o">&gt;</span><span class="w"> </span><span class="n">numericEffects</span><span class="p">{};</span>
+</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="w">        </span><span class="c1">// Preconditions answer whether an action may start. Continuation conditions</span>
+</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="w">        </span><span class="c1">// are opt-in requirements evaluated only while its runtime is active.</span>
+</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AIFactCondition</span><span class="o">&gt;</span><span class="w"> </span><span class="n">continuationConditions</span><span class="p">{};</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">AINumericCondition</span><span class="o">&gt;</span><span class="w"> </span><span class="n">numericContinuationConditions</span><span class="p">{};</span>
+</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="w">    </span><span class="p">};</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#dc-action">DC-ACTION</a> · <code>src/Gameplay/AI/GOAP/AIDecisionContracts.cppm:76</code> · снимок <code>8c6c0dc</code></p>
+<table>
+<thead>
+<tr>
+<th>Понятие</th>
+<th>Поле</th>
+<th>Где используется</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>a</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{pre}(a)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mclose">)</span></span></span></span></span></td>
+<td><code>preconditions</code>, <code>numeric<wbr>Preconditions</code></td>
+<td>поиск; проверка остатка плана (<a class="cite" href="../reference/source-references.html#dr-remaining">DR-REMAINING</a>)</td>
+</tr>
+<tr>
+<td><span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">add</mi><mo>⁡</mo><mi mathvariant="normal">/</mi><mi mathvariant="normal">del</mi><mo>⁡</mo></mrow><annotation encoding="application/x-tex">\operatorname{add}/\operatorname{del}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">/</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mord mathrm">del</span></span></span></span></span></span></td>
+<td><code>effects</code> (<code>bValue</code>), <code>numericEffects</code></td>
+<td>только поиск и прогноз остатка</td>
+</tr>
+<tr>
+<td>продолжение</td>
+<td><code>continuation<wbr>Conditions</code>, <code>numericContinuationConditions</code></td>
+<td>только выполняющийся шаг (<a class="cite" href="../reference/source-references.html#dr-continuation">DR-CONTINUATION</a>)</td>
+</tr>
+<tr>
+<td>стоимость</td>
+<td><code>baseCost</code></td>
+<td>поиск; отладочная сумма плана</td>
+</tr>
+<tr>
+<td>семантика</td>
+<td><code>actionId</code> + <code>contextId</code></td>
+<td>выбор binding и runtime (<a class="cite" href="../reference/source-references.html#br-start">BR-START</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>Операции над состоянием — свободные функции без побочных эффектов вне аргумента:</p>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/AI/GOAP/AIStateOperations.cppm:14–45</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-14">14</a></span>
+<span class="normal"><a href="#__codelineno-1-15">15</a></span>
+<span class="normal"><a href="#__codelineno-1-16">16</a></span>
+<span class="normal"><a href="#__codelineno-1-17">17</a></span>
+<span class="normal"><a href="#__codelineno-1-18">18</a></span>
+<span class="normal"><a href="#__codelineno-1-19">19</a></span>
+<span class="normal"><a href="#__codelineno-1-20">20</a></span>
+<span class="normal"><a href="#__codelineno-1-21">21</a></span>
+<span class="normal"><a href="#__codelineno-1-22">22</a></span>
+<span class="normal"><a href="#__codelineno-1-23">23</a></span>
+<span class="normal"><a href="#__codelineno-1-24">24</a></span>
+<span class="normal"><a href="#__codelineno-1-25">25</a></span>
+<span class="normal"><a href="#__codelineno-1-26">26</a></span>
+<span class="normal"><a href="#__codelineno-1-27">27</a></span>
+<span class="normal"><a href="#__codelineno-1-28">28</a></span>
+<span class="normal"><a href="#__codelineno-1-29">29</a></span>
+<span class="normal"><a href="#__codelineno-1-30">30</a></span>
+<span class="normal"><a href="#__codelineno-1-31">31</a></span>
+<span class="normal"><a href="#__codelineno-1-32">32</a></span>
+<span class="normal"><a href="#__codelineno-1-33">33</a></span>
+<span class="normal"><a href="#__codelineno-1-34">34</a></span>
+<span class="normal"><a href="#__codelineno-1-35">35</a></span>
+<span class="normal"><a href="#__codelineno-1-36">36</a></span>
+<span class="normal"><a href="#__codelineno-1-37">37</a></span>
+<span class="normal"><a href="#__codelineno-1-38">38</a></span>
+<span class="normal"><a href="#__codelineno-1-39">39</a></span>
+<span class="normal"><a href="#__codelineno-1-40">40</a></span>
+<span class="normal"><a href="#__codelineno-1-41">41</a></span>
+<span class="normal"><a href="#__codelineno-1-42">42</a></span>
+<span class="normal"><a href="#__codelineno-1-43">43</a></span>
+<span class="normal"><a href="#__codelineno-1-44">44</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14"></a><span class="w">    </span><span class="p">[[</span><span class="na">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">EvaluateFactCondition</span><span class="p">(</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">AIAgentWorldState</span><span class="o">&amp;</span><span class="w"> </span><span class="n">worldState</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">AIFactCondition</span><span class="o">&amp;</span><span class="w"> </span><span class="n">condition</span><span class="p">)</span><span class="w"> </span><span class="k">noexcept</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">worldState</span><span class="p">.</span><span class="n">IsFactSet</span><span class="p">(</span><span class="n">condition</span><span class="p">.</span><span class="n">factId</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">condition</span><span class="p">.</span><span class="n">bExpectedValue</span><span class="p">;</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21"></a><span class="w">    </span><span class="p">[[</span><span class="na">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">AreFactConditionsSatisfied</span><span class="p">(</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">AIAgentWorldState</span><span class="o">&amp;</span><span class="w"> </span><span class="n">worldState</span><span class="p">,</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">AIFactCondition</span><span class="o">&gt;</span><span class="w"> </span><span class="n">conditions</span><span class="p">)</span><span class="w"> </span><span class="k">noexcept</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25"></a><span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">AIFactCondition</span><span class="o">&amp;</span><span class="w"> </span><span class="n">condition</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">conditions</span><span class="p">)</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">EvaluateFactCondition</span><span class="p">(</span><span class="n">worldState</span><span class="p">,</span><span class="w"> </span><span class="n">condition</span><span class="p">))</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32"></a>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35"></a>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36"></a><span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="n">ApplyFactEffects</span><span class="p">(</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37"></a><span class="w">        </span><span class="n">AIAgentWorldState</span><span class="o">&amp;</span><span class="w"> </span><span class="n">worldState</span><span class="p">,</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38"></a><span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">AIFactEffect</span><span class="o">&gt;</span><span class="w"> </span><span class="n">effects</span><span class="p">)</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40"></a><span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">AIFactEffect</span><span class="o">&amp;</span><span class="w"> </span><span class="n">effect</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">effects</span><span class="p">)</span>
+</span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42"></a><span class="w">            </span><span class="n">worldState</span><span class="p">.</span><span class="n">SetFact</span><span class="p">(</span><span class="n">effect</span><span class="p">.</span><span class="n">factId</span><span class="p">,</span><span class="w"> </span><span class="n">effect</span><span class="p">.</span><span class="n">bValue</span><span class="p">);</span>
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44"></a><span class="w">    </span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#so-eval-fact">SO-EVAL-FACT</a> · <code>src/Gameplay/AI/GOAP/AIStateOperations.cppm:14</code> · снимок <code>8c6c0dc</code></p>
+<h2 id="5-target-recovery-strips">5. Разобранный пример: Target Recovery в нотации STRIPS<a class="headerlink" href="#5-target-recovery-strips" title="Permanent link">&para;</a></h2>
+<p>Ассет <code>target_recovery.goap.json</code> (<a class="cite" href="../reference/source-references.html#as-recovery-goap">AS-RECOVERY-GOAP</a>):</p>
+<ul>
+<li>атомы: <code>atDestination</code> (<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>f</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">f_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>), <code>goalAvailable</code> (<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>f</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">f_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>);</li>
+<li>цель <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>=</mo><mo stretchy="false">{</mo><msub><mi>f</mi><mn>0</mn></msub><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">g = \{f_0\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span></span></span></span></span>;</li>
+<li>действие <code>move_to/destination</code>: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo>=</mo><mo stretchy="false">{</mo><msub><mi>f</mi><mn>1</mn></msub><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\operatorname{pre} = \{f_1\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span></span></span></span></span>, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">add</mi><mo>⁡</mo><mo>=</mo><mo stretchy="false">{</mo><msub><mi>f</mi><mn>0</mn></msub><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\operatorname{add} = \{f_0\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mop"><span class="mord mathrm">add</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span></span></span></span></span>,
+  <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">del</mi><mo>⁡</mo><mo>=</mo><mi mathvariant="normal">∅</mi></mrow><annotation encoding="application/x-tex">\operatorname{del} = \varnothing</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mop"><span class="mord mathrm">del</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6633em;vertical-align:-0.0817em;"></span><span class="mord amsrm">∅</span></span></span></span></span>, стоимость 1, продолжение <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">{</mo><msub><mi>f</mi><mn>1</mn></msub><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\{f_1\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span></span></span></span></span>.</li>
+</ul>
+<p>Случай 1: наблюдение <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>s</mi><mn>0</mn></msub><mo>=</mo><mo stretchy="false">{</mo><msub><mi>f</mi><mn>1</mn></msub><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">s_0 = \{f_1\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span></span></span></span></span> (цель доступна, агент не у цели). <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">pre</mi><mo>⁡</mo><mo>⊆</mo><msub><mi>s</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\operatorname{pre} \subseteq s_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8304em;vertical-align:-0.1944em;"></span><span class="mop"><span class="mord mathrm">pre</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊆</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> →
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo stretchy="false">(</mo><msub><mi>s</mi><mn>0</mn></msub><mo separator="true">,</mo><mi>a</mi><mo stretchy="false">)</mo><mo>=</mo><mo stretchy="false">{</mo><msub><mi>f</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>f</mi><mn>1</mn></msub><mo stretchy="false">}</mo><mo>⊇</mo><mi>g</mi></mrow><annotation encoding="application/x-tex">\gamma(s_0, a) = \{f_0, f_1\} \supseteq g</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0556em;">γ</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">a</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">}</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊇</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span></span></span></span></span> → план из одного шага стоимостью 1.</p>
+<p>Случай 2: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>s</mi><mn>0</mn></msub><mo>=</mo><mi mathvariant="normal">∅</mi></mrow><annotation encoding="application/x-tex">s_0 = \varnothing</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6633em;vertical-align:-0.0817em;"></span><span class="mord amsrm">∅</span></span></span></span></span> (цель временно убрана сценарием). Ни одно действие не применимо → <code>nullopt</code>. Решение
+получает <code>Failed</code>, <strong>instance остаётся</strong> в runtime и продолжает наблюдать; когда InteractionPoint вернётся,
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>f</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">f_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> снова станет истинным, и следующий поиск найдёт тот же план (глава <a href="08-decision-runtime.html">08</a>).</p>
+<p>Случай 3: шаг выполняется, и цель исчезает. Поиск здесь не участвует: срабатывает контракт продолжения
+(<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>f</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">f_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1076em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> стал ложным) — шаг отменяется. Это граница STRIPS-модели: она описывает старт и итог действия, а не то,
+что происходит «посередине»; для «посередине» в CoreEngine введены continuation conditions.</p>
+<h2 id="6">6. Типичные ошибки, границы и проверка<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Писать эффекты как «то, что сделает runtime».</strong> Эффект — то, что <em>наблюдение</em> увидит после успеха. Если
+  наблюдение не может это увидеть, факт никогда не подтвердится.</li>
+<li><strong>Полагаться на порядок эффектов.</strong> Дублирование факта в эффектах одного действия — неочевидная семантика.</li>
+<li><strong>Ждать «ожидания» от планировщика.</strong> Отсутствие применимых действий — это «плана нет», а не «подождать».</li>
+<li><strong>Называть поиск A*.</strong> Эвристики нет; это uniform-cost search (глава <a href="05-planner.html">05</a>).</li>
+<li><strong>Числа без ограничителей.</strong> Неограниченный <code>add</code> превращает конечную модель в бесконечную.</li>
+</ul>
+<p>Проверки: <code>TestAIDecisionContracts.cpp</code>, <code>TestAIPlanner.cpp</code> (наличие <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>). Внешние источники теории — в
+<a href="../reference/external-sources.html">списке источников</a>.</p>
+<p>Далее: <a href="03-state-model.html">03. Модель состояния</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Нижний колонтитул" >
+        
+          
+          <a href="01-architecture.html" class="md-footer__link md-footer__link--prev" aria-label="Назад: 01 Полная архитектура AI">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Назад
+              </span>
+              <div class="md-ellipsis">
+                01 Полная архитектура AI
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="03-state-model.html" class="md-footer__link md-footer__link--next" aria-label="Вперед: 03 Модель состояния">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Вперед
+              </span>
+              <div class="md-ellipsis">
+                03 Модель состояния
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "navigation.path", "search.highlight", "search.suggest", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../assets/js/atlas-diagram-viewer.js"></script>
+      
+        <script src="../assets/js/atlas-reveal.js"></script>
+      
+        <script src="../assets/js/atlas-demo-data.js"></script>
+      
+        <script src="../assets/js/atlas-demos.js"></script>
+      
+    
+  </body>
+</html>

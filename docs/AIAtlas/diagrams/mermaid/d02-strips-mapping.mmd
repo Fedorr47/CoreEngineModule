@@ -1,0 +1,30 @@
+%% title: Понятия STRIPS/GOAP и их воплощение в типах CoreEngine
+%% kind: соответствие понятий
+%% level: обзор
+%% refs: WS-CLASS, DC-FACT-COND, DC-ACTION, DC-GOAL, DC-PLAN, SO-APPLY-FACTS, SO-APPLY-NUM, PL-FIND
+flowchart LR
+  subgraph T["Теория (STRIPS, GOAP)"]
+    A1["атом / предикат"]
+    A2["состояние = множество<br/>истинных атомов"]
+    A3["предусловие pre(a)"]
+    A4["add(a), del(a)"]
+    A5["цель = частичное состояние"]
+    A6["план = последовательность действий"]
+    A7["стоимость действия (GOAP)"]
+  end
+  subgraph C["CoreEngine"]
+    B1["AIWorldFactId (bool)<br/>AIWorldIntegerFactId (int32)"]
+    B2["AIAgentWorldState:<br/>все факты явно true/false, числа"]
+    B3["AIFactCondition, AINumericCondition<br/>(preconditions)"]
+    B4["AIFactEffect: bValue true = add,<br/>false = delete; AINumericEffect Set/Add"]
+    B5["AIGoalDefinition::desiredFacts"]
+    B6["AIPlan::steps (actionId, contextId)"]
+    B7["AIActionDefinition::baseCost<br/>(или route cost)"]
+  end
+  A1 --> B1
+  A2 --> B2
+  A3 --> B3
+  A4 --> B4
+  A5 --> B5
+  A6 --> B6
+  A7 --> B7

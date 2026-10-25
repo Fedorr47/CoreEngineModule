@@ -1,0 +1,22 @@
+%% title: Покупка: модель в поиске, исполнение, подтверждение ledger и реакция
+%% kind: sequence
+%% level: детали
+%% refs: CP-PURCHASE-CAP, CP-PURCHASE-RT, CP-LEDGER-OBSERVE, CP-HIDE, GG-INSTANCE-UPDATE, GR-AI-ORDER
+sequenceDiagram
+  participant P as FindAIPlan (модель)
+  participant D as решение
+  participant PR as PurchaseRuntime
+  participant E as runtimeEvents_
+  participant L as resource_ledger
+  participant H as hide_on_purchase
+  participant G as GameplayRuntime
+  P->>P: buy_key: pre coins ≥ 2, hasAccessKey = 0, atAccessKeyShop = 1, eff hasAccessKey = 1, coins += −2
+  D->>PR: Start: проверить actionId, продавец жив, результат не получен, coins ≥ price, 3D-дистанция ≤ 0.6
+  PR->>E: ResourcePurchased(agent, shop, "unlock")
+  PR-->>D: Succeeded (план → следующий шаг Ready)
+  D->>L: ObserveActionEvents(runtimeEvents_)
+  L->>L: subject и receiptId совпали, результат не подтверждён, coins ≥ 2 → coins −2, hasAccessKey = 1
+  D->>H: React(runtimeEvents_, facts)
+  H-->>D: HideEntityRequested(agent, shop) — один раз на instance
+  D->>G: события дописаны в currentWorldEvents_
+  G->>G: hideWorldEventSubjects → узел магазина скрыт

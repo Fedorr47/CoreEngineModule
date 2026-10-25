@@ -1,0 +1,12 @@
+%% title: От steering до фактического перемещения: намерение, команда, мотор, физика
+%% kind: data-flow
+%% level: обзор
+%% refs: ST-APPLY, NA-ROUTE-APPLY, CM-MOVEMENT, GR-PREPHYS, AP-PHYSICS, PH-ROOT-OFFSET
+flowchart TB
+  A["BuildGameplaySeekSteering /<br/>BuildGameplayArrivalSteering /<br/>BuildGameplayFleeSteering"] -->|"GameplayMovementIntent<br/>(moveWorld, moveMagnitude, wantsRun)"| B["ApplyGameplayObstacleAvoidance<br/>(если передан query)"]
+  B -->|"скорректированное намерение"| C["ApplyGameplayMovementIntent"]
+  C -->|"запись (данные)"| D["GameplayCharacterCommandComponent<br/>живёт один кадр"]
+  D -->|"чтение в PrePhysicsUpdate"| E["UpdateGameplayCharacterMovement:<br/>target = moveWorld · speed · magnitude;<br/>разгон/торможение мотора"]
+  E -->|"desiredVelocity"| F["Jolt CharacterVirtual<br/>(физический шаг App)"]
+  F -->|"фактическая позиция, grounded,<br/>physicallyBlocked"| G["GameplayTransformComponent<br/>(основание капсулы)"]
+  G -->|"следующий кадр: наблюдения и steering"| A

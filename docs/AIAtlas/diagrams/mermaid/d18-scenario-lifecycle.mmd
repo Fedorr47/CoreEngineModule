@@ -1,0 +1,12 @@
+%% title: Жизненный цикл development-сценария
+%% kind: state
+%% level: обзор
+%% refs: SC-RUNNER-UPDATE, AS-SC-RECOVERY, AS-SC-MAZE
+stateDiagram-v2
+  [*] --> Загружен: уровень с developmentScenario
+  Загружен --> Подготовлен: setup (ensure*, captureTransform, параметры физики)
+  Подготовлен --> Работает: start (cancel, restore baseline, teleport, production API)
+  Работает --> Работает: update (вмешательства: убрать цель, собрать монету)
+  Работает --> Остановлен: stop (cancelAIDecision, cancelAI)
+  Остановлен --> Подготовлен: reset (восстановить transforms, видимость, pickup, InteractionPoint)
+  Работает --> Подготовлен: reset

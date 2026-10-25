@@ -1,0 +1,2004 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc">
+      
+      
+      
+      
+        <link rel="prev" href="09-execution-lifetime.html">
+      
+      
+        <link rel="next" href="11-spatial-routes.html">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>10 Порядок кадра - CoreEngine AI Atlas — GOAP, Steering и контракты исполнения</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="../assets/js/vendor/iframe-worker-shim.js"></script>
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../assets/katex/katex.min.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas-responsive.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#10" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-header__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              10 Порядок кадра
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Тёмная тема"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Тёмная тема" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Светлая тема"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Светлая тема" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-nav__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Главная
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Основы
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Основы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="00-how-to-read.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    00 Как читать атлас
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="01-architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="02-goap-strips.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="03-state-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    03 Модель состояния
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="04-goals-actions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    04 Цели и контракты действий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="05-planner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    05 Планировщик
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Решение и исполнение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Решение и исполнение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="06-assets-composition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    06 Ассеты и композиция
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="07-observations-events.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    07 Наблюдения и события
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="08-decision-runtime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    08 Decision runtime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="09-execution-lifetime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    09 Исполнение и lifetime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="10-frame-order.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Дискретное время и данные кадра
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Порядок как граф «пишет → читает»
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Задержки
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Детерминизм порядка агентов
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Драйвер кадра App
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Очистка кадровых данных
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-ai-prephysicsupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. AI внутри PrePhysicsUpdate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.4. Режимы
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Движение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Движение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="11-spatial-routes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    11 Пространственные маршруты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="12-route-follower.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    12 RouteFollower
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="13-steering.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    13 Steering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="14-temporal-behaviors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="15-obstacle-avoidance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    15 Obstacle avoidance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="16-traversal-physics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    16 Traversal и физика
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Практика
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Практика
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="17-resources-multiagent.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    17 Ресурсы и несколько агентов
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="18-authoring-scenarios.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    18 Авторинг и сценарии
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="19-diagnostics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    19 Диагностика и проверка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="20-limits-future.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    20 Ограничения и развитие
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Учебные модели
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Учебные модели
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/goap-search.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GOAP-поиск по шагам
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/arrival-flee.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Arrival и гистерезис Flee
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/runtime-quick-reference.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runtime: быстрый справочник
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/class-index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/source-references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Реестр источников
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/diagrams.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Каталог схем
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Словарь
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/external-sources.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Внешние источники
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/build.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Сборка и обновление
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/validation-report.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Отчёт автоматических проверок
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Дискретное время и данные кадра
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Порядок как граф «пишет → читает»
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Задержки
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Детерминизм порядка агентов
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Драйвер кадра App
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Очистка кадровых данных
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-ai-prephysicsupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. AI внутри PrePhysicsUpdate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.4. Режимы
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="10">10. Порядок кадра: время жизни команд и событий, задержки обратной связи<a class="headerlink" href="#10" title="Permanent link">&para;</a></h1>
+<div class="admonition abstract">
+<p class="admonition-title">Коротко</p>
+<p>Внутри одного тика App AI обновляется строго последовательно: сценарий → <code>BeginFrame</code> (очистка кадровых данных)
+→ <code>PrePhysicsUpdate</code> (ввод, брони, pickup, <strong>решения</strong>, <strong>задачи <code>AISystem</code></strong>, движение персонажа) → физика →
+обратная связь → post-physics и анимация. Из этого порядка следуют конкретные задержки: результат физики
+наблюдается в следующем кадре, следующий шаг плана стартует через update после успеха предыдущего, а команда
+движения живёт один кадр и должна переиздаваться. Порядок кадра — поведение, а не деталь реализации
+(правило <code>AGENTS.md</code>). Статус: <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>.</p>
+</div>
+<h2 id="1">1. Задача и интуиция<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p>Многие «странные» эффекты AI — не ошибки логики, а следствия порядка обновления: агент на кадр замирает между
+шагами плана, Follow «дёргается», если команду не переиздавать, событие покупки подтверждается в том же кадре, а
+сбор монеты — только в следующем. Чтобы читать отладку, нужно знать, <strong>кто что пишет и кто что читает в какой
+момент кадра</strong>.</p>
+<h2 id="2">2. Теоретическая выкладка<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<h3 id="21">2.1. Дискретное время и данные кадра<a class="headerlink" href="#21" title="Permanent link">&para;</a></h3>
+<p>Игровой цикл — система с дискретным временем: состояние <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mi>f</mi><mo stretchy="false">(</mo><msub><mi>x</mi><mi>t</mi></msub><mo separator="true">,</mo><msub><mi>u</mi><mi>t</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">x_{t+1} = f(x_t, u_t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6389em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">u</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span>, где <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">u_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">u</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> — команды,
+выработанные по наблюдению <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mi>t</mi></msub><mo>=</mo><mi>h</mi><mo stretchy="false">(</mo><msub><mi>x</mi><mi>t</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">y_t = h(x_t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">h</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span>. Данные делятся на:</p>
+<ul>
+<li><strong>устойчивые</strong> — переносятся между кадрами (факты агента, план, задачи, позиции, брони);</li>
+<li><strong>кадровые</strong> — живут от <code>BeginFrame</code> до конца кадра (мировые события <code>currentWorldEvents_</code>,
+  <code>GameplayCharacterCommandComponent</code>, <code>GameplayInputIntentComponent</code>) (<a class="cite" href="../reference/source-references.html#gr-begin">GR-BEGIN</a>, <a class="cite" href="../reference/source-references.html#gr-reset-frame">GR-RESET-FRAME</a>).</li>
+</ul>
+<p>Кадровые данные обязан <strong>заново производить</strong> каждый кадр тот, кому они нужны. Отсюда правило для runtime:
+если steering пересчитывается реже, чем раз в кадр (Follow/Flee с интервалом 0.05 с), сохранённое намерение
+всё равно применяется к команде на <strong>каждом</strong> tick — иначе в кадрах без пересчёта команда будет нулевой
+(глава <a href="14-temporal-behaviors.html">14</a>).</p>
+<h3 id="22">2.2. Порядок как граф «пишет → читает»<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<p>Внутри <code>PrePhysicsUpdate</code> порядок задан так, чтобы каждый читатель шёл после писателя того же кадра:</p>
+<table>
+<thead>
+<tr>
+<th>Данные</th>
+<th>Пишет</th>
+<th>Читает (позже в кадре)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PickupCollected</code></td>
+<td><code>pickup<wbr>System_.<wbr>Update</code></td>
+<td>наблюдения решений (ledger)</td>
+</tr>
+<tr>
+<td>факты агента</td>
+<td>наблюдения в <code>Update<wbr>Active<wbr>AIDecisions_</code></td>
+<td>выбор цели, планировщик, покупка</td>
+</tr>
+<tr>
+<td>задача шага</td>
+<td>решение (старт шага)</td>
+<td><code>aiSystem_.Update</code> (тот же кадр)</td>
+</tr>
+<tr>
+<td><code>CharacterCommand</code></td>
+<td>runtime движения в <code>aiSystem_.Update</code></td>
+<td><code>Update<wbr>Gameplay<wbr>Character<wbr>Movement</code></td>
+</tr>
+<tr>
+<td><code>desiredVelocity</code></td>
+<td><code>Update<wbr>Gameplay<wbr>Character<wbr>Movement</code></td>
+<td>физика Jolt (после PrePhysics)</td>
+</tr>
+<tr>
+<td>позиция, <code>physicallyBlocked</code></td>
+<td>обратная связь физики</td>
+<td>наблюдения и steering <strong>следующего</strong> кадра</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23">2.3. Задержки<a class="headerlink" href="#23" title="Permanent link">&para;</a></h3>
+<p>Пусть кадр <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> — момент события. Задержки в кадрах (<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi></mrow><annotation encoding="application/x-tex">\Delta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span></span></span></span></span>):</p>
+<ul>
+<li><strong>физика → наблюдение</strong>: позиция после шага Jolt кадра <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> видна наблюдениям в <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo lspace="0em" rspace="0em">+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N{+}1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord"><span class="mord">+</span></span><span class="mord">1</span></span></span></span></span>: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\Delta = 1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span></span>;</li>
+<li><strong>инвалидация → остановка</strong>: continuation проверяется в update решения; отмена задачи выполняется сразу, и
+  <code>aiSystem_.Update</code> этого кадра уже не тикает отменённую задачу: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span> от наблюдения;</li>
+<li><strong>успех шага → старт следующего</strong>: успех в tick кадра <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span>; в <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo lspace="0em" rspace="0em">+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N{+}1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord"><span class="mord">+</span></span><span class="mord">1</span></span></span></span></span> решение синхронизирует шаг и проверяет
+  остаток плана, но не стартует шаг; старт в <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo lspace="0em" rspace="0em">+</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">N{+}2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord"><span class="mord">+</span></span><span class="mord">2</span></span></span></span></span>: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\Delta = 2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">2</span></span></span></span></span>, из них <strong>один кадр без команды</strong>
+  (<a class="cite" href="../reference/source-references.html#dr-update">DR-UPDATE</a>) <span class="ev ev-inferred" title="Вывод из нескольких подтверждённых контрактов; основание указано рядом">INFERRED</span>;</li>
+<li><strong>событие действия → факт</strong>: покупка в update кадра <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> подтверждается вторым проходом того же update:
+  <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span>.</li>
+</ul>
+<p>При 60 Гц кадр — 16.7 мс; кадр без команды при скорости бега 4.5 м/с — около 7.5 см пути, которые мотор
+частично теряет на торможении (<code>deceleration</code> 16 м/с², за кадр скорость падает на ≈0.27 м/с).</p>
+<h3 id="24">2.4. Детерминизм порядка агентов<a class="headerlink" href="#24" title="Permanent link">&para;</a></h3>
+<p>Решения обновляются по возрастанию <code>EntityHandle</code> (<a class="cite" href="../reference/source-references.html#gr-update-decisions">GR-UPDATE-DECISIONS</a>). При конкуренции (два агента у одной
+монеты) порядок обновления влияет на то, кто первым начнёт шаг или получит бронь. Это <strong>детерминированно</strong>, но не
+является политикой справедливого распределения.</p>
+<h2 id="3">3. Визуальное объяснение<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<figure class="diagram" id="fig-d10-frame-sequence"><div class="diagram-viewport" role="img" aria-label="Один тик App: вызовы, существенные для AI, в порядке выполнения."><svg width="1331" height="961" style="--diagram-width:1331.00" focusable="false" id="svg-d10-frame-sequence" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-50 -10 1331 961" role="graphics-document document" aria-roledescription="sequence"><g><line id="actor5" x1="1146" y1="65" x2="1146" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="P" data-et="life-line" data-id="P"/><g id="root-5" data-et="participant" data-type="participant" data-id="P"><rect x="1061" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="P" rx="3" ry="3" class="actor actor-top"/><text x="1146" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="1146" dy="0">Jolt</tspan></text></g></g><g><line id="actor4" x1="936" y1="65" x2="936" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="AI" data-et="life-line" data-id="AI"/><g id="root-4" data-et="participant" data-type="participant" data-id="AI"><rect x="851" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="AI" rx="3" ry="3" class="actor actor-top"/><text x="936" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="936" dy="0">решения + AISystem</tspan></text></g></g><g><line id="actor3" x1="715" y1="65" x2="715" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="G" data-et="life-line" data-id="G"/><g id="root-3" data-et="participant" data-type="participant" data-id="G"><rect x="630" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="G" rx="3" ry="3" class="actor actor-top"/><text x="715" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="715" dy="0">GameplayRuntime</tspan></text></g></g><g><line id="actor2" x1="505" y1="65" x2="505" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="SC" data-et="life-line" data-id="SC"/><g id="root-2" data-et="participant" data-type="participant" data-id="SC"><rect x="420" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="SC" rx="3" ry="3" class="actor actor-top"/><text x="505" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="505" dy="0">DevelopmentScenario</tspan></text></g></g><g><line id="actor1" x1="295" y1="65" x2="295" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="N" data-et="life-line" data-id="N"/><g id="root-1" data-et="participant" data-type="participant" data-id="N"><rect x="210" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="N" rx="3" ry="3" class="actor actor-top"/><text x="295" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="295" dy="-8">appNavigationCoordina-</tspan></text><text x="295" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="295" dy="8">tor</tspan></text></g></g><g><line id="actor0" x1="85" y1="65" x2="85" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="A" data-et="life-line" data-id="A"/><g id="root-0" data-et="participant" data-type="participant" data-id="A"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="A" rx="3" ry="3" class="actor actor-top"/><text x="85" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="85" dy="0">App (AppLifecycle)</tspan></text></g></g><style>#svg-d10-frame-sequence{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d10-frame-sequence .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d10-frame-sequence .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d10-frame-sequence .error-icon{fill:#fff7e6;}#svg-d10-frame-sequence .error-text{fill:#000819;stroke:#000819;}#svg-d10-frame-sequence .edge-thickness-normal{stroke-width:1px;}#svg-d10-frame-sequence .edge-thickness-thick{stroke-width:3.5px;}#svg-d10-frame-sequence .edge-pattern-solid{stroke-dasharray:0;}#svg-d10-frame-sequence .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d10-frame-sequence .edge-pattern-dashed{stroke-dasharray:3;}#svg-d10-frame-sequence .edge-pattern-dotted{stroke-dasharray:2;}#svg-d10-frame-sequence .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d10-frame-sequence .marker.cross{stroke:#3d4a57;}#svg-d10-frame-sequence svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d10-frame-sequence p{margin:0;}#svg-d10-frame-sequence .actor{stroke:#3f6ea3;fill:#e8f1fb;stroke-width:1;}#svg-d10-frame-sequence rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence rect.note[data-look="neo"]{stroke:#c9a83a;fill:#fff7d6;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence text.actor&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-frame-sequence .actor-line{stroke:#3f6ea3;}#svg-d10-frame-sequence .innerArc{stroke-width:1.5;stroke-dasharray:none;}#svg-d10-frame-sequence .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#2b3540;}#svg-d10-frame-sequence .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#2b3540;}#svg-d10-frame-sequence [id$="-arrowhead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d10-frame-sequence .sequenceNumber{fill:#c2b5a8;}#svg-d10-frame-sequence [id$="-sequencenumber"]{fill:#2b3540;}#svg-d10-frame-sequence [id$="-crosshead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d10-frame-sequence .messageText{fill:#14212e;stroke:none;}#svg-d10-frame-sequence .labelBox{stroke:#3f6ea3;fill:#e8f1fb;filter:none;}#svg-d10-frame-sequence .labelText,#svg-d10-frame-sequence .labelText&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-frame-sequence .loopText,#svg-d10-frame-sequence .loopText&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-frame-sequence .sectionTitle,#svg-d10-frame-sequence .sectionTitle&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-frame-sequence .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:#3f6ea3;fill:#3f6ea3;}#svg-d10-frame-sequence .note{stroke:#c9a83a;fill:#fff7d6;}#svg-d10-frame-sequence .noteText,#svg-d10-frame-sequence .noteText&gt;tspan{fill:#333;stroke:none;font-weight:normal;}#svg-d10-frame-sequence .activation0{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-frame-sequence .activation1{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-frame-sequence .activation2{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-frame-sequence .actorPopupMenu{position:absolute;}#svg-d10-frame-sequence .actorPopupMenuPanel{position:absolute;fill:#e8f1fb;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#svg-d10-frame-sequence .actor-man circle,#svg-d10-frame-sequence line{fill:#e8f1fb;stroke-width:2px;}#svg-d10-frame-sequence g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#3f6ea3;}#svg-d10-frame-sequence .node .neo-node{stroke:#3f6ea3;}#svg-d10-frame-sequence [data-look="neo"].node rect,#svg-d10-frame-sequence [data-look="neo"].cluster rect,#svg-d10-frame-sequence [data-look="neo"].node polygon{stroke:url(#svg-d10-frame-sequence-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d10-frame-sequence [data-look="neo"].node path{stroke:url(#svg-d10-frame-sequence-gradient);stroke-width:1px;}#svg-d10-frame-sequence [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d10-frame-sequence [data-look="neo"].node circle{stroke:url(#svg-d10-frame-sequence-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d10-frame-sequence [data-look="neo"].icon-shape .icon{fill:url(#svg-d10-frame-sequence-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d10-frame-sequence-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-frame-sequence .edgeLabel rect,#svg-d10-frame-sequence .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d10-frame-sequence .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d10-frame-sequence :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g/><defs><symbol id="svg-d10-frame-sequence-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"/></symbol></defs><defs><symbol id="svg-d10-frame-sequence-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"/></symbol></defs><defs><symbol id="svg-d10-frame-sequence-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"/></symbol></defs><defs><marker id="svg-d10-frame-sequence-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"/></marker></defs><defs><marker id="svg-d10-frame-sequence-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"/></marker></defs><defs><marker id="svg-d10-frame-sequence-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"/></marker></defs><defs><marker id="svg-d10-frame-sequence-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"/></marker></defs><defs><marker id="svg-d10-frame-sequence-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"/></marker></defs><defs><marker id="svg-d10-frame-sequence-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"/></marker></defs><defs><marker id="svg-d10-frame-sequence-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><defs><marker id="svg-d10-frame-sequence-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><text x="189" y="80" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Advance: bake NavMesh, когда</text><text x="189" y="101" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">геометрия готова</text><line x1="92" y1="126" x2="291" y2="126" class="messageLine0" data-et="message" data-id="i0" data-from="A" data-to="N" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="126" x2="85" y2="126" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="130" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">1</text><text x="294" y="141" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Update: сценарные операции (до BeginFrame)</text><line x1="92" y1="170" x2="501" y2="170" class="messageLine0" data-et="message" data-id="i1" data-from="A" data-to="SC" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="170" x2="85" y2="170" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="174" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">2</text><text x="399" y="185" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">BeginFrame: очистить события кадра, CharacterCommand, GameplayInputIntentComponent</text><line x1="92" y1="214" x2="711" y2="214" class="messageLine0" data-et="message" data-id="i2" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="214" x2="85" y2="214" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="218" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">3</text><text x="399" y="229" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">EnsureGameplayPhysicsCharacters</text><line x1="92" y1="258" x2="711" y2="258" class="messageLine0" data-et="message" data-id="i3" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="258" x2="85" y2="258" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="262" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">4</text><text x="399" y="273" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">PrePhysicsUpdate</text><line x1="92" y1="302" x2="711" y2="302" class="messageLine0" data-et="message" data-id="i4" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="302" x2="85" y2="302" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="306" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">5</text><text x="716" y="317" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ввод игрока →</text><text x="716" y="338" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">BuildGameplayCharacterC-</text><text x="716" y="359" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ommands</text><path d="M 716,380 C 776,370 776,410 716,400" class="messageLine0" data-et="message" data-id="i5" data-from="G" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" x1="722" style="fill: none;"/><line x1="715" y1="380" x2="715" y2="380" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="715" y="384" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">6</text><text x="716" y="425" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">CleanupInvalidReservation-</text><text x="716" y="446" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">s, pickupSystem</text><text x="716" y="467" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">(PickupCollected)</text><path d="M 716,488 C 776,478 776,518 716,508" class="messageLine0" data-et="message" data-id="i6" data-from="G" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" x1="722" style="fill: none;"/><line x1="715" y1="488" x2="715" y2="488" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="715" y="492" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">7</text><text x="824" y="533" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">UpdateActiveAIDecisions_ (по</text><text x="824" y="554" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">возрастанию EntityHandle)</text><line x1="722" y1="579" x2="932" y2="579" class="messageLine0" data-et="message" data-id="i7" data-from="G" data-to="AI" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="715" y1="579" x2="715" y2="579" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="715" y="583" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">8</text><text x="824" y="594" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">aiSystem_.Update(dt): Tick задач →</text><text x="824" y="615" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">команды</text><line x1="722" y1="640" x2="932" y2="640" class="messageLine0" data-et="message" data-id="i8" data-from="G" data-to="AI" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="715" y1="640" x2="715" y2="640" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="715" y="644" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">9</text><text x="716" y="655" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">бой, взаимодействия,</text><text x="716" y="676" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">gameplay-графы,</text><text x="716" y="697" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">UpdateGameplayCharacte-</text><text x="716" y="718" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">rMovement</text><path d="M 716,735 C 776,725 776,765 716,755" class="messageLine0" data-et="message" data-id="i9" data-from="G" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" x1="722" style="fill: none;"/><line x1="715" y1="735" x2="715" y2="735" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="715" y="739" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">10</text><text x="614" y="780" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">SubmitGameplayPhysicsCharacterVelocities, физический шаг</text><line x1="92" y1="809" x2="1142" y2="809" class="messageLine0" data-et="message" data-id="i10" data-from="A" data-to="P" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="809" x2="85" y2="809" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="813" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">11</text><text x="399" y="824" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ApplyGameplayPhysicsCharacterFeedback (позиция, grounded, physicallyBlocked)</text><line x1="92" y1="853" x2="711" y2="853" class="messageLine0" data-et="message" data-id="i11" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="853" x2="85" y2="853" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="857" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">12</text><text x="399" y="868" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">PostPhysicsUpdate: locomotion, transforms, анимация</text><line x1="92" y1="897" x2="711" y2="897" class="messageLine0" data-et="message" data-id="i12" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="897" x2="85" y2="897" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="901" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">13</text><text x="399" y="912" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Scene::UpdateSkinned, PostAnimationUpdate</text><line x1="92" y1="941" x2="711" y2="941" class="messageLine0" data-et="message" data-id="i13" data-from="A" data-to="G" stroke-width="2" stroke="none" marker-end="url(#svg-d10-frame-sequence-arrowhead)" style="fill: none;"/><line x1="85" y1="941" x2="85" y2="941" stroke-width="0" marker-start="url(#svg-d10-frame-sequence-sequencenumber)"/><text x="85" y="945" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">14</text></svg></div><figcaption><span class="fig-title">Один тик App: вызовы, существенные для AI, в порядке выполнения.</span><span class="fig-meta">вид: sequence · уровень: обзор · источник: <code>diagrams/mermaid/d10-frame-sequence.mmd</code> · код: <a class="cite" href="../reference/source-references.html#ap-nav-coord">AP-NAV-COORD</a>, <a class="cite" href="../reference/source-references.html#ap-scenario">AP-SCENARIO</a>, <a class="cite" href="../reference/source-references.html#ap-tick">AP-TICK</a>, <a class="cite" href="../reference/source-references.html#ap-before-phys">AP-BEFORE-PHYS</a>, <a class="cite" href="../reference/source-references.html#gr-begin">GR-BEGIN</a>, <a class="cite" href="../reference/source-references.html#gr-prephys">GR-PREPHYS</a>, <a class="cite" href="../reference/source-references.html#gr-ai-order">GR-AI-ORDER</a>, <a class="cite" href="../reference/source-references.html#gr-ai-update">GR-AI-UPDATE</a>, <a class="cite" href="../reference/source-references.html#ap-physics">AP-PHYSICS</a>, <a class="cite" href="../reference/source-references.html#ap-after-phys">AP-AFTER-PHYS</a>, <a class="cite" href="../reference/source-references.html#gr-postphys">GR-POSTPHYS</a> · <a href="../assets/diagrams/d10-frame-sequence.svg">SVG</a> · <a href="../reference/diagrams.html#d10-frame-sequence">каталог</a></span></figcaption></figure>
+<figure class="diagram" id="fig-d10-step-gap"><div class="diagram-viewport" role="img" aria-label="Межшаговая пауза: успех шага в кадре N, подтверждение и проверка остатка плана в N+1 (команды нет), старт следующего шага и первая команда в N+2."><svg width="900" height="902" style="--diagram-width:900.00" focusable="false" id="svg-d10-step-gap" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-50 -10 900 902" role="graphics-document document" aria-roledescription="sequence"><g><line id="actor3" x1="715" y1="65" x2="715" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="M" data-et="life-line" data-id="M"/><g id="root-3" data-et="participant" data-type="participant" data-id="M"><rect x="630" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="M" rx="3" ry="3" class="actor actor-top"/><text x="715" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="715" dy="0">мотор и физика</tspan></text></g></g><g><line id="actor2" x1="505" y1="65" x2="505" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="S" data-et="life-line" data-id="S"/><g id="root-2" data-et="participant" data-type="participant" data-id="S"><rect x="420" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="S" rx="3" ry="3" class="actor actor-top"/><text x="505" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="505" dy="0">AISystem</tspan></text></g></g><g><line id="actor1" x1="295" y1="65" x2="295" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="D" data-et="life-line" data-id="D"/><g id="root-1" data-et="participant" data-type="participant" data-id="D"><rect x="210" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="D" rx="3" ry="3" class="actor actor-top"/><text x="295" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="295" dy="0">решение</tspan></text></g></g><g><line id="actor0" x1="85" y1="65" x2="85" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="F" data-et="life-line" data-id="F"/><g id="root-0" data-et="participant" data-type="participant" data-id="F"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="F" rx="3" ry="3" class="actor actor-top"/><text x="85" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="85" dy="0">кадр</tspan></text></g></g><style>#svg-d10-step-gap{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d10-step-gap .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d10-step-gap .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d10-step-gap .error-icon{fill:#fff7e6;}#svg-d10-step-gap .error-text{fill:#000819;stroke:#000819;}#svg-d10-step-gap .edge-thickness-normal{stroke-width:1px;}#svg-d10-step-gap .edge-thickness-thick{stroke-width:3.5px;}#svg-d10-step-gap .edge-pattern-solid{stroke-dasharray:0;}#svg-d10-step-gap .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d10-step-gap .edge-pattern-dashed{stroke-dasharray:3;}#svg-d10-step-gap .edge-pattern-dotted{stroke-dasharray:2;}#svg-d10-step-gap .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d10-step-gap .marker.cross{stroke:#3d4a57;}#svg-d10-step-gap svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d10-step-gap p{margin:0;}#svg-d10-step-gap .actor{stroke:#3f6ea3;fill:#e8f1fb;stroke-width:1;}#svg-d10-step-gap rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap rect.note[data-look="neo"]{stroke:#c9a83a;fill:#fff7d6;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap text.actor&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-step-gap .actor-line{stroke:#3f6ea3;}#svg-d10-step-gap .innerArc{stroke-width:1.5;stroke-dasharray:none;}#svg-d10-step-gap .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#2b3540;}#svg-d10-step-gap .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#2b3540;}#svg-d10-step-gap [id$="-arrowhead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d10-step-gap .sequenceNumber{fill:#c2b5a8;}#svg-d10-step-gap [id$="-sequencenumber"]{fill:#2b3540;}#svg-d10-step-gap [id$="-crosshead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d10-step-gap .messageText{fill:#14212e;stroke:none;}#svg-d10-step-gap .labelBox{stroke:#3f6ea3;fill:#e8f1fb;filter:none;}#svg-d10-step-gap .labelText,#svg-d10-step-gap .labelText&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-step-gap .loopText,#svg-d10-step-gap .loopText&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-step-gap .sectionTitle,#svg-d10-step-gap .sectionTitle&gt;tspan{fill:#14212e;stroke:none;}#svg-d10-step-gap .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:#3f6ea3;fill:#3f6ea3;}#svg-d10-step-gap .note{stroke:#c9a83a;fill:#fff7d6;}#svg-d10-step-gap .noteText,#svg-d10-step-gap .noteText&gt;tspan{fill:#333;stroke:none;font-weight:normal;}#svg-d10-step-gap .activation0{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-step-gap .activation1{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-step-gap .activation2{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d10-step-gap .actorPopupMenu{position:absolute;}#svg-d10-step-gap .actorPopupMenuPanel{position:absolute;fill:#e8f1fb;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#svg-d10-step-gap .actor-man circle,#svg-d10-step-gap line{fill:#e8f1fb;stroke-width:2px;}#svg-d10-step-gap g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#3f6ea3;}#svg-d10-step-gap .node .neo-node{stroke:#3f6ea3;}#svg-d10-step-gap [data-look="neo"].node rect,#svg-d10-step-gap [data-look="neo"].cluster rect,#svg-d10-step-gap [data-look="neo"].node polygon{stroke:url(#svg-d10-step-gap-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d10-step-gap [data-look="neo"].node path{stroke:url(#svg-d10-step-gap-gradient);stroke-width:1px;}#svg-d10-step-gap [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d10-step-gap [data-look="neo"].node circle{stroke:url(#svg-d10-step-gap-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d10-step-gap [data-look="neo"].icon-shape .icon{fill:url(#svg-d10-step-gap-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d10-step-gap-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d10-step-gap .edgeLabel rect,#svg-d10-step-gap .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d10-step-gap .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d10-step-gap :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g/><defs><symbol id="svg-d10-step-gap-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"/></symbol></defs><defs><symbol id="svg-d10-step-gap-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"/></symbol></defs><defs><symbol id="svg-d10-step-gap-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"/></symbol></defs><defs><marker id="svg-d10-step-gap-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"/></marker></defs><defs><marker id="svg-d10-step-gap-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"/></marker></defs><defs><marker id="svg-d10-step-gap-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"/></marker></defs><defs><marker id="svg-d10-step-gap-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"/></marker></defs><defs><marker id="svg-d10-step-gap-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"/></marker></defs><defs><marker id="svg-d10-step-gap-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"/></marker></defs><defs><marker id="svg-d10-step-gap-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><defs><marker id="svg-d10-step-gap-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><g data-et="note" data-id="i0"><rect x="0" y="75" fill="#EDF2AE" stroke="#666" width="170" height="45" class="note"/><text x="85" y="81" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="85">кадр N</tspan></text></g><g data-et="note" data-id="i3"><rect x="0" y="282" fill="#EDF2AE" stroke="#666" width="170" height="45" class="note"/><text x="85" y="288" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="85">кадр N+1</tspan></text></g><g data-et="note" data-id="i8"><rect x="0" y="658" fill="#EDF2AE" stroke="#666" width="170" height="45" class="note"/><text x="85" y="664" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="85">кадр N+2</tspan></text></g><text x="506" y="135" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Tick шага k → Succeeded</text><text x="506" y="156" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">(агент у монеты)</text><path d="M 506,181 C 566,171 566,211 506,201" class="messageLine0" data-et="message" data-id="i1" data-from="S" data-to="S" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" x1="512" style="fill: none;"/><line x1="505" y1="181" x2="505" y2="181" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="505" y="185" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">1</text><text x="609" y="226" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">команда не выдана → мотор</text><text x="609" y="247" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">тормозит</text><line x1="512" y1="272" x2="711" y2="272" class="messageLine1" data-et="message" data-id="i2" data-from="S" data-to="M" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"/><line x1="505" y1="272" x2="505" y2="272" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="505" y="276" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">2</text><text x="86" y="342" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">BeginFrame очищает</text><text x="86" y="363" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">команду, pickup:</text><text x="86" y="384" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">PickupCollected</text><path d="M 86,405 C 146,395 146,435 86,425" class="messageLine0" data-et="message" data-id="i4" data-from="F" data-to="F" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" x1="92" style="fill: none;"/><line x1="85" y1="405" x2="85" y2="405" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="85" y="409" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">3</text><text x="296" y="450" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Observe: coins+1,</text><text x="296" y="471" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">atCoinC</text><path d="M 296,496 C 356,486 356,526 296,516" class="messageLine0" data-et="message" data-id="i5" data-from="D" data-to="D" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" x1="302" style="fill: none;"/><line x1="295" y1="496" x2="295" y2="496" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="295" y="500" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">4</text><text x="399" y="541" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">sync: шаг k Succeeded →</text><text x="399" y="562" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ReadyToStartStep, проверка</text><text x="399" y="583" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">остатка плана, возврат</text><line x1="302" y1="604" x2="501" y2="604" class="messageLine0" data-et="message" data-id="i6" data-from="D" data-to="S" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" style="fill: none;"/><line x1="295" y1="604" x2="295" y2="604" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="295" y="608" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">5</text><text x="609" y="619" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">задача terminal, команды нет</text><line x1="512" y1="648" x2="711" y2="648" class="messageLine1" data-et="message" data-id="i7" data-from="S" data-to="M" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"/><line x1="505" y1="648" x2="505" y2="648" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="505" y="652" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">6</text><text x="399" y="718" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">старт шага k+1 (Start)</text><line x1="302" y1="747" x2="501" y2="747" class="messageLine0" data-et="message" data-id="i9" data-from="D" data-to="S" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" style="fill: none;"/><line x1="295" y1="747" x2="295" y2="747" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="295" y="751" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">7</text><text x="506" y="762" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">тот же кадр: Tick →</text><text x="506" y="783" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">команда</text><path d="M 506,808 C 566,798 566,838 506,828" class="messageLine0" data-et="message" data-id="i10" data-from="S" data-to="S" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" x1="512" style="fill: none;"/><line x1="505" y1="808" x2="505" y2="808" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="505" y="812" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">8</text><text x="609" y="853" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">движение продолжается</text><line x1="512" y1="882" x2="711" y2="882" class="messageLine1" data-et="message" data-id="i11" data-from="S" data-to="M" stroke-width="2" stroke="none" marker-end="url(#svg-d10-step-gap-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"/><line x1="505" y1="882" x2="505" y2="882" stroke-width="0" marker-start="url(#svg-d10-step-gap-sequencenumber)"/><text x="505" y="886" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">9</text></svg></div><figcaption><span class="fig-title">Межшаговая пауза: успех шага в кадре N, подтверждение и проверка остатка плана в N+1 (команды нет), старт следующего шага и первая команда в N+2.</span><span class="fig-meta">вид: sequence (по кадрам) · уровень: детали · источник: <code>diagrams/mermaid/d10-step-gap.mmd</code> · код: <a class="cite" href="../reference/source-references.html#as-update">AS-UPDATE</a>, <a class="cite" href="../reference/source-references.html#br-sync">BR-SYNC</a>, <a class="cite" href="../reference/source-references.html#dr-update">DR-UPDATE</a>, <a class="cite" href="../reference/source-references.html#dr-remaining">DR-REMAINING</a>, <a class="cite" href="../reference/source-references.html#gr-ai-order">GR-AI-ORDER</a>, <a class="cite" href="../reference/source-references.html#pk-system">PK-SYSTEM</a>, <a class="cite" href="../reference/source-references.html#gr-reset-frame">GR-RESET-FRAME</a> · <a href="../assets/diagrams/d10-step-gap.svg">SVG</a> · <a href="../reference/diagrams.html#d10-step-gap">каталог</a></span></figcaption></figure>
+<h2 id="4-coreengine">4. Как это реализовано в CoreEngine<a class="headerlink" href="#4-coreengine" title="Permanent link">&para;</a></h2>
+<h3 id="41-app">4.1. Драйвер кадра App<a class="headerlink" href="#41-app" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/App/AppLifecycle.cpp:546–548</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-546">546</a></span>
+<span class="normal"><a href="#__codelineno-0-547">547</a></span>
+<span class="normal"><a href="#__codelineno-0-548">548</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-546"><a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">rendern</span><span class="o">::</span><span class="n">GameplayUpdateContext</span><span class="w"> </span><span class="n">gameplayCtx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UpdateGameplayBeforePhysics</span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span><span id="__span-0-547"><a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="w">        </span><span class="n">UpdatePhysics</span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span><span id="__span-0-548"><a id="__codelineno-0-548" name="__codelineno-0-548"></a><span class="w">        </span><span class="n">UpdateGameplayAfterPhysicsAndAnimation</span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">gameplayCtx</span><span class="p">,</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#ap-tick">AP-TICK</a> · <code>src/App/AppLifecycle.cpp:546</code> · снимок <code>8c6c0dc</code></p>
+<p><code>UpdateGameplayBeforePhysics</code> вызывает <code>BeginFrame</code>, создаёт физических персонажей, <code>PrePhysicsUpdate</code> и отправляет
+скорости в Jolt (<a class="cite" href="../reference/source-references.html#ap-before-phys">AP-BEFORE-PHYS</a>); <code>UpdatePhysics</code> синхронизирует уровень и шагает Jolt (<a class="cite" href="../reference/source-references.html#ap-physics">AP-PHYSICS</a>);
+<code>UpdateGameplayAfterPhysicsAndAnimation</code> применяет обратную связь физики и выполняет <code>PostPhysicsUpdate</code>,
+<code>UpdateSkinned</code>, <code>PostAnimationUpdate</code> (<a class="cite" href="../reference/source-references.html#ap-after-phys">AP-AFTER-PHYS</a>). До всего этого в тике идут <code>appNavigationCoordinator::Advance</code>
+и обновление development-сценария (<a class="cite" href="../reference/source-references.html#ap-nav-coord">AP-NAV-COORD</a>, <a class="cite" href="../reference/source-references.html#ap-scenario">AP-SCENARIO</a>).</p>
+<h3 id="42">4.2. Очистка кадровых данных<a class="headerlink" href="#42" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/Runtime/GameplayRuntime_FrameLifecycle.inl:1–22</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-1-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-1-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-1-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-1-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-1-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-1-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-1-10">10</a></span>
+<span class="normal"><a href="#__codelineno-1-11">11</a></span>
+<span class="normal"><a href="#__codelineno-1-12">12</a></span>
+<span class="normal"><a href="#__codelineno-1-13">13</a></span>
+<span class="normal"><a href="#__codelineno-1-14">14</a></span>
+<span class="normal"><a href="#__codelineno-1-15">15</a></span>
+<span class="normal"><a href="#__codelineno-1-16">16</a></span>
+<span class="normal"><a href="#__codelineno-1-17">17</a></span>
+<span class="normal"><a href="#__codelineno-1-18">18</a></span>
+<span class="normal"><a href="#__codelineno-1-19">19</a></span>
+<span class="normal"><a href="#__codelineno-1-20">20</a></span>
+<span class="normal"><a href="#__codelineno-1-21">21</a></span>
+<span class="normal"><a href="#__codelineno-1-22">22</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="nf">GameplayRuntime::ResetEntityFrameState_</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">EntityHandle</span><span class="w"> </span><span class="n">entity</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">GameplayInputIntentComponent</span><span class="o">*</span><span class="w"> </span><span class="n">intent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetInputIntent</span><span class="p">(</span><span class="n">entity</span><span class="p">))</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a><span class="w">                </span><span class="o">*</span><span class="n">intent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">GameplayCharacterCommandComponent</span><span class="o">*</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetCharacterCommand</span><span class="p">(</span><span class="n">entity</span><span class="p">))</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="w">                </span><span class="o">*</span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">GameplayAnimationNotifyStateComponent</span><span class="o">*</span><span class="w"> </span><span class="n">notifyState</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetAnimationNotifyState</span><span class="p">(</span><span class="n">entity</span><span class="p">))</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15"></a><span class="w">                </span><span class="n">ResetGameplayAnimationNotifyFrame</span><span class="p">(</span><span class="o">*</span><span class="n">notifyState</span><span class="p">);</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17"></a>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">graphInstances_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">entity</span><span class="p">);</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">graphInstances_</span><span class="p">.</span><span class="n">end</span><span class="p">())</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a><span class="w">                </span><span class="n">ClearGameplayGraphFrameState</span><span class="p">(</span><span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">);</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22"></a><span class="w">        </span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#gr-reset-frame">GR-RESET-FRAME</a> · <code>src/Gameplay/Runtime/GameplayRuntime_FrameLifecycle.inl:1</code> · снимок <code>8c6c0dc</code></p>
+<h3 id="43-ai-prephysicsupdate">4.3. AI внутри <code>PrePhysicsUpdate</code><a class="headerlink" href="#43-ai-prephysicsupdate" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/Runtime/GameplayRuntime_PublicApi.inl:281–285</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-281">281</a></span>
+<span class="normal"><a href="#__codelineno-2-282">282</a></span>
+<span class="normal"><a href="#__codelineno-2-283">283</a></span>
+<span class="normal"><a href="#__codelineno-2-284">284</a></span>
+<span class="normal"><a href="#__codelineno-2-285">285</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-281"><a id="__codelineno-2-281" name="__codelineno-2-281"></a><span class="w">            </span><span class="n">UpdateActiveAIDecisions_</span><span class="p">();</span>
+</span><span id="__span-2-282"><a id="__codelineno-2-282" name="__codelineno-2-282"></a><span class="w">            </span><span class="n">hideWorldEventSubjects</span><span class="p">(</span><span class="n">eventCountBeforeAIDecisions</span><span class="p">);</span>
+</span><span id="__span-2-283"><a id="__codelineno-2-283" name="__codelineno-2-283"></a><span class="w">            </span><span class="n">aiSystem_</span><span class="p">.</span><span class="n">Update</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span><span id="__span-2-284"><a id="__codelineno-2-284" name="__codelineno-2-284"></a><span class="w">            </span><span class="n">UpdateGameplayCombatRequests</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">actionDefinitions_</span><span class="p">);</span>
+</span><span id="__span-2-285"><a id="__codelineno-2-285" name="__codelineno-2-285"></a><span class="w">            </span><span class="n">UpdateGameplayInteractionRequests</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">actionDefinitions_</span><span class="p">);</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#gr-ai-order">GR-AI-ORDER</a> · <code>src/Gameplay/Runtime/GameplayRuntime_PublicApi.inl:281</code> · снимок <code>8c6c0dc</code></p>
+<p>Между решениями и задачами вызывается скрытие узлов для событий, созданных решениями (<code>HideEntityRequested</code> от
+<code>hide_on_purchase</code>), — поэтому магазин исчезает в том же кадре, что и покупка.</p>
+<h3 id="44">4.4. Режимы<a class="headerlink" href="#44" title="Permanent link">&para;</a></h3>
+<p><code>PrePhysicsUpdate</code> выходит до AI, если режим не <code>Game</code>; переход в <code>Editor</code> отменяет все решения, сбрасывает
+<code>AISystem</code>, брони и links traversal (<a class="cite" href="../reference/source-references.html#gr-mode-editor">GR-MODE-EDITOR</a>).</p>
+<h2 id="5">5. Разобранный пример<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<p><strong>Покупка и скрытие магазина в одном кадре</strong> (Access Key): update решения стартует <code>buy_key</code> →
+<code>ResourcePurchased</code> в <code>runtimeEvents_</code> → второй проход: ledger подтверждает, реакция пишет <code>HideEntityRequested</code> →
+instance дописывает оба события в <code>currentWorldEvents_</code> → <code>hideWorldEventSubjects(eventCountBeforeAIDecisions)</code>
+скрывает узел магазина. Следующий шаг (<code>access_key_shop_to_goal</code>) в этом кадре не стартует: мост вернул
+<code>ReadyToStartStep</code>, и <code>aiSystem_.Update</code> тикать нечего, поэтому команды движения в этом кадре нет <span class="ev ev-inferred" title="Вывод из нескольких подтверждённых контрактов; основание указано рядом">INFERRED</span>.</p>
+<p><strong>Follow с выборкой 0.05 с при 50 Гц</strong> (учебные числа, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>t</mi><mo>=</mo><mn>0.02</mn></mrow><annotation encoding="application/x-tex">\Delta t = 0.02</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mord mathnormal">t</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.02</span></span></span></span></span>): tick 1 — накоплено 0.02, пересчёта нет,
+переиздана команда старта; tick 2 — 0.04; tick 3 — 0.06 ≥ 0.05 → пересчёт steering, остаток
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">fmod</mi><mo>⁡</mo><mo stretchy="false">(</mo><mn>0.06</mn><mo separator="true">,</mo><mn>0.05</mn><mo stretchy="false">)</mo><mo>=</mo><mn>0.01</mn></mrow><annotation encoding="application/x-tex">\operatorname{fmod}(0.06, 0.05) = 0.01</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mop"><span class="mord mathrm">fmod</span></span><span class="mopen">(</span><span class="mord">0.06</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0.05</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.01</span></span></span></span></span>; tick 4 — 0.03; tick 5 — 0.05 → пересчёт (в арифметике float сумма может оказаться чуть меньше 0.05, тогда пересчёт сдвинется на tick 6). Пересчёт раз в 2–3
+кадра, но команда <strong>ненулевая в каждом кадре</strong>.</p>
+<h2 id="6">6. Типичные ошибки, границы и проверка<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Писать команду только при пересчёте.</strong> Команда очищается в <code>BeginFrame</code>; агент будет двигаться рывками.</li>
+<li><strong>Ожидать немедленного следующего шага.</strong> Пауза в один кадр без команды — свойство текущего порядка.</li>
+<li><strong>Менять порядок как «рефакторинг».</strong> Перестановка <code>UpdateActiveAIDecisions_</code> и <code>aiSystem_.Update</code> изменит
+  задержки и видимость событий; правило <code>AGENTS.md</code> требует доказывать эквивалентность порядка.</li>
+<li><strong>Сценарий до <code>BeginFrame</code>.</strong> Изменения мира, сделанные сценарием, видны в этом же кадре; кадровые данные,
+  записанные сценарием, будут очищены <code>BeginFrame</code> <span class="ev ev-inferred" title="Вывод из нескольких подтверждённых контрактов; основание указано рядом">INFERRED</span>.</li>
+<li><strong>Порядок агентов.</strong> Детерминирован по handle, не «справедлив».</li>
+</ul>
+<p>Проверки: <code>TestGameplayRuntimeModeTransitions.cpp</code> (3), <code>TestGameplayRuntimeNodeBoundMappingConsistency.cpp</code> (6) —
+наличие <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>; кадровые задержки этой главы выведены из кода, в приложении не измерялись <span class="ev ev-notcov" title="Данных недостаточно или проверка не выполнялась">NOT_VERIFIED</span>.</p>
+<p>Далее: <a href="11-spatial-routes.html">11. Пространственные маршруты</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Нижний колонтитул" >
+        
+          
+          <a href="09-execution-lifetime.html" class="md-footer__link md-footer__link--prev" aria-label="Назад: 09 Исполнение и lifetime">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Назад
+              </span>
+              <div class="md-ellipsis">
+                09 Исполнение и lifetime
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="11-spatial-routes.html" class="md-footer__link md-footer__link--next" aria-label="Вперед: 11 Пространственные маршруты">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Вперед
+              </span>
+              <div class="md-ellipsis">
+                11 Пространственные маршруты
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "navigation.path", "search.highlight", "search.suggest", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../assets/js/atlas-diagram-viewer.js"></script>
+      
+        <script src="../assets/js/atlas-reveal.js"></script>
+      
+        <script src="../assets/js/atlas-demo-data.js"></script>
+      
+        <script src="../assets/js/atlas-demos.js"></script>
+      
+    
+  </body>
+</html>

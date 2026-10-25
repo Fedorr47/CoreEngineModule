@@ -1,0 +1,20 @@
+%% title: Две стадии подготовки: регистрация каталога (один раз) и создание instance (на агента)
+%% kind: sequence-like flowchart (время загрузки против создания instance)
+%% level: детали
+%% refs: CO-REGISTER-ASSETS, CO-PENDING, CO-TEMPLATE, AU-COMPILE, CO-FROM-TEMPLATE, CO-RESOLVE-ROLES, CO-ORDER, CO-INSTANCE-DEF, GG-CREATE
+flowchart TB
+  subgraph Load["Регистрация: MakeDefaultGameplayAIDecisionFactories → RegisterGameplayAIDecisionAssets"]
+    L1["проверка ID каталога<br/>(пустые, дубликаты)"] --> L2["pending = копия реестра фабрик"]
+    L2 --> L3["для каждой записи: Load behavior,<br/>bindings, definition, routes"]
+    L3 --> L4["GameplayGOAPDecisionTemplate:<br/>model, CompileGameplayGOAPDefinition,<br/>известные типы, покрытие контекстов"]
+    L4 --> L5["фабрика захватывает<br/>shared_ptr&lt;const Template&gt;"]
+    L5 --> L6["destination = pending<br/>(только если ВСЕ записи успешны)"]
+  end
+  subgraph Create["Создание: GameplayRuntime::StartAIDecision → фабрика"]
+    C1["ResolveRoles по LevelAsset:<br/>позиция + entity (снимок)"] --> C2["компиляция наблюдений →<br/>OrderGameplayGOAPObservations"]
+    C2 --> C3["реакции"]
+    C3 --> C4["capability-провайдеры по группам;<br/>CostOverrides"]
+    C4 --> C5["InstanceDefinition: копия<br/>определения + overrides"]
+    C5 --> C6["CreateGameplayGOAPDecision:<br/>bindings, проверка полноты"]
+  end
+  L6 -.->|"фабрика вызывается позже,<br/>исключение → nullptr + diagnostic"| C1

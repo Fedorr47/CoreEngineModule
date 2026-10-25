@@ -1,0 +1,11 @@
+%% title: FleeTarget как триггер Шмитта: два порога и память состояния
+%% kind: state
+%% level: детали
+%% refs: NA-FLEE-HYST, NA-FLEE-CTOR, NA-FLEE-SETTINGS
+stateDiagram-v2
+  [*] --> Спокоен: Start (isFleeing = false)
+  Спокоен --> Бежит: d ≤ triggerRadius (при пересчёте)
+  Бежит --> Спокоен: d ≥ safeRadius
+  Бежит --> Бежит: d < safeRadius (Flee steering)
+  Спокоен --> Спокоен: d > triggerRadius (нулевая команда)
+  Бежит --> Спокоен: Cancel / цель исчезла (Failed)

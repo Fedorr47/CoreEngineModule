@@ -1,0 +1,16 @@
+%% title: Состояния AIActionTask
+%% kind: state
+%% level: детали
+%% refs: AT-CLASS, AT-CANCEL, AR-RESULT, DC-ACTION-STATUS
+stateDiagram-v2
+  [*] --> NotStarted: конструктор (context, runtime)
+  NotStarted --> Running: Start() → runtime Running
+  NotStarted --> Succeeded: Start() → runtime Succeeded
+  NotStarted --> Failed: Start() → runtime Failed
+  Running --> Running: Tick() → Running
+  Running --> Succeeded: Tick() → Succeeded
+  Running --> Failed: Tick() → Failed
+  Running --> Cancelled: Cancel() → runtime.Cancel()
+  Succeeded --> [*]: задача остаётся в AISystem до замены или смерти агента
+  Failed --> [*]
+  Cancelled --> [*]

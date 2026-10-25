@@ -1,0 +1,8 @@
+﻿cmake: cmake version 4.4.2
+cl: C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe
+head: 8c6c0dc37ab369e201d1b3252448f96d1e81cd37
+start: 2026-10-13T18:22:26.0019582+02:00
+build exit: 0
+build end: 2026-10-13T18:22:31.1665166+02:00
+gtest exit: 1
+done: 2026-10-13T18:22:34.4572116+02:00

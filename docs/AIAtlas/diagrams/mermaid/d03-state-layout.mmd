@@ -1,0 +1,16 @@
+%% title: Модель состояния: от авторских имён фактов к ячейкам AIAgentWorldState
+%% kind: data-flow
+%% level: обзор
+%% refs: AU-COMPILE, WS-CAPACITY, WS-STORAGE, WS-HASH, CO-ORDER
+flowchart TB
+  A["access_key.goap.json<br/>facts: name + type"] -->|"разбор (данные)"| B["GameplayGOAPDefinitionAsset"]
+  B -->|"компиляция: ID по порядку<br/>объявления внутри типа"| C["GameplayGOAPCompiledDefinition<br/>имя → AIWorldFactId /<br/>AIWorldIntegerFactId"]
+  C -->|"ID в условиях и эффектах"| D["AIActionDefinition<br/>AIGoalDefinition"]
+  subgraph S["AIAgentWorldState (одна копия на агента + копии в поиске)"]
+    E["bitset 128:<br/>bool-факты, индекс 0..127"]
+    F["array int32 x 128:<br/>int-факты, индекс 0..127"]
+  end
+  C -->|"writer каждого факта"| G["наблюдения<br/>IGameplayGOAPObservation"]
+  G -->|"запись (данные)"| S
+  S -->|"копия начального состояния"| H["FindAIPlan<br/>поисковые копии"]
+  S -->|"равенство и FNV-1a хеш<br/>по всем 128+128 ячейкам"| I["bestCosts:<br/>unordered_map"]

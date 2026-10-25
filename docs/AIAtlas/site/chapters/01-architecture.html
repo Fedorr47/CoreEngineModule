@@ -1,0 +1,2158 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc">
+      
+      
+      
+      
+        <link rel="prev" href="00-how-to-read.html">
+      
+      
+        <link rel="next" href="02-goap-strips.html">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>01 Полная архитектура AI - CoreEngine AI Atlas — GOAP, Steering и контракты исполнения</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="../assets/js/vendor/iframe-worker-shim.js"></script>
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../assets/katex/katex.min.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas-responsive.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#01-ai" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-header__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              01 Полная архитектура AI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Тёмная тема"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Тёмная тема" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Светлая тема"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Светлая тема" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-nav__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Главная
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Основы
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Основы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="00-how-to-read.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    00 Как читать атлас
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="01-architecture.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка: модель контура управления
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка: модель контура управления">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-senseplanact" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Sense–plan–act и почему план надо проверять
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Трёхслойная декомпозиция
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Владение и время жизни
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Задержка обратной связи
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Точки входа
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-prephysicsupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Порядок внутри PrePhysicsUpdate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. Кто чем владеет
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-marker-visit" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: один кадр Marker Visit
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="02-goap-strips.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="03-state-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    03 Модель состояния
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="04-goals-actions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    04 Цели и контракты действий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="05-planner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    05 Планировщик
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Решение и исполнение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Решение и исполнение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="06-assets-composition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    06 Ассеты и композиция
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="07-observations-events.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    07 Наблюдения и события
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="08-decision-runtime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    08 Decision runtime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="09-execution-lifetime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    09 Исполнение и lifetime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="10-frame-order.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Движение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Движение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="11-spatial-routes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    11 Пространственные маршруты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="12-route-follower.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    12 RouteFollower
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="13-steering.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    13 Steering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="14-temporal-behaviors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="15-obstacle-avoidance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    15 Obstacle avoidance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="16-traversal-physics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    16 Traversal и физика
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Практика
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Практика
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="17-resources-multiagent.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    17 Ресурсы и несколько агентов
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="18-authoring-scenarios.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    18 Авторинг и сценарии
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="19-diagnostics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    19 Диагностика и проверка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="20-limits-future.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    20 Ограничения и развитие
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Учебные модели
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Учебные модели
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/goap-search.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GOAP-поиск по шагам
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/arrival-flee.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Arrival и гистерезис Flee
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/runtime-quick-reference.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runtime: быстрый справочник
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/class-index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/source-references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Реестр источников
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/diagrams.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Каталог схем
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Словарь
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/external-sources.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Внешние источники
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/build.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Сборка и обновление
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/validation-report.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Отчёт автоматических проверок
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка: модель контура управления
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка: модель контура управления">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-senseplanact" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Sense–plan–act и почему план надо проверять
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Трёхслойная декомпозиция
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Владение и время жизни
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Задержка обратной связи
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Точки входа
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-prephysicsupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Порядок внутри PrePhysicsUpdate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. Кто чем владеет
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-marker-visit" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: один кадр Marker Visit
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="01-ai">01. Полная архитектура AI: от решения до физики и обратно<a class="headerlink" href="#01-ai" title="Permanent link">&para;</a></h1>
+<div class="admonition abstract">
+<p class="admonition-title">Коротко</p>
+<p>AI CoreEngine — замкнутый контур управления: <strong>наблюдение</strong> превращает мир в факты, <strong>GOAP</strong> выбирает цель и
+план, <strong>исполнение</strong> создаёт для шага плана конкретный runtime, <strong>движение</strong> (маршрут, steering, avoidance,
+traversal) превращает шаг в команду персонажу, <strong>физика</strong> реализует или не реализует движение, и следующее
+наблюдение видит результат. Каждый слой отвечает на свой вопрос в своём масштабе времени и не подменяет соседей.
+Статус: <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>.</p>
+</div>
+<h2 id="1">1. Задача и интуиция<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p>Агенту в игре нужно одновременно «думать» и «двигаться». Думать — значит выбрать осмысленную последовательность
+действий: собрать две монеты, купить ключ, дойти до выхода. Двигаться — каждый кадр решать, куда толкать тело,
+чтобы обойти угол и не врезаться в стену. Эти задачи различаются по природе:</p>
+<table>
+<thead>
+<tr>
+<th>Вопрос</th>
+<th>Масштаб времени</th>
+<th>Представление</th>
+<th>Слой CoreEngine</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Что сейчас важно?</td>
+<td>события, редко</td>
+<td>булевы цели, score</td>
+<td>выбор цели</td>
+</tr>
+<tr>
+<td>Какой порядок действий?</td>
+<td>при изменениях</td>
+<td>символические факты</td>
+<td>планировщик GOAP</td>
+</tr>
+<tr>
+<td>Как выполнить шаг?</td>
+<td>жизнь шага (секунды)</td>
+<td>runtime со статусом</td>
+<td>исполнение, <code>AISystem</code></td>
+</tr>
+<tr>
+<td>Через какие точки идти?</td>
+<td>создание шага</td>
+<td>граф, NavMesh, ломаная</td>
+<td>маршруты</td>
+</tr>
+<tr>
+<td>Куда толкать сейчас?</td>
+<td>каждый кадр</td>
+<td>вектор в плоскости XZ</td>
+<td>steering, avoidance</td>
+</tr>
+<tr>
+<td>Где тело на самом деле?</td>
+<td>физический шаг</td>
+<td>позиция, скорость, опора</td>
+<td>мотор, Jolt</td>
+</tr>
+</tbody>
+</table>
+<p>Глава даёт карту: какие объекты существуют, кто ими владеет, кто кого вызывает и где замыкается обратная связь.
+Остальные главы раскрывают каждый слой.</p>
+<h2 id="2">2. Теоретическая выкладка: модель контура управления<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<h3 id="21-senseplanact">2.1. Sense–plan–act и почему план надо проверять<a class="headerlink" href="#21-senseplanact" title="Permanent link">&para;</a></h3>
+<p>Классическая схема робототехники <em>sense → plan → act</em> предполагает, что после планирования мир меняется только по
+нашей модели. В игре это не так: монету может забрать другой агент, цель может исчезнуть, физика может упереть
+персонажа в стену. Поэтому CoreEngine реализует <strong>мониторинговый контур</strong> (monitored execution): исполнение каждого
+шага сопровождается повторным наблюдением, а решение на каждом обновлении проверяет, остаётся ли план корректным.
+Формально пусть <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>O</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">O_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> — наблюдаемое состояние в кадре <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi></mrow><annotation encoding="application/x-tex">t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6151em;"></span><span class="mord mathnormal">t</span></span></span></span></span>, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>π</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">\pi_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">π</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> — текущий план, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo stretchy="false">(</mo><mi>π</mi><mo separator="true">,</mo><mi>O</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">V(\pi, O)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.2222em;">V</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0359em;">π</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mclose">)</span></span></span></span></span> — предикат
+«остаток плана выполним из <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi></mrow><annotation encoding="application/x-tex">O</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span></span></span></span></span> и приводит к цели». Тогда правило обновления</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>π</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mrow><mo fence="true">{</mo><mtable rowspacing="0.36em" columnalign="left left" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><msub><mi>π</mi><mi>t</mi></msub><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>цель не сменилась и </mtext><mi>V</mi><mo stretchy="false">(</mo><msub><mi>π</mi><mi>t</mi></msub><mo separator="true">,</mo><msub><mi>O</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>FindAIPlan</mtext><mo stretchy="false">(</mo><msub><mi>O</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>иначе</mtext><mi mathvariant="normal">.</mi></mrow></mstyle></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">
+\pi_{t+1} =
+\begin{cases}
+\pi_t, &amp; \text{цель не сменилась и } V(\pi_t, O_{t+1}),\\
+\text{FindAIPlan}(O_{t+1}), &amp; \text{иначе}.
+\end{cases}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6389em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">π</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:3em;vertical-align:-1.25em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;"><span class="delimsizing size4">{</span></span><span class="mord"><span class="mtable"><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">π</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord">FindAIPlan</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span><span class="arraycolsep" style="width:1em;"></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">цель</span><span class="mord"> </span><span class="mord cyrillic_fallback">не</span><span class="mord"> </span><span class="mord cyrillic_fallback">сменилась</span><span class="mord"> </span><span class="mord cyrillic_fallback">и</span><span class="mord"> </span></span><span class="mord mathnormal" style="margin-right:0.2222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">π</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">иначе</span></span><span class="mord">.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></div>
+<p>Это упрощённая модель; точные ветви (continuation для выполняющегося шага, сохранение старого исполнения при
+смене цели) — в главе <a href="08-decision-runtime.html">08</a>.</p>
+<h3 id="22">2.2. Трёхслойная декомпозиция<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<p>Архитектуры «делиберативный слой — исполнитель — реактивный слой» (E. Gat, <em>On Three-Layer Architectures</em>, 1998)
+разделяют медленное рассуждение, последовательное исполнение и быстрые реакции. CoreEngine следует той же идее:</p>
+<ol>
+<li><strong>Делиберативный слой</strong> — GOAP: факты, цели, поиск. Не знает о векторах, физике и кадрах.</li>
+<li><strong>Исполнитель</strong> — <code>AIDecisionRuntime</code> и <code>AISystem</code>: держит план, запускает шаг, следит за статусом.</li>
+<li><strong>Реактивный слой</strong> — route follower, steering, avoidance, traversal executors: каждый tick пересчитывают
+   команду по текущей позиции.</li>
+</ol>
+<p>Ключевой инвариант разделения: <strong>верхний слой не делает работу нижнего</strong>. GOAP не двигает персонажа и не
+подтверждает прибытие — эффект <code>markerReached = true</code> лишь прогноз; steering не решает, нужно ли идти к маркеру.</p>
+<h3 id="23">2.3. Владение и время жизни<a class="headerlink" href="#23" title="Permanent link">&para;</a></h3>
+<p>Объекты AI живут на четырёх временных шкалах:</p>
+<table>
+<thead>
+<tr>
+<th>Шкала</th>
+<th>Объекты</th>
+<th>Создаётся</th>
+<th>Уничтожается</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>загрузка/регистрация</td>
+<td>каталог, <code>Gameplay<wbr>GOAPDecision<wbr>Template</code>, registry компонентов</td>
+<td><code>Make<wbr>Default<wbr>Gameplay<wbr>AIDecision<wbr>Factories</code> в App</td>
+<td>при пересоздании <code>GameplayRuntime</code></td>
+</tr>
+<tr>
+<td>жизнь решения</td>
+<td>instance решения, факты, providers, bindings, реакции</td>
+<td><code>StartAIDecision</code></td>
+<td><code>CancelAIDecision</code>, смена режима на Editor</td>
+</tr>
+<tr>
+<td>жизнь шага</td>
+<td>runtime действия (<code>AIActionTask</code>), маршрут follower, состояние avoidance</td>
+<td>старт шага плана</td>
+<td>terminal-статус, отмена, замена задачи</td>
+</tr>
+<tr>
+<td>кадр</td>
+<td><code>Gameplay<wbr>Character<wbr>Command<wbr>Component</code>, мировые события кадра</td>
+<td>заполняются за кадр</td>
+<td><code>BeginFrame</code></td>
+</tr>
+</tbody>
+</table>
+<p>Правило ссылок: объекты короткой шкалы могут заимствовать объекты длинной (binding ссылается на provider решения),
+но не наоборот. Нарушение этого правила — висячая ссылка; поэтому порядок полей и порядок отмены задокументированы
+(глава <a href="09-execution-lifetime.html">09</a>).</p>
+<h3 id="24">2.4. Задержка обратной связи<a class="headerlink" href="#24" title="Permanent link">&para;</a></h3>
+<p>Физический шаг выполняется после всего gameplay-обновления кадра, а наблюдения — в начале следующего. Значит,
+реакция на результат движения запаздывает минимум на один кадр:</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mtext>команда</mtext><mi>t</mi></msub><mover><mo stretchy="true" minsize="3.0em">→</mo><mpadded width="+0.6em" lspace="0.3em"><msub><mtext>физика</mtext><mi>t</mi></msub></mpadded></mover><msub><mtext>позиция</mtext><mi>t</mi></msub><mover><mo stretchy="true" minsize="3.0em">→</mo><mpadded width="+0.6em" lspace="0.3em"><msub><mtext>наблюдение</mtext><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub></mpadded></mover><msub><mtext>факты</mtext><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+\text{команда}_t \xrightarrow{\text{физика}_t} \text{позиция}_t \xrightarrow{\text{наблюдение}_{t+1}} \text{факты}_{t+1}.
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.3522em;vertical-align:-0.2441em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">команда</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1864em;"><span style="top:-2.4559em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2441em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel x-arrow"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.1081em;"><span style="top:-3.322em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight x-arrow-pad"><span class="mord mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord cyrillic_fallback mtight">физика</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2963em;"><span style="top:-2.357em;margin-right:0.0714em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.143em;"><span></span></span></span></span></span></span></span></span></span><span class="svg-align" style="top:-2.689em;"><span class="pstrut" style="height:2.7em;"></span><span class="hide-tail" style="height:0.522em;min-width:1.469em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.522em" viewBox="0 0 400000 522" preserveAspectRatio="xMaxYMin slice"><path d="M0 241v40h399891c-47.3 35.3-84 78-110 128
+-16.7 32-27.7 63.7-33 95 0 1.3-.2 2.7-.5 4-.3 1.3-.5 2.3-.5 3 0 7.3 6.7 11 20
+ 11 8 0 13.2-.8 15.5-2.5 2.3-1.7 4.2-5.5 5.5-11.5 2-13.3 5.7-27 11-41 14.7-44.7
+ 39-84.5 73-119.5s73.7-60.2 119-75.5c6-2 9-5.7 9-11s-3-9-9-11c-45.3-15.3-85
+-40.5-119-75.5s-58.3-74.8-73-119.5c-4.7-14-8.3-27.3-11-40-1.3-6.7-3.2-10.8-5.5
+-12.5-2.3-1.7-7.5-2.5-15.5-2.5-14 0-21 3.7-21 11 0 2 2 10.3 6 25 20.7 83.3 67
+ 151.7 139 205zm0 0v40h399900v-40z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.011em;"><span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.2581em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">позиция</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel x-arrow"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.1081em;"><span style="top:-3.322em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight x-arrow-pad"><span class="mord mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord cyrillic_fallback mtight">наблюдение</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span style="top:-2.2341em;margin-right:0.0714em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3254em;"><span></span></span></span></span></span></span></span></span></span><span class="svg-align" style="top:-2.689em;"><span class="pstrut" style="height:2.7em;"></span><span class="hide-tail" style="height:0.522em;min-width:1.469em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.522em" viewBox="0 0 400000 522" preserveAspectRatio="xMaxYMin slice"><path d="M0 241v40h399891c-47.3 35.3-84 78-110 128
+-16.7 32-27.7 63.7-33 95 0 1.3-.2 2.7-.5 4-.3 1.3-.5 2.3-.5 3 0 7.3 6.7 11 20
+ 11 8 0 13.2-.8 15.5-2.5 2.3-1.7 4.2-5.5 5.5-11.5 2-13.3 5.7-27 11-41 14.7-44.7
+ 39-84.5 73-119.5s73.7-60.2 119-75.5c6-2 9-5.7 9-11s-3-9-9-11c-45.3-15.3-85
+-40.5-119-75.5s-58.3-74.8-73-119.5c-4.7-14-8.3-27.3-11-40-1.3-6.7-3.2-10.8-5.5
+-12.5-2.3-1.7-7.5-2.5-15.5-2.5-14 0-21 3.7-21 11 0 2 2 10.3 6 25 20.7 83.3 67
+ 151.7 139 205zm0 0v40h399900v-40z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.011em;"><span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.9028em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord text"><span class="mord cyrillic_fallback">факты</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mord">.</span></span></span></span></span></div>
+<p>Плюс решение запускает следующий шаг плана не в том же обновлении, в котором заметило успех предыдущего, — это
+даёт ещё кадр паузы (глава <a href="10-frame-order.html">10</a>). Для игровых скоростей (единицы м/с при 60 Гц — сантиметры за
+кадр) это незаметно, но объясняет кадровые эффекты в отладке.</p>
+<h2 id="3">3. Визуальное объяснение<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<figure class="diagram" id="fig-d01-ai-loop"><div class="diagram-viewport" role="img" aria-label="Замкнутый контур: мир и события → факты → цель → план → binding → задача AISystem → runtime → команда → движение → физика → мир. Пунктир — опрос статуса задачи решением."><svg width="817" height="1052" style="--diagram-width:816.90" focusable="false" id="svg-d01-ai-loop" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" viewBox="0 0 816.90380859375 1051.5" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#svg-d01-ai-loop{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d01-ai-loop .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d01-ai-loop .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d01-ai-loop .error-icon{fill:#fff7e6;}#svg-d01-ai-loop .error-text{fill:#000819;stroke:#000819;}#svg-d01-ai-loop .edge-thickness-normal{stroke-width:1px;}#svg-d01-ai-loop .edge-thickness-thick{stroke-width:3.5px;}#svg-d01-ai-loop .edge-pattern-solid{stroke-dasharray:0;}#svg-d01-ai-loop .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d01-ai-loop .edge-pattern-dashed{stroke-dasharray:3;}#svg-d01-ai-loop .edge-pattern-dotted{stroke-dasharray:2;}#svg-d01-ai-loop .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d01-ai-loop .marker.cross{stroke:#3d4a57;}#svg-d01-ai-loop svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d01-ai-loop p{margin:0;}#svg-d01-ai-loop .label{font-family:Segoe UI,Noto Sans,Arial,sans-serif;color:#14212e;}#svg-d01-ai-loop .cluster-label text{fill:#000819;}#svg-d01-ai-loop .cluster-label span{color:#000819;}#svg-d01-ai-loop .cluster-label span p{background-color:transparent;}#svg-d01-ai-loop .label text,#svg-d01-ai-loop span{fill:#14212e;color:#14212e;}#svg-d01-ai-loop .node rect,#svg-d01-ai-loop .node circle,#svg-d01-ai-loop .node ellipse,#svg-d01-ai-loop .node polygon,#svg-d01-ai-loop .node path{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d01-ai-loop .rough-node .label text,#svg-d01-ai-loop .node .label text,#svg-d01-ai-loop .image-shape .label,#svg-d01-ai-loop .icon-shape .label{text-anchor:middle;}#svg-d01-ai-loop .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#svg-d01-ai-loop .rough-node .label,#svg-d01-ai-loop .node .label,#svg-d01-ai-loop .image-shape .label,#svg-d01-ai-loop .icon-shape .label{text-align:center;}#svg-d01-ai-loop .node.clickable{cursor:pointer;}#svg-d01-ai-loop .root .anchor path{fill:#3d4a57!important;stroke-width:0;stroke:#3d4a57;}#svg-d01-ai-loop .arrowheadPath{fill:#0b0b0b;}#svg-d01-ai-loop .edgePaths .path{stroke:#3d4a57;stroke-width:1px;}#svg-d01-ai-loop .flowchart-link{stroke:#3d4a57;fill:none;}#svg-d01-ai-loop .edgeLabel{background-color:#ffffff;text-align:center;}#svg-d01-ai-loop .edgeLabel p{background-color:#ffffff;}#svg-d01-ai-loop .edgeLabel rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d01-ai-loop .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#svg-d01-ai-loop .cluster rect{fill:#f6f8fa;stroke:#9aa8b6;stroke-width:1px;}#svg-d01-ai-loop .cluster text{fill:#000819;}#svg-d01-ai-loop .cluster span{color:#000819;}#svg-d01-ai-loop .node .collapsed-indicator{fill:#9aa8b6;stroke:none;opacity:0.6;}#svg-d01-ai-loop .node .collapsed-separator{stroke:#9aa8b6;stroke-width:0.75px;}#svg-d01-ai-loop div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:12px;background:#fff7e6;border:1px solid hsl(40.8, 60%, 85.0980392157%);border-radius:2px;pointer-events:none;z-index:100;}#svg-d01-ai-loop .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#14212e;}#svg-d01-ai-loop rect.text{fill:none;stroke-width:0;}#svg-d01-ai-loop .icon-shape,#svg-d01-ai-loop .image-shape{background-color:#ffffff;text-align:center;}#svg-d01-ai-loop .icon-shape p,#svg-d01-ai-loop .image-shape p{background-color:#ffffff;padding:2px;}#svg-d01-ai-loop .icon-shape .label rect,#svg-d01-ai-loop .image-shape .label rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d01-ai-loop .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#svg-d01-ai-loop .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#svg-d01-ai-loop .node .neo-node{stroke:#3f6ea3;}#svg-d01-ai-loop [data-look="neo"].node rect,#svg-d01-ai-loop [data-look="neo"].cluster rect,#svg-d01-ai-loop [data-look="neo"].node polygon{stroke:url(#svg-d01-ai-loop-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-ai-loop [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d01-ai-loop [data-look="neo"].node path{stroke:url(#svg-d01-ai-loop-gradient);stroke-width:1px;}#svg-d01-ai-loop [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-ai-loop [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d01-ai-loop [data-look="neo"].node circle{stroke:url(#svg-d01-ai-loop-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-ai-loop [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d01-ai-loop [data-look="neo"].icon-shape .icon{fill:url(#svg-d01-ai-loop-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-ai-loop [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d01-ai-loop-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-ai-loop .edgeLabel rect,#svg-d01-ai-loop .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d01-ai-loop .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d01-ai-loop :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="svg-d01-ai-loop_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="svg-d01-ai-loop_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M407.997,64.5L400.031,70.5C392.066,76.5,376.136,88.5,368.171,99.833C360.206,111.167,360.206,121.833,360.206,127.167L360.206,132.5" id="svg-d01-ai-loop-L_W_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_W_F_0" data-points="W3sieCI6NDA3Ljk5NjU0NTQ1NzY1NDQsInkiOjY0LjV9LHsieCI6MzYwLjIwNTkzMjYxNzE4NzUsInkiOjEwMC41fSx7IngiOjM2MC4yMDU5MzI2MTcxODc1LCJ5IjoxMzYuNX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M556.407,875L562.083,869C567.759,863,579.112,851,584.788,834.292C590.464,817.583,590.464,796.167,590.464,774.75C590.464,753.333,590.464,731.917,590.464,711.875C590.464,691.833,590.464,673.167,590.464,653.125C590.464,633.083,590.464,611.667,590.464,590.208C590.464,568.75,590.464,547.25,590.464,527.125C590.464,507,590.464,488.25,590.464,469.542C590.464,450.833,590.464,432.167,590.464,412.125C590.464,392.083,590.464,370.667,590.464,349.25C590.464,327.833,590.464,306.417,590.464,286.375C590.464,266.333,590.464,247.667,566.71,231.705C542.957,215.744,495.45,202.488,471.697,195.86L447.944,189.232" id="svg-d01-ai-loop-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6NTU2LjQwNzMyNDg4MzcyNDQsInkiOjg3NX0seyJ4Ijo1OTAuNDYzNzQ1MTE3MTg3NSwieSI6ODM5fSx7IngiOjU5MC40NjM3NDUxMTcxODc1LCJ5Ijo3NzQuNzV9LHsieCI6NTkwLjQ2Mzc0NTExNzE4NzUsInkiOjcxMC41fSx7IngiOjU5MC40NjM3NDUxMTcxODc1LCJ5Ijo2NTQuNX0seyJ4Ijo1OTAuNDYzNzQ1MTE3MTg3NSwieSI6NTkwLjI1fSx7IngiOjU5MC40NjM3NDUxMTcxODc1LCJ5Ijo1MjUuNzV9LHsieCI6NTkwLjQ2Mzc0NTExNzE4NzUsInkiOjQ2OS41fSx7IngiOjU5MC40NjM3NDUxMTcxODc1LCJ5Ijo0MTMuNX0seyJ4Ijo1OTAuNDYzNzQ1MTE3MTg3NSwieSI6MzQ5LjI1fSx7IngiOjU5MC40NjM3NDUxMTcxODc1LCJ5IjoyODV9LHsieCI6NTkwLjQ2Mzc0NTExNzE4NzUsInkiOjIyOX0seyJ4Ijo0NDQuMDkwNjk4MjQyMTg3NSwieSI6MTg4LjE1Njc4OTY4ODg2Nzc4fV0=" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M323.337,193L315.507,199C307.676,205,292.015,217,284.185,228.333C276.354,239.667,276.354,250.333,276.354,255.667L276.354,261" id="svg-d01-ai-loop-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MzIzLjMzNzM0Njc3MDg4NCwieSI6MTkzfSx7IngiOjI3Ni4zNTQzNzAxMTcxODc1LCJ5IjoyMjl9LHsieCI6Mjc2LjM1NDM3MDExNzE4NzUsInkiOjI2NX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M276.354,305L276.354,312.375C276.354,319.75,276.354,334.5,276.354,348.583C276.354,362.667,276.354,376.083,276.354,382.792L276.354,389.5" id="svg-d01-ai-loop-L_G_P_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G_P_0" data-points="W3sieCI6Mjc2LjM1NDM3MDExNzE4NzUsInkiOjMwNX0seyJ4IjoyNzYuMzU0MzcwMTE3MTg3NSwieSI6MzQ5LjI1fSx7IngiOjI3Ni4zNTQzNzAxMTcxODc1LCJ5IjozOTMuNX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M234.619,433.5L222.099,439.5C209.579,445.5,184.538,457.5,172.017,468.875C159.497,480.25,159.497,491,159.497,496.375L159.497,501.75" id="svg-d01-ai-loop-L_P_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_P_B_0" data-points="W3sieCI6MjM0LjYxOTQ4OTM5NzMyMTQ0LCJ5Ijo0MzMuNX0seyJ4IjoxNTkuNDk2NzA0MTAxNTYyNSwieSI6NDY5LjV9LHsieCI6MTU5LjQ5NjcwNDEwMTU2MjUsInkiOjUwNS43NX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M159.497,545.75L159.497,553.167C159.497,560.583,159.497,575.417,172.326,589.887C185.156,604.358,210.814,618.465,223.644,625.519L236.473,632.573" id="svg-d01-ai-loop-L_B_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_S_0" data-points="W3sieCI6MTU5LjQ5NjcwNDEwMTU2MjUsInkiOjU0NS43NX0seyJ4IjoxNTkuNDk2NzA0MTAxNTYyNSwieSI6NTkwLjI1fSx7IngiOjIzOS45Nzg0NDI5NTI3OTA2LCJ5Ijo2MzQuNX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M276.354,674.5L276.354,680.5C276.354,686.5,276.354,698.5,276.354,709.833C276.354,721.167,276.354,731.833,276.354,737.167L276.354,742.5" id="svg-d01-ai-loop-L_S_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S_R_0" data-points="W3sieCI6Mjc2LjM1NDM3MDExNzE4NzUsInkiOjY3NC41fSx7IngiOjI3Ni4zNTQzNzAxMTcxODc1LCJ5Ijo3MTAuNX0seyJ4IjoyNzYuMzU0MzcwMTE3MTg3NSwieSI6NzQ2LjV9XQ==" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M227.994,803L217.723,809C207.452,815,186.91,827,176.638,839.708C166.367,852.417,166.367,865.833,166.367,872.542L166.367,879.25" id="svg-d01-ai-loop-L_R_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R_C_0" data-points="W3sieCI6MjI3Ljk5NDI0NzAyMDkxNDQsInkiOjgwM30seyJ4IjoxNjYuMzY3MTg3NSwieSI6ODM5fSx7IngiOjE2Ni4zNjcxODc1LCJ5Ijo4ODMuMjV9XQ==" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M350.871,803L366.698,809C382.525,815,414.178,827,437.306,838.595C460.434,850.189,475.036,861.378,482.338,866.973L489.639,872.567" id="svg-d01-ai-loop-L_R_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R_E_0" data-points="W3sieCI6MzUwLjg3MTMwMjI2Njk5MjksInkiOjgwM30seyJ4Ijo0NDUuODMwOTMyNjE3MTg3NSwieSI6ODM5fSx7IngiOjQ5Mi44MTM5MDkyNzA4ODQsInkiOjg3NX1d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M166.367,923.25L166.367,930.625C166.367,938,166.367,952.75,196.186,966.107C226.005,979.465,285.643,991.429,315.461,997.412L345.28,1003.394" id="svg-d01-ai-loop-L_C_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_M_0" data-points="W3sieCI6MTY2LjM2NzE4NzUsInkiOjkyMy4yNX0seyJ4IjoxNjYuMzY3MTg3NSwieSI6OTY3LjV9LHsieCI6MzQ5LjIwMjAyNjM2NzE4NzUsInkiOjEwMDQuMTgwNzE1NDc1NTQxM31d" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M541.796,1005.834L576.623,999.445C611.451,993.056,681.106,980.278,715.934,963.181C750.761,946.083,750.761,924.667,750.761,903.25C750.761,881.833,750.761,860.417,750.761,839C750.761,817.583,750.761,796.167,750.761,774.75C750.761,753.333,750.761,731.917,750.761,711.875C750.761,691.833,750.761,673.167,750.761,653.125C750.761,633.083,750.761,611.667,750.761,590.208C750.761,568.75,750.761,547.25,750.761,527.125C750.761,507,750.761,488.25,750.761,469.542C750.761,450.833,750.761,432.167,750.761,412.125C750.761,392.083,750.761,370.667,750.761,349.25C750.761,327.833,750.761,306.417,750.761,286.375C750.761,266.333,750.761,247.667,750.761,227.625C750.761,207.583,750.761,186.167,750.761,164.75C750.761,143.333,750.761,121.917,722.484,105.257C694.207,88.597,637.653,76.694,609.376,70.742L581.099,64.79" id="svg-d01-ai-loop-L_M_W_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M_W_0" data-points="W3sieCI6NTQxLjc5NTc3NjM2NzE4NzUsInkiOjEwMDUuODM0NDcwNDc2NTk2NX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5Ijo5NjcuNX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5Ijo5MDMuMjV9LHsieCI6NzUwLjc2MTQ3NDYwOTM3NSwieSI6ODM5fSx7IngiOjc1MC43NjE0NzQ2MDkzNzUsInkiOjc3NC43NX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5Ijo3MTAuNX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5Ijo2NTQuNX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5Ijo1OTAuMjV9LHsieCI6NzUwLjc2MTQ3NDYwOTM3NSwieSI6NTI1Ljc1fSx7IngiOjc1MC43NjE0NzQ2MDkzNzUsInkiOjQ2OS41fSx7IngiOjc1MC43NjE0NzQ2MDkzNzUsInkiOjQxMy41fSx7IngiOjc1MC43NjE0NzQ2MDkzNzUsInkiOjM0OS4yNX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5IjoyODV9LHsieCI6NzUwLjc2MTQ3NDYwOTM3NSwieSI6MjI5fSx7IngiOjc1MC43NjE0NzQ2MDkzNzUsInkiOjE2NC43NX0seyJ4Ijo3NTAuNzYxNDc0NjA5Mzc1LCJ5IjoxMDAuNX0seyJ4Ijo1NzcuMTg0NDQ4MjQyMTg3NSwieSI6NjMuOTY2NDU1MDQwMTg2NTc0fV0=" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/><path d="M321.928,634.5L338.734,627.125C355.539,619.75,389.15,605,405.955,586.875C422.761,568.75,422.761,547.25,422.761,527.125C422.761,507,422.761,488.25,407.697,473.113C392.633,457.976,362.506,446.453,347.442,440.691L332.378,434.929" id="svg-d01-ai-loop-L_S_P_0" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S_P_0" data-points="W3sieCI6MzIxLjkyODMwMDA3ODI3NywieSI6NjM0LjV9LHsieCI6NDIyLjc2MDYyMDExNzE4NzUsInkiOjU5MC4yNX0seyJ4Ijo0MjIuNzYwNjIwMTE3MTg3NSwieSI6NTI1Ljc1fSx7IngiOjQyMi43NjA2MjAxMTcxODc1LCJ5Ijo0NjkuNX0seyJ4IjozMjguNjQyMzE2NTQ1NzU4OTQsInkiOjQzMy41fV0=" data-look="classic" marker-end="url(#svg-d01-ai-loop_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(360.2059326171875, 100.5)"><g class="label" data-id="L_W_F_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-61.703125" y="-3" width="123.40625" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Observe</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (данные)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(590.4637451171875, 525.75)"><g class="label" data-id="L_E_F_0" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-71.8671875" y="-3" width="143.734375" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Observe</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">ObserveActionEvents</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(276.3543701171875, 229)"><g class="label" data-id="L_F_G_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-43.6640625" y="-3" width="87.328125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">SelectAIGoal</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(276.3543701171875, 349.25)"><g class="label" data-id="L_G_P_0" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-55.8515625" y="-3" width="111.703125" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">FindAIPlan</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> при</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">необходимости</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(159.4967041015625, 469.5)"><g class="label" data-id="L_P_B_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-93.5859375" y="-3" width="187.171875" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">StartReadyPlanStep</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (вызов)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(159.4967041015625, 590.25)"><g class="label" data-id="L_B_S_0" transform="translate(-0.023193359375, -17.25)"><g><rect class="background" style="" x="-70.796875" y="-3" width="141.64013671875" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">владение</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> runtime</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> →</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIActionTask</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(276.3543701171875, 710.5)"><g class="label" data-id="L_S_R_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-64.828125" y="-3" width="129.65625" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Start</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Tick</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (вызов)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(166.3671875, 839)"><g class="label" data-id="L_R_C_0" transform="translate(-0.075927734375, -9)"><g><rect class="background" style="" x="-98.3359375" y="-3" width="196.82373046875" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">route</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> +</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> steering</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> +</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> avoidance</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(445.8309326171875, 839)"><g class="label" data-id="L_R_E_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-101.5625" y="-3" width="203.125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">ResourcePurchased</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (событие)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(166.3671875, 967.5)"><g class="label" data-id="L_C_M_0" transform="translate(-0.365966796875, -9)"><g><rect class="background" style="" x="-84.1875" y="-3" width="169.10693359375" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">мотор</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> →</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> desiredVelocity</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(750.761474609375, 525.75)"><g class="label" data-id="L_M_W_0" transform="translate(-0.126708984375, -9)"><g><rect class="background" style="" x="-58.015625" y="-3" width="116.28466796875" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">физический</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> шаг</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(422.7606201171875, 525.75)"><g class="label" data-id="L_S_P_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-75.8359375" y="-3" width="151.671875" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">статус</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> задачи</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (опрос)</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="svg-d01-ai-loop-flowchart-W-0" data-look="classic" transform="translate(445.4989013671875, 36.25)"><rect class="basic label-container" style="" x="-131.685546875" y="-28.25" width="263.37109375" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Мир:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplayWorld</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> +</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Jolt</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">позиции,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> InteractionPoint,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> pickup</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-F-1" data-look="classic" transform="translate(360.2059326171875, 164.75)"><rect class="basic label-container" style="" x="-83.884765625" y="-28.25" width="167.76953125" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Факты</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> агента</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIAgentWorldState</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-E-2" data-look="classic" transform="translate(529.6824951171875, 903.25)"><rect class="basic label-container" style="" x="-140.5859375" y="-28.25" width="281.171875" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">События</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> кадра</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">PickupCollected,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> ResourcePurchased</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-G-5" data-look="classic" transform="translate(276.3543701171875, 285)"><rect class="basic label-container" style="" x="-76.8662109375" y="-20" width="153.732421875" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Выбранная</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> цель</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-P-7" data-look="classic" transform="translate(276.3543701171875, 413.5)"><rect class="basic label-container" style="" x="-126.09375" y="-20" width="252.1875" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">План:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> шаги</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (actionId,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> contextId)</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-B-9" data-look="classic" transform="translate(159.4967041015625, 525.75)"><rect class="basic label-container" style="" x="-127.87939453125" y="-20" width="255.7587890625" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">IAIActionBinding::CreateRuntime</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-S-11" data-look="classic" transform="translate(276.3543701171875, 654.5)"><rect class="basic label-container" style="" x="-130.4375" y="-20" width="260.875" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AISystem:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> одна</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> задача</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> на</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> агента</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-R-13" data-look="classic" transform="translate(276.3543701171875, 774.75)"><rect class="basic label-container" style="" x="-136.509765625" y="-28.25" width="273.01953125" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Action</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> runtime:</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">FollowRoute,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Purchase,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Follow,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Flee</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-C-15" data-look="classic" transform="translate(166.3671875, 903.25)"><rect class="basic label-container" style="" x="-158.3671875" y="-20" width="316.734375" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayCharacterCommandComponent</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-ai-loop-flowchart-M-19" data-look="classic" transform="translate(445.4989013671875, 1023.5)"><rect class="basic label-container" style="" x="-96.296875" y="-20" width="192.59375" height="40"/><g class="label" style="" transform="translate(0, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Движение</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> персонажа</tspan></tspan></text></g></g></g></g></g></g><defs><filter id="svg-d01-ai-loop-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="svg-d01-ai-loop-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="svg-d01-ai-loop-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3f6ea3" stop-opacity="1"/><stop offset="100%" stop-color="hsl(120, 0%, 85.0980392157%)" stop-opacity="1"/></linearGradient></svg></div><figcaption><span class="fig-title">Замкнутый контур: мир и события → факты → цель → план → binding → задача <code>AISystem</code> → runtime → команда → движение → физика → мир. Пунктир — опрос статуса задачи решением.</span><span class="fig-meta">вид: data-flow + вызовы · уровень: обзор · источник: <code>diagrams/mermaid/d01-ai-loop.mmd</code> · код: <a class="cite" href="../reference/source-references.html#gg-instance-update">GG-INSTANCE-UPDATE</a>, <a class="cite" href="../reference/source-references.html#dr-update">DR-UPDATE</a>, <a class="cite" href="../reference/source-references.html#br-start">BR-START</a>, <a class="cite" href="../reference/source-references.html#as-update">AS-UPDATE</a>, <a class="cite" href="../reference/source-references.html#na-route-tick">NA-ROUTE-TICK</a>, <a class="cite" href="../reference/source-references.html#st-apply">ST-APPLY</a>, <a class="cite" href="../reference/source-references.html#cm-movement">CM-MOVEMENT</a>, <a class="cite" href="../reference/source-references.html#ap-physics">AP-PHYSICS</a>, <a class="cite" href="../reference/source-references.html#cp-spatial-observe">CP-SPATIAL-OBSERVE</a> · <a href="../assets/diagrams/d01-ai-loop.svg">SVG</a> · <a href="../reference/diagrams.html#d01-ai-loop">каталог</a></span></figcaption></figure>
+<p>Что заметить: события покупки создаются <strong>исполнением</strong> и возвращаются в <strong>наблюдение</strong>; ни одна стрелка не идёт из
+плана прямо в факты агента.</p>
+<figure class="diagram" id="fig-d01-layers"><div class="diagram-viewport" role="img" aria-label="Слои и направление импортов модулей. Ядро GOAP не зависит от мира; пространственный слой (маршруты, steering, avoidance) не зависит от GOAP; хост собирает всё вместе."><svg width="1553" height="1009" style="--diagram-width:1553.38" focusable="false" id="svg-d01-layers" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" viewBox="0 -1 1553.37646484375 1009" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#svg-d01-layers{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d01-layers .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d01-layers .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d01-layers .error-icon{fill:#fff7e6;}#svg-d01-layers .error-text{fill:#000819;stroke:#000819;}#svg-d01-layers .edge-thickness-normal{stroke-width:1px;}#svg-d01-layers .edge-thickness-thick{stroke-width:3.5px;}#svg-d01-layers .edge-pattern-solid{stroke-dasharray:0;}#svg-d01-layers .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d01-layers .edge-pattern-dashed{stroke-dasharray:3;}#svg-d01-layers .edge-pattern-dotted{stroke-dasharray:2;}#svg-d01-layers .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d01-layers .marker.cross{stroke:#3d4a57;}#svg-d01-layers svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d01-layers p{margin:0;}#svg-d01-layers .label{font-family:Segoe UI,Noto Sans,Arial,sans-serif;color:#14212e;}#svg-d01-layers .cluster-label text{fill:#000819;}#svg-d01-layers .cluster-label span{color:#000819;}#svg-d01-layers .cluster-label span p{background-color:transparent;}#svg-d01-layers .label text,#svg-d01-layers span{fill:#14212e;color:#14212e;}#svg-d01-layers .node rect,#svg-d01-layers .node circle,#svg-d01-layers .node ellipse,#svg-d01-layers .node polygon,#svg-d01-layers .node path{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d01-layers .rough-node .label text,#svg-d01-layers .node .label text,#svg-d01-layers .image-shape .label,#svg-d01-layers .icon-shape .label{text-anchor:middle;}#svg-d01-layers .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#svg-d01-layers .rough-node .label,#svg-d01-layers .node .label,#svg-d01-layers .image-shape .label,#svg-d01-layers .icon-shape .label{text-align:center;}#svg-d01-layers .node.clickable{cursor:pointer;}#svg-d01-layers .root .anchor path{fill:#3d4a57!important;stroke-width:0;stroke:#3d4a57;}#svg-d01-layers .arrowheadPath{fill:#0b0b0b;}#svg-d01-layers .edgePaths .path{stroke:#3d4a57;stroke-width:1px;}#svg-d01-layers .flowchart-link{stroke:#3d4a57;fill:none;}#svg-d01-layers .edgeLabel{background-color:#ffffff;text-align:center;}#svg-d01-layers .edgeLabel p{background-color:#ffffff;}#svg-d01-layers .edgeLabel rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d01-layers .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#svg-d01-layers .cluster rect{fill:#f6f8fa;stroke:#9aa8b6;stroke-width:1px;}#svg-d01-layers .cluster text{fill:#000819;}#svg-d01-layers .cluster span{color:#000819;}#svg-d01-layers .node .collapsed-indicator{fill:#9aa8b6;stroke:none;opacity:0.6;}#svg-d01-layers .node .collapsed-separator{stroke:#9aa8b6;stroke-width:0.75px;}#svg-d01-layers div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:12px;background:#fff7e6;border:1px solid hsl(40.8, 60%, 85.0980392157%);border-radius:2px;pointer-events:none;z-index:100;}#svg-d01-layers .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#14212e;}#svg-d01-layers rect.text{fill:none;stroke-width:0;}#svg-d01-layers .icon-shape,#svg-d01-layers .image-shape{background-color:#ffffff;text-align:center;}#svg-d01-layers .icon-shape p,#svg-d01-layers .image-shape p{background-color:#ffffff;padding:2px;}#svg-d01-layers .icon-shape .label rect,#svg-d01-layers .image-shape .label rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d01-layers .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#svg-d01-layers .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#svg-d01-layers .node .neo-node{stroke:#3f6ea3;}#svg-d01-layers [data-look="neo"].node rect,#svg-d01-layers [data-look="neo"].cluster rect,#svg-d01-layers [data-look="neo"].node polygon{stroke:url(#svg-d01-layers-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-layers [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d01-layers [data-look="neo"].node path{stroke:url(#svg-d01-layers-gradient);stroke-width:1px;}#svg-d01-layers [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-layers [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d01-layers [data-look="neo"].node circle{stroke:url(#svg-d01-layers-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-layers [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d01-layers [data-look="neo"].icon-shape .icon{fill:url(#svg-d01-layers-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-layers [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d01-layers-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d01-layers .edgeLabel rect,#svg-d01-layers .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d01-layers .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d01-layers :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="svg-d01-layers_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="svg-d01-layers_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="svg-d01-layers_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"><g class="cluster" id="svg-d01-layers-Host" data-look="classic"><rect style="" x="123.245361328125" y="8" width="1345.831298828125" height="104.5"/><g class="cluster-label" transform="translate(693.6644287109375, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Хост:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplayRuntime</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> и</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> App</tspan></tspan></text></g></g></g><g class="cluster" id="svg-d01-layers-Move" data-look="classic"><rect style="" x="8" y="440" width="812.43603515625" height="371.5"/><g class="cluster-label" transform="translate(282.686767578125, 440)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Движение</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (без</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> зависимости</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> от</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GOAP)</tspan></tspan></text></g></g></g></g><g class="edgePaths"><path d="M442.291,551L391.115,563.458C339.938,575.917,237.586,600.833,194.503,623.846C151.419,646.859,167.604,667.967,175.697,678.521L183.79,689.076" id="svg-d01-layers-L_M2_M1_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M2_M1_0" data-points="W3sieCI6NDQyLjI5MDg5MDU5MTgxNTgsInkiOjU1MX0seyJ4IjoxMzUuMjMzNjQyNTc4MTI1LCJ5Ijo2MjUuNzV9LHsieCI6MTg2LjIyMzgzNzg0MzIxOTA2LCJ5Ijo2OTIuMjV9XQ==" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M558.336,551L558.336,563.458C558.336,575.917,558.336,600.833,558.336,625.083C558.336,649.333,558.336,672.917,558.336,684.708L558.336,696.5" id="svg-d01-layers-L_M2_M3_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M2_M3_0" data-points="W3sieCI6NTU4LjMzNTkzNzUsInkiOjU1MX0seyJ4Ijo1NTguMzM1OTM3NSwieSI6NjI1Ljc1fSx7IngiOjU1OC4zMzU5Mzc1LCJ5Ijo3MDAuNX1d" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M1011.467,73.524L916.122,80.02C820.777,86.516,630.086,99.508,534.741,113.379C439.396,127.25,439.396,142,439.396,166.542C439.396,191.083,439.396,225.417,439.396,262.5C439.396,299.583,439.396,339.417,439.396,369.458C439.396,399.5,439.396,419.75,451.904,438.578C464.413,457.405,489.43,474.81,501.939,483.513L514.447,492.216" id="svg-d01-layers-L_H1_M2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H1_M2_0" data-points="W3sieCI6MTAxMS40NjcyODUxNTYyNSwieSI6NzMuNTIzNTI1MDAxNjcxMzV9LHsieCI6NDM5LjM5NTUwNzgxMjUsInkiOjExMi41fSx7IngiOjQzOS4zOTU1MDc4MTI1LCJ5IjoxNTYuNzV9LHsieCI6NDM5LjM5NTUwNzgxMjUsInkiOjI1OS43NX0seyJ4Ijo0MzkuMzk1NTA3ODEyNSwieSI6Mzc5LjI1fSx7IngiOjQzOS4zOTU1MDc4MTI1LCJ5Ijo0NDB9LHsieCI6NTE3LjczMDg5NjU0OTI4MjUsInkiOjQ5NC41fV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M368.097,88.5L346.471,92.5C324.844,96.5,281.592,104.5,259.965,115.875C238.339,127.25,238.339,142,238.339,166.542C238.339,191.083,238.339,225.417,238.339,262.5C238.339,299.583,238.339,339.417,238.339,369.458C238.339,399.5,238.339,419.75,238.339,443.667C238.339,467.583,238.339,495.167,238.339,526.125C238.339,557.083,238.339,591.417,235.895,619.018C233.451,646.618,228.562,667.487,226.118,677.921L223.674,688.355" id="svg-d01-layers-L_H2_M1_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H2_M1_0" data-points="W3sieCI6MzY4LjA5Njg0OTA2NzM1OTQ3LCJ5Ijo4OC41fSx7IngiOjIzOC4zMzkxMTEzMjgxMjUsInkiOjExMi41fSx7IngiOjIzOC4zMzkxMTEzMjgxMjUsInkiOjE1Ni43NX0seyJ4IjoyMzguMzM5MTExMzI4MTI1LCJ5IjoyNTkuNzV9LHsieCI6MjM4LjMzOTExMTMyODEyNSwieSI6Mzc5LjI1fSx7IngiOjIzOC4zMzkxMTEzMjgxMjUsInkiOjQ0MH0seyJ4IjoyMzguMzM5MTExMzI4MTI1LCJ5Ijo1MjIuNzV9LHsieCI6MjM4LjMzOTExMTMyODEyNSwieSI6NjI1Ljc1fSx7IngiOjIyMi43NjEyMTI2OTE1MjAwMywieSI6NjkyLjI1fV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M1217.888,787.5L1217.888,791.5C1217.888,795.5,1217.888,803.5,1217.888,813.5C1217.888,823.5,1217.888,835.5,1217.888,846.833C1217.888,858.167,1217.888,868.833,1217.888,874.167L1217.888,879.5" id="svg-d01-layers-L_Exec_Core_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Exec_Core_0" data-points="W3sieCI6MTIxNy44ODg0Mjc3MzQzNzUsInkiOjc4Ny41fSx7IngiOjEyMTcuODg4NDI3NzM0Mzc1LCJ5Ijo4MTEuNX0seyJ4IjoxMjE3Ljg4ODQyNzczNDM3NSwieSI6ODQ3LjV9LHsieCI6MTIxNy44ODg0Mjc3MzQzNzUsInkiOjg4My41fV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M1168.319,581.5L1168.319,588.875C1168.319,596.25,1168.319,611,1171.579,625.149C1174.839,639.299,1181.36,652.847,1184.62,659.621L1187.88,666.396" id="svg-d01-layers-L_Decision_Exec_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Decision_Exec_0" data-points="W3sieCI6MTE2OC4zMTg4NDc2NTYyNSwieSI6NTgxLjV9LHsieCI6MTE2OC4zMTg4NDc2NTYyNSwieSI6NjI1Ljc1fSx7IngiOjExODkuNjE0NTE2NzY3NDgzMywieSI6NjcwfV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M894.367,318.5L907.108,328.625C919.85,338.75,945.332,359,958.074,379.25C970.815,399.5,970.815,419.75,979.747,433.617C988.679,447.485,1006.543,454.97,1015.476,458.712L1024.408,462.454" id="svg-d01-layers-L_Comp_Decision_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Comp_Decision_0" data-points="W3sieCI6ODk0LjM2NzA4NzM5MjEyODcsInkiOjMxOC41fSx7IngiOjk3MC44MTQ5NDE0MDYyNSwieSI6Mzc5LjI1fSx7IngiOjk3MC44MTQ5NDE0MDYyNSwieSI6NDQwfSx7IngiOjEwMjguMDk3MDQxMTA0MTM1MywieSI6NDY0fV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M753.695,318.5L742.193,328.625C730.691,338.75,707.687,359,696.185,379.25C684.683,399.5,684.683,419.75,671.372,438.593C658.06,457.436,631.438,474.872,618.127,483.59L604.816,492.308" id="svg-d01-layers-L_Comp_M2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Comp_M2_0" data-points="W3sieCI6NzUzLjY5NTQ1ODA2NTAxNywieSI6MzE4LjV9LHsieCI6Njg0LjY4Mjg2MTMyODEyNSwieSI6Mzc5LjI1fSx7IngiOjY4NC42ODI4NjEzMjgxMjUsInkiOjQ0MH0seyJ4Ijo2MDEuNDY5NDc5NDcxNTM1MSwieSI6NDk0LjV9XQ==" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M599.607,551L617.808,563.458C636.008,575.917,672.41,600.833,741.542,623.596C810.674,646.36,912.536,666.969,963.467,677.274L1014.399,687.579" id="svg-d01-layers-L_M2_Exec_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M2_Exec_0" data-points="W3sieCI6NTk5LjYwNzAyMDEwOTYwMjYsInkiOjU1MX0seyJ4Ijo3MDguODExMDM1MTU2MjUsInkiOjYyNS43NX0seyJ4IjoxMDE4LjMxOTMzNTkzNzUsInkiOjY4OC4zNzE4MjQxOTY1NTY1fV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M1337.556,88.5L1356.143,92.5C1374.73,96.5,1411.903,104.5,1430.49,115.875C1449.077,127.25,1449.077,142,1449.077,166.542C1449.077,191.083,1449.077,225.417,1449.077,262.5C1449.077,299.583,1449.077,339.417,1449.077,369.458C1449.077,399.5,1449.077,419.75,1449.077,443.667C1449.077,467.583,1449.077,495.167,1449.077,526.125C1449.077,557.083,1449.077,591.417,1433.132,615.687C1417.188,639.957,1385.298,654.165,1369.354,661.268L1353.409,668.372" id="svg-d01-layers-L_H1_Exec_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H1_Exec_0" data-points="W3sieCI6MTMzNy41NTYzMjUyMjgwMjAzLCJ5Ijo4OC41fSx7IngiOjE0NDkuMDc2NjYwMTU2MjUsInkiOjExMi41fSx7IngiOjE0NDkuMDc2NjYwMTU2MjUsInkiOjE1Ni43NX0seyJ4IjoxNDQ5LjA3NjY2MDE1NjI1LCJ5IjoyNTkuNzV9LHsieCI6MTQ0OS4wNzY2NjAxNTYyNSwieSI6Mzc5LjI1fSx7IngiOjE0NDkuMDc2NjYwMTU2MjUsInkiOjQ0MH0seyJ4IjoxNDQ5LjA3NjY2MDE1NjI1LCJ5Ijo1MjIuNzV9LHsieCI6MTQ0OS4wNzY2NjAxNTYyNSwieSI6NjI1Ljc1fSx7IngiOjEzNDkuNzU1NTAyMDUyNjc3NSwieSI6NjcwfV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M1206.288,88.5L1206.288,92.5C1206.288,96.5,1206.288,104.5,1206.288,115.875C1206.288,127.25,1206.288,142,1206.288,166.542C1206.288,191.083,1206.288,225.417,1206.288,262.5C1206.288,299.583,1206.288,339.417,1206.288,369.458C1206.288,399.5,1206.288,419.75,1204.73,433.269C1203.173,446.788,1200.058,453.576,1198.501,456.97L1196.944,460.364" id="svg-d01-layers-L_H1_Decision_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H1_Decision_0" data-points="W3sieCI6MTIwNi4yODc1OTc2NTYyNSwieSI6ODguNX0seyJ4IjoxMjA2LjI4NzU5NzY1NjI1LCJ5IjoxMTIuNX0seyJ4IjoxMjA2LjI4NzU5NzY1NjI1LCJ5IjoxNTYuNzV9LHsieCI6MTIwNi4yODc1OTc2NTYyNSwieSI6MjU5Ljc1fSx7IngiOjEyMDYuMjg3NTk3NjU2MjUsInkiOjM3OS4yNX0seyJ4IjoxMjA2LjI4NzU5NzY1NjI1LCJ5Ijo0NDB9LHsieCI6MTE5NS4yNzU1MTMwNjQxMDQ5LCJ5Ijo0NjR9XQ==" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/><path d="M681.02,88.186L704.256,92.239C727.492,96.291,773.964,104.395,797.2,115.823C820.436,127.25,820.436,142,820.436,156.083C820.436,170.167,820.436,183.583,820.436,190.292L820.436,197" id="svg-d01-layers-L_H2_Comp_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H2_Comp_0" data-points="W3sieCI6NjgxLjAyMDAxOTUzMTI1LCJ5Ijo4OC4xODYyNDM4NjM5NjA4NH0seyJ4Ijo4MjAuNDM2MDM1MTU2MjUsInkiOjExMi41fSx7IngiOjgyMC40MzYwMzUxNTYyNSwieSI6MTU2Ljc1fSx7IngiOjgyMC40MzYwMzUxNTYyNSwieSI6MjAxfV0=" data-look="classic" marker-end="url(#svg-d01-layers_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(248.05178, 598.28556)"><g class="label" data-id="L_M2_M1_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(558.3359375, 625.75)"><g class="label" data-id="L_M2_M3_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(439.3955078125, 259.75)"><g class="label" data-id="L_H1_M2_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(238.339111328125, 379.25)"><g class="label" data-id="L_H2_M1_0" transform="translate(-0.369140625, -17.25)"><g><rect class="background" style="" x="-85.875" y="-3" width="172.48828125" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">реализует</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">IGameplayObstacleQuery</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(1217.888427734375, 847.5)"><g class="label" data-id="L_Exec_Core_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(1168.31884765625, 625.75)"><g class="label" data-id="L_Decision_Exec_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(970.81494140625, 379.25)"><g class="label" data-id="L_Comp_Decision_0" transform="translate(-0.42041015625, -9)"><g><rect class="background" style="" x="-27.8359375" y="-3" width="56.5126953125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(684.682861328125, 379.25)"><g class="label" data-id="L_Comp_M2_0" transform="translate(0, -9)"><g><rect class="background" style="" x="-93.3671875" y="-3" width="186.734375" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (MoveToCapability)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(798.71082, 643.93914)"><g class="label" data-id="L_M2_Exec_0" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-91.625" y="-3" width="183.25" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (IAIActionRuntime,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AISystem)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(1449.07666015625, 379.25)"><g class="label" data-id="L_H1_Exec_0" transform="translate(-0.0732421875, -33.75)"><g><rect class="background" style="" x="-96.2265625" y="-3" width="192.599609375" height="73.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (AISystem,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIDecisionRuntime,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="2.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">фабрики</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> решений,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> прямые</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="3.2em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">запуски)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(1206.28759765625, 259.75)"><g class="label" data-id="L_H1_Decision_0" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-70.6953125" y="-3" width="141.390625" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">импорт</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> интерфейса</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">решения</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(820.43603515625, 156.75)"><g class="label" data-id="L_H2_Comp_0" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-101.640625" y="-3" width="203.28125" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">MakeDefaultGameplayAIDecis</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">ionFactories</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="root" transform="translate(617.99853515625, 193)"><g class="clusters"><g class="cluster" id="svg-d01-layers-Comp" data-look="classic"><rect style="" x="8" y="8" width="388.875" height="116.5"/><g class="cluster-label" transform="translate(70.1640625, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Композиция</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> и</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> доменные</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> компоненты</tspan></tspan></text></g></g></g></g><g class="edgePaths"/><g class="edgeLabels"/><g class="nodes"><g class="node default" id="svg-d01-layers-flowchart-C1-3" data-look="classic" transform="translate(202.4375, 66.25)"><rect class="basic label-container" style="" x="-157.9375" y="-28.25" width="315.875" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">registry,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> template,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> порядок</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> наблюдений,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">spatial</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> resource</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> move_to</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> компоненты</tspan></tspan></text></g></g></g></g></g><g class="root" transform="translate(909.56103515625, 456)"><g class="clusters"><g class="cluster" id="svg-d01-layers-Decision" data-look="classic"><rect style="" x="8" y="8" width="501.515625" height="116.5"/><g class="cluster-label" transform="translate(197.79736328125, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Решение-instance</tspan></tspan></text></g></g></g></g><g class="edgePaths"/><g class="edgeLabels"/><g class="nodes"><g class="node default" id="svg-d01-layers-flowchart-D1-2" data-look="classic" transform="translate(258.7578125, 66.25)"><rect class="basic label-container" style="" x="-214.2578125" y="-28.25" width="428.515625" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayGOAPDecision,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplayGOAPDecisionInstance,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">IGameplayGOAPContext,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> реакции</tspan></tspan></text></g></g></g></g></g><g class="root" transform="translate(1010.3193359375, 662)"><g class="clusters"><g class="cluster" id="svg-d01-layers-Exec" data-look="classic"><rect style="" x="8" y="8" width="399.13818359375" height="116.5"/><g class="cluster-label" transform="translate(78.412841796875, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Исполнение</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (знает</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> о</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplayWorld)</tspan></tspan></text></g></g></g></g><g class="edgePaths"/><g class="edgeLabels"/><g class="nodes"><g class="node default" id="svg-d01-layers-flowchart-E1-1" data-look="classic" transform="translate(207.569091796875, 66.25)"><rect class="basic label-container" style="" x="-163.069091796875" y="-28.25" width="326.13818359375" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIPlanExecution,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AIPlanExecutionBridge,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIDecisionRuntime,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AISystem,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AIActionTask</tspan></tspan></text></g></g></g></g></g><g class="root" transform="translate(1008.825927734375, 875.5)"><g class="clusters"><g class="cluster" id="svg-d01-layers-Core" data-look="classic"><rect style="" x="8" y="8" width="402.125" height="116.5"/><g class="cluster-label" transform="translate(86.6171875, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Ядро</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GOAP</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (без</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> мира</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> и</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> сущностей)</tspan></tspan></text></g></g></g></g><g class="edgePaths"/><g class="edgeLabels"/><g class="nodes"><g class="node default" id="svg-d01-layers-flowchart-K1-0" data-look="classic" transform="translate(209.0625, 66.25)"><rect class="basic label-container" style="" x="-164.5625" y="-28.25" width="329.125" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIAgentWorldState,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AIDecisionContracts,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIStateOperations,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> FindAIPlan,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> SelectAIGoal</tspan></tspan></text></g></g></g></g></g><g class="node default" id="svg-d01-layers-flowchart-M1-4" data-look="classic" transform="translate(214.2109375, 728.75)"><rect class="basic label-container" style="" x="-176.2109375" y="-36.5" width="352.421875" height="73"/><g class="label" style="" transform="translate(0, -26.5)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayRoute,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> FindWeightedGameplayRoute,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayRouteFollower,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplaySteering,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="2.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayObstacleAvoidance</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-layers-flowchart-M2-5" data-look="classic" transform="translate(558.3359375, 522.75)"><rect class="basic label-container" style="" x="-211.56787109375" y="-28.25" width="423.1357421875" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIMoveToAction,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AIFollowRouteActionRuntime,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">AIFollowTargetActionRuntime,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AIFleeTargetActionRuntime</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-layers-flowchart-M3-6" data-look="classic" transform="translate(558.3359375, 728.75)"><rect class="basic label-container" style="" x="-127.9140625" y="-28.25" width="255.828125" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Traversal:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> link</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> executor</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> registry,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Door,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Jump</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-layers-flowchart-H1-7" data-look="classic" transform="translate(1206.28759765625, 60.25)"><rect class="basic label-container" style="" x="-194.8203125" y="-28.25" width="389.640625" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">GameplayRuntime:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> владение</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> AISystem,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> решениями,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">реестрами;</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> порядок</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> кадра</tspan></tspan></text></g></g></g><g class="node default" id="svg-d01-layers-flowchart-H2-8" data-look="classic" transform="translate(520.83251953125, 60.25)"><rect class="basic label-container" style="" x="-160.1875" y="-28.25" width="320.375" height="56.5"/><g class="label" style="" transform="translate(0, -18.25)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">App:</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> Jolt,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> GameplayPhysicsObstacleQuery,</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">NavMesh,</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> development-сценарии</tspan></tspan></text></g></g></g></g></g></g><defs><filter id="svg-d01-layers-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="svg-d01-layers-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="svg-d01-layers-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3f6ea3" stop-opacity="1"/><stop offset="100%" stop-color="hsl(120, 0%, 85.0980392157%)" stop-opacity="1"/></linearGradient></svg></div><figcaption><span class="fig-title">Слои и направление импортов модулей. Ядро GOAP не зависит от мира; пространственный слой (маршруты, steering, avoidance) не зависит от GOAP; хост собирает всё вместе.</span><span class="fig-meta">вид: component · уровень: обзор · источник: <code>diagrams/mermaid/d01-layers.mmd</code> · код: <a class="cite" href="../reference/source-references.html#pl-find">PL-FIND</a>, <a class="cite" href="../reference/source-references.html#dr-class">DR-CLASS</a>, <a class="cite" href="../reference/source-references.html#as-class">AS-CLASS</a>, <a class="cite" href="../reference/source-references.html#co-registry">CO-REGISTRY</a>, <a class="cite" href="../reference/source-references.html#cp-move-cap">CP-MOVE-CAP</a>, <a class="cite" href="../reference/source-references.html#rf-tick">RF-TICK</a>, <a class="cite" href="../reference/source-references.html#oa-query">OA-QUERY</a>, <a class="cite" href="../reference/source-references.html#tv-executor">TV-EXECUTOR</a>, <a class="cite" href="../reference/source-references.html#gr-members">GR-MEMBERS</a>, <a class="cite" href="../reference/source-references.html#oa-phys-query">OA-PHYS-QUERY</a> · <a href="../assets/diagrams/d01-layers.svg">SVG</a> · <a href="../reference/diagrams.html#d01-layers">каталог</a></span></figcaption></figure>
+<p>Направление зависимостей — следствие правила <code>AGENTS.md</code>: «Generic GOAP infrastructure must remain domain-neutral».
+Доменные наблюдения и действия живут в <code>Composition/Components</code>, а не в планировщике.</p>
+<h2 id="4-coreengine">4. Как это реализовано в CoreEngine<a class="headerlink" href="#4-coreengine" title="Permanent link">&para;</a></h2>
+<h3 id="41">4.1. Точки входа<a class="headerlink" href="#41" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Вход</th>
+<th>Что делает</th>
+<th>Источник</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Make<wbr>Default<wbr>Gameplay<wbr>AIDecision<wbr>Factories()</code></td>
+<td>загружает каталог <code>ai/<wbr>decisions/<wbr>catalog.<wbr>json</code>, готовит templates</td>
+<td><a class="cite" href="../reference/source-references.html#co-default-factories">CO-DEFAULT-FACTORIES</a></td>
+</tr>
+<tr>
+<td><code>Gameplay<wbr>Runtime(Gameplay<wbr>AIDecision<wbr>Factory<wbr>Registry)</code></td>
+<td>владеет <code>AISystem</code>, решениями, реестрами traversal, бронями</td>
+<td><a class="cite" href="../reference/source-references.html#gr-members">GR-MEMBERS</a></td>
+</tr>
+<tr>
+<td><code>Gameplay<wbr>Runtime::<wbr>Start<wbr>AIDecision(agent, id)</code></td>
+<td>создаёт instance, выполняет первый update, сохраняет при успехе</td>
+<td><a class="cite" href="../reference/source-references.html#gr-start-decision">GR-START-DECISION</a></td>
+</tr>
+<tr>
+<td><code>Gameplay<wbr>Runtime::<wbr>Start<wbr>AIFollow<wbr>Route / Start<wbr>AIMove<wbr>To / Start<wbr>AIFollow<wbr>Target / Start<wbr>AIFlee<wbr>Target</code></td>
+<td>прямой запуск движения без GOAP</td>
+<td><a class="cite" href="../reference/source-references.html#gr-start-route">GR-START-ROUTE</a>, <a class="cite" href="../reference/source-references.html#gr-start-moveto">GR-START-MOVETO</a>, <a class="cite" href="../reference/source-references.html#gr-start-follow">GR-START-FOLLOW</a>, <a class="cite" href="../reference/source-references.html#gr-start-flee">GR-START-FLEE</a></td>
+</tr>
+<tr>
+<td><code>Gameplay<wbr>Runtime::<wbr>Pre<wbr>Physics<wbr>Update</code></td>
+<td>обновляет решения, затем тикает задачи <code>AISystem</code></td>
+<td><a class="cite" href="../reference/source-references.html#gr-ai-order">GR-AI-ORDER</a>, <a class="cite" href="../reference/source-references.html#gr-ai-update">GR-AI-UPDATE</a></td>
+</tr>
+</tbody>
+</table>
+<p>App создаёт runtime с каталогом и подключает физический query (<a class="cite" href="../reference/source-references.html#ap-factories">AP-FACTORIES</a>, <a class="cite" href="../reference/source-references.html#ap-set-query">AP-SET-QUERY</a>). Конструктор
+по умолчанию <code>GameplayRuntime()</code> создаёт <strong>пустой</strong> каталог (<a class="cite" href="../reference/source-references.html#gr-ctor">GR-CTOR</a>): в тестах и инструментах решения доступны
+только при явной передаче фабрик.</p>
+<h3 id="42-prephysicsupdate">4.2. Порядок внутри <code>PrePhysicsUpdate</code><a class="headerlink" href="#42-prephysicsupdate" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/Runtime/GameplayRuntime_PublicApi.inl:233–289</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#__codelineno-0-274">274</a></span>
+<span class="normal"><a href="#__codelineno-0-275">275</a></span>
+<span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-233"><a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="nf">GameplayRuntime::PrePhysicsUpdate</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">GameplayUpdateContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span>
+</span><span id="__span-0-234"><a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-0-235"><a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="w">            </span><span class="n">CORE_ASSERT_RUNTIME_THREAD</span><span class="p">();</span>
+</span><span id="__span-0-236"><a id="__codelineno-0-236" name="__codelineno-0-236"></a>
+</span><span id="__span-0-237"><a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="w">            </span><span class="n">RemoveDeadNodeBoundEntities_</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-238"><a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="w">            </span><span class="n">EnsureBootstrapEntity_</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-239"><a id="__codelineno-0-239" name="__codelineno-0-239"></a>
+</span><span id="__span-0-240"><a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">lastMode_</span><span class="p">)</span>
+</span><span id="__span-0-241"><a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-242"><a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="w">                </span><span class="n">HandleRuntimeModeChanged_</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-243"><a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="w">                </span><span class="n">lastMode_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">mode</span><span class="p">;</span>
+</span><span id="__span-0-244"><a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-245"><a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+</span><span id="__span-0-246"><a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">GameplayRuntimeMode</span><span class="o">::</span><span class="n">Game</span><span class="p">)</span>
+</span><span id="__span-0-247"><a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-248"><a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="w">                </span><span class="k">return</span><span class="p">;</span>
+</span><span id="__span-0-249"><a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-250"><a id="__codelineno-0-250" name="__codelineno-0-250"></a>
+</span><span id="__span-0-251"><a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="w">            </span><span class="n">UpdateFollowCamera_</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+</span><span id="__span-0-252"><a id="__codelineno-0-252" name="__codelineno-0-252"></a>
+</span><span id="__span-0-253"><a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="w">            </span><span class="n">UpdateGameplayIntentSources</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">intentBindings_</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-254"><a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="w">            </span><span class="n">BuildGameplayCharacterCommands</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-255"><a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">            </span><span class="n">objectReservationSystem_</span><span class="p">.</span><span class="n">CleanupInvalidReservations</span><span class="p">(</span><span class="n">world_</span><span class="p">);</span>
+</span><span id="__span-0-256"><a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="w">            </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">EntityHandle</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pickupCollectors</span><span class="p">;</span>
+</span><span id="__span-0-257"><a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="w">            </span><span class="n">world_</span><span class="p">.</span><span class="n">CollectAIEntities</span><span class="p">(</span><span class="n">pickupCollectors</span><span class="p">);</span>
+</span><span id="__span-0-258"><a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="w">            </span><span class="n">pickupSystem_</span><span class="p">.</span><span class="n">Update</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">pickupCollectors</span><span class="p">,</span><span class="w"> </span><span class="n">currentWorldEvents_</span><span class="p">);</span>
+</span><span id="__span-0-259"><a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">hideWorldEventSubjects</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">firstEvent</span><span class="p">)</span>
+</span><span id="__span-0-260"><a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-261"><a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">eventIndex</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">firstEvent</span><span class="p">;</span>
+</span><span id="__span-0-262"><a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="w">                     </span><span class="n">eventIndex</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">currentWorldEvents_</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">eventIndex</span><span class="p">)</span>
+</span><span id="__span-0-263"><a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="w">                </span><span class="p">{</span>
+</span><span id="__span-0-264"><a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="w">                    </span><span class="k">const</span><span class="w"> </span><span class="n">GameplayWorldEvent</span><span class="o">&amp;</span><span class="w"> </span><span class="n">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">currentWorldEvents_</span><span class="p">[</span><span class="n">eventIndex</span><span class="p">];</span>
+</span><span id="__span-0-265"><a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">event</span><span class="p">.</span><span class="n">type</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">GameplayWorldEventType</span><span class="o">::</span><span class="n">PickupCollected</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+</span><span id="__span-0-266"><a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="w">                            </span><span class="n">event</span><span class="p">.</span><span class="n">type</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">GameplayWorldEventType</span><span class="o">::</span><span class="n">HideEntityRequested</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+</span><span id="__span-0-267"><a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="w">                        </span><span class="n">ctx</span><span class="p">.</span><span class="n">levelAsset</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">nullptr</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">levelInstance</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">nullptr</span><span class="w"> </span><span class="o">||</span>
+</span><span id="__span-0-268"><a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="w">                        </span><span class="n">ctx</span><span class="p">.</span><span class="n">scene</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">nullptr</span><span class="p">)</span>
+</span><span id="__span-0-269"><a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="w">                    </span><span class="p">{</span>
+</span><span id="__span-0-270"><a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="w">                        </span><span class="k">continue</span><span class="p">;</span>
+</span><span id="__span-0-271"><a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="w">                    </span><span class="p">}</span>
+</span><span id="__span-0-272"><a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">GameplayNodeLinkComponent</span><span class="o">*</span><span class="w"> </span><span class="n">link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetNodeLink</span><span class="p">(</span><span class="n">event</span><span class="p">.</span><span class="n">subject</span><span class="p">))</span>
+</span><span id="__span-0-273"><a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="w">                    </span><span class="p">{</span>
+</span><span id="__span-0-274"><a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="w">                        </span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">.</span><span class="n">levelInstance</span><span class="o">-&gt;</span><span class="n">SetNodeRuntimeVisible</span><span class="p">(</span>
+</span><span id="__span-0-275"><a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="w">                            </span><span class="o">*</span><span class="n">ctx</span><span class="p">.</span><span class="n">levelAsset</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">ctx</span><span class="p">.</span><span class="n">scene</span><span class="p">,</span><span class="w"> </span><span class="n">link</span><span class="o">-&gt;</span><span class="n">nodeIndex</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
+</span><span id="__span-0-276"><a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="w">                    </span><span class="p">}</span>
+</span><span id="__span-0-277"><a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="w">                </span><span class="p">}</span>
+</span><span id="__span-0-278"><a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="w">            </span><span class="p">};</span>
+</span><span id="__span-0-279"><a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="w">            </span><span class="n">hideWorldEventSubjects</span><span class="p">(</span><span class="mi">0u</span><span class="p">);</span>
+</span><span id="__span-0-280"><a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">eventCountBeforeAIDecisions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">currentWorldEvents_</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+</span><span id="__span-0-281"><a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="w">            </span><span class="n">UpdateActiveAIDecisions_</span><span class="p">();</span>
+</span><span id="__span-0-282"><a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="w">            </span><span class="n">hideWorldEventSubjects</span><span class="p">(</span><span class="n">eventCountBeforeAIDecisions</span><span class="p">);</span>
+</span><span id="__span-0-283"><a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="w">            </span><span class="n">aiSystem_</span><span class="p">.</span><span class="n">Update</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span><span id="__span-0-284"><a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="w">            </span><span class="n">UpdateGameplayCombatRequests</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">actionDefinitions_</span><span class="p">);</span>
+</span><span id="__span-0-285"><a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="w">            </span><span class="n">UpdateGameplayInteractionRequests</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">actionDefinitions_</span><span class="p">);</span>
+</span><span id="__span-0-286"><a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="w">            </span><span class="n">ExecuteGameplayGraphs_</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+</span><span id="__span-0-287"><a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="w">            </span><span class="n">UpdateGameplayCharacterMovement</span><span class="p">(</span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">nodeBoundEntities_</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">deltaSeconds</span><span class="p">);</span>
+</span><span id="__span-0-288"><a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="w">        </span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#gr-prephys">GR-PREPHYS</a> · <code>src/Gameplay/Runtime/GameplayRuntime_PublicApi.inl:233</code> · снимок <code>8c6c0dc</code></p>
+<p>Ключевые строки: решения обновляются <strong>до</strong> тика задач (<code>UpdateActiveAIDecisions_()</code> → <code>aiSystem_.Update</code>), а
+движение персонажа — <strong>после</strong> (<code>UpdateGameplayCharacterMovement</code>), поэтому команда, записанная runtime в этом кадре,
+используется мотором в этом же кадре.</p>
+<h3 id="43">4.3. Кто чем владеет<a class="headerlink" href="#43" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>GameplayRuntime</code> владеет по значению: <code>AISystem aiSystem_</code>, <code>activeAIDecisions_</code> (map entity →
+  <code>unique_ptr&lt;GameplayAIDecisionInstance&gt;</code>), реестрами traversal, бронями, встроенными executors Door/Jump.</li>
+<li><code>AISystem</code> владеет задачами (<code>AIActionTask</code> → <code>unique_ptr&lt;IAIActionRuntime&gt;</code>), по одной на агента
+  (<a class="cite" href="../reference/source-references.html#as-class">AS-CLASS</a>).</li>
+<li>Instance решения владеет контекстом наблюдений, реакциями, буферами событий и GOAP-обёрткой; bindings
+  <strong>заимствуют</strong> providers (<a class="cite" href="../reference/source-references.html#gg-field-order">GG-FIELD-ORDER</a>).</li>
+<li>Templates разделяются через <code>shared_ptr&lt;const ...&gt;</code> фабриками каталога (<a class="cite" href="../reference/source-references.html#co-register-assets">CO-REGISTER-ASSETS</a>).</li>
+</ul>
+<h2 id="5-marker-visit">5. Разобранный пример: один кадр Marker Visit<a class="headerlink" href="#5-marker-visit" title="Permanent link">&para;</a></h2>
+<p>Сценарий (<a class="cite" href="../reference/source-references.html#as-marker-goap">AS-MARKER-GOAP</a>, <a class="cite" href="../reference/source-references.html#as-marker-behavior">AS-MARKER-BEHAVIOR</a>): агент в узле <code>GOAP_Marker_Start (−6, 0, 0)</code>, маркер
+<code>GOAP_Marker_Goal (6, 0.2, 0)</code> с InteractionPoint.</p>
+<ol>
+<li><strong>Старт.</strong> Сценарий вызывает <code>StartAIDecision(agent, "marker_visit")</code>. Фабрика собирает instance: роли
+   <code>origin</code>, <code>destination</code>, наблюдения <code>target_available</code> → <code>markerPresent</code>, <code>within_distance</code> (0.8) →
+   <code>markerReached</code>, capability <code>move_to/visitMarker</code>. Первый update: факты <code>markerPresent = true</code>,
+   <code>markerReached = false</code>; цель <code>visitMarker</code> выбрана; <code>FindAIPlan</code> → <code>[move_to/visitMarker]</code> (стоимость 2);
+   план установлен в <code>ReadyToStartStep</code>. Instance сохранён, статус решения — Running.</li>
+<li><strong>Ближайший <code>PrePhysicsUpdate</code>, решения.</strong> Development-сценарий вызывается в App до <code>BeginFrame</code>
+   (<a class="cite" href="../reference/source-references.html#ap-scenario">AP-SCENARIO</a>), поэтому это тот же тик App. Update: шаг готов → bridge находит binding <code>move_to</code> → <code>MoveToCapability</code> разрешает
+   маршрут из двух узлов (прямой fallback-граф) → <code>AISystem::StartAction</code> вызывает <code>Start</code> follower’а.</li>
+<li><strong>Тот же тик, задачи.</strong> <code>aiSystem_.Update</code> тикает новую задачу: Arrival к <code>(6, 0.2, 0)</code>, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>=</mo><mn>12</mn><mo>&gt;</mo><mi>R</mi><mo>=</mo><mn>1.5</mn></mrow><annotation encoding="application/x-tex">d = 12 &gt; R = 1.5</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6835em;vertical-align:-0.0391em;"></span><span class="mord">12</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&gt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1.5</span></span></span></span></span> →
+   magnitude 1, бег → команда <code>moveWorld = (1, 0, 0)</code>.</li>
+<li><strong>Тот же тик, движение и физика.</strong> Мотор разгоняется к 4.5 м/с; Jolt перемещает капсулу.</li>
+<li><strong>Следующие кадры.</strong> Наблюдение пересчитывает <code>markerReached</code> по 3D-дистанции до сохранённой позиции роли; когда
+   follower прибудет, задача станет <code>Succeeded</code>, решение синхронизирует шаг, и — если наблюдение подтвердит
+   <code>markerReached</code> — цель выполнена, статус решения <code>Succeeded</code>.</li>
+</ol>
+<p>Нюанс шага 5 (плоское прибытие против 3D-подтверждения) разобран в главе <a href="13-steering.html">13</a> §6.</p>
+<h2 id="6">6. Типичные ошибки, границы и проверка<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Ожидать, что план двигает агента.</strong> План — список семантических шагов; движение появляется только через binding
+  и runtime.</li>
+<li><strong>Искать AI в пустом каталоге.</strong> <code>GameplayRuntime()</code> без фабрик не знает решений; <code>StartAIDecision</code> вернёт <code>false</code>
+  с диагностикой «could not be created».</li>
+<li><strong>Смешивать прямой запуск движения и решение.</strong> У агента одна задача <code>AISystem</code>: <code>StartAIFollowRoute</code> для агента с
+  активным решением заменит задачу решения, а решение увидит <code>NotStarted/Failed</code> и перепланирует
+  (<a class="cite" href="../reference/source-references.html#as-start">AS-START</a>, <a class="cite" href="../reference/source-references.html#br-sync">BR-SYNC</a>) <span class="ev ev-inferred" title="Вывод из нескольких подтверждённых контрактов; основание указано рядом">INFERRED</span>.</li>
+<li><strong>Выход в Editor.</strong> Все решения отменяются и удаляются, задачи сбрасываются, links traversal очищаются
+  (<a class="cite" href="../reference/source-references.html#gr-mode-editor">GR-MODE-EDITOR</a>).</li>
+<li><strong>Обратная связь запаздывает.</strong> Результат физики виден наблюдениям в следующем кадре.</li>
+</ul>
+<p>Проверки: <code>TestAISystem.cpp</code> (13), <code>TestAIDecisionRuntime.cpp</code> (13), <code>TestAIGOAPMoveToVerticalSlice.cpp</code> (2) —
+наличие подтверждено <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>; запуск — <code>audit/validation.md</code>.</p>
+<p>Далее: <a href="02-goap-strips.html">02. GOAP и STRIPS</a> — теоретическая основа делиберативного слоя.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Нижний колонтитул" >
+        
+          
+          <a href="00-how-to-read.html" class="md-footer__link md-footer__link--prev" aria-label="Назад: 00 Как читать атлас">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Назад
+              </span>
+              <div class="md-ellipsis">
+                00 Как читать атлас
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="02-goap-strips.html" class="md-footer__link md-footer__link--next" aria-label="Вперед: 02 GOAP и STRIPS">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Вперед
+              </span>
+              <div class="md-ellipsis">
+                02 GOAP и STRIPS
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "navigation.path", "search.highlight", "search.suggest", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../assets/js/atlas-diagram-viewer.js"></script>
+      
+        <script src="../assets/js/atlas-reveal.js"></script>
+      
+        <script src="../assets/js/atlas-demo-data.js"></script>
+      
+        <script src="../assets/js/atlas-demos.js"></script>
+      
+    
+  </body>
+</html>

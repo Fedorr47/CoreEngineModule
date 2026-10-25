@@ -1,0 +1,84 @@
+{
+  "tests": 3,
+  "failures": 2,
+  "disabled": 0,
+  "errors": 0,
+  "timestamp": "2026-10-13T18:22:31Z",
+  "time": "3.225s",
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "AIPhysicsSmokeTest",
+      "tests": 3,
+      "failures": 2,
+      "disabled": 0,
+      "errors": 0,
+      "timestamp": "2026-10-13T18:22:31Z",
+      "time": "3.225s",
+      "testsuite": [
+        {
+          "name": "FreeMovementUsesPhysicsCharacter",
+          "file": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp",
+          "line": 181,
+          "status": "RUN",
+          "result": "COMPLETED",
+          "timestamp": "2026-10-13T18:22:31Z",
+          "time": "1.068s",
+          "classname": "AIPhysicsSmokeTest"
+        },
+        {
+          "name": "WallBlockProducesPhysicalBlockedFeedback",
+          "file": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp",
+          "line": 217,
+          "status": "RUN",
+          "result": "COMPLETED",
+          "timestamp": "2026-10-13T18:22:32Z",
+          "time": "1.089s",
+          "classname": "AIPhysicsSmokeTest",
+          "failures": [
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:244\nExpected: (PlanarSpeed(motor->velocity)) < (0.08f), actual: 2.0000155 vs 0.08\n",
+              "type": ""
+            },
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:245\nExpected: (PlanarSpeed(transform->position - positionBeforeObservation)) < (0.03f), actual: 0.999761164 vs 0.03\n",
+              "type": ""
+            },
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:246\nExpected: (PlanarSpeed(motor->desiredVelocity)) > (PlanarSpeed(motor->velocity) + 1.0f), actual: 2 vs 3.0000155\n",
+              "type": ""
+            },
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:247\nValue of: movement->physicallyBlocked\n  Actual: false\nExpected: true\n",
+              "type": ""
+            }
+          ]
+        },
+        {
+          "name": "WallSlidePreservesTangentialMovement",
+          "file": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp",
+          "line": 251,
+          "status": "RUN",
+          "result": "COMPLETED",
+          "timestamp": "2026-10-13T18:22:33Z",
+          "time": "1.067s",
+          "classname": "AIPhysicsSmokeTest",
+          "failures": [
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:277\nExpected: (motor->desiredVelocity.x) > (0.5f), actual: -0.30485338 vs 0.5\n",
+              "type": ""
+            },
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:280\nExpected: (std::abs(transform->position.x - positionBeforeObservation.x)) < (0.03f), actual: 0.172517776 vs 0.03\n",
+              "type": ""
+            },
+            {
+              "failure": "D:\\C++projects\\CoreEngineModule\\tests\\integration\\AIPhysicsSmoke\\TestAIPhysicsSmoke.cpp:282\nExpected: (std::abs(motor->velocity.x)) < (0.08f), actual: 0.304870576 vs 0.08\n",
+              "type": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

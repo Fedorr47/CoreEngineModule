@@ -1,0 +1,12 @@
+%% title: Порядок добавления нового поведения из ассетов
+%% kind: flowchart (процесс)
+%% level: обзор
+%% refs: AU-COMPILE, CO-TEMPLATE, CO-ORDER, CO-RESOLVE-ROLES, CO-REGISTER-ASSETS, SC-START-DECISION
+flowchart TB
+  A["1. Наблюдаемый критерий успеха →<br/>минимальный набор bool/int фактов"] --> B["2. Действия: preconditions, effects (наблюдаемые!),<br/>continuation ⊆ preconditions, стоимость"]
+  B --> C["3. Каждому факту — один writer (observation),<br/>входы readers объявлены"]
+  C --> D["4. Каждому (action, context) — capability<br/>с реальными ролями и согласованными радиусами"]
+  D --> E["5. При необходимости .routes.json и<br/>bindings.traversals к существующим links"]
+  E --> F["6. Запись в catalog.json, bindings ролей,<br/>development-сценарий с baseline и reset"]
+  F --> G["7. Проверить: ошибки сборки, достижение цели,<br/>Cancel/Reset, отладочные факты"]
+  G -->|"новый ТИП компонента"| H["C++: payload + parser + compiler +<br/>реализация интерфейса + регистрация"]

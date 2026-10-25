@@ -1,0 +1,56 @@
+%% title: Классы композиции: registry, template, контекст компиляции, провайдеры и instance
+%% kind: class / ownership
+%% level: детали
+%% refs: CO-REGISTRY, CO-TEMPLATE, CO-CONTEXT, CO-OBS-IFACE, CO-CAP-IFACE, GG-REACTION, GG-INSTANCE, GG-DECISION, AU-PARSERS
+classDiagram
+  direction LR
+  class GameplayGOAPCompositionRegistry {
+    +RegisterObservation~T~(type, parse, compiler)
+    +RegisterCapability~T~(type, actionId, parse, compiler)
+    +RegisterReaction~T~(type, parse, compiler)
+    +SemanticActions()
+    +AssetParsers()
+  }
+  class GameplayAIComponentParsers {
+    +Register~T~(kind, type, parse)
+    +Parse(kind, type, context) std::any
+  }
+  class GameplayGOAPDecisionTemplate {
+    +Behavior() / Bindings() / RouteGraph()
+    +Compiled()
+    +Capabilities()
+    +InstanceDefinition(overrides)
+  }
+  class GameplayGOAPCompositionContext {
+    +services
+    +definition
+    +roles
+    +Role(name)
+    +BooleanFact(name) / IntegerFact(name)
+    +Parameters~T~(asset)
+  }
+  class IGameplayGOAPObservation {
+    <<interface>>
+    +BooleanOutputs() / IntegerOutputs()
+    +BooleanInputs() / IntegerInputs()
+    +Observe(...)
+    +ObserveActionEvents(...)
+  }
+  class IGameplayGOAPCapability {
+    <<interface>>
+    +CostOverrides()
+    +CreateBinding(facts, events)
+  }
+  class IGameplayGOAPEventReaction {
+    <<interface>>
+    +React(world, events, facts, output)
+  }
+  class GameplayGOAPDecisionInstance
+  class GameplayGOAPDecision
+  GameplayGOAPCompositionRegistry *-- GameplayAIComponentParsers : владеет
+  GameplayGOAPDecisionTemplate *-- GameplayGOAPCompositionRegistry : копия по значению
+  GameplayGOAPDecisionTemplate ..> GameplayGOAPCompositionContext : компиляторы получают
+  GameplayGOAPDecisionInstance *-- IGameplayGOAPEventReaction : владеет
+  GameplayGOAPDecisionInstance *-- GameplayGOAPDecision : владеет
+  GameplayGOAPDecisionInstance *-- IGameplayGOAPObservation : через контекст
+  GameplayGOAPDecisionInstance *-- IGameplayGOAPCapability : через контекст

@@ -1,0 +1,38 @@
+%% title: Слои AI и направление зависимостей (импорты модулей)
+%% kind: component
+%% level: обзор
+%% refs: PL-FIND, DR-CLASS, AS-CLASS, CO-REGISTRY, CP-MOVE-CAP, RF-TICK, OA-QUERY, TV-EXECUTOR, GR-MEMBERS, OA-PHYS-QUERY
+flowchart TB
+  subgraph Core["Ядро GOAP (без мира и сущностей)"]
+    K1["AIAgentWorldState, AIDecisionContracts,<br/>AIStateOperations, FindAIPlan, SelectAIGoal"]
+  end
+  subgraph Exec["Исполнение (знает о GameplayWorld)"]
+    E1["AIPlanExecution, AIPlanExecutionBridge,<br/>AIDecisionRuntime, AISystem, AIActionTask"]
+  end
+  subgraph Decision["Решение-instance"]
+    D1["GameplayGOAPDecision, GameplayGOAPDecisionInstance,<br/>IGameplayGOAPContext, реакции"]
+  end
+  subgraph Comp["Композиция и доменные компоненты"]
+    C1["registry, template, порядок наблюдений,<br/>spatial / resource / move_to компоненты"]
+  end
+  subgraph Move["Движение (без зависимости от GOAP)"]
+    M1["GameplayRoute, FindWeightedGameplayRoute,<br/>GameplayRouteFollower, GameplaySteering,<br/>GameplayObstacleAvoidance"]
+    M2["AIMoveToAction, AIFollowRouteActionRuntime,<br/>AIFollowTargetActionRuntime, AIFleeTargetActionRuntime"]
+    M3["Traversal: link / executor registry,<br/>Door, Jump"]
+  end
+  subgraph Host["Хост: GameplayRuntime и App"]
+    H1["GameplayRuntime: владение AISystem, решениями,<br/>реестрами; порядок кадра"]
+    H2["App: Jolt, GameplayPhysicsObstacleQuery,<br/>NavMesh, development-сценарии"]
+  end
+  Exec -->|"импорт"| Core
+  Decision -->|"импорт"| Exec
+  Comp -->|"импорт"| Decision
+  Comp -->|"импорт (MoveToCapability)"| M2
+  M2 -->|"импорт"| M1
+  M2 -->|"импорт"| M3
+  M2 -->|"импорт (IAIActionRuntime, AISystem)"| Exec
+  H1 -->|"импорт (AISystem, AIDecisionRuntime,<br/>фабрики решений, прямые запуски)"| Exec
+  H1 -->|"импорт интерфейса решения"| Decision
+  H1 -->|"импорт"| M2
+  H2 -->|"MakeDefaultGameplayAIDecisionFactories"| Comp
+  H2 -->|"реализует IGameplayObstacleQuery"| M1

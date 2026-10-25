@@ -1,0 +1,259 @@
+{
+ "pages": [
+  "index.html",
+  "chapters/05-planner.html",
+  "chapters/13-steering.html"
+ ],
+ "widths": [
+  390,
+  1280,
+  1920,
+  3440
+ ],
+ "zooms": [
+  1
+ ],
+ "failures": [],
+ "jsErrors": [],
+ "consoleErrors": [],
+ "network": [],
+ "layout": [
+  {
+   "page": "index.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "index.html",
+   "width": 1280,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "index.html",
+   "width": 1920,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 801.65625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "index.html",
+   "width": 3440,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 874.0625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55
+   ]
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 1280,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    0.79,
+    0.94
+   ]
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 1920,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 801.65625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    1.1,
+    1.1
+   ]
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 3440,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 874.0625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    1.3,
+    1.3
+   ]
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "width": 390,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 358,
+   "chars": 46,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.55,
+    0.66
+   ]
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "width": 1280,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    0.99,
+    0.92,
+    1
+   ]
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "width": 1920,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 801.65625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    1.1,
+    1.1,
+    1.1
+   ]
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "width": 3440,
+   "zoom": 1,
+   "overflow": 0,
+   "lineLength": 874.0625,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    1.3,
+    1.3,
+    1.3
+   ]
+  }
+ ],
+ "viewer": [
+  {
+   "page": "chapters/05-planner.html",
+   "before": "79%",
+   "zoomed": "99%",
+   "mode": "navigation",
+   "reset": "page",
+   "opened": true,
+   "closed": true,
+   "focusBack": true
+  },
+  {
+   "page": "chapters/13-steering.html",
+   "before": "99%",
+   "zoomed": "124%",
+   "mode": "navigation",
+   "reset": "page",
+   "opened": true,
+   "closed": true,
+   "focusBack": true
+  }
+ ],
+ "search": [
+  {
+   "query": "планировщик",
+   "label": "русское слово",
+   "results": 10,
+   "first": "chapters/01-architecture.html?h="
+  },
+  {
+   "query": "гистерезис",
+   "label": "русское слово в теории",
+   "results": 10,
+   "first": "chapters/05-planner.html?h=%D0%BF%D0%BB%D0%B0%D0%BD%D0%B8%D1%80%D0%BE%D0%B2%D1%89%D0%B8%D0%BA"
+  },
+  {
+   "query": "FindAIPlan",
+   "label": "C++-идентификатор",
+   "results": 10,
+   "first": "reference/classes/FindAIPlan.html?h=findai+plan"
+  },
+  {
+   "query": "Decision",
+   "label": "часть camelCase",
+   "results": 10,
+   "first": "reference/source-references.html?h="
+  },
+  {
+   "query": "physicallyBlocked",
+   "label": "поле структуры",
+   "results": 10,
+   "first": "chapters/16-traversal-physics.html?h=physically+blocked"
+  },
+  {
+   "query": "?h=bitset (reveal details)",
+   "results": 2
+  }
+ ],
+ "demos": {
+  "goap": {
+   "summary": "План найден: start_to_coin_c → coin_c_to_coin_a → coin_a_to_access_key_shop → buy_key → access_key_shop_to_goal; стоимость 42.0854; раскрыто состояний: 22."
+  },
+  "arrival": {
+   "out": "Вход: r = 0.5, R = 2.5 (после нормализации R = 2.5), m_min = 0.1, d = 1.5\nλ = (d − r)/(R − r) = (1.5 − 0.5)/2 = 0.5; m = max(λ, m_min) = 0.5\nmagnitude = 0.50\nцелевая скорость мотора = m · 2 м/с = 1.00 м/с (без учёта ускорения и физики)"
+  }
+ },
+ "screenshots": [
+  "index-390.png",
+  "index-1280.png",
+  "index-1920.png",
+  "index-3440.png",
+  "chapters_05-planner-390.png",
+  "chapters_05-planner-1280.png",
+  "chapters_05-planner-1920.png",
+  "chapters_05-planner-3440.png",
+  "chapters_13-steering-390.png",
+  "chapters_13-steering-1280.png",
+  "chapters_13-steering-1920.png",
+  "chapters_13-steering-3440.png"
+ ],
+ "theme": {
+  "before": "default",
+  "after": "slate"
+ },
+ "filters": {
+  "total": 256,
+  "visible": 14,
+  "domain": "Action runtime"
+ }
+}

@@ -1,0 +1,11 @@
+%% title: Файлы поведения и ссылки между ними (Access Key)
+%% kind: component (ссылки ассетов)
+%% level: обзор
+%% refs: AS-CATALOG, AS-ACCESS-BEHAVIOR, AS-ACCESS-GOAP, AS-ACCESS-ROUTES, AU-BEHAVIOR-PARSE, CO-REGISTER-ASSETS, CO-RESOLVE-ROLES
+flowchart TB
+  CAT["ai/decisions/catalog.json<br/>id → behavior + bindings"] -->|"behavior"| BEH["ai/behaviors/access_key.behavior.json<br/>model, observations, capabilities,<br/>reactions, routeGraph, inspectPath"]
+  CAT -->|"bindings"| BND["ai/bindings/access_key.bindings.json<br/>роль → имя узла уровня,<br/>traversals → handle link"]
+  BEH -->|"definition"| DEF["ai/goap/access_key.goap.json<br/>facts, goals, actions"]
+  BEH -->|"routeGraph"| RTE["ai/routes/access_key.routes.json<br/>nodes = имена ролей, edges"]
+  BND -->|"node (разрешается при создании instance)"| LVL["assets/levels/*.level.json<br/>nodes: name, transform"]
+  SCN["assets/development/*.scenario.json<br/>setup / start / update / stop / reset"] -->|"startAIDecision(id)"| CAT

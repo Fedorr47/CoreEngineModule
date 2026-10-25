@@ -1,0 +1,23 @@
+%% title: Источники отладочных данных AI и что каждый из них доказывает
+%% kind: data-flow
+%% level: обзор
+%% refs: GG-DEBUGVM, GR-DEBUG-VIEWS, GG-PATH-INSPECTION, AP-DEBUG-DRAW, AP-DEBUG-PLANNED, PH-BLOCKED-CALC, AP-NAV-COORD
+flowchart TB
+  subgraph Decision["Решение (окно AI / GOAP)"]
+    V1["AIDebugViewModel: статус решения и исполнения,<br/>цель, факты bool/int, план со стоимостями,<br/>применимость действий и причины отказа"]
+  end
+  subgraph Paths["Пути (линии в сцене)"]
+    V2["AI planned paths: маршруты оставшихся шагов<br/>из авторского графа (inspectPath)"]
+    V3["Navigation paths: маршрут, переданный<br/>исполнителю (navigation debug registry)"]
+    V4["Navigation Mesh: треугольники профиля<br/>по умолчанию"]
+  end
+  subgraph Motion["Движение"]
+    V5["steering telemetry (тот же флаг AI planned paths):<br/>базовое и итоговое намерение, probes, нормали"]
+    V6["физика персонажа: желаемая/фактическая скорость,<br/>опора, physicallyBlocked"]
+  end
+  V1 -->|"объясняет"| Q1["почему выбрана цель и шаг"]
+  V2 -->|"объясняет"| Q2["что планирует провайдер"]
+  V3 -->|"объясняет"| Q3["что реально исполняет follower"]
+  V5 -->|"объясняет"| Q4["как скорректировано движение"]
+  V6 -->|"объясняет"| Q5["реализовала ли физика команду"]
+  V4 -->|"объясняет"| Q6["проходимость для профиля по умолчанию,<br/>не для конкретного агента"]

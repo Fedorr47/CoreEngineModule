@@ -1,0 +1,16 @@
+%% title: Target Recovery как задача STRIPS: два наблюдаемых состояния и единственный переход
+%% kind: state (поисковые состояния)
+%% level: детали
+%% refs: AS-RECOVERY-GOAP, PL-FIND, SO-EVAL-FACT
+stateDiagram-v2
+  direction LR
+  S0: S0 — goalAvailable=1, atDestination=0
+  S1: S1 — goalAvailable=1, atDestination=1 (цель)
+  X0: X0 — goalAvailable=0, atDestination=0
+  S0 --> S1: move_to/destination, cost 1 (pre goalAvailable=1, eff atDestination=1)
+  note right of X0
+    нет применимых действий: плана нет;
+    поиск не «ждёт» возврата цели;
+    его повторит decision runtime
+    на следующем update
+  end note

@@ -1,0 +1,22 @@
+%% title: AIDecisionRuntime::Update — ветви решения за одно обновление
+%% kind: flowchart (алгоритм)
+%% level: детали
+%% refs: DR-UPDATE, DR-NO-GOAL, DR-INVALIDATED, DR-KEEP-RUNNING, DR-INSTALL, DR-UPDATE-STEP, DR-CONTINUATION, DR-REMAINING
+flowchart TB
+  A(["Update(observed, goals, actions, bindings)"]) --> B{"explicit cancel?"}
+  B -->|"да"| Z0(["вернуть статус, ничего не делать"])
+  B -->|"нет"| C["если шаг RunningStep —<br/>синхронизировать с AISystem"]
+  C --> D{"SelectAIGoal нашёл цель?"}
+  D -->|"нет"| Z1(["отменить исполнение,<br/>статус Succeeded"])
+  D -->|"да"| E{"шаг только что завершил план<br/>и цель прежняя?"}
+  E -->|"да"| Z2(["вернуть Succeeded"])
+  E -->|"нет"| F["invalidated = цель прежняя и<br/>(Ready: остаток плана не проходит или<br/>Running: continuation нарушено)"]
+  F --> G{"цель прежняя, не invalidated,<br/>исполнение не terminal?"}
+  G -->|"да, был sync"| Z3(["вернуть статус<br/>(следующий шаг — в следующем update)"])
+  G -->|"да, без sync"| Z4(["Update(bindings): старт Ready-шага<br/>или sync Running"])
+  G -->|"нет"| H["FindAIPlan для выбранной цели<br/>(до отмены старого)"]
+  H --> I{"план найден?"}
+  I -->|"да"| Z5(["InstallPlan_: отменить старое,<br/>новый план → ReadyToStartStep"])
+  I -->|"нет"| J{"не invalidated и есть<br/>нетерминальное исполнение?<br/>(т.е. сменилась цель)"}
+  J -->|"да"| Z6(["сохранить старое исполнение<br/>(continuation не перепроверяется)"])
+  J -->|"нет"| Z7(["отменить исполнение,<br/>статус Failed, instance жив"])

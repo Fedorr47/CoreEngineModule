@@ -1,0 +1,20 @@
+%% title: Maze: от запроса пути до движения агента
+%% kind: sequence
+%% level: детали
+%% refs: AS-SC-MAZE, SC-NAV-PATH, NV-AGENT-MAP, NV-PROFILES, NV-FINDPATH, NV-PARTIAL, GR-START-ROUTE
+sequenceDiagram
+  participant SC as сценарий startNavigationPath
+  participant PR as ProfileRegistry
+  participant NW as navigation::World (Detour)
+  participant G as GameplayRuntime
+  participant F as AIFollowRouteActionRuntime
+  SC->>PR: ResolveProfile(BuildAgentSettings(физика агента))
+  PR-->>SC: профиль (bake при первом запросе)
+  SC->>NW: FindPath(start = позиция агента, goal = узел Maze_Goal, extents (1, 2, 1))
+  NW->>NW: findNearestPoly старта и цели
+  NW->>NW: findPath: коридор полигонов, последний ≠ цели → NoPath
+  NW->>NW: findStraightPath: угловые точки
+  NW-->>SC: Succeeded + points или NoPath / BufferTooSmall
+  SC->>G: StartAIFollowRoute(agent, route без аннотаций, r 0.25, R 0.9, ходьба)
+  G->>F: Start: публикация в navigation debug, follower.Start
+  F-->>SC: Running → результат сценария «Maze path»

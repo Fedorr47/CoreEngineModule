@@ -1,0 +1,17 @@
+%% title: Два агента Access Key Reserved: бронь монеты, неуспешный старт шага и перепланирование
+%% kind: sequence (вывод из кода и ассетов)
+%% level: детали
+%% refs: AS-SC-RESERVATION, NA-RESERVED, NA-RESERVED-START, CP-PICKUP-AVAIL, RV-TRY, BR-START, DR-UPDATE, GR-UPDATE-DECISIONS
+sequenceDiagram
+  participant A as агент с меньшим handle
+  participant B as агент с большим handle
+  participant R as GameplayObjectReservationSystem
+  Note over A,B: оба стартуют решение, план у обоих: C → A → магазин (42.09)
+  A->>R: шаг start_to_coin_c: TryReserve(coinC) — успех
+  B->>R: шаг start_to_coin_c: IsReserved(coinC) = true → старт Failed
+  Note over B: следующий update: coinCAvailable = 0 (чужая бронь) → новый план B → A → магазин (43.95)
+  B->>R: шаг start_to_coin_b: TryReserve(coinB) — успех
+  B->>R: позже coin_b_to_coin_a: TryReserve(coinA) — успех
+  A->>R: дойдя до C, coin_c_to_coin_a: IsReserved(coinA) = true → старт Failed
+  Note over A: coinAAvailable = 0, coinBAvailable = 0 (собрана) → плана нет, Failed, ждёт
+  Note over A,B: монет три, каждому нужно две: при таком порядке завершить цель может только B

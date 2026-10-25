@@ -1,0 +1,464 @@
+[
+ {
+  "name": "Seek (0,0)→(3,4): направление",
+  "actual": "(0.6, 0.8)",
+  "expected": "(0.6, 0.8)",
+  "ok": true
+ },
+ {
+  "name": "Seek (0,0)→(3,4): magnitude",
+  "actual": "1.0",
+  "expected": "1.0",
+  "ok": true
+ },
+ {
+  "name": "Flee от (3,4): направление",
+  "actual": "(-0.6, -0.8)",
+  "expected": "(-0.6, -0.8)",
+  "ok": true
+ },
+ {
+  "name": "Seek: d = 0.2505 при r = 0.25 → прибыл (допуск 0.001)",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Seek: d = 0.2520 при r = 0.25 → движется",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Flee: совпадение позиций → нулевая magnitude",
+  "actual": "0.0",
+  "expected": "0.0",
+  "ok": true
+ },
+ {
+  "name": "Arrival r=0.5 R=2.5: d=1.5 → 0.5",
+  "actual": "0.5",
+  "expected": "0.5",
+  "ok": true
+ },
+ {
+  "name": "Arrival r=0.5 R=2.5: d=0.6 → m_min 0.1",
+  "actual": "0.1",
+  "expected": "0.1",
+  "ok": true
+ },
+ {
+  "name": "Arrival: d=0.5005 (внутри r+0.001) → 0",
+  "actual": "0.0",
+  "expected": "0.0",
+  "ok": true
+ },
+ {
+  "name": "Arrival: d=0.5011 → m_min",
+  "actual": "0.1",
+  "expected": "0.1",
+  "ok": true
+ },
+ {
+  "name": "Arrival: d=R → 1",
+  "actual": "1.0",
+  "expected": "1.0",
+  "ok": true
+ },
+ {
+  "name": "Arrival: R = r → 1 вне acceptance",
+  "actual": "1.0",
+  "expected": "1.0",
+  "ok": true
+ },
+ {
+  "name": "Arrival defaults: d=0.6 → (0.6−0.25)/0.75",
+  "actual": "0.4666666666666666",
+  "expected": "0.4666666666666666",
+  "ok": true
+ },
+ {
+  "name": "Arrival: R < r приводится к R = r",
+  "actual": "1.0",
+  "expected": "1.0",
+  "ok": true
+ },
+ {
+  "name": "Look-ahead L=0.75, d=0.25 → q=(0, 0.5)",
+  "actual": "(0.0, 0.5)",
+  "expected": "(0.0, 0.5)",
+  "ok": true
+ },
+ {
+  "name": "Look-ahead: d = L → нет цели (строгое <)",
+  "actual": "None",
+  "expected": "None",
+  "ok": true
+ },
+ {
+  "name": "Look-ahead: L = 0 → отключён",
+  "actual": "None",
+  "expected": "None",
+  "ok": true
+ },
+ {
+  "name": "Look-ahead: короткий исходящий 0.3 → q = конец сегмента",
+  "actual": "(0.0, 0.3)",
+  "expected": "(0.0, 0.3)",
+  "ok": true
+ },
+ {
+  "name": "Плоскость перехода: n̂ = (0.7071, 0.7071)",
+  "actual": "(0.7071067811865475, 0.7071067811865475)",
+  "expected": "(0.7071067811865476, 0.7071067811865476)",
+  "ok": true
+ },
+ {
+  "name": "Точка (−0.2, 0.3) пересекла плоскость",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Точка (−0.3, 0.2) не пересекла плоскость",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Разворот 180°: нормаль = û_in = (1, 0)",
+  "actual": "(1.0, 0.0)",
+  "expected": "(1.0, 0.0)",
+  "ok": true
+ },
+ {
+  "name": "Разворот 180°: (−0.1, 0.2) не пройден",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Playground: q при p = (7.6, 6.1)",
+  "actual": "(7.697961385041779, 6.15101930747911)",
+  "expected": "(7.69796, 6.15102)",
+  "ok": true
+ },
+ {
+  "name": "Playground: нормаль плоскости перехода",
+  "actual": "(0.22975292054736124, 0.9732489894677301)",
+  "expected": "(0.22975, 0.97325)",
+  "ok": true
+ },
+ {
+  "name": "Playground: p = (7.6, 6.1) прошёл угол",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Playground: p = (7.5, 5.9) не прошёл угол",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Flee 5/7: стоял, d=6 → стоит",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Flee 5/7: бежал, d=6 → бежит",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Flee: d = trigger → старт (≤)",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Flee: d = safe → стоп (<)",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Flee: safe < trigger приводится к trigger",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Sampling: 4 тика по 16 мс → 1 пересчёт",
+  "actual": "1",
+  "expected": "1",
+  "ok": true
+ },
+ {
+  "name": "Sampling: остаток после fmod",
+  "actual": "0.013999999999999999",
+  "expected": "0.014",
+  "ok": true
+ },
+ {
+  "name": "Forward probe: v=2 → 3",
+  "actual": "3.0",
+  "expected": "3.0",
+  "ok": true
+ },
+ {
+  "name": "Forward probe: v=6 → 4.5",
+  "actual": "4.5",
+  "expected": "4.5",
+  "ok": true
+ },
+ {
+  "name": "Forward probe: v=4 → 3 (=4·0.75)",
+  "actual": "3.0",
+  "expected": "3.0",
+  "ok": true
+ },
+ {
+  "name": "Feeler left для forward +X",
+  "actual": "(0.8660254037844387, -0.49999999999999994)",
+  "expected": "(0.8660254037844387, -0.5)",
+  "ok": true
+ },
+ {
+  "name": "Feeler right для forward +X",
+  "actual": "(0.8660254037844387, 0.49999999999999994)",
+  "expected": "(0.8660254037844387, 0.5)",
+  "ok": true
+ },
+ {
+  "name": "Escape left (учебная стена)",
+  "actual": "(0.4287624626712582, -0.9034172627330507)",
+  "expected": "(0.42877, -0.90343)",
+  "ok": true
+ },
+ {
+  "name": "Escape right (учебная стена)",
+  "actual": "(0.17748041506379175, 0.9841243327287382)",
+  "expected": "(0.17749, 0.98413)",
+  "ok": true
+ },
+ {
+  "name": "Сторона: committed left, 1.00 / 1.10 → left",
+  "actual": "'left'",
+  "expected": "'left'",
+  "ok": true
+ },
+ {
+  "name": "Сторона: committed left, 1.00 / 1.20 → right",
+  "actual": "'right'",
+  "expected": "'right'",
+  "ok": true
+ },
+ {
+  "name": "Сторона: committed left, 1.00 / 1.15 → left (строгое >)",
+  "actual": "'left'",
+  "expected": "'left'",
+  "ok": true
+ },
+ {
+  "name": "Сторона: равенство без памяти → left",
+  "actual": "'left'",
+  "expected": "'left'",
+  "ok": true
+ },
+ {
+  "name": "Сторона: опора только справа → right",
+  "actual": "'right'",
+  "expected": "'right'",
+  "ok": true
+ },
+ {
+  "name": "Сторона: нет опоры → нулевая команда",
+  "actual": "None",
+  "expected": "None",
+  "ok": true
+ },
+ {
+  "name": "Длина support-луча 0.25 + 0.35",
+  "actual": "0.6",
+  "expected": "0.6",
+  "ok": true
+ },
+ {
+  "name": "Playground: escape left при n = (−1, 0)",
+  "actual": "(0.29934925629906217, -0.9541436069864946)",
+  "expected": "(0.29935, -0.95415)",
+  "ok": true
+ },
+ {
+  "name": "Playground: escape right при n = (−1, 0)",
+  "actual": "(0.29934925629906217, 0.9541436069864946)",
+  "expected": "(0.29935, 0.95415)",
+  "ok": true
+ },
+ {
+  "name": "Playground: первый контакт сферы r=0.37 с гранью x=−0.6 при L_f=3 → центр x ≥ −3.97",
+  "actual": "-3.9699999999999998",
+  "expected": "-3.97",
+  "ok": true
+ },
+ {
+  "name": "Walkable: n.y = cos 45° → допустимо",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Walkable: n.y = 0.7071 (< cos 45°) → недопустимо",
+  "actual": "False",
+  "expected": "False",
+  "ok": true
+ },
+ {
+  "name": "Marker Visit: 3D-дистанция на краю acceptance при Δy = 0.2 > R",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Marker Visit: горизонталь, нужная для подтверждения",
+  "actual": "0.7745966692414834",
+  "expected": "0.774597",
+  "ok": true
+ },
+ {
+  "name": "Target Recovery: 3D-дистанция на краю acceptance при Δy = 0.2 > R",
+  "actual": "True",
+  "expected": "True",
+  "ok": true
+ },
+ {
+  "name": "Target Recovery: горизонталь, нужная для подтверждения",
+  "actual": "0.3464101615137755",
+  "expected": "0.34641",
+  "ok": true
+ },
+ {
+  "name": "Прыжок: время полёта 2·5.5/9.81",
+  "actual": "1.1213047910295617",
+  "expected": "1.1213",
+  "ok": true
+ },
+ {
+  "name": "Прыжок: высота апекса 5.5²/(2·9.81)",
+  "actual": "1.5417940876656473",
+  "expected": "1.54179",
+  "ok": true
+ },
+ {
+  "name": "Прыжок с бегом: дальность ≈ 3.47 м",
+  "actual": "3.4742160166507166",
+  "expected": "3.4744",
+  "ok": true
+ },
+ {
+  "name": "Прыжок шагом: скорость гаснет за 0.8 с, дальность 0.8 м",
+  "actual": "0.8",
+  "expected": "0.8",
+  "ok": true
+ },
+ {
+  "name": "Route cost start_to_coin_a",
+  "actual": "6.715832040782438",
+  "expected": "6.7158",
+  "ok": true
+ },
+ {
+  "name": "Route cost start_to_coin_b",
+  "actual": "6.091173942681328",
+  "expected": "6.0912",
+  "ok": true
+ },
+ {
+  "name": "Route cost start_to_coin_c",
+  "actual": "7.81680241531024",
+  "expected": "7.8168",
+  "ok": true
+ },
+ {
+  "name": "Route cost coin_c_to_coin_a",
+  "actual": "9.055385138137417",
+  "expected": "9.0554",
+  "ok": true
+ },
+ {
+  "name": "Route cost coin_a_to_access_key_shop",
+  "actual": "7.211102550927978",
+  "expected": "7.2111",
+  "ok": true
+ },
+ {
+  "name": "Route cost coin_b_to_access_key_shop",
+  "actual": "10.0",
+  "expected": "10.0",
+  "ok": true
+ },
+ {
+  "name": "Route cost access_key_shop_to_goal",
+  "actual": "17.002143982451155",
+  "expected": "17.0021",
+  "ok": true
+ },
+ {
+  "name": "Access Key: план",
+  "actual": "['start_to_coin_c', 'coin_c_to_coin_a', 'coin_a_to_access_key_shop', 'buy_key', 'access_key_shop_to_goal']",
+  "expected": "['start_to_coin_c', 'coin_c_to_coin_a', 'coin_a_to_access_key_shop', 'buy_key', 'access_key_shop_to_goal']",
+  "ok": true
+ },
+ {
+  "name": "Access Key: стоимость",
+  "actual": "42.085434086826794",
+  "expected": "42.0854",
+  "ok": true
+ },
+ {
+  "name": "Access Key: раскрыто состояний",
+  "actual": "22",
+  "expected": "22",
+  "ok": true
+ },
+ {
+  "name": "Перепланирование (у C, A исчезла): план",
+  "actual": "['coin_c_to_coin_b', 'coin_b_to_access_key_shop', 'buy_key', 'access_key_shop_to_goal']",
+  "expected": "['coin_c_to_coin_b', 'coin_b_to_access_key_shop', 'buy_key', 'access_key_shop_to_goal']",
+  "ok": true
+ },
+ {
+  "name": "Перепланирование: стоимость",
+  "actual": "40.085189956045724",
+  "expected": "40.0852",
+  "ok": true
+ },
+ {
+  "name": "Нет доступных монет → плана нет",
+  "actual": "None",
+  "expected": "None",
+  "ok": true
+ },
+ {
+  "name": "Target Recovery: цель недоступна → плана нет",
+  "actual": "None",
+  "expected": "None",
+  "ok": true
+ },
+ {
+  "name": "Target Recovery: цель доступна → [destination]",
+  "actual": "['destination']",
+  "expected": "['destination']",
+  "ok": true
+ },
+ {
+  "name": "Цель уже выполнена → пустой план",
+  "actual": "[]",
+  "expected": "[]",
+  "ok": true
+ }
+]

@@ -1,0 +1,132 @@
+/* CoreEngine AI Atlas — значки доказательности, фигуры, выдержки, формулы, демонстрации, печать. */
+
+:root {
+    --atlas-reading-width: 84ch;
+}
+
+/* ---- типографика и кириллица (системные шрифты, без загрузки из сети) ---- */
+:root {
+    --md-text-font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+    --md-code-font-family: "Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace;
+}
+.md-typeset { font-size: .78rem; line-height: 1.65; }
+.md-typeset h1 { font-weight: 600; }
+.md-typeset code { overflow-wrap: anywhere; }
+.md-typeset pre > code { overflow-wrap: normal; }
+
+/* ---- значки статуса ---- */
+.ev { display: inline-block; padding: 0 .45em; border-radius: .25em; font-size: .68rem; font-weight: 700;
+      letter-spacing: .02em; vertical-align: baseline; border: 1px solid transparent; white-space: nowrap; }
+.ev-source   { background: #e3f4e8; color: #17602c; border-color: #9fd3ad; }
+.ev-evidence { background: #e5eefc; color: #1d4b8f; border-color: #a9c2ee; }
+.ev-inferred { background: #fff4d6; color: #6e4d00; border-color: #e8cd7d; }
+.ev-hist     { background: #efe8f7; color: #4d2d75; border-color: #c9b5e3; }
+.ev-proposed { background: #fde7e7; color: #8f1d1d; border-color: #eeaaaa; }
+.ev-notcov   { background: #eeeeee; color: #3a3a3a; border-color: #bbb; }
+[data-md-color-scheme="slate"] .ev-source   { background: #163a22; color: #a8e6b8; border-color: #2f6b40; }
+[data-md-color-scheme="slate"] .ev-evidence { background: #172c4d; color: #b7cff5; border-color: #2d4f86; }
+[data-md-color-scheme="slate"] .ev-inferred { background: #4a3a10; color: #f3dc94; border-color: #7a6220; }
+[data-md-color-scheme="slate"] .ev-hist     { background: #33244a; color: #dccbf5; border-color: #5b4384; }
+[data-md-color-scheme="slate"] .ev-proposed { background: #4d1717; color: #f5b7b7; border-color: #823030; }
+[data-md-color-scheme="slate"] .ev-notcov   { background: #333; color: #ddd; border-color: #555; }
+
+/* ---- ссылки на реестр источников ---- */
+.md-typeset a.cite, .md-typeset .cite {
+    font-family: var(--md-code-font-family); font-size: .86em; white-space: nowrap;
+    padding: 0 .2em; border-radius: .2em; background: var(--md-code-bg-color);
+}
+.md-typeset p.src-ref { font-size: .7rem; color: var(--md-default-fg-color--light); margin-top: -.6em; }
+
+/* ---- фигуры со схемами ---- */
+.md-typeset figure.diagram { margin: 1.4em 0; }
+.md-typeset .diagram-viewport {
+    background: #ffffff; border: 1px solid #d5dbe3; border-radius: 6px; padding: 6px;
+    text-align: center; box-sizing: border-box;
+}
+[data-md-color-scheme="slate"] .md-typeset .diagram-viewport { border-color: #4b5563; }
+.md-typeset .diagram-viewport svg { display: inline-block; vertical-align: top; }
+.md-typeset figure.diagram figcaption {
+    max-width: none; font-size: .72rem; text-align: left; color: var(--md-default-fg-color--light);
+    margin-top: .45em; display: flex; flex-direction: column; gap: .15em;
+}
+.md-typeset figure.diagram figcaption .fig-title { color: var(--md-default-fg-color); font-weight: 600; }
+.md-typeset figure.diagram figcaption .fig-meta { overflow-wrap: anywhere; }
+.md-typeset .diagram-explain { border-left: 3px solid var(--md-accent-fg-color); padding-left: .8em; }
+
+/* ---- формулы (KaTeX, отрисованы при сборке) ---- */
+.md-typeset .math-display { overflow-x: auto; overflow-y: hidden; padding: .2em 0; max-width: 100%; }
+.md-typeset .math-display .katex-display { margin: .6em 0; }
+.md-typeset .katex { font-size: 1.08em; }
+
+/* ---- таблицы ---- */
+.md-typeset table:not([class]) { font-size: .74rem; }
+.md-typeset table:not([class]) th { white-space: normal; }
+
+/* ---- карточки «формула» ---- */
+.md-typeset .formula-card {
+    border: 1px solid var(--md-default-fg-color--lightest); border-radius: 6px; padding: .4em 1em .8em;
+    margin: 1em 0; max-width: var(--atlas-reading-width);
+}
+.md-typeset .formula-card > p:first-child { font-weight: 600; margin-top: .6em; }
+
+/* ---- демонстрации ---- */
+.demo { border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 12px 16px; margin: 1em 0; }
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.demo label { display: block; font-size: .72rem; margin: .4em 0 .1em; }
+.demo input[type="range"] { width: 100%; }
+.demo input[type="number"] { width: 7em; }
+.demo button { margin: .2em .3em .2em 0; padding: .25em .7em; border-radius: 5px; border: 1px solid var(--md-default-fg-color--lighter);
+    background: var(--md-default-bg-color); color: var(--md-default-fg-color); cursor: pointer; font: inherit; font-size: .72rem; }
+.demo button:hover { border-color: var(--md-accent-fg-color); }
+.demo button:disabled { opacity: .45; cursor: default; }
+.demo .demo-out { font-family: var(--md-code-font-family); font-size: .72rem; white-space: pre-wrap; overflow-wrap: anywhere;
+    background: var(--md-code-bg-color); border-radius: 5px; padding: .6em .8em; }
+.demo .demo-svg { background: #fff; border: 1px solid #d5dbe3; border-radius: 6px; width: 100%; height: auto; }
+.demo table { font-size: .7rem; }
+.demo .ok { color: #17602c; font-weight: 600; }
+.demo .bad { color: #a11d1d; font-weight: 600; }
+[data-md-color-scheme="slate"] .demo .ok { color: #8fe0a5; }
+[data-md-color-scheme="slate"] .demo .bad { color: #f39b9b; }
+.demo-note { font-size: .7rem; color: var(--md-default-fg-color--light); }
+
+/* ---- reference: фильтры индекса ---- */
+.index-filters { display: flex; flex-wrap: wrap; gap: .5em 1em; align-items: center; margin: .6em 0 1em; font-size: .74rem; }
+.index-filters select, .index-filters input { font: inherit; padding: .2em .4em; border-radius: 4px;
+    border: 1px solid var(--md-default-fg-color--lighter); background: var(--md-default-bg-color); color: var(--md-default-fg-color); }
+tr.index-hidden { display: none; }
+
+/* ---- печать ---- */
+@media print {
+    .adv-toolbar, .md-header, .md-sidebar, .md-footer, .md-top, .index-filters, .demo button { display: none !important; }
+    .md-typeset details { display: block; }
+    .md-typeset details > *:not(summary) { display: block !important; }
+    .md-typeset .diagram-viewport { border: none; page-break-inside: avoid; }
+    .md-typeset .diagram-viewport svg { max-width: 100% !important; width: 100% !important; height: auto !important; }
+    .md-content { max-width: none; }
+    a.cite::after { content: ""; }
+}
+
+/* Скрытый MathML-слой KaTeX позиционирован абсолютно: якорим его в контейнере формулы, чтобы он не расширял страницу. */
+.md-typeset .math-display, .md-typeset .math-inline, .md-typeset .katex { position: relative; }
+
+/* Заголовок выдержки (путь:строки) переносится на узких экранах, а не расширяет страницу. */
+.md-typeset .highlight .filename, .md-typeset .highlighttable .filename { white-space: normal; overflow-wrap: anywhere; }
+.md-typeset .highlighttable { max-width: 100%; }
+
+/* Узкие экраны: таблицы с 3+ столбцами перестраиваются в карточки (подписи — из заголовка, JS atlas-reveal.js).
+ * Без JS таблица остаётся обычной и прокручивается внутри своей обёртки. */
+@media (max-width: 600px) {
+    .md-typeset table[data-stack="true"] thead { display: none; }
+    .md-typeset table[data-stack="true"],
+    .md-typeset table[data-stack="true"] tbody,
+    .md-typeset table[data-stack="true"] tr,
+    .md-typeset table[data-stack="true"] td { display: block; width: 100%; box-sizing: border-box; }
+    .md-typeset table[data-stack="true"] tr { border-top: 2px solid var(--md-default-fg-color--lightest); padding: .3em 0; }
+    .md-typeset table[data-stack="true"] tr.index-hidden { display: none; }
+    .md-typeset table[data-stack="true"] td { border: none; padding: .15em .6em; min-width: 0; }
+    .md-typeset table[data-stack="true"] td::before {
+        content: attr(data-label); display: block; font-size: .64rem; font-weight: 700;
+        color: var(--md-default-fg-color--light);
+    }
+    .md-typeset table[data-stack="true"] td code { overflow-wrap: anywhere; }
+}

@@ -1,0 +1,22 @@
+%% title: Выборка steering с интервалом и переиздание команды на каждом тике
+%% kind: sequence (по тикам)
+%% level: детали
+%% refs: NA-FOLLOW-TICK, NA-FOLLOW-SETTINGS, GR-RESET-FRAME, ST-APPLY
+sequenceDiagram
+  participant BF as BeginFrame
+  participant RT as Follow/Flee runtime
+  participant ST as steering + avoidance
+  participant CMD as CharacterCommand
+  Note over RT: Start: elapsed = 0, RefreshSteering_, ApplyCurrentMovement_
+  RT->>ST: пересчёт → currentMovement_
+  RT->>CMD: применить currentMovement_ + desired facing
+  loop каждый кадр
+    BF->>CMD: очистить команду
+    RT->>RT: Validate_ (агент и цель живы, компоненты есть) иначе Failed
+    RT->>RT: elapsed += dt (если dt конечно и > 0)
+    alt elapsed ≥ interval (или interval ≤ 0)
+      RT->>ST: RefreshSteering_ → новое currentMovement_
+      RT->>RT: elapsed = fmod(elapsed, interval)
+    end
+    RT->>CMD: ApplyCurrentMovement_ (кешированное намерение)
+  end

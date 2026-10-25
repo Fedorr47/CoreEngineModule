@@ -1,0 +1,25 @@
+%% title: Один тик App: порядок вызовов, существенный для AI
+%% kind: sequence
+%% level: обзор
+%% refs: AP-NAV-COORD, AP-SCENARIO, AP-TICK, AP-BEFORE-PHYS, GR-BEGIN, GR-PREPHYS, GR-AI-ORDER, GR-AI-UPDATE, AP-PHYSICS, AP-AFTER-PHYS, GR-POSTPHYS
+sequenceDiagram
+  participant A as App (AppLifecycle)
+  participant N as appNavigationCoordinator
+  participant SC as DevelopmentScenario
+  participant G as GameplayRuntime
+  participant AI as решения + AISystem
+  participant P as Jolt
+  A->>N: Advance: bake NavMesh, когда геометрия готова
+  A->>SC: Update: сценарные операции (до BeginFrame)
+  A->>G: BeginFrame: очистить события кадра, CharacterCommand, GameplayInputIntentComponent
+  A->>G: EnsureGameplayPhysicsCharacters
+  A->>G: PrePhysicsUpdate
+  G->>G: ввод игрока → BuildGameplayCharacterCommands
+  G->>G: CleanupInvalidReservations, pickupSystem (PickupCollected)
+  G->>AI: UpdateActiveAIDecisions_ (по возрастанию EntityHandle)
+  G->>AI: aiSystem_.Update(dt): Tick задач → команды
+  G->>G: бой, взаимодействия, gameplay-графы, UpdateGameplayCharacterMovement
+  A->>P: SubmitGameplayPhysicsCharacterVelocities, физический шаг
+  A->>G: ApplyGameplayPhysicsCharacterFeedback (позиция, grounded, physicallyBlocked)
+  A->>G: PostPhysicsUpdate: locomotion, transforms, анимация
+  A->>G: Scene::UpdateSkinned, PostAnimationUpdate

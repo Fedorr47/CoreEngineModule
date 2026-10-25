@@ -1,0 +1,2046 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc">
+      
+      
+      
+      
+        <link rel="prev" href="13-steering.html">
+      
+      
+        <link rel="next" href="15-obstacle-avoidance.html">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>14 FollowTarget и FleeTarget - CoreEngine AI Atlas — GOAP, Steering и контракты исполнения</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="../assets/js/vendor/iframe-worker-shim.js"></script>
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../assets/katex/katex.min.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas-responsive.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#14-followtarget-fleetarget" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-header__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              14 FollowTarget и FleeTarget
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Тёмная тема"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Тёмная тема" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Светлая тема"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Светлая тема" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-nav__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Главная
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Основы
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Основы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="00-how-to-read.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    00 Как читать атлас
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="01-architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="02-goap-strips.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="03-state-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    03 Модель состояния
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="04-goals-actions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    04 Цели и контракты действий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="05-planner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    05 Планировщик
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Решение и исполнение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Решение и исполнение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="06-assets-composition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    06 Ассеты и композиция
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="07-observations-events.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    07 Наблюдения и события
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="08-decision-runtime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    08 Decision runtime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="09-execution-lifetime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    09 Исполнение и lifetime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="10-frame-order.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Движение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Движение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="11-spatial-routes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    11 Пространственные маршруты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="12-route-follower.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    12 RouteFollower
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="13-steering.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    13 Steering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="14-temporal-behaviors.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-sample-and-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Выборка и удержание (sample-and-hold)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-follow" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Follow: поддержание, а не достижение
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-flee" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Flee и гистерезис
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Время жизни цели и ориентация
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-follow" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Follow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-flee" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Flee: гистерезис в пересчёте
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. Как запускаются
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-steering-playground" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: Steering Playground
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="15-obstacle-avoidance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    15 Obstacle avoidance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="16-traversal-physics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    16 Traversal и физика
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Практика
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Практика
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="17-resources-multiagent.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    17 Ресурсы и несколько агентов
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="18-authoring-scenarios.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    18 Авторинг и сценарии
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="19-diagnostics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    19 Диагностика и проверка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="20-limits-future.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    20 Ограничения и развитие
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Учебные модели
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Учебные модели
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/goap-search.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GOAP-поиск по шагам
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/arrival-flee.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Arrival и гистерезис Flee
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/runtime-quick-reference.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runtime: быстрый справочник
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/class-index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/source-references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Реестр источников
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/diagrams.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Каталог схем
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Словарь
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/external-sources.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Внешние источники
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/build.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Сборка и обновление
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/validation-report.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Отчёт автоматических проверок
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Задача и интуиция
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Теоретическая выкладка
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Теоретическая выкладка">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-sample-and-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Выборка и удержание (sample-and-hold)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-follow" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Follow: поддержание, а не достижение
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-flee" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Flee и гистерезис
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Время жизни цели и ориентация
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Визуальное объяснение
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-coreengine" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Как это реализовано в CoreEngine
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Как это реализовано в CoreEngine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-follow" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1. Follow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-flee" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2. Flee: гистерезис в пересчёте
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3. Как запускаются
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-steering-playground" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Разобранный пример: Steering Playground
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Типичные ошибки, границы и проверка
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="14-followtarget-fleetarget">14. FollowTarget и FleeTarget во времени: выборка, кеш команды, гистерезис<a class="headerlink" href="#14-followtarget-fleetarget" title="Permanent link">&para;</a></h1>
+<div class="admonition abstract">
+<p class="admonition-title">Коротко</p>
+<p>FollowTarget и FleeTarget — runtimes, которые <strong>поддерживают отношение</strong> к живой цели: держаться рядом или
+убегать. Они читают текущие transforms агента и цели, пересчитывают steering с интервалом (по умолчанию
+0.05 с), но <strong>применяют сохранённое намерение на каждом tick</strong>, потому что команда персонажа живёт один кадр.
+Flee использует два порога расстояния и память состояния — гистерезис, исключающий дребезг на границе. Оба
+runtimes не завершаются успехом сами: они работают, пока их не отменят или цель не исчезнет. Статус: <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>.</p>
+</div>
+<h2 id="1">1. Задача и интуиция<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p><code>move_to</code> из ассетов ведёт к <strong>снимку</strong> позиции роли (глава <a href="06-assets-composition.html">06</a>) и завершается. Для
+подвижной цели нужно другое: каждую долю секунды заново смотреть, где цель, и корректировать движение. Два
+практических вопроса: как часто пересчитывать (стоимость probes avoidance против отзывчивости) и как не
+«дрожать», когда расстояние до угрозы колеблется около порога.</p>
+<h2 id="2">2. Теоретическая выкладка<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<h3 id="21-sample-and-hold">2.1. Выборка и удержание (sample-and-hold)<a class="headerlink" href="#21-sample-and-hold" title="Permanent link">&para;</a></h3>
+<p>Пусть интервал выборки <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi></mrow><annotation encoding="application/x-tex">T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span></span></span></span></span>, кадровый шаг <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">\Delta t_k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord">Δ</span><span class="mord"><span class="mord mathnormal">t</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>. Накопитель <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">e_k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>:</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>e</mi><mi>k</mi></msub><mo>=</mo><msub><mi>e</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>k</mi></msub><mo separator="true">,</mo><mspace width="2em"/><mtext>если </mtext><msub><mi>e</mi><mi>k</mi></msub><mo>≥</mo><mi>T</mi><mo>:</mo><mtext>  </mtext><mtext>пересчёт</mtext><mo separator="true">,</mo><mtext>  </mtext><msub><mi>e</mi><mi>k</mi></msub><mo>←</mo><msub><mi>e</mi><mi>k</mi></msub><mtext> </mtext><mo lspace="0.22em" rspace="0.22em"><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi></mrow></mo><mtext> </mtext><mi>T</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+e_{k} = e_{k-1} + \Delta t_k,\qquad
+\text{если } e_k \ge T:\; \text{пересчёт},\; e_k \leftarrow e_k \bmod T .
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7917em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8778em;vertical-align:-0.1944em;"></span><span class="mord">Δ</span><span class="mord"><span class="mord mathnormal">t</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord text"><span class="mord cyrillic_fallback">если</span><span class="mord"> </span></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≥</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">:</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8778em;vertical-align:-0.1944em;"></span><span class="mord text"><span class="mord cyrillic_fallback">пересчёт</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">←</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.0556em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin"><span class="mord"><span class="mord mathrm">mod</span></span></span><span class="mspace" style="margin-right:0.0556em;"></span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span><span class="mord">.</span></span></span></span></span></div>
+<p>Между пересчётами используется последнее намерение <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>u</mi><mo>∗</mo></msup></mrow><annotation encoding="application/x-tex">u^\ast</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6887em;"></span><span class="mord"><span class="mord mathnormal">u</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6887em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∗</span></span></span></span></span></span></span></span></span></span></span></span> (удержание нулевого порядка). Свойства:</p>
+<ul>
+<li><strong>средняя частота</strong> пересчётов <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≈</mo><mn>1</mn><mi mathvariant="normal">/</mi><mi>T</mi></mrow><annotation encoding="application/x-tex">\approx 1/T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4831em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1/</span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span></span></span></span></span> без накопления дрейфа (остаток <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext> </mtext><mo lspace="0.22em" rspace="0.22em"><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi></mrow></mo><mtext> </mtext><mi>T</mi></mrow><annotation encoding="application/x-tex">\bmod T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mspace" style="margin-right:0.0556em;"></span><span class="mord"><span class="mord"><span class="mord mathrm">mod</span></span></span><span class="mspace" style="margin-right:0.0556em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span></span></span></span></span> переносится);</li>
+<li><strong>нет догоняния</strong>: после длинного кадра (<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>t</mi><mo>≫</mo><mi>T</mi></mrow><annotation encoding="application/x-tex">\Delta t \gg T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7224em;vertical-align:-0.0391em;"></span><span class="mord">Δ</span><span class="mord mathnormal">t</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≫</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span></span></span></span></span>) выполняется <strong>один</strong> пересчёт, а не
+  <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">⌊</mo><mi mathvariant="normal">Δ</mi><mi>t</mi><mi mathvariant="normal">/</mi><mi>T</mi><mo stretchy="false">⌋</mo></mrow><annotation encoding="application/x-tex">\lfloor \Delta t / T \rfloor</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">⌊</span><span class="mord">Δ</span><span class="mord mathnormal">t</span><span class="mord">/</span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span><span class="mclose">⌋</span></span></span></span></span> — это не симуляция пропущенных подшагов;</li>
+<li><strong>задержка реакции</strong> на движение цели — до <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi></mrow><annotation encoding="application/x-tex">T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span></span></span></span></span> плюс кадр; при <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi><mo>=</mo><mn>0.05</mn></mrow><annotation encoding="application/x-tex">T = 0.05</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.05</span></span></span></span></span> и 60 Гц пересчёт раз в 3 кадра;</li>
+<li><span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">T \le 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8193em;vertical-align:-0.136em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">T</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span> означает пересчёт на каждом tick.</li>
+</ul>
+<p>Почему удержанное намерение надо <strong>переиздавать</strong>: <code>GameplayCharacterCommandComponent</code> очищается в
+<code>BeginFrame</code> (<a class="cite" href="../reference/source-references.html#gr-reset-frame">GR-RESET-FRAME</a>). Если писать команду только в кадр пересчёта, в двух кадрах из трёх команда
+будет нулевой, и мотор будет разгоняться и тормозить — движение «рывками».</p>
+<h3 id="22-follow">2.2. Follow: поддержание, а не достижение<a class="headerlink" href="#22-follow" title="Permanent link">&para;</a></h3>
+<p>Follow на каждом пересчёте вызывает Seek к текущей позиции цели с радиусом приёма <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow><annotation encoding="application/x-tex">r</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span></span></span></span></span> (по умолчанию 0.25).
+Внутри <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow><annotation encoding="application/x-tex">r</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span></span></span></span></span> Seek даёт нулевую команду, но runtime остаётся <code>Running</code>: смысл действия — «держаться рядом»;
+если цель отойдёт, следующий пересчёт снова даст движение. Замедления у цели нет (Seek, не Arrival): агент
+подходит с полной интенсивностью и тормозит мотором (<a class="cite" href="../reference/source-references.html#na-follow-tick">NA-FOLLOW-TICK</a>).</p>
+<h3 id="23-flee">2.3. Flee и гистерезис<a class="headerlink" href="#23-flee" title="Permanent link">&para;</a></h3>
+<p>Пусть <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span></span> — <strong>горизонтальная</strong> дистанция до угрозы, <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mo>∈</mo><mo stretchy="false">{</mo><mn>0</mn><mo separator="true">,</mo><mn>1</mn><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">s \in \{0, 1\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5782em;vertical-align:-0.0391em;"></span><span class="mord mathnormal">s</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">1</span><span class="mclose">}</span></span></span></span></span> — «бежит». С одним порогом <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\theta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span></span></span></span></span> правило
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mo>=</mo><mo stretchy="false">[</mo><mi>d</mi><mo>≤</mo><mi>θ</mi><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">s = [d \le \theta]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">s</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">[</span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="mclose">]</span></span></span></span></span> переключает состояние при каждом пересечении <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\theta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span></span></span></span></span>; шум расстояния амплитуды <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi></mrow><annotation encoding="application/x-tex">\varepsilon</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">ε</span></span></span></span></span>
+даёт дребезг, как только <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∣</mi><mi>d</mi><mo>−</mo><mi>θ</mi><mi mathvariant="normal">∣</mi><mo>&lt;</mo><mi>ε</mi></mrow><annotation encoding="application/x-tex">|d - \theta| &lt; \varepsilon</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">∣</span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="mord">∣</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">ε</span></span></span></span></span>. Гистерезис вводит два порога <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>t</mi></msub><mo>≤</mo><msub><mi>θ</mi><mi>s</mi></msub></mrow><annotation encoding="application/x-tex">\theta_t \le \theta_s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>
+(trigger и safe) и память:</p>
+<div class="math-display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>s</mi><mi>k</mi></msub><mo>=</mo><mrow><mo fence="true">{</mo><mtable rowspacing="0.36em" columnalign="left left" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo stretchy="false">[</mo><mtext> </mtext><msub><mi>d</mi><mi>k</mi></msub><mo>&lt;</mo><msub><mi>θ</mi><mi>s</mi></msub><mtext> </mtext><mo stretchy="false">]</mo><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><msub><mi>s</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>=</mo><mn>1</mn><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo stretchy="false">[</mo><mtext> </mtext><msub><mi>d</mi><mi>k</mi></msub><mo>≤</mo><msub><mi>θ</mi><mi>t</mi></msub><mtext> </mtext><mo stretchy="false">]</mo><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><msub><mi>s</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>=</mo><mn>0.</mn></mrow></mstyle></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">
+s_{k} =
+\begin{cases}
+[\, d_k &lt; \theta_s \,], &amp; s_{k-1} = 1,\\
+[\, d_k \le \theta_t \,], &amp; s_{k-1} = 0 .
+\end{cases}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:3em;vertical-align:-1.25em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;"><span class="delimsizing size4">{</span></span><span class="mord"><span class="mtable"><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mopen">[</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mclose">]</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mopen">[</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mclose">]</span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span><span class="arraycolsep" style="width:1em;"></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord">1</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord">0.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></div>
+<p>В «зоне памяти» <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>θ</mi><mi>t</mi></msub><mo separator="true">,</mo><msub><mi>θ</mi><mi>s</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(\theta_t, \theta_s)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span> результат определяется прошлым состоянием. Чтобы шум не переключал
+состояние, достаточно, чтобы его размах был меньше ширины зоны: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>ε</mi><mo>&lt;</mo><msub><mi>θ</mi><mi>s</mi></msub><mo>−</mo><msub><mi>θ</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">2\varepsilon &lt; \theta_s - \theta_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6835em;vertical-align:-0.0391em;"></span><span class="mord">2</span><span class="mord mathnormal">ε</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span>.
+Конструктор приводит параметры к <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>t</mi></msub><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\theta_t \ge 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≥</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span> и <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>s</mi></msub><mo>≥</mo><msub><mi>θ</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">\theta_s \ge \theta_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≥</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> (<a class="cite" href="../reference/source-references.html#na-flee-ctor">NA-FLEE-CTOR</a>); при
+<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>s</mi></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">\theta_s = \theta_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2806em;"><span style="top:-2.55em;margin-left:-0.0278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">t</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> гистерезис вырождается в один порог (с несимметричными <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≤</mo></mrow><annotation encoding="application/x-tex">\le</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7719em;vertical-align:-0.136em;"></span><span class="mrel">≤</span></span></span></span></span>/<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>&lt;</mo></mrow><annotation encoding="application/x-tex">&lt;</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5782em;vertical-align:-0.0391em;"></span><span class="mrel">&lt;</span></span></span></span></span>). Значения по умолчанию —
+2 и 3 м, интервал 0.05 с (<a class="cite" href="../reference/source-references.html#na-flee-settings">NA-FLEE-SETTINGS</a>). Направление бегства — Flee steering (от угрозы, magnitude 1,
+глава <a href="13-steering.html">13</a>); при совпадении позиций — ноль.</p>
+<p>Состояние <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi></mrow><annotation encoding="application/x-tex">s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">s</span></span></span></span></span> обновляется <strong>только при пересчёте</strong>: между пересчётами переиздаётся последнее решение.</p>
+<h3 id="24">2.4. Время жизни цели и ориентация<a class="headerlink" href="#24" title="Permanent link">&para;</a></h3>
+<p>На каждом tick runtime проверяет, что агент и цель — валидные сущности с нужными компонентами; иначе команда
+обнуляется и результат <code>Failed</code>. Цель — живая сущность (handle), а не снимок позиции; но и здесь пересоздание
+сущности с новым handle не отслеживается. При ненулевой команде <code>desiredFacingYawDegrees</code> берётся из итогового
+направления команды (после avoidance), в том числе в тиках без пересчёта (<a class="cite" href="../reference/source-references.html#na-follow-rt">NA-FOLLOW-RT</a>).</p>
+<h2 id="3">3. Визуальное объяснение<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<figure class="diagram" id="fig-d14-sampling"><div class="diagram-viewport" role="img" aria-label="Выборка и удержание: пересчёт steering только при накоплении интервала, применение кешированного намерения в каждом кадре после очистки команды."><svg width="900" height="870" style="--diagram-width:900.00" focusable="false" id="svg-d14-sampling" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-50 -10 900 870" role="graphics-document document" aria-roledescription="sequence"><g><line id="actor3" x1="715" y1="65" x2="715" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="CMD" data-et="life-line" data-id="CMD"/><g id="root-3" data-et="participant" data-type="participant" data-id="CMD"><rect x="630" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="CMD" rx="3" ry="3" class="actor actor-top"/><text x="715" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="715" dy="0">CharacterCommand</tspan></text></g></g><g><line id="actor2" x1="505" y1="65" x2="505" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="ST" data-et="life-line" data-id="ST"/><g id="root-2" data-et="participant" data-type="participant" data-id="ST"><rect x="420" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="ST" rx="3" ry="3" class="actor actor-top"/><text x="505" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="505" dy="0">steering + avoidance</tspan></text></g></g><g><line id="actor1" x1="295" y1="65" x2="295" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="RT" data-et="life-line" data-id="RT"/><g id="root-1" data-et="participant" data-type="participant" data-id="RT"><rect x="210" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="RT" rx="3" ry="3" class="actor actor-top"/><text x="295" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="295" dy="0">Follow/Flee runtime</tspan></text></g></g><g><line id="actor0" x1="85" y1="65" x2="85" y2="2000" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="BF" data-et="life-line" data-id="BF"/><g id="root-0" data-et="participant" data-type="participant" data-id="BF"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="170" height="65" name="BF" rx="3" ry="3" class="actor actor-top"/><text x="85" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="85" dy="0">BeginFrame</tspan></text></g></g><style>#svg-d14-sampling{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d14-sampling .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d14-sampling .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d14-sampling .error-icon{fill:#fff7e6;}#svg-d14-sampling .error-text{fill:#000819;stroke:#000819;}#svg-d14-sampling .edge-thickness-normal{stroke-width:1px;}#svg-d14-sampling .edge-thickness-thick{stroke-width:3.5px;}#svg-d14-sampling .edge-pattern-solid{stroke-dasharray:0;}#svg-d14-sampling .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d14-sampling .edge-pattern-dashed{stroke-dasharray:3;}#svg-d14-sampling .edge-pattern-dotted{stroke-dasharray:2;}#svg-d14-sampling .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d14-sampling .marker.cross{stroke:#3d4a57;}#svg-d14-sampling svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d14-sampling p{margin:0;}#svg-d14-sampling .actor{stroke:#3f6ea3;fill:#e8f1fb;stroke-width:1;}#svg-d14-sampling rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling rect.note[data-look="neo"]{stroke:#c9a83a;fill:#fff7d6;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling text.actor&gt;tspan{fill:#14212e;stroke:none;}#svg-d14-sampling .actor-line{stroke:#3f6ea3;}#svg-d14-sampling .innerArc{stroke-width:1.5;stroke-dasharray:none;}#svg-d14-sampling .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#2b3540;}#svg-d14-sampling .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#2b3540;}#svg-d14-sampling [id$="-arrowhead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d14-sampling .sequenceNumber{fill:#c2b5a8;}#svg-d14-sampling [id$="-sequencenumber"]{fill:#2b3540;}#svg-d14-sampling [id$="-crosshead"] path{fill:#2b3540;stroke:#2b3540;}#svg-d14-sampling .messageText{fill:#14212e;stroke:none;}#svg-d14-sampling .labelBox{stroke:#3f6ea3;fill:#e8f1fb;filter:none;}#svg-d14-sampling .labelText,#svg-d14-sampling .labelText&gt;tspan{fill:#14212e;stroke:none;}#svg-d14-sampling .loopText,#svg-d14-sampling .loopText&gt;tspan{fill:#14212e;stroke:none;}#svg-d14-sampling .sectionTitle,#svg-d14-sampling .sectionTitle&gt;tspan{fill:#14212e;stroke:none;}#svg-d14-sampling .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:#3f6ea3;fill:#3f6ea3;}#svg-d14-sampling .note{stroke:#c9a83a;fill:#fff7d6;}#svg-d14-sampling .noteText,#svg-d14-sampling .noteText&gt;tspan{fill:#333;stroke:none;font-weight:normal;}#svg-d14-sampling .activation0{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d14-sampling .activation1{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d14-sampling .activation2{fill:#eef7ee;stroke:hsl(120, 36%, 85.0980392157%);}#svg-d14-sampling .actorPopupMenu{position:absolute;}#svg-d14-sampling .actorPopupMenuPanel{position:absolute;fill:#e8f1fb;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#svg-d14-sampling .actor-man circle,#svg-d14-sampling line{fill:#e8f1fb;stroke-width:2px;}#svg-d14-sampling g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#3f6ea3;}#svg-d14-sampling .node .neo-node{stroke:#3f6ea3;}#svg-d14-sampling [data-look="neo"].node rect,#svg-d14-sampling [data-look="neo"].cluster rect,#svg-d14-sampling [data-look="neo"].node polygon{stroke:url(#svg-d14-sampling-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d14-sampling [data-look="neo"].node path{stroke:url(#svg-d14-sampling-gradient);stroke-width:1px;}#svg-d14-sampling [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d14-sampling [data-look="neo"].node circle{stroke:url(#svg-d14-sampling-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d14-sampling [data-look="neo"].icon-shape .icon{fill:url(#svg-d14-sampling-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d14-sampling-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-sampling .edgeLabel rect,#svg-d14-sampling .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d14-sampling .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d14-sampling :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g/><defs><symbol id="svg-d14-sampling-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"/></symbol></defs><defs><symbol id="svg-d14-sampling-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"/></symbol></defs><defs><symbol id="svg-d14-sampling-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"/></symbol></defs><defs><marker id="svg-d14-sampling-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"/></marker></defs><defs><marker id="svg-d14-sampling-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"/></marker></defs><defs><marker id="svg-d14-sampling-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"/></marker></defs><defs><marker id="svg-d14-sampling-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"/></marker></defs><defs><marker id="svg-d14-sampling-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"/></marker></defs><defs><marker id="svg-d14-sampling-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"/></marker></defs><defs><marker id="svg-d14-sampling-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><defs><marker id="svg-d14-sampling-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"/></marker></defs><g data-et="note" data-id="i0"><rect x="210" y="75" fill="#EDF2AE" stroke="#666" width="170" height="108" class="note"/><text x="295" y="81" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="295">Start: elapsed = 0,</tspan></text><text x="295" y="102" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="295">RefreshSteering_,</tspan></text><text x="295" y="123" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="295">ApplyCurrentMovemen-</tspan></text><text x="295" y="144" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-size: 16px; font-weight: 400;"><tspan x="295">t_</tspan></text></g><g data-et="control-structure" data-id="i10"><line x1="201" y1="569" x2="516" y2="569" class="loopLine"/><line x1="516" y1="569" x2="516" y2="796" class="loopLine"/><line x1="201" y1="796" x2="516" y2="796" class="loopLine"/><line x1="201" y1="569" x2="201" y2="796" class="loopLine"/><polygon points="201,569 251,569 251,582 242.6,589 201,589" class="labelBox"/><text x="226" y="582" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-size: 16px; font-weight: 400;">alt</text><text x="383.5" y="587" text-anchor="middle" class="loopText" style="font-size: 16px; font-weight: 400;"><tspan x="383.5">[elapsed ≥ interval (или interval ≤ 0)]</tspan></text></g><g data-et="control-structure" data-id="i12"><line x1="74" y1="281" x2="726" y2="281" class="loopLine"/><line x1="726" y1="281" x2="726" y2="850" class="loopLine"/><line x1="74" y1="850" x2="726" y2="850" class="loopLine"/><line x1="74" y1="281" x2="74" y2="850" class="loopLine"/><polygon points="74,281 124,281 124,294 115.6,301 74,301" class="labelBox"/><text x="99" y="294" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-size: 16px; font-weight: 400;">loop</text><text x="425" y="299" text-anchor="middle" class="loopText" style="font-size: 16px; font-weight: 400;"><tspan x="425">[каждый кадр]</tspan></text></g><text x="399" y="198" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">пересчёт → currentMovement_</text><line x1="302" y1="227" x2="501" y2="227" class="messageLine0" data-et="message" data-id="i1" data-from="RT" data-to="ST" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" style="fill: none;"/><line x1="295" y1="227" x2="295" y2="227" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="231" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">1</text><text x="504" y="242" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">применить currentMovement_ + desired facing</text><line x1="302" y1="271" x2="711" y2="271" class="messageLine0" data-et="message" data-id="i2" data-from="RT" data-to="CMD" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" style="fill: none;"/><line x1="295" y1="271" x2="295" y2="271" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="275" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">2</text><text x="399" y="331" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">очистить команду</text><line x1="92" y1="360" x2="711" y2="360" class="messageLine0" data-et="message" data-id="i4" data-from="BF" data-to="CMD" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" style="fill: none;"/><line x1="85" y1="360" x2="85" y2="360" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="85" y="364" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">3</text><text x="296" y="375" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">Validate_ (агент и цель</text><text x="296" y="396" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">живы, компоненты есть)</text><text x="296" y="417" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">иначе Failed</text><path d="M 296,438 C 356,428 356,468 296,458" class="messageLine0" data-et="message" data-id="i5" data-from="RT" data-to="RT" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" x1="302" style="fill: none;"/><line x1="295" y1="438" x2="295" y2="438" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="442" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">4</text><text x="296" y="483" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">elapsed += dt (если dt</text><text x="296" y="504" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">конечно и &gt; 0)</text><path d="M 296,529 C 356,519 356,559 296,549" class="messageLine0" data-et="message" data-id="i6" data-from="RT" data-to="RT" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" x1="302" style="fill: none;"/><line x1="295" y1="529" x2="295" y2="529" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="533" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">5</text><text x="399" y="619" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">RefreshSteering_ → новое</text><text x="399" y="640" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">currentMovement_</text><line x1="302" y1="665" x2="501" y2="665" class="messageLine0" data-et="message" data-id="i8" data-from="RT" data-to="ST" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" style="fill: none;"/><line x1="295" y1="665" x2="295" y2="665" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="669" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">6</text><text x="296" y="680" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">elapsed = fmod(elapsed,</text><text x="296" y="701" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">interval)</text><path d="M 296,726 C 356,716 356,756 296,746" class="messageLine0" data-et="message" data-id="i9" data-from="RT" data-to="RT" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" x1="302" style="fill: none;"/><line x1="295" y1="726" x2="295" y2="726" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="730" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">7</text><text x="504" y="811" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ApplyCurrentMovement_ (кешированное намерение)</text><line x1="302" y1="840" x2="711" y2="840" class="messageLine0" data-et="message" data-id="i11" data-from="RT" data-to="CMD" stroke-width="2" stroke="none" marker-end="url(#svg-d14-sampling-arrowhead)" style="fill: none;"/><line x1="295" y1="840" x2="295" y2="840" stroke-width="0" marker-start="url(#svg-d14-sampling-sequencenumber)"/><text x="295" y="844" font-family="sans-serif" font-size="12px" text-anchor="middle" class="sequenceNumber">8</text></svg></div><figcaption><span class="fig-title">Выборка и удержание: пересчёт steering только при накоплении интервала, применение кешированного намерения в каждом кадре после очистки команды.</span><span class="fig-meta">вид: sequence (по тикам) · уровень: детали · источник: <code>diagrams/mermaid/d14-sampling.mmd</code> · код: <a class="cite" href="../reference/source-references.html#na-follow-tick">NA-FOLLOW-TICK</a>, <a class="cite" href="../reference/source-references.html#na-follow-settings">NA-FOLLOW-SETTINGS</a>, <a class="cite" href="../reference/source-references.html#gr-reset-frame">GR-RESET-FRAME</a>, <a class="cite" href="../reference/source-references.html#st-apply">ST-APPLY</a> · <a href="../assets/diagrams/d14-sampling.svg">SVG</a> · <a href="../reference/diagrams.html#d14-sampling">каталог</a></span></figcaption></figure>
+<figure class="diagram" id="fig-g14-flee-hysteresis"><div class="diagram-viewport" role="img" aria-label="Гистерезис Flee для Steering Playground (trigger 5, safe 7): в зоне 5–7 м решение зависит от прошлого состояния."><svg width="760" height="360" style="--diagram-width:760.00" focusable="false" xmlns="http://www.w3.org/2000/svg" id="svg-g14-flee-hysteresis" viewBox="0 0 760 360"><title>Гистерезис Flee</title><defs><marker id="g14-flee-hysteresis-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#14212e"/></marker><marker id="g14-flee-hysteresis-arrow-grid" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e3e8ee"/></marker><marker id="g14-flee-hysteresis-arrow-axis" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8796a5"/></marker><marker id="g14-flee-hysteresis-arrow-route" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3f6ea3"/></marker><marker id="g14-flee-hysteresis-arrow-agent" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/></marker><marker id="g14-flee-hysteresis-arrow-target" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#15803d"/></marker><marker id="g14-flee-hysteresis-arrow-virtual" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="g14-flee-hysteresis-arrow-plane" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b45309"/></marker><marker id="g14-flee-hysteresis-arrow-wall" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker><marker id="g14-flee-hysteresis-arrow-probe" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0ea5e9"/></marker><marker id="g14-flee-hysteresis-arrow-hit" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker><marker id="g14-flee-hysteresis-arrow-ok" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#15803d"/></marker><marker id="g14-flee-hysteresis-arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker><marker id="g14-flee-hysteresis-arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs><rect x="0" y="0" width="760" height="360" fill="#ffffff"/><line x1="70.0" y1="70.0" x2="70.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="70.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">0</text><line x1="134.0" y1="70.0" x2="134.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="134.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">1</text><line x1="198.0" y1="70.0" x2="198.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="198.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">2</text><line x1="262.0" y1="70.0" x2="262.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="262.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">3</text><line x1="326.0" y1="70.0" x2="326.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="326.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">4</text><line x1="390.0" y1="70.0" x2="390.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="390.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">5</text><line x1="454.0" y1="70.0" x2="454.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="454.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">6</text><line x1="518.0" y1="70.0" x2="518.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="518.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">7</text><line x1="582.0" y1="70.0" x2="582.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="582.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">8</text><line x1="646.0" y1="70.0" x2="646.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="646.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">9</text><line x1="710.0" y1="70.0" x2="710.0" y2="290.0" stroke="#e3e8ee" stroke-width="1"/><text x="710.0" y="312.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#8796a5" text-anchor="middle" font-weight="normal">10</text><text x="710.0" y="338.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="13" fill="#14212e" text-anchor="end" font-weight="normal">горизонтальная дистанция до угрозы d, м</text><text x="60.0" y="115.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="13" fill="#dc2626" text-anchor="end" font-weight="normal">бежит</text><text x="60.0" y="255.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="13" fill="#3f6ea3" text-anchor="end" font-weight="normal">стоит</text><polyline points="70.0,110.0 518.0,110.0" fill="none" stroke="#dc2626" stroke-width="4"/><polyline points="390.0,250.0 710.0,250.0" fill="none" stroke="#3f6ea3" stroke-width="4"/><line x1="518.0" y1="110.0" x2="518.0" y2="244.0" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#g14-flee-hysteresis-arrow-hit)"/><line x1="390.0" y1="250.0" x2="390.0" y2="116.0" stroke="#3f6ea3" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#g14-flee-hysteresis-arrow-route)"/><text x="524.0" y="180.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="13" fill="#dc2626" text-anchor="start" font-weight="normal">d ≥ safe = 7 → стоп</text><text x="384.0" y="180.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="13" fill="#3f6ea3" text-anchor="end" font-weight="normal">d ≤ trigger = 5 → бег</text><rect x="390.0" y="80.0" width="128.0" height="200.0" fill="none" stroke="#b45309" stroke-width="1"/><text x="454.0" y="74.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#b45309" text-anchor="middle" font-weight="normal">зона памяти: решает прошлое состояние</text><circle cx="454.0" cy="250.0" r="6.0" fill="#c2410c" stroke="#c2410c" stroke-width="1.5"/><circle cx="454.0" cy="110.0" r="6.0" fill="#c2410c" stroke="#c2410c" stroke-width="1.5"/><text x="463.0" y="100.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#c2410c" text-anchor="start" font-weight="normal">d=6, был бег → бег</text><text x="463.0" y="272.0" font-family="Segoe UI, Noto Sans, Arial, sans-serif" font-size="12" fill="#c2410c" text-anchor="start" font-weight="normal">d=6, стоял → стоит</text></svg></div><figcaption><span class="fig-title">Гистерезис Flee для Steering Playground (trigger 5, safe 7): в зоне 5–7 м решение зависит от прошлого состояния.</span><span class="fig-meta">вид: график (вычислено) · уровень: детали · источник: <code>tools/gen_geometry.py</code> · код: <a class="cite" href="../reference/source-references.html#na-flee-hyst">NA-FLEE-HYST</a>, <a class="cite" href="../reference/source-references.html#as-sc-playground">AS-SC-PLAYGROUND</a> · <a href="../assets/diagrams/g14-flee-hysteresis.svg">SVG</a> · <a href="../reference/diagrams.html#g14-flee-hysteresis">каталог</a></span></figcaption></figure>
+<figure class="diagram" id="fig-d14-flee-states"><div class="diagram-viewport" role="img" aria-label="Flee как триггер Шмитта."><svg width="484" height="431" style="--diagram-width:484.46" focusable="false" id="svg-d14-flee-states" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="statediagram" viewBox="0.05000019073486328 0 484.4634094238281 431.25" role="graphics-document document" aria-roledescription="stateDiagram"><style>#svg-d14-flee-states{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;fill:#14212e;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#svg-d14-flee-states .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#svg-d14-flee-states .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#svg-d14-flee-states .error-icon{fill:#fff7e6;}#svg-d14-flee-states .error-text{fill:#000819;stroke:#000819;}#svg-d14-flee-states .edge-thickness-normal{stroke-width:1px;}#svg-d14-flee-states .edge-thickness-thick{stroke-width:3.5px;}#svg-d14-flee-states .edge-pattern-solid{stroke-dasharray:0;}#svg-d14-flee-states .edge-thickness-invisible{stroke-width:0;fill:none;}#svg-d14-flee-states .edge-pattern-dashed{stroke-dasharray:3;}#svg-d14-flee-states .edge-pattern-dotted{stroke-dasharray:2;}#svg-d14-flee-states .marker{fill:#3d4a57;stroke:#3d4a57;}#svg-d14-flee-states .marker.cross{stroke:#3d4a57;}#svg-d14-flee-states svg{font-family:Segoe UI,Noto Sans,Arial,sans-serif;font-size:15px;}#svg-d14-flee-states p{margin:0;}#svg-d14-flee-states defs [id$="-barbEnd"]{fill:#3d4a57;stroke:#3d4a57;}#svg-d14-flee-states g.stateGroup text{fill:#3f6ea3;stroke:none;font-size:10px;}#svg-d14-flee-states g.stateGroup text{fill:#14212e;stroke:none;font-size:10px;}#svg-d14-flee-states g.stateGroup .state-title{font-weight:bolder;fill:#14212e;}#svg-d14-flee-states g.stateGroup rect{fill:#e8f1fb;stroke:#3f6ea3;}#svg-d14-flee-states g.stateGroup line{stroke:#3d4a57;stroke-width:1;}#svg-d14-flee-states .transition{stroke:#3d4a57;stroke-width:1;fill:none;}#svg-d14-flee-states .stateGroup .composit{fill:#f4f4f4;border-bottom:1px;}#svg-d14-flee-states .stateGroup .alt-composit{fill:#e0e0e0;border-bottom:1px;}#svg-d14-flee-states .state-note{stroke:#c9a83a;fill:#fff7d6;}#svg-d14-flee-states .state-note text{fill:#333;stroke:none;font-size:10px;}#svg-d14-flee-states .stateLabel .box{stroke:none;stroke-width:0;fill:#e8f1fb;opacity:0.5;}#svg-d14-flee-states .edgeLabel .label rect{fill:#e8f1fb;opacity:0.5;}#svg-d14-flee-states .edgeLabel{background-color:#ffffff;text-align:center;}#svg-d14-flee-states .edgeLabel p{background-color:#ffffff;}#svg-d14-flee-states .edgeLabel rect{opacity:0.5;background-color:#ffffff;fill:#ffffff;}#svg-d14-flee-states .edgeLabel .label text{fill:#14212e;}#svg-d14-flee-states .label div .edgeLabel{color:#14212e;}#svg-d14-flee-states .stateLabel text{fill:#14212e;font-size:10px;font-weight:bold;}#svg-d14-flee-states .node circle.state-start{fill:#3d4a57;stroke:#3d4a57;}#svg-d14-flee-states .node .fork-join{fill:#3d4a57;stroke:#3d4a57;}#svg-d14-flee-states .node circle.state-end{fill:#3f6ea3;stroke:#f4f4f4;stroke-width:1.5;}#svg-d14-flee-states .end-state-inner{fill:#f4f4f4;stroke-width:1.5;}#svg-d14-flee-states .node rect{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d14-flee-states .node polygon{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d14-flee-states [id$="-barbEnd"]{fill:#3d4a57;}#svg-d14-flee-states .statediagram-cluster rect{fill:#e8f1fb;stroke:#3f6ea3;stroke-width:1px;}#svg-d14-flee-states .cluster-label,#svg-d14-flee-states .nodeLabel{color:#14212e;}#svg-d14-flee-states .statediagram-cluster rect.outer{rx:5px;ry:5px;}#svg-d14-flee-states .statediagram-state .divider{stroke:#3f6ea3;}#svg-d14-flee-states .statediagram-state .title-state{rx:5px;ry:5px;}#svg-d14-flee-states .statediagram-cluster.statediagram-cluster .inner{fill:#f4f4f4;}#svg-d14-flee-states .statediagram-cluster.statediagram-cluster-alt .inner{fill:#fff7e6;}#svg-d14-flee-states .statediagram-cluster .inner{rx:0;ry:0;}#svg-d14-flee-states .statediagram-state rect.basic{rx:5px;ry:5px;}#svg-d14-flee-states .statediagram-state rect.divider{stroke-dasharray:10,10;fill:#fff7e6;}#svg-d14-flee-states .note-edge{stroke-dasharray:5;}#svg-d14-flee-states .statediagram-note rect{fill:#fff7d6;stroke:#c9a83a;stroke-width:1px;rx:0;ry:0;}#svg-d14-flee-states .statediagram-note rect{fill:#fff7d6;stroke:#c9a83a;stroke-width:1px;rx:0;ry:0;}#svg-d14-flee-states .statediagram-note text{fill:#333;}#svg-d14-flee-states .statediagram-note .nodeLabel{color:#333;}#svg-d14-flee-states .statediagram .edgeLabel{color:red;}#svg-d14-flee-states [id$="-dependencyStart"],#svg-d14-flee-states [id$="-dependencyEnd"]{fill:#3d4a57;stroke:#3d4a57;stroke-width:1;}#svg-d14-flee-states .statediagramTitleText{text-anchor:middle;font-size:18px;fill:#14212e;}#svg-d14-flee-states [data-look="neo"].statediagram-cluster rect{fill:#e8f1fb;stroke:url(#svg-d14-flee-states-gradient);stroke-width:1;}#svg-d14-flee-states [data-look="neo"].statediagram-cluster rect.outer{rx:5px;ry:5px;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states .node .neo-node{stroke:#3f6ea3;}#svg-d14-flee-states [data-look="neo"].node rect,#svg-d14-flee-states [data-look="neo"].cluster rect,#svg-d14-flee-states [data-look="neo"].node polygon{stroke:url(#svg-d14-flee-states-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states [data-look="neo"].swimlane.cluster rect{filter:none;}#svg-d14-flee-states [data-look="neo"].node path{stroke:url(#svg-d14-flee-states-gradient);stroke-width:1px;}#svg-d14-flee-states [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states [data-look="neo"].node .neo-line path{stroke:#3f6ea3;filter:none;}#svg-d14-flee-states [data-look="neo"].node circle{stroke:url(#svg-d14-flee-states-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states [data-look="neo"].node circle .state-start{fill:#000000;}#svg-d14-flee-states [data-look="neo"].icon-shape .icon{fill:url(#svg-d14-flee-states-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states [data-look="neo"].icon-shape .icon-neo path{stroke:url(#svg-d14-flee-states-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#svg-d14-flee-states .edgeLabel rect,#svg-d14-flee-states .edgeLabel .labelBkg{fill:rgb(255, 255, 255)!important;opacity:1!important;}#svg-d14-flee-states .edgeLabel{background-color:rgb(255, 255, 255);}#svg-d14-flee-states :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><defs><marker id="svg-d14-flee-states_stateDiagram-barbEnd" refX="19" refY="7" markerWidth="20" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto"><path d="M 19,7 L9,13 L14,7 L9,1 Z"/></marker></defs><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M246.015,22L246.015,28.167C246.015,34.333,246.015,46.667,246.015,59C246.015,71.333,246.015,83.667,246.015,89.833L246.015,96" id="svg-d14-flee-states-edge0" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge0" data-points="W3sieCI6MjQ2LjAxNDg0Mzc1MDc0NTA2LCJ5IjoyMn0seyJ4IjoyNDYuMDE0ODQzNzUwNzQ1MDYsInkiOjU5fSx7IngiOjI0Ni4wMTQ4NDM3NTA3NDUwNiwieSI6OTZ9XQ==" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/><path d="M208.273,130.981L191.133,138.692C173.993,146.404,139.713,161.827,142.344,177.971C144.974,194.116,184.516,210.982,204.287,219.414L224.058,227.847" id="svg-d14-flee-states-edge1" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge1" data-points="W3sieCI6MjA4LjI3MjY1NjI1MDc0NTA2LCJ5IjoxMzAuOTgwNzg1Nzk1NjU5Nzh9LHsieCI6MTA1LjQzMjgxMjUwMDc0NTA2LCJ5IjoxNzcuMjV9LHsieCI6MjI0LjA1NzgxMjUwMDc0NTA2LCJ5IjoyMjcuODQ3MzM0MTc2MjgxNTV9XQ==" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/><path d="M253.722,222.5L253.722,214.958C253.722,207.417,253.722,192.333,252.803,177.25C251.884,162.167,250.046,147.083,249.127,139.542L248.208,132" id="svg-d14-flee-states-edge2" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge2" data-points="W3sieCI6MjUzLjcyMTg3NTAwMDc0NTA2LCJ5IjoyMjIuNX0seyJ4IjoyNTMuNzIxODc1MDAwNzQ1MDYsInkiOjE3Ny4yNX0seyJ4IjoyNDguMjA4MTQ5MDg2NzEzNDMsInkiOjEzMn1d" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/><path d="M283.386,227.751L302.969,219.334C322.553,210.917,361.719,194.084,361.781,177.694C361.843,161.305,322.8,145.359,303.279,137.387L283.757,129.414" id="svg-d14-flee-states-edge5" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge5" data-points="W3sieCI6MjgzLjM4NTkzNzUwMDc0NTA2LCJ5IjoyMjcuNzUwNjEwNTAwNjEwNX0seyJ4Ijo0MDAuODg1OTM3NTAwNzQ1MDYsInkiOjE3Ny4yNX0seyJ4IjoyODMuNzU3MDMxMjUwNzQ1MDYsInkiOjEyOS40MTQwNjY2MzgwODEwN31d" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/><path d="M243.551,258.5L241.291,262.5C239.031,266.5,234.511,274.5,240.161,278.5C245.811,282.5,261.632,282.5,267.283,278.5C272.933,274.5,268.413,266.5,266.153,262.5L263.892,258.5" id="svg-d14-flee-states-edge3" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge3" data-points="W3sieCI6MjQzLjU1MTMzOTI4NjQ1OTM1LCJ5IjoyNTguNX0seyJ4IjoyMjkuOTkwNjI1MDAwNzQ1MDcsInkiOjI4Mi41fSx7IngiOjI3Ny40NTMxMjUwMDA3NDUwNSwieSI6MjgyLjV9LHsieCI6MjYzLjg5MjQxMDcxNTAzMDgsInkiOjI1OC41fV0=" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/><path d="M233.075,132L230.199,136C227.323,140,221.572,148,228.761,152C235.95,156,256.079,156,263.268,152C270.457,148,264.706,140,261.831,136L258.955,132" id="svg-d14-flee-states-edge4" class="edge-thickness-normal edge-pattern-solid transition" style="fill:none;;;fill:none" data-edge="true" data-et="edge" data-id="edge4" data-points="W3sieCI6MjMzLjA3NDY2NTE3OTMxNjUsInkiOjEzMn0seyJ4IjoyMTUuODIxMDkzNzUwNzQ1MDYsInkiOjE1Nn0seyJ4IjoyNzYuMjA4NTkzNzUwNzQ1MSwieSI6MTU2fSx7IngiOjI1OC45NTUwMjIzMjIxNzM2NSwieSI6MTMyfV0=" data-look="classic" marker-end="url(#svg-d14-flee-states_stateDiagram-barbEnd)"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(246.01484375074506, 59)"><g class="label" data-id="edge0" transform="translate(0, -9)"><g><rect class="background" style="" x="-76.9609375" y="-3" width="153.921875" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Start</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (isFleeing</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> =</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> false)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(112.8815, 180.4271)"><g class="label" data-id="edge1" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-77.3828125" y="-3" width="154.765625" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">d</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> ≤</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> triggerRadius</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (при</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">пересчёте)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(253.72187500074506, 177.25)"><g class="label" data-id="edge2" transform="translate(0, -9)"><g><rect class="background" style="" x="-50.90625" y="-3" width="101.8125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">d</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> ≥</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> safeRadius</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(253.72187500074506, 298.5)"><g class="label" data-id="edge3" transform="translate(0, -9)"><g><rect class="background" style="" x="-99.515625" y="-3" width="199.03125" height="24"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">d</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> &lt;</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> safeRadius</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (Flee</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> steering)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(246.01484375074506, 180.25)"><g class="label" data-id="edge4" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-91.671875" y="-3" width="183.34375" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">d</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> &gt;</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> triggerRadius</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> (нулевая</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">команда)</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(400.25559, 177.52092)"><g class="label" data-id="edge5" transform="translate(0, -17.25)"><g><rect class="background" style="" x="-76.2578125" y="-3" width="152.515625" height="40.5"/><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Cancel</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> /</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> цель</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> исчезла</tspan></tspan><tspan class="text-outer-tspan row" x="0" y="1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">(Failed)</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="svg-d14-flee-states-state-root_start-0" data-look="classic" transform="translate(246.01484375074506, 15)"><circle class="state-start" r="7" width="14" height="14"/></g><g class="node  statediagram-state" id="svg-d14-flee-states-state-Спокоен-5" data-look="classic" transform="translate(246.01484375074506, 114)"><rect class="basic label-container" style="" rx="5" ry="5" x="-37.7421875" y="-18" width="75.484375" height="36"/><g class="label" style="" transform="translate(-29.7421875, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Спокоен</tspan></tspan></text></g></g></g><g class="node  statediagram-state" id="svg-d14-flee-states-state-Бежит-5" data-look="classic" transform="translate(253.72187500074506, 240.5)"><rect class="basic label-container" style="" rx="5" ry="5" x="-29.6640625" y="-18" width="59.328125" height="36"/><g class="label" style="" transform="translate(-21.6640625, -10)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Бежит</tspan></tspan></text></g></g></g><g class="label edgeLabel" id="Бежит---Бежит---1" transform="translate(138.4109375011176, 349.05000000074506)"><rect width="0.1" height="0.1"/><g class="label" style="" transform="translate(0, 0)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"/></text></g></g></g><g class="label edgeLabel" id="Бежит---Бежит---2" transform="translate(392.9578125011176, 423.1500000022352)"><rect width="0.1" height="0.1"/><g class="label" style="" transform="translate(0, 0)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"/></text></g></g></g><g class="label edgeLabel" id="Спокоен---Спокоен---1" transform="translate(8.050000000745058, 240.5)"><rect width="0.1" height="0.1"/><g class="label" style="" transform="translate(0, 0)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"/></text></g></g></g><g class="label edgeLabel" id="Спокоен---Спокоен---2" transform="translate(441.30781250074506, 349.05000000074506)"><rect width="0.1" height="0.1"/><g class="label" style="" transform="translate(0, 0)"><rect/><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"/></text></g></g></g></g></g></g><defs><filter id="svg-d14-flee-states-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="svg-d14-flee-states-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="svg-d14-flee-states-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3f6ea3" stop-opacity="1"/><stop offset="100%" stop-color="hsl(120, 0%, 85.0980392157%)" stop-opacity="1"/></linearGradient></svg></div><figcaption><span class="fig-title">Flee как триггер Шмитта.</span><span class="fig-meta">вид: state · уровень: детали · источник: <code>diagrams/mermaid/d14-flee-states.mmd</code> · код: <a class="cite" href="../reference/source-references.html#na-flee-hyst">NA-FLEE-HYST</a>, <a class="cite" href="../reference/source-references.html#na-flee-ctor">NA-FLEE-CTOR</a>, <a class="cite" href="../reference/source-references.html#na-flee-settings">NA-FLEE-SETTINGS</a> · <a href="../assets/diagrams/d14-flee-states.svg">SVG</a> · <a href="../reference/diagrams.html#d14-flee-states">каталог</a></span></figcaption></figure>
+<h2 id="4-coreengine">4. Как это реализовано в CoreEngine<a class="headerlink" href="#4-coreengine" title="Permanent link">&para;</a></h2>
+<h3 id="41-follow">4.1. Follow<a class="headerlink" href="#41-follow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/AI/Navigation/AIFollowTargetActionRuntime.cppm:64–97</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="w">        </span><span class="p">[[</span><span class="na">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="n">AIActionRuntimeResult</span><span class="w"> </span><span class="n">Tick</span><span class="p">(</span>
+</span><span id="__span-0-65"><a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="n">AIActionRuntimeContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">context</span><span class="p">,</span>
+</span><span id="__span-0-66"><a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="p">)</span><span class="w"> </span><span class="k">override</span>
+</span><span id="__span-0-67"><a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-0-68"><a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">Validate_</span><span class="p">(</span><span class="n">context</span><span class="p">))</span>
+</span><span id="__span-0-69"><a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="w">                </span><span class="n">ClearMovementIfAccessible_</span><span class="p">(</span><span class="n">context</span><span class="p">.</span><span class="n">agentEntity</span><span class="p">);</span>
+</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="n">AIActionRuntimeResult</span><span class="o">::</span><span class="n">Failed</span><span class="p">;</span>
+</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>
+</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">isfinite</span><span class="p">(</span><span class="n">deltaSeconds</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">)</span>
+</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">                </span><span class="n">elapsedSinceSteeringUpdate_</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">deltaSeconds</span><span class="p">;</span>
+</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>
+</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">settings_</span><span class="p">.</span><span class="n">steeringUpdateIntervalSeconds</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mf">0.0f</span><span class="w"> </span><span class="o">||</span>
+</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="w">                </span><span class="n">elapsedSinceSteeringUpdate_</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">settings_</span><span class="p">.</span><span class="n">steeringUpdateIntervalSeconds</span><span class="p">)</span>
+</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">                </span><span class="n">RefreshSteering_</span><span class="p">(</span><span class="n">context</span><span class="p">.</span><span class="n">agentEntity</span><span class="p">);</span>
+</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="w">                </span><span class="n">elapsedSinceSteeringUpdate_</span><span class="w"> </span><span class="o">=</span>
+</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="w">                    </span><span class="n">settings_</span><span class="p">.</span><span class="n">steeringUpdateIntervalSeconds</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0.0f</span>
+</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="w">                    </span><span class="o">?</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">fmod</span><span class="p">(</span>
+</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="w">                        </span><span class="n">elapsedSinceSteeringUpdate_</span><span class="p">,</span>
+</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="w">                        </span><span class="n">settings_</span><span class="p">.</span><span class="n">steeringUpdateIntervalSeconds</span><span class="p">)</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="w">                    </span><span class="o">:</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">;</span>
+</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="w">            </span><span class="c1">// GameplayCharacterCommandComponent is frame-local and is cleared</span>
+</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="w">            </span><span class="c1">// by GameplayRuntime::BeginFrame(). Steering is intentionally</span>
+</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="w">            </span><span class="c1">// sampled at a lower cadence, so re-issue the last sampled intent</span>
+</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">            </span><span class="c1">// every AI tick without re-running steering or obstacle probes.</span>
+</span><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="w">            </span><span class="n">ApplyCurrentMovement_</span><span class="p">(</span><span class="n">context</span><span class="p">.</span><span class="n">agentEntity</span><span class="p">);</span>
+</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">AIActionRuntimeResult</span><span class="o">::</span><span class="n">Running</span><span class="p">;</span>
+</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="w">        </span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#na-follow-tick">NA-FOLLOW-TICK</a> · <code>src/Gameplay/AI/Navigation/AIFollowTargetActionRuntime.cppm:64</code> · снимок <code>8c6c0dc</code></p>
+<h3 id="42-flee">4.2. Flee: гистерезис в пересчёте<a class="headerlink" href="#42-flee" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">src/Gameplay/AI/Navigation/AIFleeTargetActionRuntime.cppm:127–166</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-127">127</a></span>
+<span class="normal"><a href="#__codelineno-1-128">128</a></span>
+<span class="normal"><a href="#__codelineno-1-129">129</a></span>
+<span class="normal"><a href="#__codelineno-1-130">130</a></span>
+<span class="normal"><a href="#__codelineno-1-131">131</a></span>
+<span class="normal"><a href="#__codelineno-1-132">132</a></span>
+<span class="normal"><a href="#__codelineno-1-133">133</a></span>
+<span class="normal"><a href="#__codelineno-1-134">134</a></span>
+<span class="normal"><a href="#__codelineno-1-135">135</a></span>
+<span class="normal"><a href="#__codelineno-1-136">136</a></span>
+<span class="normal"><a href="#__codelineno-1-137">137</a></span>
+<span class="normal"><a href="#__codelineno-1-138">138</a></span>
+<span class="normal"><a href="#__codelineno-1-139">139</a></span>
+<span class="normal"><a href="#__codelineno-1-140">140</a></span>
+<span class="normal"><a href="#__codelineno-1-141">141</a></span>
+<span class="normal"><a href="#__codelineno-1-142">142</a></span>
+<span class="normal"><a href="#__codelineno-1-143">143</a></span>
+<span class="normal"><a href="#__codelineno-1-144">144</a></span>
+<span class="normal"><a href="#__codelineno-1-145">145</a></span>
+<span class="normal"><a href="#__codelineno-1-146">146</a></span>
+<span class="normal"><a href="#__codelineno-1-147">147</a></span>
+<span class="normal"><a href="#__codelineno-1-148">148</a></span>
+<span class="normal"><a href="#__codelineno-1-149">149</a></span>
+<span class="normal"><a href="#__codelineno-1-150">150</a></span>
+<span class="normal"><a href="#__codelineno-1-151">151</a></span>
+<span class="normal"><a href="#__codelineno-1-152">152</a></span>
+<span class="normal"><a href="#__codelineno-1-153">153</a></span>
+<span class="normal"><a href="#__codelineno-1-154">154</a></span>
+<span class="normal"><a href="#__codelineno-1-155">155</a></span>
+<span class="normal"><a href="#__codelineno-1-156">156</a></span>
+<span class="normal"><a href="#__codelineno-1-157">157</a></span>
+<span class="normal"><a href="#__codelineno-1-158">158</a></span>
+<span class="normal"><a href="#__codelineno-1-159">159</a></span>
+<span class="normal"><a href="#__codelineno-1-160">160</a></span>
+<span class="normal"><a href="#__codelineno-1-161">161</a></span>
+<span class="normal"><a href="#__codelineno-1-162">162</a></span>
+<span class="normal"><a href="#__codelineno-1-163">163</a></span>
+<span class="normal"><a href="#__codelineno-1-164">164</a></span>
+<span class="normal"><a href="#__codelineno-1-165">165</a></span>
+<span class="normal"><a href="#__codelineno-1-166">166</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-127"><a id="__codelineno-1-127" name="__codelineno-1-127"></a><span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="nf">RefreshSteering_</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">EntityHandle</span><span class="w"> </span><span class="n">agentEntity</span><span class="p">)</span><span class="w"> </span><span class="k">noexcept</span>
+</span><span id="__span-1-128"><a id="__codelineno-1-128" name="__codelineno-1-128"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-1-129"><a id="__codelineno-1-129" name="__codelineno-1-129"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="n">mathUtils</span><span class="o">::</span><span class="n">Vec3</span><span class="w"> </span><span class="n">agentPosition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetTransform</span><span class="p">(</span><span class="n">agentEntity</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">position</span><span class="p">;</span>
+</span><span id="__span-1-130"><a id="__codelineno-1-130" name="__codelineno-1-130"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="n">mathUtils</span><span class="o">::</span><span class="n">Vec3</span><span class="w"> </span><span class="n">targetPosition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world_</span><span class="p">.</span><span class="n">TryGetTransform</span><span class="p">(</span><span class="n">targetEntity_</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">position</span><span class="p">;</span>
+</span><span id="__span-1-131"><a id="__codelineno-1-131" name="__codelineno-1-131"></a><span class="w">            </span><span class="n">mathUtils</span><span class="o">::</span><span class="n">Vec3</span><span class="w"> </span><span class="n">planarDelta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">targetPosition</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">agentPosition</span><span class="p">;</span>
+</span><span id="__span-1-132"><a id="__codelineno-1-132" name="__codelineno-1-132"></a><span class="w">            </span><span class="n">planarDelta</span><span class="p">.</span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">;</span>
+</span><span id="__span-1-133"><a id="__codelineno-1-133" name="__codelineno-1-133"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">distance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mathUtils</span><span class="o">::</span><span class="n">Length</span><span class="p">(</span><span class="n">planarDelta</span><span class="p">);</span>
+</span><span id="__span-1-134"><a id="__codelineno-1-134" name="__codelineno-1-134"></a>
+</span><span id="__span-1-135"><a id="__codelineno-1-135" name="__codelineno-1-135"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">isFleeing_</span><span class="p">)</span>
+</span><span id="__span-1-136"><a id="__codelineno-1-136" name="__codelineno-1-136"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-137"><a id="__codelineno-1-137" name="__codelineno-1-137"></a><span class="w">                </span><span class="n">isFleeing_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">distance</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">settings_</span><span class="p">.</span><span class="n">safeRadius</span><span class="p">;</span>
+</span><span id="__span-1-138"><a id="__codelineno-1-138" name="__codelineno-1-138"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-139"><a id="__codelineno-1-139" name="__codelineno-1-139"></a><span class="w">            </span><span class="k">else</span>
+</span><span id="__span-1-140"><a id="__codelineno-1-140" name="__codelineno-1-140"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-141"><a id="__codelineno-1-141" name="__codelineno-1-141"></a><span class="w">                </span><span class="n">isFleeing_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">distance</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">settings_</span><span class="p">.</span><span class="n">triggerRadius</span><span class="p">;</span>
+</span><span id="__span-1-142"><a id="__codelineno-1-142" name="__codelineno-1-142"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-143"><a id="__codelineno-1-143" name="__codelineno-1-143"></a>
+</span><span id="__span-1-144"><a id="__codelineno-1-144" name="__codelineno-1-144"></a><span class="w">            </span><span class="n">GameplayMovementIntent</span><span class="w"> </span><span class="n">movement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isFleeing_</span>
+</span><span id="__span-1-145"><a id="__codelineno-1-145" name="__codelineno-1-145"></a><span class="w">                </span><span class="o">?</span><span class="w"> </span><span class="n">BuildGameplayFleeSteering</span><span class="p">(</span><span class="n">agentPosition</span><span class="p">,</span><span class="w"> </span><span class="n">targetPosition</span><span class="p">,</span><span class="w"> </span><span class="n">settings_</span><span class="p">.</span><span class="n">steering</span><span class="p">)</span>
+</span><span id="__span-1-146"><a id="__codelineno-1-146" name="__codelineno-1-146"></a><span class="w">                </span><span class="o">:</span><span class="w"> </span><span class="n">GameplayMovementIntent</span><span class="p">{};</span>
+</span><span id="__span-1-147"><a id="__codelineno-1-147" name="__codelineno-1-147"></a><span class="w">            </span><span class="n">GameplayObstacleAvoidanceDebugSnapshot</span><span class="w"> </span><span class="n">debug</span><span class="p">{};</span>
+</span><span id="__span-1-148"><a id="__codelineno-1-148" name="__codelineno-1-148"></a><span class="w">            </span><span class="k">const</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">debugEnabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">debugRegistry_</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">nullptr</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">debugRegistry_</span><span class="o">-&gt;</span><span class="n">IsEnabled</span><span class="p">();</span>
+</span><span id="__span-1-149"><a id="__codelineno-1-149" name="__codelineno-1-149"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">debugEnabled</span><span class="p">)</span>
+</span><span id="__span-1-150"><a id="__codelineno-1-150" name="__codelineno-1-150"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-151"><a id="__codelineno-1-151" name="__codelineno-1-151"></a><span class="w">                </span><span class="n">debug</span><span class="p">.</span><span class="n">baseMovement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">movement</span><span class="p">;</span>
+</span><span id="__span-1-152"><a id="__codelineno-1-152" name="__codelineno-1-152"></a><span class="w">                </span><span class="n">debug</span><span class="p">.</span><span class="n">finalMovement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">movement</span><span class="p">;</span>
+</span><span id="__span-1-153"><a id="__codelineno-1-153" name="__codelineno-1-153"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-154"><a id="__codelineno-1-154" name="__codelineno-1-154"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">obstacleQuery_</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">nullptr</span><span class="p">)</span>
+</span><span id="__span-1-155"><a id="__codelineno-1-155" name="__codelineno-1-155"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-156"><a id="__codelineno-1-156" name="__codelineno-1-156"></a><span class="w">                </span><span class="n">movement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ApplyGameplayAgentObstacleAvoidance</span><span class="p">(</span>
+</span><span id="__span-1-157"><a id="__codelineno-1-157" name="__codelineno-1-157"></a><span class="w">                    </span><span class="n">world_</span><span class="p">,</span><span class="w"> </span><span class="n">agentEntity</span><span class="p">,</span><span class="w"> </span><span class="n">movement</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">obstacleQuery_</span><span class="p">,</span><span class="w"> </span><span class="n">obstacleSettings_</span><span class="p">,</span>
+</span><span id="__span-1-158"><a id="__codelineno-1-158" name="__codelineno-1-158"></a><span class="w">                    </span><span class="n">obstacleAvoidanceState_</span><span class="p">,</span><span class="w"> </span><span class="n">debugEnabled</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="o">&amp;</span><span class="n">debug</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nb">nullptr</span><span class="p">);</span>
+</span><span id="__span-1-159"><a id="__codelineno-1-159" name="__codelineno-1-159"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-160"><a id="__codelineno-1-160" name="__codelineno-1-160"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">debugEnabled</span><span class="p">)</span>
+</span><span id="__span-1-161"><a id="__codelineno-1-161" name="__codelineno-1-161"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-1-162"><a id="__codelineno-1-162" name="__codelineno-1-162"></a><span class="w">                </span><span class="n">debugRegistry_</span><span class="o">-&gt;</span><span class="n">Publish</span><span class="p">(</span><span class="n">agentEntity</span><span class="p">,</span><span class="w"> </span><span class="n">GameplaySteeringDebugMode</span><span class="o">::</span><span class="n">Flee</span><span class="p">,</span><span class="w"> </span><span class="n">debug</span><span class="p">);</span>
+</span><span id="__span-1-163"><a id="__codelineno-1-163" name="__codelineno-1-163"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-1-164"><a id="__codelineno-1-164" name="__codelineno-1-164"></a>
+</span><span id="__span-1-165"><a id="__codelineno-1-165" name="__codelineno-1-165"></a><span class="w">            </span><span class="n">currentMovement_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">movement</span><span class="p">;</span>
+</span><span id="__span-1-166"><a id="__codelineno-1-166" name="__codelineno-1-166"></a><span class="w">        </span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+<p class="src-ref">Источник: <a href="../reference/source-references.html#na-flee-refresh">NA-FLEE-REFRESH</a> · <code>src/Gameplay/AI/Navigation/AIFleeTargetActionRuntime.cppm:127</code> · снимок <code>8c6c0dc</code></p>
+<h3 id="43">4.3. Как запускаются<a class="headerlink" href="#43" title="Permanent link">&para;</a></h3>
+<p>Только прямыми вызовами <code>GameplayRuntime::StartAIFollowTarget</code> / <code>StartAIFleeTarget</code> (<a class="cite" href="../reference/source-references.html#gr-start-follow">GR-START-FOLLOW</a>,
+<a class="cite" href="../reference/source-references.html#gr-start-flee">GR-START-FLEE</a>): им передаются obstacle query и steering debug (navigation debug не нужен — маршрута нет).
+В ассетной GOAP-композиции зарегистрированных capability для Follow/Flee <strong>нет</strong> (встроены только <code>move_to</code> и
+<code>purchase</code>) — использовать их как шаг плана можно только программно, с собственным binding и осмысленным
+terminal-контрактом <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>.</p>
+<h2 id="5-steering-playground">5. Разобранный пример: Steering Playground<a class="headerlink" href="#5-steering-playground" title="Permanent link">&para;</a></h2>
+<p>Сценарий (<a class="cite" href="../reference/source-references.html#as-sc-playground">AS-SC-PLAYGROUND</a>) и уровень: <code>Steering_Flee_Agent (0, 0, 0)</code>, <code>Steering_Flee_Threat (3, 0, 0)</code>,
+trigger 5, safe 7, ходьба; <code>Steering_Follow_Agent (−8, 0, −6)</code> → <code>Steering_Follow_Target (8, 0, −6)</code>, acceptance
+0.8, ходьба.</p>
+<p><strong>Flee.</strong> Старт: <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>=</mo><mn>3</mn><mo>≤</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">d = 3 \le 5</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7804em;vertical-align:-0.136em;"></span><span class="mord">3</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">5</span></span></span></span></span> → бежит; направление <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>0</mn><mo>−</mo><mn>3</mn><mo separator="true">,</mo><mn>0</mn><mo>−</mo><mn>0</mn><mo stretchy="false">)</mo><mi mathvariant="normal">/</mi><mn>3</mn><mo>=</mo><mo stretchy="false">(</mo><mo>−</mo><mn>1</mn><mo separator="true">,</mo><mn>0</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(0 - 3, 0 - 0)/3 = (-1, 0)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">0</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8389em;vertical-align:-0.1944em;"></span><span class="mord">3</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">0</span><span class="mclose">)</span><span class="mord">/3</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">−</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mclose">)</span></span></span></span></span> — к <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mi>X</mi></mrow><annotation encoding="application/x-tex">-X</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord">−</span><span class="mord mathnormal" style="margin-right:0.0785em;">X</span></span></span></span></span>. Позади агента стоит
+<code>Steering_Flee_Obstacle (−2, 0.9, 0)</code> — avoidance скорректирует направление (глава <a href="15-obstacle-avoidance.html">15</a>).
+Агент удаляется со скоростью до 2 м/с; когда <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span></span> достигнет 7 (примерно через 2 с без учёта обхода),
+состояние перейдёт в «спокоен» и команда станет нулевой. Если затем угрозу придвинуть на 6 м, агент останется
+стоять (6 &gt; 5); если бы он ещё бежал, продолжил бы (6 &lt; 7).</p>
+<p><strong>Follow.</strong> <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>=</mo><mn>16</mn></mrow><annotation encoding="application/x-tex">d = 16</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">16</span></span></span></span></span>, Seek → <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>1</mn><mo separator="true">,</mo><mn>0</mn><mo separator="true">,</mo><mn>0</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(1, 0, 0)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mclose">)</span></span></span></span></span>, magnitude 1, 2 м/с; посередине — <code>Steering_Follow_Obstacle (0, 0.9, −6)</code>.
+Когда агент войдёт в <span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.8</mn><mo>+</mo><mn>0.001</mn></mrow><annotation encoding="application/x-tex">0.8 + 0.001</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">0.8</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.001</span></span></span></span></span> от цели, команда станет нулевой, но runtime останется <code>Running</code>.</p>
+<p><strong>Выборка при 60 Гц</strong> (<span class="math-inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>t</mi><mo>≈</mo><mn>0.0167</mn></mrow><annotation encoding="application/x-tex">\Delta t \approx 0.0167</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">Δ</span><span class="mord mathnormal">t</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.0167</span></span></span></span></span>): пересчёты на 3-м (или 4-м — из-за округления float) тике,
+команда — в каждом кадре.</p>
+<div class="admonition example">
+<p class="admonition-title">Попробуйте сами</p>
+<p>В <a href="../demos/arrival-flee.html">демонстрации Arrival/Flee</a> можно двигать дистанцию и пороги и видеть, как
+решение зависит от прошлого состояния.</p>
+</div>
+<h2 id="6">6. Типичные ошибки, границы и проверка<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Ждать успеха Follow.</strong> Runtime не завершается сам — нужен внешний <code>CancelAIAction</code> или своя логика.</li>
+<li><strong>Писать команду только при пересчёте.</strong> Рывки; runtimes CoreEngine переиздают намерение.</li>
+<li><strong>Один порог Flee.</strong> Дребезг; используйте ширину зоны больше шума.</li>
+<li><strong>Длинный кадр.</strong> Один пересчёт, без догоняния.</li>
+<li><strong>Высота.</strong> Дистанции горизонтальные: угроза этажом выше «рядом».</li>
+<li><strong>Пересоздание цели.</strong> Новый handle не отслеживается; runtime упадёт в <code>Failed</code>.</li>
+</ul>
+<p>Проверки: <code>TestAITargetActions.cpp</code> (2), тесты <code>AIFollowTargetActionRuntime</code> (9) и <code>AIFleeTargetActionRuntime</code> (6) —
+наличие <span class="ev ev-source" title="Поведение прочитано в исходниках текущего снимка">SOURCE_VERIFIED</span>; численные случаи гистерезиса и выборки — <code>tools/verify_examples.py</code>.</p>
+<p>Далее: <a href="15-obstacle-avoidance.html">15. Obstacle avoidance</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Нижний колонтитул" >
+        
+          
+          <a href="13-steering.html" class="md-footer__link md-footer__link--prev" aria-label="Назад: 13 Steering">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Назад
+              </span>
+              <div class="md-ellipsis">
+                13 Steering
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="15-obstacle-avoidance.html" class="md-footer__link md-footer__link--next" aria-label="Вперед: 15 Obstacle avoidance">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Вперед
+              </span>
+              <div class="md-ellipsis">
+                15 Obstacle avoidance
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "navigation.path", "search.highlight", "search.suggest", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../assets/js/atlas-diagram-viewer.js"></script>
+      
+        <script src="../assets/js/atlas-reveal.js"></script>
+      
+        <script src="../assets/js/atlas-demo-data.js"></script>
+      
+        <script src="../assets/js/atlas-demos.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,18 @@
+%% title: Два источника маршрута сходятся в одном исполнителе
+%% kind: data-flow
+%% level: обзор
+%% refs: CP-MOVE-GRAPH, CP-MOVE-FALLBACK, CP-MOVE-RESOLVE, RS-FIND, NA-MOVETO-CREATE, NV-FINDPATH, SC-NAV-PATH, GR-START-ROUTE, NA-ROUTE-RT
+flowchart TB
+  subgraph G["GOAP move_to (ассеты)"]
+    G1[".routes.json: узлы = роли,<br/>рёбра, cost или 3D-длина,<br/>traversal-аннотации"] -->|"CompileGraph при создании instance"| G3["GameplayRouteGraph"]
+    G2["нет routeGraph:<br/>граф origin → target,<br/>одно ребро стоимостью 1"] --> G3
+    G3 -->|"FindWeightedGameplayRoute<br/>(при создании: cost override;<br/>при старте шага: маршрут)"| R1["GameplayRoute<br/>points + annotations"]
+  end
+  subgraph N["NavMesh (прямой запуск, сценарий Maze)"]
+    N1["статические меши уровня →<br/>Recast bake на профиль агента"] --> N2["World::FindPath:<br/>findNearestPoly, findPath (коридор),<br/>findStraightPath"]
+    N2 -->|"точки; аннотации пустые"| R2["GameplayRoute"]
+  end
+  R1 -->|"AIFollowRouteAction::CreateRuntime"| F["AIFollowRouteActionRuntime<br/>владеет маршрутом"]
+  R2 -->|"GameplayRuntime::StartAIFollowRoute"| F
+  F -->|"обычный сегмент"| S["follower + steering<br/>(+ avoidance, если есть query)"]
+  F -->|"traversal-аннотация"| T["executor: Jump / Door"]

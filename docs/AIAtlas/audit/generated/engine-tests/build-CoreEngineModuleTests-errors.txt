@@ -1,0 +1,5 @@
+FAILED: [code=2] tests/CMakeFiles/CoreEngineModuleTests.dir/unit/RenderTests/TestRenderSceneExtractor.cpp.obj 
+D:\C++projects\CoreEngineModule\tests\unit\RenderTests\TestRenderSceneExtractor.cpp(17): error C2039: 'AddMaterial': is not a member of 'rendern::Scene'
+D:\C++projects\CoreEngineModule\tests\unit\RenderTests\TestRenderSceneExtractor.cpp(233): error C2039: 'AddMaterial': is not a member of 'rendern::Scene'
+FAILED: [code=2] tests/CMakeFiles/CoreEngineModuleTests.dir/unit/GameplayTests/AI/TestGameplayGOAPResourceComponents.cpp.obj 
+D:\C++projects\CoreEngineModule\tests\unit\GameplayTests\AI\TestGameplayGOAPResourceComponents.cpp(264): error C2676: binary '+=': 'mathUtils::Vec3' does not define this operator or a conversion to a type acceptable to the predefined operator

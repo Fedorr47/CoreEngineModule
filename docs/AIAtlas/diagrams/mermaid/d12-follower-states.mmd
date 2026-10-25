@@ -1,0 +1,16 @@
+%% title: Состояния GameplayRouteFollower
+%% kind: state
+%% level: детали
+%% refs: RF-STATUS, RF-START, RF-TICK, RF-COMPLETE, RT-ROUTE-VALID
+stateDiagram-v2
+  [*] --> NotStarted
+  NotStarted --> InvalidRoute: Start(), маршрут невалиден
+  NotStarted --> Succeeded: Start(), сегментов нет (одна точка)
+  NotStarted --> Following: Start(), есть сегменты
+  Following --> Following: Tick() → намерение движения
+  Following --> TraversalRequired: текущий сегмент аннотирован
+  TraversalRequired --> Following: CompleteTraversal(тот же link), есть сегменты
+  TraversalRequired --> Succeeded: CompleteTraversal, сегментов больше нет
+  Following --> Succeeded: все сегменты пройдены
+  Following --> NotStarted: Reset()
+  TraversalRequired --> NotStarted: Reset()

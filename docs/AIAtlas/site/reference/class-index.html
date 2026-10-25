@@ -1,0 +1,3954 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Русскоязычный атлас AI CoreEngine, сверенный с исходниками снимка 8c6c0dc">
+      
+      
+      
+      
+        <link rel="prev" href="runtime-quick-reference.html">
+      
+      
+        <link rel="next" href="source-references.html">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Индекс сущностей - CoreEngine AI Atlas — GOAP, Steering и контракты исполнения</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="../assets/js/vendor/iframe-worker-shim.js"></script>
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../assets/katex/katex.min.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas-responsive.css">
+    
+      <link rel="stylesheet" href="../assets/css/atlas.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-header__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Индекс сущностей
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Тёмная тема"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Тёмная тема" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Светлая тема"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Светлая тема" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" class="md-nav__button md-logo" aria-label="CoreEngine AI Atlas — GOAP, Steering и контракты исполнения" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CoreEngine AI Atlas — GOAP, Steering и контракты исполнения
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Главная
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Основы
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Основы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/00-how-to-read.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    00 Как читать атлас
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/01-architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    01 Полная архитектура AI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/02-goap-strips.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    02 GOAP и STRIPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/03-state-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    03 Модель состояния
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/04-goals-actions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    04 Цели и контракты действий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/05-planner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    05 Планировщик
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Решение и исполнение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Решение и исполнение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/06-assets-composition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    06 Ассеты и композиция
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/07-observations-events.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    07 Наблюдения и события
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/08-decision-runtime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    08 Decision runtime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/09-execution-lifetime.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    09 Исполнение и lifetime
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/10-frame-order.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    10 Порядок кадра
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Движение
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Движение
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/11-spatial-routes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    11 Пространственные маршруты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/12-route-follower.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    12 RouteFollower
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/13-steering.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    13 Steering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/14-temporal-behaviors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    14 FollowTarget и FleeTarget
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/15-obstacle-avoidance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    15 Obstacle avoidance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/16-traversal-physics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    16 Traversal и физика
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Практика
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Практика
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/17-resources-multiagent.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    17 Ресурсы и несколько агентов
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/18-authoring-scenarios.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    18 Авторинг и сценарии
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/19-diagnostics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    19 Диагностика и проверка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chapters/20-limits-future.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    20 Ограничения и развитие
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Учебные модели
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Учебные модели
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/goap-search.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GOAP-поиск по шагам
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demos/arrival-flee.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Arrival и гистерезис Flee
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="runtime-quick-reference.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runtime: быстрый справочник
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="class-index.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Индекс сущностей
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Покрытие автоматического индекса
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="source-references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Реестр источников
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="diagrams.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Каталог схем
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Словарь
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="external-sources.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Внешние источники
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="build.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Сборка и обновление
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validation-report.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Отчёт автоматических проверок
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Покрытие автоматического индекса
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="_1">Индекс сущностей<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<p>Автоматический индекс собран <code>tools/build_class_index.py</code> эвристическим парсером из 69 файлов AI, навигации, traversal и связанных систем (список — в конце страницы). Колонка «разбор» отделяет <strong>ручной</strong> архитектурный разбор (<code>tools/class_notes.py</code>: владелец, lifetime, вызовы, теория, тесты) от <strong>автоматической</strong> карточки (объявление, члены, строки). Тривиальные значения enum не получают отдельных карточек.</p>
+<p>Путь чтения: сущность → карточка (метод/контракт) → глава с теорией → <a href="source-references.html">реестр источников</a> → фрагмент кода.</p>
+<div data-filter-table="data-filter-table">
+<table>
+<thead>
+<tr>
+<th>Сущность</th>
+<th>Вид</th>
+<th>Домен</th>
+<th>Экспорт</th>
+<th>Объявление</th>
+<th>Разбор</th>
+<th>Назначение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="classes/AIActionBindingRegistry.html">AIActionBindingRegistry</a></td>
+<td>class</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Binding.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionContextId.html">AIActionContextId</a></td>
+<td>alias</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:51</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionContextIdTag.html">AIActionContextIdTag</a></td>
+<td>struct</td>
+<td>Action runtime</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionExecutionStatus.html">AIActionExecutionStatus</a></td>
+<td>enum</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:53</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionId.html">AIActionId</a></td>
+<td>alias</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:48</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionIdTag.html">AIActionIdTag</a></td>
+<td>struct</td>
+<td>Action runtime</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:12</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionRuntimeContext.html">AIActionRuntimeContext</a></td>
+<td>struct</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Runtime.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionRuntimeResult.html">AIActionRuntimeResult</a></td>
+<td>enum</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Runtime.<wbr>cppm:34</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionTask.html">AIActionTask</a></td>
+<td>class</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Task.<wbr>cppm:14</code></td>
+<td>ручной</td>
+<td>Владеющая обёртка IAIActionRuntime со статусом и порядком протокола Start/Tick/Cancel.</td>
+</tr>
+<tr>
+<td><a href="classes/AIComponent.html">AIComponent</a></td>
+<td>struct</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIComponents.<wbr>cppm:7</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIId.html">AIId</a></td>
+<td>struct</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Contracts.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AISystem.html">AISystem</a></td>
+<td>class</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AISystem.<wbr>cppm:17</code></td>
+<td>ручной</td>
+<td>Владелец задач действий: не более одной задачи на агента; синхронный старт и покадровый тик.</td>
+</tr>
+<tr>
+<td><a href="classes/IAIActionBinding.html">IAIActionBinding</a></td>
+<td>class</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Binding.<wbr>cppm:14</code></td>
+<td>ручной</td>
+<td>Фабрика runtime для шага плана по контексту (позднее связывание семантики и исполнителя).</td>
+</tr>
+<tr>
+<td><a href="classes/IAIActionRuntime.html">IAIActionRuntime</a></td>
+<td>class</td>
+<td>Action runtime</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>AIAction<wbr>Runtime.<wbr>cppm:41</code></td>
+<td>ручной</td>
+<td>Протокол исполнения шага: Start → Running/Succeeded/Failed, Tick, Cancel (без применения эффектов).</td>
+</tr>
+<tr>
+<td><a href="classes/AgentSettings.html">AgentSettings</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AppendPathDebugGeometry.html">AppendPathDebugGeometry</a></td>
+<td>free function</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:108</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/BuildSettings.html">BuildSettings</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:32</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/BuildStatus.html">BuildStatus</a></td>
+<td>enum</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:46</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/DebugGeometry.html">DebugGeometry</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:101</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/DebugLine.html">DebugLine</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:84</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/DebugTriangle.html">DebugTriangle</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:91</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/Geometry.html">Geometry</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PathRequest.html">PathRequest</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:71</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PathResult.html">PathResult</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:78</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ProfileHandle.html">ProfileHandle</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:140</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ProfileRegistry.html">ProfileRegistry</a></td>
+<td>class</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:158</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ProfileResolution.html">ProfileResolution</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:151</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ProjectionResult.html">ProjectionResult</a></td>
+<td>struct</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:65</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/QueryStatus.html">QueryStatus</a></td>
+<td>enum</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:54</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/World.html">World</a></td>
+<td>class</td>
+<td>NavMesh</td>
+<td>да</td>
+<td><code>src/<wbr>Navigation/<wbr>Navigation.<wbr>cppm:113</code></td>
+<td>ручной</td>
+<td>NavMesh одного профиля агента: bake Recast и запросы Detour.</td>
+</tr>
+<tr>
+<td><a href="classes/ApplyGameplayObstacleAvoidance.html">ApplyGameplayObstacleAvoidance</a></td>
+<td>free function</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:125</code></td>
+<td>ручной</td>
+<td>Локальная коррекция намерения: три sweep-пробы, escape-кандидаты, опора, выбор стороны с памятью.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleAvoidanceDebugSnapshot.html">GameplayObstacleAvoidanceDebugSnapshot</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:59</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleAvoidanceInput.html">GameplayObstacleAvoidanceInput</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:115</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleAvoidanceSettings.html">GameplayObstacleAvoidanceSettings</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:102</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleAvoidanceState.html">GameplayObstacleAvoidanceState</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:44</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleProbeDebugState.html">GameplayObstacleProbeDebugState</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:49</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleProbeHit.html">GameplayObstacleProbeHit</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObstacleProbeRequest.html">GameplayObstacleProbeRequest</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySupportProbeHit.html">GameplaySupportProbeHit</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySupportProbeRequest.html">GameplaySupportProbeRequest</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:29</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayObstacleQuery.html">IGameplayObstacleQuery</a></td>
+<td>class</td>
+<td>Obstacle avoidance</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:79</code></td>
+<td>ручной</td>
+<td>Интерфейс геометрических запросов avoidance: Probe (sweep) и ProbeSupport (опора; по умолчанию синтетическая).</td>
+</tr>
+<tr>
+<td><a href="classes/ProbeResult.html">ProbeResult</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:176</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/SanitizedSettings.html">SanitizedSettings</a></td>
+<td>struct</td>
+<td>Obstacle avoidance</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:161</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRuntime.html">GameplayRuntime</a></td>
+<td>class</td>
+<td>Runtime-фасад</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Runtime/<wbr>Gameplay<wbr>Runtime.<wbr>cppm:88</code></td>
+<td>ручной</td>
+<td>Фасад gameplay: владеет AISystem, решениями, реестрами traversal, бронями; задаёт порядок кадра.</td>
+</tr>
+<tr>
+<td><a href="classes/ApplyGameplayMovementIntent.html">ApplyGameplayMovementIntent</a></td>
+<td>free function</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:161</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/BuildGameplayArrivalSteering.html">BuildGameplayArrivalSteering</a></td>
+<td>free function</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:110</code></td>
+<td>ручной</td>
+<td>Arrival в XZ: нулевая команда в r + 0.001, линейная шкала до R с нижней границей m_min.</td>
+</tr>
+<tr>
+<td><a href="classes/BuildGameplayFleeSteering.html">BuildGameplayFleeSteering</a></td>
+<td>free function</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:88</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/BuildGameplaySeekSteering.html">BuildGameplaySeekSteering</a></td>
+<td>free function</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:59</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayArrivalSteeringSettings.html">GameplayArrivalSteeringSettings</a></td>
+<td>struct</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:33</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayFleeSteeringSettings.html">GameplayFleeSteeringSettings</a></td>
+<td>struct</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:47</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayMovementIntent.html">GameplayMovementIntent</a></td>
+<td>struct</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySeekSteeringSettings.html">GameplaySeekSteeringSettings</a></td>
+<td>struct</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:41</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySteeringOutput.html">GameplaySteeringOutput</a></td>
+<td>struct</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:52</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySteeringStatus.html">GameplaySteeringStatus</a></td>
+<td>enum</td>
+<td>Steering</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering.<wbr>cppm:27</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/DoorTraversalExecutor.html">DoorTraversalExecutor</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Door<wbr>Traversal<wbr>Executor.<wbr>cppm:17</code></td>
+<td>ручной</td>
+<td>Дверь по link: бронь, подход к InteractionPoint, логическое открытие, освобождение.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayJumpTraversalData.html">GameplayJumpTraversalData</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link.<wbr>cppm:42</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalExecutionContext.html">GameplayTraversalExecutionContext</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Executor.<wbr>cppm:20</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalExecutionResult.html">GameplayTraversalExecutionResult</a></td>
+<td>enum</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Executor.<wbr>cppm:13</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalExecutorRegistry.html">GameplayTraversalExecutorRegistry</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Executor<wbr>Registry.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalLink.html">GameplayTraversalLink</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link.<wbr>cppm:61</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalLinkHandleHasher.html">GameplayTraversalLinkHandleHasher</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link<wbr>Registry.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalLinkRegistry.html">GameplayTraversalLinkRegistry</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link<wbr>Registry.<wbr>cppm:23</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalTypeId.html">GameplayTraversalTypeId</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalTypeIdHasher.html">GameplayTraversalTypeIdHasher</a></td>
+<td>struct</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Link.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayUnsupportedTraversalExecutor.html">GameplayUnsupportedTraversalExecutor</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Executor.<wbr>cppm:47</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayTraversalExecutor.html">IGameplayTraversalExecutor</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Gameplay<wbr>Traversal<wbr>Executor.<wbr>cppm:36</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/JumpTraversalExecutor.html">JumpTraversalExecutor</a></td>
+<td>class</td>
+<td>Traversal</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Traversal/<wbr>Jump<wbr>Traversal<wbr>Executor.<wbr>cppm:18</code></td>
+<td>ручной</td>
+<td>Прыжок по link: подход к takeoff, запрос kGameplayActionJump, ожидание взлёта, приземление в допусках, тайм-аут 10 с.</td>
+</tr>
+<tr>
+<td><a href="classes/CompileGameplayGOAPDefinition.html">CompileGameplayGOAPDefinition</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Compiler.<wbr>cppm:66</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIBehaviorAsset.html">GameplayAIBehaviorAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:57</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAICapabilityAsset.html">GameplayAICapabilityAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:30</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIComponentParseContext.html">GameplayAIComponentParseContext</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIAsset<wbr>Parsing.<wbr>cppm:176</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIComponentParsers.html">GameplayAIComponentParsers</a></td>
+<td>class</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIAsset<wbr>Parsing.<wbr>cppm:183</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionAssetReference.html">GameplayAIDecisionAssetReference</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:83</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionCatalogAsset.html">GameplayAIDecisionCatalogAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:90</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAILevelBindingsAsset.html">GameplayAILevelBindingsAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:76</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIObservationAsset.html">GameplayAIObservationAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:25</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIReactionAsset.html">GameplayAIReactionAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIRoleBindingAsset.html">GameplayAIRoleBindingAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:70</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIRouteEdgeAsset.html">GameplayAIRouteEdgeAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:40</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIRouteGraphAsset.html">GameplayAIRouteGraphAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:45</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAITraversalBindingAsset.html">GameplayAITraversalBindingAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:51</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPActionCostOverride.html">GameplayGOAPActionCostOverride</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Compiler.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPAuthoredAction.html">GameplayGOAPAuthoredAction</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:39</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPAuthoredBoolean.html">GameplayGOAPAuthoredBoolean</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:25</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPAuthoredFact.html">GameplayGOAPAuthoredFact</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPAuthoredGoal.html">GameplayGOAPAuthoredGoal</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:34</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPAuthoredNumeric.html">GameplayGOAPAuthoredNumeric</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:29</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPCompiledDefinition.html">GameplayGOAPCompiledDefinition</a></td>
+<td>class</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Compiler.<wbr>cppm:34</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDefinitionAsset.html">GameplayGOAPDefinitionAsset</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:50</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPSemanticAction.html">GameplayGOAPSemanticAction</a></td>
+<td>struct</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Compiler.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/LoadGameplayAIBehaviorAsset.html">LoadGameplayAIBehaviorAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:104</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/LoadGameplayAIDecisionCatalogAsset.html">LoadGameplayAIDecisionCatalogAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:106</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/LoadGameplayAILevelBindingsAsset.html">LoadGameplayAILevelBindingsAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:105</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/LoadGameplayAIRouteGraphAsset.html">LoadGameplayAIRouteGraphAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:97</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/LoadGameplayGOAPDefinitionAsset.html">LoadGameplayGOAPDefinitionAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:62</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIBehaviorAsset.html">ParseGameplayAIBehaviorAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:98</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIDecisionCatalogAsset.html">ParseGameplayAIDecisionCatalogAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:102</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAILevelBindingsAsset.html">ParseGameplayAILevelBindingsAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:100</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIRouteGraphAsset.html">ParseGameplayAIRouteGraphAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>AIDecision<wbr>Asset.<wbr>cppm:96</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayGOAPDefinitionAsset.html">ParseGameplayGOAPDefinitionAsset</a></td>
+<td>free function</td>
+<td>Авторинг</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Authoring/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Asset.<wbr>cppm:59</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugActionApplicabilityView.html">AIDebugActionApplicabilityView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:62</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugBooleanFactView.html">AIDebugBooleanFactView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugFailedBooleanConditionView.html">AIDebugFailedBooleanConditionView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:45</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugFailedNumericConditionView.html">AIDebugFailedNumericConditionView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:53</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugIntegerFactView.html">AIDebugIntegerFactView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugPlanStepView.html">AIDebugPlanStepView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDebugViewModel.html">AIDebugViewModel</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:73</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/BuildAIDebugViewModel.html">BuildAIDebugViewModel</a></td>
+<td>free function</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>AIDebug<wbr>View<wbr>Model.<wbr>cppm:88</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDebugPlannedPathView.html">GameplayAIDebugPlannedPathView</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPPath<wbr>Inspection.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDebugPlannedRouteStep.html">GameplayAIDebugPlannedRouteStep</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPPath<wbr>Inspection.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayNavigationDebugRegistry.html">GameplayNavigationDebugRegistry</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Navigation<wbr>Debug.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRequestContext.html">GameplayRequestContext</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Request.<wbr>cppm:40</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRequestHandle.html">GameplayRequestHandle</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Request.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRequestStatus.html">GameplayRequestStatus</a></td>
+<td>enum</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Request.<wbr>cppm:54</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySteeringDebugMode.html">GameplaySteeringDebugMode</a></td>
+<td>enum</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering<wbr>Debug.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySteeringDebugRegistry.html">GameplaySteeringDebugRegistry</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering<wbr>Debug.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplaySteeringDebugState.html">GameplaySteeringDebugState</a></td>
+<td>struct</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Steering<wbr>Debug.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPActionPathProvider.html">IGameplayGOAPActionPathProvider</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPPath<wbr>Inspection.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPInspection.html">IGameplayGOAPInspection</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPInspection.<wbr>cppm:11</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPPathInspection.html">IGameplayGOAPPathInspection</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPPath<wbr>Inspection.<wbr>cppm:47</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPPlannedPathProvider.html">IGameplayGOAPPlannedPathProvider</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Debug/<wbr>Gameplay<wbr>GOAPPath<wbr>Inspection.<wbr>cppm:38</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayRequestBoundary.html">IGameplayRequestBoundary</a></td>
+<td>class</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Request.<wbr>cppm:81</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IsGameplayRequestTerminal.html">IsGameplayRequestTerminal</a></td>
+<td>free function</td>
+<td>Диагностика</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Request.<wbr>cppm:63</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayPhysicsObstacleQuery.html">GameplayPhysicsObstacleQuery</a></td>
+<td>class</td>
+<td>Интеграция App</td>
+<td>нет</td>
+<td><code>src/<wbr>App/<wbr>Gameplay<wbr>Physics<wbr>Obstacle<wbr>Query.<wbr>h:15</code></td>
+<td>ручной</td>
+<td>Адаптер Jolt для avoidance: sweep сферы / луч и луч вниз для опоры; маска StaticWorld по умолчанию.</td>
+</tr>
+<tr>
+<td><a href="classes/AIDecisionRuntime.html">AIDecisionRuntime</a></td>
+<td>class</td>
+<td>Исполнение плана</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Runtime.<wbr>cppm:22</code></td>
+<td>ручной</td>
+<td>Мониторинговый контур одного агента: синхронизация шага, выбор цели, проверка плана, перепланирование, старт шагов.</td>
+</tr>
+<tr>
+<td><a href="classes/AIPlanExecution.html">AIPlanExecution</a></td>
+<td>class</td>
+<td>Исполнение плана</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlan<wbr>Execution.<wbr>cppm:25</code></td>
+<td>ручной</td>
+<td>Конечный автомат исполнения плана по индексу шага.</td>
+</tr>
+<tr>
+<td><a href="classes/AIPlanExecutionBridge.html">AIPlanExecutionBridge</a></td>
+<td>class</td>
+<td>Исполнение плана</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlan<wbr>Execution<wbr>Bridge.<wbr>cppm:16</code></td>
+<td>ручной</td>
+<td>Мост от семантического шага к задаче AISystem: binding → runtime → StartAction; синхронизация и отмена.</td>
+</tr>
+<tr>
+<td><a href="classes/AIPlanExecutionStatus.html">AIPlanExecutionStatus</a></td>
+<td>enum</td>
+<td>Исполнение плана</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlan<wbr>Execution.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ComposedContext.html">ComposedContext</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPAsset<wbr>Composition.<wbr>cppm:88</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/CreateGameplayGOAPDecisionFromAssets.html">CreateGameplayGOAPDecisionFromAssets</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPAsset<wbr>Composition.<wbr>cppm:239</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/CreateGameplayGOAPDecisionFromTemplate.html">CreateGameplayGOAPDecisionFromTemplate</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPAsset<wbr>Composition.<wbr>cppm:149</code></td>
+<td>ручной</td>
+<td>Связывание template с уровнем и создание instance: роли, наблюдения, реакции, providers, cost overrides.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIResolvedRole.html">GameplayAIResolvedRole</a></td>
+<td>struct</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:26</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPCapabilityRegistration.html">GameplayGOAPCapabilityRegistration</a></td>
+<td>struct</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:131</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPCompositionContext.html">GameplayGOAPCompositionContext</a></td>
+<td>struct</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:61</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPCompositionRegistry.html">GameplayGOAPCompositionRegistry</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:139</code></td>
+<td>ручной</td>
+<td>Реестр типов компонентов: parser (JSON → T) + compiler (T + контекст → объект) для наблюдений, capabilities и реакций.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDecisionTemplate.html">GameplayGOAPDecisionTemplate</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPDecision<wbr>Template.<wbr>cppm:31</code></td>
+<td>ручной</td>
+<td>Неизменяемый снимок конфигурации решения, независимый от мира и агента.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPPreparedCapabilityGroup.html">GameplayGOAPPreparedCapabilityGroup</a></td>
+<td>struct</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPDecision<wbr>Template.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPCapability.html">IGameplayGOAPCapability</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:52</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPObservation.html">IGameplayGOAPObservation</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPComposition<wbr>Registry.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/InspectedContext.html">InspectedContext</a></td>
+<td>class</td>
+<td>Композиция</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPAsset<wbr>Composition.<wbr>cppm:117</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/MakeDefaultGameplayAIDecisionFactories.html">MakeDefaultGameplayAIDecisionFactories</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>AIBuiltin<wbr>Decisions.<wbr>cppm:9</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/MakeDefaultGameplayGOAPComponents.html">MakeDefaultGameplayGOAPComponents</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPBuiltin<wbr>Components.<wbr>cppm:13</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/OrderGameplayGOAPObservations.html">OrderGameplayGOAPObservations</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPObservation<wbr>Order.<wbr>cppm:18</code></td>
+<td>ручной</td>
+<td>Проверка единственного writer и топологический порядок наблюдений по метаданным входов/выходов.</td>
+</tr>
+<tr>
+<td><a href="classes/RegisterGameplayAIDecisionAssets.html">RegisterGameplayAIDecisionAssets</a></td>
+<td>free function</td>
+<td>Композиция</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Gameplay<wbr>GOAPAsset<wbr>Composition.<wbr>cppm:252</code></td>
+<td>ручной</td>
+<td>Транзакционная регистрация каталога решений: все templates или ничего.</td>
+</tr>
+<tr>
+<td><a href="classes/AuthoredGraph.html">AuthoredGraph</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPMove<wbr>To<wbr>Component.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIHideOnPurchaseAsset.html">GameplayAIHideOnPurchaseAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:34</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIMoveToAsset.html">GameplayAIMoveToAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPMove<wbr>To<wbr>Component<wbr>Assets.<wbr>cppm:13</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAINearestLocationAsset.html">GameplayAINearestLocationAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIPickupAvailabilityAsset.html">GameplayAIPickupAvailabilityAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIPurchaseAsset.html">GameplayAIPurchaseAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:29</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIResourceLedgerAsset.html">GameplayAIResourceLedgerAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:23</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIResourcePickupAsset.html">GameplayAIResourcePickupAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:13</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIResourceReceiptAsset.html">GameplayAIResourceReceiptAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:18</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAISpatialObservationAsset.html">GameplayAISpatialObservationAsset</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:13</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/HideOnPurchaseReaction.html">HideOnPurchaseReaction</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:172</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/MoveToCapability.html">MoveToCapability</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPMove<wbr>To<wbr>Component.<wbr>cppm:92</code></td>
+<td>ручной</td>
+<td>Provider move_to: компиляция графа маршрутов, route costs, запросы MoveTo, бронь цели, debug-маршрут.</td>
+</tr>
+<tr>
+<td><a href="classes/NearestLocationObservation.html">NearestLocationObservation</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Components.<wbr>cppm:90</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIHideOnPurchase.html">ParseGameplayAIHideOnPurchase</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:73</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIMoveTo.html">ParseGameplayAIMoveTo</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPMove<wbr>To<wbr>Component<wbr>Assets.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAINearestLocation.html">ParseGameplayAINearestLocation</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:62</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIPickupAvailability.html">ParseGameplayAIPickupAvailability</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:52</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIPurchase.html">ParseGameplayAIPurchase</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:64</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAIResourceLedger.html">ParseGameplayAIResourceLedger</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Component<wbr>Assets.<wbr>cppm:39</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ParseGameplayAISpatialObservation.html">ParseGameplayAISpatialObservation</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Component<wbr>Assets.<wbr>cppm:34</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PickupAvailabilityObservation.html">PickupAvailabilityObservation</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Components.<wbr>cppm:148</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PurchaseBinding.html">PurchaseBinding</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:256</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PurchaseCapability.html">PurchaseCapability</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:283</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/PurchaseRuntime.html">PurchaseRuntime</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:212</code></td>
+<td>ручной</td>
+<td>Мгновенная покупка: проверки и событие ResourcePurchased; факты не меняет.</td>
+</tr>
+<tr>
+<td><a href="classes/RegisterGameplayGOAPMoveToComponent.html">RegisterGameplayGOAPMoveToComponent</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPMove<wbr>To<wbr>Component.<wbr>cppm:252</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/RegisterGameplayGOAPResourceComponents.html">RegisterGameplayGOAPResourceComponents</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:338</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/RegisterGameplayGOAPSpatialComponents.html">RegisterGameplayGOAPSpatialComponents</a></td>
+<td>free function</td>
+<td>Компоненты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Components.<wbr>cppm:183</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ResourceLedgerObservation.html">ResourceLedgerObservation</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:81</code></td>
+<td>ручной</td>
+<td>Бухгалтерия ресурса по подтверждённым событиям сбора и покупки своего агента.</td>
+</tr>
+<tr>
+<td><a href="classes/SpatialObservation.html">SpatialObservation</a></td>
+<td>class</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPSpatial<wbr>Components.<wbr>cppm:20</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/Transaction.html">Transaction</a></td>
+<td>struct</td>
+<td>Компоненты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Composition/<wbr>Components/<wbr>Gameplay<wbr>GOAPResource<wbr>Components.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/FindWeightedGameplayRoute.html">FindWeightedGameplayRoute</a></td>
+<td>free function</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:94</code></td>
+<td>ручной</td>
+<td>Дейкстра по явному ориентированному графу с восстановлением пути по предшественникам.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRoute.html">GameplayRoute</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route.<wbr>cppm:56</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteFollower.html">GameplayRouteFollower</a></td>
+<td>class</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Follower.<wbr>cppm:41</code></td>
+<td>ручной</td>
+<td>Автомат следования по ломаной: arrival промежуточных/финальной точек, look-ahead, плоскость перехода, traversal.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteFollowerOutput.html">GameplayRouteFollowerOutput</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Follower.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteFollowerSettings.html">GameplayRouteFollowerSettings</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Follower.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteFollowerStatus.html">GameplayRouteFollowerStatus</a></td>
+<td>enum</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Follower.<wbr>cppm:19</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteGraph.html">GameplayRouteGraph</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:64</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteGraphEdge.html">GameplayRouteGraphEdge</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:51</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteGraphNode.html">GameplayRouteGraphNode</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:44</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteNodeId.html">GameplayRouteNodeId</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRoutePoint.html">GameplayRoutePoint</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteSearchQueueEntry.html">GameplayRouteSearchQueueEntry</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:108</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteSearchQueueEntryGreater.html">GameplayRouteSearchQueueEntryGreater</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:115</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteSearchResult.html">GameplayRouteSearchResult</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:80</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteSearchStatus.html">GameplayRouteSearchStatus</a></td>
+<td>enum</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route<wbr>Search.<wbr>cppm:72</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayRouteSegmentAnnotation.html">GameplayRouteSegmentAnnotation</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route.<wbr>cppm:42</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayTraversalLinkHandle.html">GameplayTraversalLinkHandle</a></td>
+<td>struct</td>
+<td>Маршруты</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Navigation/<wbr>Gameplay<wbr>Route.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFleeTargetAction.html">AIFleeTargetAction</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFlee<wbr>Target<wbr>Action.<wbr>cppm:18</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFleeTargetActionRuntime.html">AIFleeTargetActionRuntime</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFlee<wbr>Target<wbr>Action<wbr>Runtime.<wbr>cppm:30</code></td>
+<td>ручной</td>
+<td>Бегство от живой цели с гистерезисом trigger/safe и выборкой.</td>
+</tr>
+<tr>
+<td><a href="classes/AIFleeTargetSettings.html">AIFleeTargetSettings</a></td>
+<td>struct</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFlee<wbr>Target<wbr>Action<wbr>Runtime.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFollowRouteAction.html">AIFollowRouteAction</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFollow<wbr>Route<wbr>Action.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFollowRouteActionRuntime.html">AIFollowRouteActionRuntime</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFollow<wbr>Route<wbr>Action<wbr>Runtime.<wbr>cppm:27</code></td>
+<td>ручной</td>
+<td>Исполнение маршрута: follower, avoidance (если есть query), команда и facing, traversal handoff, physicallyBlocked.</td>
+</tr>
+<tr>
+<td><a href="classes/AIFollowTargetAction.html">AIFollowTargetAction</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFollow<wbr>Target<wbr>Action.<wbr>cppm:18</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFollowTargetActionRuntime.html">AIFollowTargetActionRuntime</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFollow<wbr>Target<wbr>Action<wbr>Runtime.<wbr>cppm:27</code></td>
+<td>ручной</td>
+<td>Следование за живой целью: Seek с выборкой и переизданием команды; бесконечно Running.</td>
+</tr>
+<tr>
+<td><a href="classes/AIFollowTargetSettings.html">AIFollowTargetSettings</a></td>
+<td>struct</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIFollow<wbr>Target<wbr>Action<wbr>Runtime.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIMoveToAction.html">AIMoveToAction</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIMoveToActionBinding.html">AIMoveToActionBinding</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action<wbr>Binding.<wbr>cppm:138</code></td>
+<td>ручной</td>
+<td>Binding MoveTo: запрос у провайдера → обычный или бронирующий runtime.</td>
+</tr>
+<tr>
+<td><a href="classes/AIMoveToActionRequest.html">AIMoveToActionRequest</a></td>
+<td>struct</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action.<wbr>cppm:25</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ApplyGameplayAgentObstacleAvoidance.html">ApplyGameplayAgentObstacleAvoidance</a></td>
+<td>free function</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>Gameplay<wbr>Agent<wbr>Obstacle<wbr>Avoidance.<wbr>cppm:10</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IAIActionReservationTargetProvider.html">IAIActionReservationTargetProvider</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action<wbr>Binding.<wbr>cppm:29</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IAIMoveToActionRequestProvider.html">IAIMoveToActionRequestProvider</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action<wbr>Binding.<wbr>cppm:20</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ReservedAIMoveToActionRuntime.html">ReservedAIMoveToActionRuntime</a></td>
+<td>class</td>
+<td>Навигационные действия</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Navigation/<wbr>AIMove<wbr>To<wbr>Action<wbr>Binding.<wbr>cppm:37</code></td>
+<td>ручной</td>
+<td>MoveTo с бронью InteractionPoint цели на время шага.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayObjectReservationSystem.html">GameplayObjectReservationSystem</a></td>
+<td>class</td>
+<td>Ресурсы и события</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Interaction/<wbr>Gameplay<wbr>Object<wbr>Reservation<wbr>System.<wbr>cppm:12</code></td>
+<td>ручной</td>
+<td>Необязательные брони объектов с InteractionPoint агентами AI.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayPickupSystem.html">GameplayPickupSystem</a></td>
+<td>class</td>
+<td>Ресурсы и события</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Pickup/<wbr>Gameplay<wbr>Pickup<wbr>System.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayWorldEvent.html">GameplayWorldEvent</a></td>
+<td>struct</td>
+<td>Ресурсы и события</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Events/<wbr>Gameplay<wbr>World<wbr>Event.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayWorldEventType.html">GameplayWorldEventType</a></td>
+<td>enum</td>
+<td>Ресурсы и события</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>Events/<wbr>Gameplay<wbr>World<wbr>Event.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIDefinitionMetadata.html">AIDefinitionMetadata</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Contracts.<wbr>cppm:23</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AINamedAction.html">AINamedAction</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Contracts.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/CreateGameplayGOAPDecision.html">CreateGameplayGOAPDecision</a></td>
+<td>free function</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Instance.<wbr>cppm:177</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/DecisionWithPathInspection.html">DecisionWithPathInspection</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Instance.<wbr>cppm:149</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionCreationContext.html">GameplayAIDecisionCreationContext</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIDecision<wbr>Creation<wbr>Context.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionFactoryRegistry.html">GameplayAIDecisionFactoryRegistry</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIDecision.<wbr>cppm:23</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionInstance.html">GameplayAIDecisionInstance</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIDecision<wbr>Contracts.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIDecisionStatus.html">GameplayAIDecisionStatus</a></td>
+<td>enum</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIDecision<wbr>Contracts.<wbr>cppm:15</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayAIObservationContext.html">GameplayAIObservationContext</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>Runtime/<wbr>Gameplay<wbr>AIDecision<wbr>Contracts.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPActionBindingSetup.html">GameplayGOAPActionBindingSetup</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Setup.<wbr>cppm:43</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDecision.html">GameplayGOAPDecision</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision.<wbr>cppm:22</code></td>
+<td>ручной</td>
+<td>GOAP-обёртка: AIDecisionRuntime + неизменяемое определение + факты агента + bindings.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDecisionDefinition.html">GameplayGOAPDecisionDefinition</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDefinition<wbr>Contracts.<wbr>cppm:31</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDecisionInstance.html">GameplayGOAPDecisionInstance</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Instance.<wbr>cppm:18</code></td>
+<td>ручной</td>
+<td>Instance решения одного агента: контекст наблюдений, реакции, буферы событий и GOAP-обёртка.</td>
+</tr>
+<tr>
+<td><a href="classes/GameplayGOAPDecisionSetup.html">GameplayGOAPDecisionSetup</a></td>
+<td>struct</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Setup.<wbr>cppm:52</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPContext.html">IGameplayGOAPContext</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Setup.<wbr>cppm:18</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/IGameplayGOAPEventReaction.html">IGameplayGOAPEventReaction</a></td>
+<td>class</td>
+<td>Решение (instance)</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>Gameplay<wbr>GOAPDecision<wbr>Setup.<wbr>cppm:35</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIActionDefinition.html">AIActionDefinition</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:76</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIAgentWorldState.html">AIAgentWorldState</a></td>
+<td>class</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIAgent<wbr>World<wbr>State.<wbr>cppm:42</code></td>
+<td>ручной</td>
+<td>Вектор знания агента: 128 bool (bitset) и 128 int32; единица учёта состояний в поиске.</td>
+</tr>
+<tr>
+<td><a href="classes/AIAgentWorldStateHash.html">AIAgentWorldStateHash</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIAgent<wbr>World<wbr>State.<wbr>cppm:142</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFactCondition.html">AIFactCondition</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:24</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIFactEffect.html">AIFactEffect</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:32</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalDefinition.html">AIGoalDefinition</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:70</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalId.html">AIGoalId</a></td>
+<td>alias</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:22</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalIdTag.html">AIGoalIdTag</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalScoreRule.html">AIGoalScoreRule</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIGoal<wbr>Selection<wbr>Contracts.<wbr>cppm:11</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalSelectionCandidate.html">AIGoalSelectionCandidate</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIGoal<wbr>Selection<wbr>Contracts.<wbr>cppm:17</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIGoalSelectionResult.html">AIGoalSelectionResult</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIGoal<wbr>Selection.<wbr>cppm:16</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AINumericCondition.html">AINumericCondition</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:50</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AINumericConditionOperator.html">AINumericConditionOperator</a></td>
+<td>enum</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:40</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AINumericEffect.html">AINumericEffect</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:63</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AINumericEffectOperation.html">AINumericEffectOperation</a></td>
+<td>enum</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:57</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIPlan.html">AIPlan</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:99</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIPlanStep.html">AIPlanStep</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIDecision<wbr>Contracts.<wbr>cppm:91</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIWorldFactId.html">AIWorldFactId</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIAgent<wbr>World<wbr>State.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AIWorldIntegerFactId.html">AIWorldIntegerFactId</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIAgent<wbr>World<wbr>State.<wbr>cppm:28</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ApplyFactEffects.html">ApplyFactEffects</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:36</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/ApplyNumericEffects.html">ApplyNumericEffects</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:99</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AreFactConditionsSatisfied.html">AreFactConditionsSatisfied</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:21</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/AreNumericConditionsSatisfied.html">AreNumericConditionsSatisfied</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:78</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/EvaluateFactCondition.html">EvaluateFactCondition</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:14</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/EvaluateNumericCondition.html">EvaluateNumericCondition</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIState<wbr>Operations.<wbr>cppm:46</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/FindAIPlan.html">FindAIPlan</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlanner.<wbr>cppm:141</code></td>
+<td>ручной</td>
+<td>Uniform-cost search плана от наблюдаемого состояния к цели; без эвристики A*.</td>
+</tr>
+<tr>
+<td><a href="classes/ScoreAIGoal.html">ScoreAIGoal</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIGoal<wbr>Selection.<wbr>cppm:27</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/SearchNode.html">SearchNode</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlanner.<wbr>cppm:117</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/SearchNodeGreater.html">SearchNodeGreater</a></td>
+<td>struct</td>
+<td>Ядро GOAP</td>
+<td>нет</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIPlanner.<wbr>cppm:125</code></td>
+<td>авто</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="classes/SelectAIGoal.html">SelectAIGoal</a></td>
+<td>free function</td>
+<td>Ядро GOAP</td>
+<td>да</td>
+<td><code>src/<wbr>Gameplay/<wbr>AI/<wbr>GOAP/<wbr>AIGoal<wbr>Selection.<wbr>cppm:44</code></td>
+<td>ручной</td>
+<td>Выбор невыполненной цели с максимальной оценкой; при равенстве — первая.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="_2">Покрытие автоматического индекса<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p>Сущностей: 256 (из них с ручным разбором: 36).</p>
+<details class="note">
+<summary>Просканированные файлы</summary>
+<ul>
+<li><code>src/App/GameplayPhysicsObstacleQuery.h</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponent.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPMoveToComponentAssets.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPResourceComponentAssets.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPResourceComponents.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponentAssets.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/Components/GameplayGOAPSpatialComponents.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayAIBuiltinDecisions.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayGOAPAssetComposition.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayGOAPBuiltinComponents.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayGOAPCompositionRegistry.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayGOAPDecisionTemplate.cppm</code></li>
+<li><code>src/Gameplay/AI/Composition/GameplayGOAPObservationOrder.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIAgentWorldState.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIDecisionContracts.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIDecisionRuntime.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIGoalSelection.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIGoalSelectionContracts.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIPlanExecution.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIPlanExecutionBridge.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIPlanner.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/AIStateOperations.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Authoring/GameplayAIAssetParsing.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Authoring/GameplayAIDecisionAsset.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionAsset.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Authoring/GameplayGOAPDefinitionCompiler.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Debug/AIDebugViewModel.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Debug/GameplayGOAPInspection.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/Debug/GameplayGOAPPathInspection.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/GameplayGOAPDecision.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/GameplayGOAPDecisionInstance.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/GameplayGOAPDecisionSetup.cppm</code></li>
+<li><code>src/Gameplay/AI/GOAP/GameplayGOAPDefinitionContracts.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFleeTargetAction.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFleeTargetActionRuntime.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFollowRouteAction.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFollowRouteActionRuntime.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFollowTargetAction.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIFollowTargetActionRuntime.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIMoveToAction.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/AIMoveToActionBinding.cppm</code></li>
+<li><code>src/Gameplay/AI/Navigation/GameplayAgentObstacleAvoidance.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/AIActionBinding.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/AIActionContracts.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/AIActionRuntime.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/AIActionTask.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/AISystem.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/GameplayAIComponents.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/GameplayAIDecision.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/GameplayAIDecisionContracts.cppm</code></li>
+<li><code>src/Gameplay/AI/Runtime/GameplayAIDecisionCreationContext.cppm</code></li>
+<li><code>src/Gameplay/Events/GameplayWorldEvent.cppm</code></li>
+<li><code>src/Gameplay/Interaction/GameplayObjectReservationSystem.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayNavigationDebug.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayObstacleAvoidance.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayRequest.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayRoute.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayRouteFollower.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplayRouteSearch.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplaySteering.cppm</code></li>
+<li><code>src/Gameplay/Navigation/GameplaySteeringDebug.cppm</code></li>
+<li><code>src/Gameplay/Pickup/GameplayPickupSystem.cppm</code></li>
+<li><code>src/Gameplay/Traversal/DoorTraversalExecutor.cppm</code></li>
+<li><code>src/Gameplay/Traversal/GameplayTraversalExecutor.cppm</code></li>
+<li><code>src/Gameplay/Traversal/GameplayTraversalExecutorRegistry.cppm</code></li>
+<li><code>src/Gameplay/Traversal/GameplayTraversalLink.cppm</code></li>
+<li><code>src/Gameplay/Traversal/GameplayTraversalLinkRegistry.cppm</code></li>
+<li><code>src/Gameplay/Traversal/JumpTraversalExecutor.cppm</code></li>
+<li><code>src/Navigation/Navigation.cppm</code></li>
+</ul>
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Нижний колонтитул" >
+        
+          
+          <a href="runtime-quick-reference.html" class="md-footer__link md-footer__link--prev" aria-label="Назад: Runtime: быстрый справочник">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Назад
+              </span>
+              <div class="md-ellipsis">
+                Runtime: быстрый справочник
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="source-references.html" class="md-footer__link md-footer__link--next" aria-label="Вперед: Реестр источников">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Вперед
+              </span>
+              <div class="md-ellipsis">
+                Реестр источников
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "navigation.path", "search.highlight", "search.suggest", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../assets/js/atlas-diagram-viewer.js"></script>
+      
+        <script src="../assets/js/atlas-reveal.js"></script>
+      
+        <script src="../assets/js/atlas-demo-data.js"></script>
+      
+        <script src="../assets/js/atlas-demos.js"></script>
+      
+    
+  </body>
+</html>

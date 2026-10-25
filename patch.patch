@@ -1,0 +1,192 @@
+diff --git a/tests/unit/GameplayTests/AI/TestGameplayAIDecision.cpp b/tests/unit/GameplayTests/AI/TestGameplayAIDecision.cpp
+--- a/tests/unit/GameplayTests/AI/TestGameplayAIDecision.cpp
++++ b/tests/unit/GameplayTests/AI/TestGameplayAIDecision.cpp
+@@ -37,2 +37,13 @@ namespace
+     }
++
++    AIActionContextId ResolvedMoveContext(
++        const GameplayGOAPCompiledDefinition& compiled,
++        const ai_access_key_detail::SpatialLocation source,
++        const ai_access_key_detail::SpatialLocation target)
++    {
++        const std::optional<AIActionContextId> context =
++            ai_access_key_detail::FindMoveContext(compiled, source, target);
++        EXPECT_TRUE(context.has_value());
++        return context.value_or(AIActionContextId{});
++    }
+ }
+@@ -44,3 +57,3 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+         {-6,0.35f,-3}, {6,0.35f,1}, {-5,0.35f,6}, {0,0.35f,-7}, {0,0.08f,10});
+-    const auto configuredDefinition = ai_access_key_detail::BuildDefinition(graph);
++    const auto configuredDefinition = ai_access_key_detail::LoadCompiledDefinition(graph);
+     ASSERT_TRUE(configuredDefinition.has_value());
+@@ -46,3 +59,3 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+     ASSERT_TRUE(configuredDefinition.has_value());
+-    const GameplayGOAPDecisionDefinition& definition = *configuredDefinition;
++    const GameplayGOAPDecisionDefinition& definition = configuredDefinition->definition;
+     const auto buyKey = std::ranges::find_if(definition.actions,
+@@ -72,3 +86,4 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+     EXPECT_EQ(plan->steps[0], (AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::Start,
++        ResolvedMoveContext(*configuredDefinition,
++            ai_access_key_detail::SpatialLocation::Start,
+             ai_access_key_detail::SpatialLocation::CoinC)}));
+@@ -75,3 +90,4 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+     EXPECT_EQ(plan->steps[1], (AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::CoinC,
++        ResolvedMoveContext(*configuredDefinition,
++            ai_access_key_detail::SpatialLocation::CoinC,
+             ai_access_key_detail::SpatialLocation::CoinA)}));
+@@ -78,3 +94,4 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+     EXPECT_EQ(plan->steps[2], (AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::CoinA,
++        ResolvedMoveContext(*configuredDefinition,
++            ai_access_key_detail::SpatialLocation::CoinA,
+             ai_access_key_detail::SpatialLocation::AccessKeyShop)}));
+@@ -82,3 +99,4 @@ TEST(GameplayAIDecision, AccessKeyDefinitionPlansOneShotCoinsAndSemanticPurchase)
+     EXPECT_EQ(plan->steps[4], (AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::AccessKeyShop,
++        ResolvedMoveContext(*configuredDefinition,
++            ai_access_key_detail::SpatialLocation::AccessKeyShop,
+             ai_access_key_detail::SpatialLocation::Goal)}));
+@@ -117,3 +135,3 @@ TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
+         {-6,0.35f,-3}, {6,0.35f,1}, {-5,0.35f,6}, {0,0.35f,-7}, {0,0.08f,10});
+-    const auto definition = ai_access_key_detail::BuildDefinition(graph);
++    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
+     ASSERT_TRUE(definition.has_value());
+@@ -127,3 +145,4 @@ TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
+ 
+-    const auto plan=FindAIPlan(observed,definition->goals.front().goal,definition->actions);
++    const auto plan=FindAIPlan(observed, definition->definition.goals.front().goal,
++        definition->definition.actions);
+     ASSERT_TRUE(plan.has_value()); ASSERT_EQ(plan->steps.size(),4u);
+@@ -130,3 +149,4 @@ TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
+     EXPECT_EQ(plan->steps[0],(AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::CoinC,
++        ResolvedMoveContext(*definition,
++            ai_access_key_detail::SpatialLocation::CoinC,
+             ai_access_key_detail::SpatialLocation::CoinB)}));
+@@ -133,3 +153,4 @@ TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
+     EXPECT_EQ(plan->steps[1],(AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::CoinB,
++        ResolvedMoveContext(*definition,
++            ai_access_key_detail::SpatialLocation::CoinB,
+             ai_access_key_detail::SpatialLocation::AccessKeyShop)}));
+@@ -137,3 +158,4 @@ TEST(GameplayAIDecision, AccessKeyReplansThroughRemainingAvailableCoin)
+     EXPECT_EQ(plan->steps[3],(AIPlanStep{kAIMoveToActionId,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::AccessKeyShop,
++        ResolvedMoveContext(*definition,
++            ai_access_key_detail::SpatialLocation::AccessKeyShop,
+             ai_access_key_detail::SpatialLocation::Goal)}));
+@@ -145,3 +167,3 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+         {-6,0.35f,-3}, {6,0.35f,1}, {-5,0.35f,6}, {0,0.35f,-7}, {0,0.08f,10});
+-    const auto definition = ai_access_key_detail::BuildDefinition(graph);
++    const auto definition = ai_access_key_detail::LoadCompiledDefinition(graph);
+     ASSERT_TRUE(definition.has_value());
+@@ -150,3 +172,4 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+     {
+-        const auto action = std::ranges::find_if(definition->actions,
++        const AIActionContextId context = ResolvedMoveContext(*definition, source, target);
++        const auto action = std::ranges::find_if(definition->definition.actions,
+             [&](const AIActionDefinition& candidate)
+@@ -153,3 +176,3 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+             {
+-                return candidate.contextId == ai_access_key_detail::MoveContext(source, target);
++                return candidate.contextId == context;
+             });
+@@ -155,4 +178,4 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+             });
+-        EXPECT_NE(action, definition->actions.end());
+-        return action == definition->actions.end() ? -1.0f : action->baseCost;
++        EXPECT_NE(action, definition->definition.actions.end());
++        return action == definition->definition.actions.end() ? -1.0f : action->baseCost;
+     };
+@@ -215,8 +238,2 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+ 
+-    // Protects route-cost selection from accidentally falling back to context-id ordering.
+-    EXPECT_LT(ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::Start,
+-                  ai_access_key_detail::SpatialLocation::CoinA).value,
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::Start,
+-            ai_access_key_detail::SpatialLocation::CoinC).value);
+-
+     GameplayRouteGraph disconnected = graph;
+@@ -223,3 +240,3 @@ TEST(GameplayAIDecision, AccessKeyMoveCostsComeFromHypotheticalRouteSource)
+     disconnected.edges.clear();
+-    EXPECT_FALSE(ai_access_key_detail::BuildDefinition(disconnected).has_value());
++    EXPECT_FALSE(ai_access_key_detail::LoadCompiledDefinition(disconnected).has_value());
+ }
+@@ -237,2 +253,4 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     std::vector<GameplayWorldEvent> events;
++    constexpr AIWorldFactId hasAccessKeyFact{90u};
++    constexpr AIWorldIntegerFactId coinsFact{91u};
+     ai_access_key_detail::BuyKeyActionRuntime insufficient{
+@@ -238,3 +256,4 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     ai_access_key_detail::BuyKeyActionRuntime insufficient{
+-        observed, world, events, key, {0.0f, 0.0f, 0.0f}};
++        observed, world, events, key, {0.0f, 0.0f, 0.0f},
++        hasAccessKeyFact, coinsFact};
+     const AIActionRuntimeContext context{agent, kAIBuyKeyActionId};
+@@ -242,3 +261,3 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     EXPECT_TRUE(events.empty());
+-    EXPECT_FALSE(observed.IsFactSet(kGOAPHasAccessKeyFact));
++    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
+ 
+@@ -244,3 +263,3 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+ 
+-    observed.SetIntegerFact(kGOAPCoinCountFact, kAccessKeyPrice);
++    observed.SetIntegerFact(coinsFact, kAccessKeyPrice);
+     ai_access_key_detail::BuyKeyActionRuntime tooFar{
+@@ -246,3 +265,3 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     ai_access_key_detail::BuyKeyActionRuntime tooFar{
+-        observed, world, events, key, keyPosition};
++        observed, world, events, key, keyPosition, hasAccessKeyFact, coinsFact};
+     EXPECT_EQ(tooFar.Start(context), AIActionRuntimeResult::Failed);
+@@ -249,4 +268,4 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     EXPECT_TRUE(events.empty());
+-    EXPECT_EQ(observed.GetIntegerFact(kGOAPCoinCountFact), kAccessKeyPrice);
+-    EXPECT_FALSE(observed.IsFactSet(kGOAPHasAccessKeyFact));
++    EXPECT_EQ(observed.GetIntegerFact(coinsFact), kAccessKeyPrice);
++    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
+ 
+@@ -254,3 +273,3 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     ai_access_key_detail::BuyKeyActionRuntime purchase{
+-        observed, world, events, key, keyPosition};
++        observed, world, events, key, keyPosition, hasAccessKeyFact, coinsFact};
+     EXPECT_EQ(purchase.Start(context), AIActionRuntimeResult::Succeeded);
+@@ -259,4 +278,4 @@ TEST(GameplayAIDecision, BuyKeyRuntimeRequiresCoinsAndRuntimeConfirmation)
+     // Runtime confirmation is produced without directly applying planner effects.
+-    EXPECT_EQ(observed.GetIntegerFact(kGOAPCoinCountFact), kAccessKeyPrice);
+-    EXPECT_FALSE(observed.IsFactSet(kGOAPHasAccessKeyFact));
++    EXPECT_EQ(observed.GetIntegerFact(coinsFact), kAccessKeyPrice);
++    EXPECT_FALSE(observed.IsFactSet(hasAccessKeyFact));
+ }
+@@ -312,5 +332,10 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCancelCleanly)
+     if (!runtime.GetWorld().HasAI(agent)) { runtime.GetWorld().AddAI(agent); }
+-    auto moveToRequests=ai_access_key_detail::BuildMoveToProvider(runtime.GetWorld(),
+-         ai_access_key_detail::BuildRouteGraph({0,0,0}, {-6,0.35f,-3}, {6,0.35f,1},
+-             {-5,0.35f,6}, {0,0.35f,-7}, {0,0.08f,10}));
++    GameplayRouteGraph moveRouteGraph = ai_access_key_detail::BuildRouteGraph({0,0,0},
++        {-6,0.35f,-3}, {6,0.35f,1}, {-5,0.35f,6}, {0,0.35f,-7}, {0,0.08f,10});
++    const auto moveDefinition = ai_access_key_detail::LoadCompiledDefinition(moveRouteGraph);
++    ASSERT_TRUE(moveDefinition.has_value());
++    auto moveTransitions = ai_access_key_detail::ResolveMoveTransitions(*moveDefinition);
++    ASSERT_TRUE(moveTransitions.has_value());
++    auto moveToRequests = ai_access_key_detail::BuildMoveToProvider(
++        runtime.GetWorld(), moveRouteGraph, *moveTransitions);
+     const auto resolveMove = [&](const ai_access_key_detail::SpatialLocation source,
+@@ -320,3 +345,3 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCancelCleanly)
+             AIActionRuntimeContext{.agentEntity=agent, .actionId=kAIMoveToActionId,
+-                .contextId=ai_access_key_detail::MoveContext(source, target)});
++                .contextId=ResolvedMoveContext(*moveDefinition, source, target)});
+     }; 
+@@ -330,6 +359,6 @@ TEST(GameplayAIDecision, AuthoredCoinsAndAccessKeyUsePhysicalObservationAndCancelCleanly)
+     EXPECT_EQ(coinCRequest->goalNodeId, GameplayRouteNodeId{4u});
+-    EXPECT_NE(ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::Start,
+-        ai_access_key_detail::SpatialLocation::CoinC),
+-        ai_access_key_detail::MoveContext(ai_access_key_detail::SpatialLocation::CoinA,
+-            ai_access_key_detail::SpatialLocation::CoinC));
++    EXPECT_NE(ResolvedMoveContext(*moveDefinition, ai_access_key_detail::SpatialLocation::Start,
++                  ai_access_key_detail::SpatialLocation::CoinC),
++        ResolvedMoveContext(*moveDefinition, ai_access_key_detail::SpatialLocation::CoinA,
++            ai_access_key_detail::SpatialLocation::CoinC));
+     

@@ -1,0 +1,21 @@
+%% title: JumpTraversalExecutor: фазы прыжка по наблюдаемому состоянию персонажа
+%% kind: state
+%% level: детали
+%% refs: TV-JUMP, TV-JUMP-TICK, TV-JUMP-TIMEOUT, TV-JUMP-DATA
+stateDiagram-v2
+  [*] --> Подход: Start (link и состояние агента валидны)
+  Подход --> Подход: Arrival к takeoff (r = slowing = takeoffTolerance)
+  Подход --> ЗапросПрыжка: в радиусе takeoff, grounded, jumpPhase None
+  Подход --> Провал: не на земле или уже прыгает
+  ЗапросПрыжка --> ЖдёмВзлёта: action Jump (Script, priority 200), jumpVerticalSpeed = link.verticalSpeed
+  ЖдёмВзлёта --> Провал: jumpRequestResult Rejected
+  ЖдёмВзлёта --> Полёт: jumpPhase Airborne и не grounded (восстановить jumpVerticalSpeed)
+  Полёт --> Полёт: в воздухе, steering к landing
+  Полёт --> Проверка: grounded и не Airborne
+  Проверка --> Успех: |Δxz| ≤ landingHorizontalTolerance и |Δy| ≤ landingVerticalTolerance
+  Проверка --> Провал: иначе
+  Подход --> Провал: elapsed > 10 с
+  ЖдёмВзлёта --> Провал: elapsed > 10 с
+  Полёт --> Провал: elapsed > 10 с
+  Успех --> [*]
+  Провал --> [*]

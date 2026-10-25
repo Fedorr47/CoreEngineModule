@@ -1,0 +1,14 @@
+%% title: Намерение, команда, физическое движение и признак physicallyBlocked
+%% kind: data-flow
+%% level: детали
+%% refs: CM-MOVEMENT, AP-BEFORE-PHYS, AP-PHYSICS, PH-BLOCKED, PH-BLOCKED-CALC, NA-ROUTE-ADVANCE
+flowchart TB
+  A["runtime: CharacterCommand<br/>(moveWorld, magnitude, wantsRun)"] --> B["UpdateGameplayCharacterMovement:<br/>desiredVelocity → цель с ограничением<br/>acceleration 12 / deceleration 16 м/с²"]
+  B -->|"SubmitGameplayPhysicsCharacterVelocities"| C["Jolt CharacterVirtual:<br/>шаги 1/60 с, коллизии, ступени, уклоны"]
+  C -->|"ApplyGameplayPhysicsCharacterFeedback"| D["позиция = физика + visualRootOffset,<br/>velocity, grounded"]
+  C --> E{"на каждом шаге: опора есть,<br/>желаемая планарная > 0.1 м/с,<br/>фактическая < 10% желаемой?"}
+  E -->|"да"| F["blockedSeconds += 1/60"]
+  E -->|"нет"| G["blockedSeconds = 0"]
+  F --> H["physicallyBlocked = blockedSeconds ≥ 0.25"]
+  G --> H
+  H -->|"следующий кадр"| I["AIFollowRouteActionRuntime копирует флаг<br/>(IsPhysicallyBlocked), recovery нет"]

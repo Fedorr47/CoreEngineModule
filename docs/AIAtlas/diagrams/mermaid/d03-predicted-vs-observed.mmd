@@ -1,0 +1,15 @@
+%% title: Предсказанное и наблюдаемое состояние живут в разных местах
+%% kind: data-flow
+%% level: обзор
+%% refs: PL-FIND, SO-APPLY-FACTS, GG-INSTANCE-UPDATE, CP-LEDGER-OBSERVE
+flowchart TB
+  subgraph Search["Поиск (копии, только в памяти планировщика)"]
+    S0["S: наблюдаемое состояние"] -->|"ApplyFactEffects /<br/>ApplyNumericEffects"| S1["S′: предсказание"]
+    S1 --> S2["S″: предсказание"]
+  end
+  subgraph World["Мир и наблюдение (единственная истина для решения)"]
+    W["GameplayWorld, события<br/>PickupCollected, ResourcePurchased"] -->|"Observe / ObserveActionEvents"| O["facts_ агента<br/>(AIAgentWorldState)"]
+  end
+  O -->|"начальное состояние поиска"| S0
+  S2 -.->|"НЕ записывается в facts_"| O
+  X["action runtime:<br/>движение, покупка"] -->|"меняет мир / создаёт событие"| W

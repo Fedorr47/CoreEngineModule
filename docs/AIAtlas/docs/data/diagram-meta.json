@@ -1,0 +1,760 @@
+{
+ "d01-ai-loop": {
+  "title": "Замкнутый цикл AI: решение → исполнение → движение → физика → наблюдение",
+  "kind": "data-flow + вызовы",
+  "level": "обзор",
+  "refs": [
+   "GG-INSTANCE-UPDATE",
+   "DR-UPDATE",
+   "BR-START",
+   "AS-UPDATE",
+   "NA-ROUTE-TICK",
+   "ST-APPLY",
+   "CM-MOVEMENT",
+   "AP-PHYSICS",
+   "CP-SPATIAL-OBSERVE"
+  ],
+  "source": "diagrams/mermaid/d01-ai-loop.mmd",
+  "renderer": "mermaid"
+ },
+ "d01-layers": {
+  "title": "Слои AI и направление зависимостей (импорты модулей)",
+  "kind": "component",
+  "level": "обзор",
+  "refs": [
+   "PL-FIND",
+   "DR-CLASS",
+   "AS-CLASS",
+   "CO-REGISTRY",
+   "CP-MOVE-CAP",
+   "RF-TICK",
+   "OA-QUERY",
+   "TV-EXECUTOR",
+   "GR-MEMBERS",
+   "OA-PHYS-QUERY"
+  ],
+  "source": "diagrams/mermaid/d01-layers.mmd",
+  "renderer": "mermaid"
+ },
+ "d02-strips-mapping": {
+  "title": "Понятия STRIPS/GOAP и их воплощение в типах CoreEngine",
+  "kind": "соответствие понятий",
+  "level": "обзор",
+  "refs": [
+   "WS-CLASS",
+   "DC-FACT-COND",
+   "DC-ACTION",
+   "DC-GOAL",
+   "DC-PLAN",
+   "SO-APPLY-FACTS",
+   "SO-APPLY-NUM",
+   "PL-FIND"
+  ],
+  "source": "diagrams/mermaid/d02-strips-mapping.mmd",
+  "renderer": "mermaid"
+ },
+ "d02-transition-example": {
+  "title": "Target Recovery как задача STRIPS: два наблюдаемых состояния и единственный переход",
+  "kind": "state (поисковые состояния)",
+  "level": "детали",
+  "refs": [
+   "AS-RECOVERY-GOAP",
+   "PL-FIND",
+   "SO-EVAL-FACT"
+  ],
+  "source": "diagrams/mermaid/d02-transition-example.mmd",
+  "renderer": "mermaid"
+ },
+ "d03-predicted-vs-observed": {
+  "title": "Предсказанное и наблюдаемое состояние живут в разных местах",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "PL-FIND",
+   "SO-APPLY-FACTS",
+   "GG-INSTANCE-UPDATE",
+   "CP-LEDGER-OBSERVE"
+  ],
+  "source": "diagrams/mermaid/d03-predicted-vs-observed.mmd",
+  "renderer": "mermaid"
+ },
+ "d03-state-layout": {
+  "title": "Модель состояния: от авторских имён фактов к ячейкам AIAgentWorldState",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "AU-COMPILE",
+   "WS-CAPACITY",
+   "WS-STORAGE",
+   "WS-HASH",
+   "CO-ORDER"
+  ],
+  "source": "diagrams/mermaid/d03-state-layout.mmd",
+  "renderer": "mermaid"
+ },
+ "d04-contract-timeline": {
+  "title": "Три контракта действия во времени: предусловия, продолжение, эффекты",
+  "kind": "flowchart (жизненный цикл шага)",
+  "level": "детали",
+  "refs": [
+   "PL-FIND",
+   "DR-REMAINING",
+   "DR-CONTINUATION",
+   "BR-START",
+   "BR-SYNC",
+   "CP-SPATIAL-OBSERVE"
+  ],
+  "source": "diagrams/mermaid/d04-contract-timeline.mmd",
+  "renderer": "mermaid"
+ },
+ "d04-goal-selection": {
+  "title": "SelectAIGoal: фильтрация, оценка и выбор с победой первой цели при равенстве",
+  "kind": "flowchart (алгоритм)",
+  "level": "детали",
+  "refs": [
+   "GS-SELECT",
+   "GS-SCORE",
+   "GS-TIE",
+   "AU-GOAL-BUILD"
+  ],
+  "source": "diagrams/mermaid/d04-goal-selection.mmd",
+  "renderer": "mermaid"
+ },
+ "d05-search-loop": {
+  "title": "Цикл FindAIPlan: uniform-cost search с ленивым удалением дубликатов",
+  "kind": "flowchart (алгоритм)",
+  "level": "детали",
+  "refs": [
+   "PL-FIND",
+   "PL-INPUT",
+   "PL-EMPTY-PLAN",
+   "PL-SORT",
+   "PL-STALE",
+   "PL-GOALTEST",
+   "PL-RELAX"
+  ],
+  "source": "diagrams/mermaid/d05-search-loop.mmd",
+  "renderer": "mermaid"
+ },
+ "d06-asset-files": {
+  "title": "Файлы поведения и ссылки между ними (Access Key)",
+  "kind": "component (ссылки ассетов)",
+  "level": "обзор",
+  "refs": [
+   "AS-CATALOG",
+   "AS-ACCESS-BEHAVIOR",
+   "AS-ACCESS-GOAP",
+   "AS-ACCESS-ROUTES",
+   "AU-BEHAVIOR-PARSE",
+   "CO-REGISTER-ASSETS",
+   "CO-RESOLVE-ROLES"
+  ],
+  "source": "diagrams/mermaid/d06-asset-files.mmd",
+  "renderer": "mermaid"
+ },
+ "d06-composition-classes": {
+  "title": "Классы композиции: registry, template, контекст компиляции, провайдеры и instance",
+  "kind": "class / ownership",
+  "level": "детали",
+  "refs": [
+   "CO-REGISTRY",
+   "CO-TEMPLATE",
+   "CO-CONTEXT",
+   "CO-OBS-IFACE",
+   "CO-CAP-IFACE",
+   "GG-REACTION",
+   "GG-INSTANCE",
+   "GG-DECISION",
+   "AU-PARSERS"
+  ],
+  "source": "diagrams/mermaid/d06-composition-classes.mmd",
+  "renderer": "mermaid"
+ },
+ "d06-template-instance": {
+  "title": "Две стадии подготовки: регистрация каталога (один раз) и создание instance (на агента)",
+  "kind": "sequence-like flowchart (время загрузки против создания instance)",
+  "level": "детали",
+  "refs": [
+   "CO-REGISTER-ASSETS",
+   "CO-PENDING",
+   "CO-TEMPLATE",
+   "AU-COMPILE",
+   "CO-FROM-TEMPLATE",
+   "CO-RESOLVE-ROLES",
+   "CO-ORDER",
+   "CO-INSTANCE-DEF",
+   "GG-CREATE"
+  ],
+  "source": "diagrams/mermaid/d06-template-instance.mmd",
+  "renderer": "mermaid"
+ },
+ "d07-instance-update": {
+  "title": "Один update решения: два прохода наблюдения и реакций вокруг GOAP-обновления",
+  "kind": "sequence",
+  "level": "детали",
+  "refs": [
+   "GG-INSTANCE-UPDATE",
+   "GR-UPDATE-DECISIONS",
+   "DR-UPDATE",
+   "BR-START",
+   "CP-PURCHASE-RT",
+   "CP-LEDGER-OBSERVE",
+   "CP-HIDE"
+  ],
+  "source": "diagrams/mermaid/d07-instance-update.mmd",
+  "renderer": "mermaid"
+ },
+ "d07-observation-deps": {
+  "title": "Access Key: наблюдения как производители и потребители фактов",
+  "kind": "граф зависимостей (writer → факт → reader)",
+  "level": "детали",
+  "refs": [
+   "CO-ORDER",
+   "CO-ORDER-PICK",
+   "CP-LEDGER",
+   "CP-PICKUP-AVAIL",
+   "CP-NEAREST",
+   "CP-SPATIAL",
+   "AS-ACCESS-BEHAVIOR"
+  ],
+  "source": "diagrams/mermaid/d07-observation-deps.mmd",
+  "renderer": "mermaid"
+ },
+ "d08-execution-states": {
+  "title": "Состояния AIPlanExecution и переходы по статусам шагов",
+  "kind": "state",
+  "level": "детали",
+  "refs": [
+   "PE-STATUS",
+   "PE-CLASS",
+   "PE-APPLY",
+   "BR-START",
+   "BR-SYNC",
+   "BR-CANCEL"
+  ],
+  "source": "diagrams/mermaid/d08-execution-states.mmd",
+  "renderer": "mermaid"
+ },
+ "d08-recovery-sequence": {
+  "title": "Target Recovery: временная недоступность цели и восстановление живого решения",
+  "kind": "sequence (по кадрам)",
+  "level": "детали",
+  "refs": [
+   "AS-SC-RECOVERY",
+   "SC-REMOVE-TARGET",
+   "CP-SPATIAL-OBSERVE",
+   "DR-CONTINUATION",
+   "DR-UPDATE",
+   "GR-START-DECISION",
+   "CP-MOVE-RESOLVE"
+  ],
+  "source": "diagrams/mermaid/d08-recovery-sequence.mmd",
+  "renderer": "mermaid"
+ },
+ "d08-update-branches": {
+  "title": "AIDecisionRuntime::Update — ветви решения за одно обновление",
+  "kind": "flowchart (алгоритм)",
+  "level": "детали",
+  "refs": [
+   "DR-UPDATE",
+   "DR-NO-GOAL",
+   "DR-INVALIDATED",
+   "DR-KEEP-RUNNING",
+   "DR-INSTALL",
+   "DR-UPDATE-STEP",
+   "DR-CONTINUATION",
+   "DR-REMAINING"
+  ],
+  "source": "diagrams/mermaid/d08-update-branches.mmd",
+  "renderer": "mermaid"
+ },
+ "d09-action-lifecycle": {
+  "title": "Старт, тики и отмена шага плана через binding и AISystem",
+  "kind": "sequence",
+  "level": "детали",
+  "refs": [
+   "BR-START",
+   "AB-REGISTRY",
+   "AS-START",
+   "AT-CLASS",
+   "AS-UPDATE",
+   "BR-SYNC",
+   "BR-CANCEL",
+   "AT-CANCEL"
+  ],
+  "source": "diagrams/mermaid/d09-action-lifecycle.mmd",
+  "renderer": "mermaid"
+ },
+ "d09-ownership": {
+  "title": "Владение и заимствование: от GameplayRuntime до runtime действия",
+  "kind": "class / ownership",
+  "level": "детали",
+  "refs": [
+   "GR-MEMBERS",
+   "AS-CLASS",
+   "AT-CLASS",
+   "GG-INSTANCE",
+   "GG-FIELD-ORDER",
+   "GG-DECISION",
+   "AB-REGISTRY",
+   "CP-MOVE-BINDING",
+   "CP-PURCHASE-RT",
+   "TV-EXEC-REG"
+  ],
+  "source": "diagrams/mermaid/d09-ownership.mmd",
+  "renderer": "mermaid"
+ },
+ "d09-task-states": {
+  "title": "Состояния AIActionTask",
+  "kind": "state",
+  "level": "детали",
+  "refs": [
+   "AT-CLASS",
+   "AT-CANCEL",
+   "AR-RESULT",
+   "DC-ACTION-STATUS"
+  ],
+  "source": "diagrams/mermaid/d09-task-states.mmd",
+  "renderer": "mermaid"
+ },
+ "d10-frame-sequence": {
+  "title": "Один тик App: порядок вызовов, существенный для AI",
+  "kind": "sequence",
+  "level": "обзор",
+  "refs": [
+   "AP-NAV-COORD",
+   "AP-SCENARIO",
+   "AP-TICK",
+   "AP-BEFORE-PHYS",
+   "GR-BEGIN",
+   "GR-PREPHYS",
+   "GR-AI-ORDER",
+   "GR-AI-UPDATE",
+   "AP-PHYSICS",
+   "AP-AFTER-PHYS",
+   "GR-POSTPHYS"
+  ],
+  "source": "diagrams/mermaid/d10-frame-sequence.mmd",
+  "renderer": "mermaid"
+ },
+ "d10-step-gap": {
+  "title": "Задержки между событиями кадров: успех шага, подтверждение, старт следующего шага",
+  "kind": "sequence (по кадрам)",
+  "level": "детали",
+  "refs": [
+   "AS-UPDATE",
+   "BR-SYNC",
+   "DR-UPDATE",
+   "DR-REMAINING",
+   "GR-AI-ORDER",
+   "PK-SYSTEM",
+   "GR-RESET-FRAME"
+  ],
+  "source": "diagrams/mermaid/d10-step-gap.mmd",
+  "renderer": "mermaid"
+ },
+ "d11-maze-sequence": {
+  "title": "Maze: от запроса пути до движения агента",
+  "kind": "sequence",
+  "level": "детали",
+  "refs": [
+   "AS-SC-MAZE",
+   "SC-NAV-PATH",
+   "NV-AGENT-MAP",
+   "NV-PROFILES",
+   "NV-FINDPATH",
+   "NV-PARTIAL",
+   "GR-START-ROUTE"
+  ],
+  "source": "diagrams/mermaid/d11-maze-sequence.mmd",
+  "renderer": "mermaid"
+ },
+ "d11-route-sources": {
+  "title": "Два источника маршрута сходятся в одном исполнителе",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "CP-MOVE-GRAPH",
+   "CP-MOVE-FALLBACK",
+   "CP-MOVE-RESOLVE",
+   "RS-FIND",
+   "NA-MOVETO-CREATE",
+   "NV-FINDPATH",
+   "SC-NAV-PATH",
+   "GR-START-ROUTE",
+   "NA-ROUTE-RT"
+  ],
+  "source": "diagrams/mermaid/d11-route-sources.mmd",
+  "renderer": "mermaid"
+ },
+ "d12-follower-states": {
+  "title": "Состояния GameplayRouteFollower",
+  "kind": "state",
+  "level": "детали",
+  "refs": [
+   "RF-STATUS",
+   "RF-START",
+   "RF-TICK",
+   "RF-COMPLETE",
+   "RT-ROUTE-VALID"
+  ],
+  "source": "diagrams/mermaid/d12-follower-states.mmd",
+  "renderer": "mermaid"
+ },
+ "d12-tick-flow": {
+  "title": "GameplayRouteFollower::Tick — выбор цели steering на одном тике",
+  "kind": "flowchart (алгоритм)",
+  "level": "детали",
+  "refs": [
+   "RF-TICK",
+   "RF-SLOWING",
+   "RF-LOOKAHEAD",
+   "RF-PASSED",
+   "ST-ARRIVAL",
+   "ST-SEEK"
+  ],
+  "source": "diagrams/mermaid/d12-tick-flow.mmd",
+  "renderer": "mermaid"
+ },
+ "d13-intent-pipeline": {
+  "title": "От steering до фактического перемещения: намерение, команда, мотор, физика",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "ST-APPLY",
+   "NA-ROUTE-APPLY",
+   "CM-MOVEMENT",
+   "GR-PREPHYS",
+   "AP-PHYSICS",
+   "PH-ROOT-OFFSET"
+  ],
+  "source": "diagrams/mermaid/d13-intent-pipeline.mmd",
+  "renderer": "mermaid"
+ },
+ "d14-flee-states": {
+  "title": "FleeTarget как триггер Шмитта: два порога и память состояния",
+  "kind": "state",
+  "level": "детали",
+  "refs": [
+   "NA-FLEE-HYST",
+   "NA-FLEE-CTOR",
+   "NA-FLEE-SETTINGS"
+  ],
+  "source": "diagrams/mermaid/d14-flee-states.mmd",
+  "renderer": "mermaid"
+ },
+ "d14-sampling": {
+  "title": "Выборка steering с интервалом и переиздание команды на каждом тике",
+  "kind": "sequence (по тикам)",
+  "level": "детали",
+  "refs": [
+   "NA-FOLLOW-TICK",
+   "NA-FOLLOW-SETTINGS",
+   "GR-RESET-FRAME",
+   "ST-APPLY"
+  ],
+  "source": "diagrams/mermaid/d14-sampling.mmd",
+  "renderer": "mermaid"
+ },
+ "d15-pipeline": {
+  "title": "Avoidance в контуре движения: кто передаёт query и где вызывается коррекция",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "AP-SET-QUERY",
+   "OA-PHYS-QUERY",
+   "OA-PHYS-PROBE",
+   "OA-PHYS-SUPPORT",
+   "NA-AGENT-AVOID",
+   "OA-APPLY",
+   "NA-ROUTE-APPLY",
+   "CP-MOVE-BINDING"
+  ],
+  "source": "diagrams/mermaid/d15-pipeline.mmd",
+  "renderer": "mermaid"
+ },
+ "d15-side-selection": {
+  "title": "Выбор стороны обхода: опора важнее просвета, память стороны с порогом смены",
+  "kind": "flowchart (алгоритм)",
+  "level": "детали",
+  "refs": [
+   "OA-APPLY",
+   "OA-SIDE",
+   "OA-SUPPORT",
+   "OA-ESCAPE"
+  ],
+  "source": "diagrams/mermaid/d15-side-selection.mmd",
+  "renderer": "mermaid"
+ },
+ "d16-command-physics": {
+  "title": "Намерение, команда, физическое движение и признак physicallyBlocked",
+  "kind": "data-flow",
+  "level": "детали",
+  "refs": [
+   "CM-MOVEMENT",
+   "AP-BEFORE-PHYS",
+   "AP-PHYSICS",
+   "PH-BLOCKED",
+   "PH-BLOCKED-CALC",
+   "NA-ROUTE-ADVANCE"
+  ],
+  "source": "diagrams/mermaid/d16-command-physics.mmd",
+  "renderer": "mermaid"
+ },
+ "d16-jump-states": {
+  "title": "JumpTraversalExecutor: фазы прыжка по наблюдаемому состоянию персонажа",
+  "kind": "state",
+  "level": "детали",
+  "refs": [
+   "TV-JUMP",
+   "TV-JUMP-TICK",
+   "TV-JUMP-TIMEOUT",
+   "TV-JUMP-DATA"
+  ],
+  "source": "diagrams/mermaid/d16-jump-states.mmd",
+  "renderer": "mermaid"
+ },
+ "d16-traversal-handoff": {
+  "title": "Передача сегмента маршрута traversal-исполнителю и возврат управления",
+  "kind": "sequence",
+  "level": "детали",
+  "refs": [
+   "NA-ROUTE-TICK",
+   "NA-ROUTE-TRAVERSAL",
+   "RF-TICK",
+   "RF-COMPLETE",
+   "TV-LINK-REG",
+   "TV-EXEC-REG",
+   "TV-EXECUTOR"
+  ],
+  "source": "diagrams/mermaid/d16-traversal-handoff.mmd",
+  "renderer": "mermaid"
+ },
+ "d17-contention": {
+  "title": "Два агента Access Key Reserved: бронь монеты, неуспешный старт шага и перепланирование",
+  "kind": "sequence (вывод из кода и ассетов)",
+  "level": "детали",
+  "refs": [
+   "AS-SC-RESERVATION",
+   "NA-RESERVED",
+   "NA-RESERVED-START",
+   "CP-PICKUP-AVAIL",
+   "RV-TRY",
+   "BR-START",
+   "DR-UPDATE",
+   "GR-UPDATE-DECISIONS"
+  ],
+  "source": "diagrams/mermaid/d17-contention.mmd",
+  "renderer": "mermaid"
+ },
+ "d17-purchase-sequence": {
+  "title": "Покупка: модель в поиске, исполнение, подтверждение ledger и реакция",
+  "kind": "sequence",
+  "level": "детали",
+  "refs": [
+   "CP-PURCHASE-CAP",
+   "CP-PURCHASE-RT",
+   "CP-LEDGER-OBSERVE",
+   "CP-HIDE",
+   "GG-INSTANCE-UPDATE",
+   "GR-AI-ORDER"
+  ],
+  "source": "diagrams/mermaid/d17-purchase-sequence.mmd",
+  "renderer": "mermaid"
+ },
+ "d18-authoring-steps": {
+  "title": "Порядок добавления нового поведения из ассетов",
+  "kind": "flowchart (процесс)",
+  "level": "обзор",
+  "refs": [
+   "AU-COMPILE",
+   "CO-TEMPLATE",
+   "CO-ORDER",
+   "CO-RESOLVE-ROLES",
+   "CO-REGISTER-ASSETS",
+   "SC-START-DECISION"
+  ],
+  "source": "diagrams/mermaid/d18-authoring-steps.mmd",
+  "renderer": "mermaid"
+ },
+ "d18-marker-e2e": {
+  "title": "Marker Visit от данных до подтверждённой цели (сквозной разбор)",
+  "kind": "sequence",
+  "level": "обзор",
+  "refs": [
+   "AS-MARKER-GOAP",
+   "AS-MARKER-BEHAVIOR",
+   "AS-MARKER-BINDINGS",
+   "SC-START-DECISION",
+   "GR-START-DECISION",
+   "CO-FROM-TEMPLATE",
+   "PL-FIND",
+   "BR-START",
+   "NA-ROUTE-TICK",
+   "CP-SPATIAL-OBSERVE"
+  ],
+  "source": "diagrams/mermaid/d18-marker-e2e.mmd",
+  "renderer": "mermaid"
+ },
+ "d18-scenario-lifecycle": {
+  "title": "Жизненный цикл development-сценария",
+  "kind": "state",
+  "level": "обзор",
+  "refs": [
+   "SC-RUNNER-UPDATE",
+   "AS-SC-RECOVERY",
+   "AS-SC-MAZE"
+  ],
+  "source": "diagrams/mermaid/d18-scenario-lifecycle.mmd",
+  "renderer": "mermaid"
+ },
+ "d19-debug-sources": {
+  "title": "Источники отладочных данных AI и что каждый из них доказывает",
+  "kind": "data-flow",
+  "level": "обзор",
+  "refs": [
+   "GG-DEBUGVM",
+   "GR-DEBUG-VIEWS",
+   "GG-PATH-INSPECTION",
+   "AP-DEBUG-DRAW",
+   "AP-DEBUG-PLANNED",
+   "PH-BLOCKED-CALC",
+   "AP-NAV-COORD"
+  ],
+  "source": "diagrams/mermaid/d19-debug-sources.mmd",
+  "renderer": "mermaid"
+ },
+ "d19-triage": {
+  "title": "Порядок расследования «агент не делает то, что ожидалось»",
+  "kind": "flowchart (диагностика)",
+  "level": "обзор",
+  "refs": [
+   "GR-START-DECISION",
+   "GG-DEBUGVM",
+   "DR-UPDATE",
+   "BR-START",
+   "CP-MOVE-RESOLVE",
+   "NA-ROUTE-TICK",
+   "OA-APPLY",
+   "PH-BLOCKED-CALC",
+   "CP-SPATIAL-OBSERVE"
+  ],
+  "source": "diagrams/mermaid/d19-triage.mmd",
+  "renderer": "mermaid"
+ },
+ "d20-proposed-services": {
+  "title": "ПРЕДЛОЖЕНИЕ (PROPOSED): передача obstacle query и debug-реестров в ассетную GOAP-композицию",
+  "kind": "data-flow (не реализовано)",
+  "level": "обзор",
+  "status": "PROPOSED",
+  "refs": [
+   "GD-CREATION",
+   "CP-MOVE-BINDING",
+   "GR-START-DECISION",
+   "NA-MOVETO-BINDING"
+  ],
+  "source": "diagrams/mermaid/d20-proposed-services.mmd",
+  "renderer": "mermaid"
+ },
+ "g13-seek-flee": {
+  "title": "Seek и Flee для агента в (0,0,0) и точки (3,0,4)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "ST-SEEK",
+   "ST-FLEE"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g13-arrival-profile": {
+  "title": "Профиль Arrival: magnitude от горизонтальной дистанции",
+  "kind": "график (вычислено)",
+  "level": "детали",
+  "refs": [
+   "ST-ARRIVAL",
+   "ST-ARRIVAL-SETTINGS"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-lookahead": {
+  "title": "Look-ahead: виртуальная цель на исходящем сегменте (L = 0.75)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "RF-LOOKAHEAD"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-corner-plane": {
+  "title": "Плоскость перехода угла +X → +Z и точка (−0.2, 0.3)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "RF-PASSED"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g14-flee-hysteresis": {
+  "title": "Гистерезис FleeTarget: trigger 5, safe 7 (Steering Playground)",
+  "kind": "график (вычислено)",
+  "level": "детали",
+  "refs": [
+   "NA-FLEE-HYST",
+   "AS-SC-PLAYGROUND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g15-feelers": {
+  "title": "Три feelers и escape-кандидаты перед наклонной стеной (учебные числа)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "OA-FEELERS",
+   "OA-ESCAPE",
+   "OA-SANITIZE"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g15-support": {
+  "title": "Support probe: вынос 0.75, подъём 0.25, допустимое падение 0.35 (вид сбоку)",
+  "kind": "геометрия (вычислено)",
+  "level": "детали",
+  "refs": [
+   "OA-SUPPORT",
+   "OA-SETTINGS"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g05-access-key-map": {
+  "title": "Access Key: авторский граф маршрутов на позициях уровня и оптимальный план (стоимость 42.09)",
+  "kind": "геометрия (вычислено из ассетов)",
+  "level": "обзор",
+  "refs": [
+   "AS-ACCESS-ROUTES",
+   "CP-MOVE-GRAPH",
+   "RS-FIND",
+   "PL-FIND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ },
+ "g12-playground-turn": {
+  "title": "Steering Playground: острый поворот Corner → Goal, look-ahead и плоскость перехода (реальные узлы, увеличено у угла)",
+  "kind": "геометрия (вычислено из уровня)",
+  "level": "детали",
+  "refs": [
+   "RF-LOOKAHEAD",
+   "RF-PASSED",
+   "AS-SC-PLAYGROUND"
+  ],
+  "source": "tools/gen_geometry.py",
+  "renderer": "python"
+ }
+}

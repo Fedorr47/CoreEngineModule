@@ -1,0 +1,28 @@
+%% title: Старт, тики и отмена шага плана через binding и AISystem
+%% kind: sequence
+%% level: детали
+%% refs: BR-START, AB-REGISTRY, AS-START, AT-CLASS, AS-UPDATE, BR-SYNC, BR-CANCEL, AT-CANCEL
+sequenceDiagram
+  participant D as AIDecisionRuntime
+  participant B as AIPlanExecutionBridge
+  participant BR as AIActionBindingRegistry
+  participant BI as IAIActionBinding
+  participant S as AISystem
+  participant T as AIActionTask
+  participant R as IAIActionRuntime
+  D->>B: StartReadyPlanStep(execution, bindings, aiSystem, world, agent)
+  B->>BR: Find(step.actionId)
+  BR-->>B: binding или nullptr (→ MarkCurrentStepStartFailed)
+  B->>BI: CreateRuntime(context{agent, actionId, contextId})
+  BI-->>B: unique_ptr runtime или nullptr (→ Failed)
+  B->>S: StartAction(world, context, runtime)
+  S->>S: CancelAction(agent) прежней задачи, erase
+  S->>T: emplace AIActionTask(context, runtime) и Start()
+  T->>R: Start(context) → Running / Succeeded / Failed
+  S-->>B: статус (Failed/NotStarted/Cancelled → шаг Failed)
+  Note over S,R: в этом же кадре aiSystem_.Update тикает Running-задачи
+  S->>T: Tick(dt)
+  T->>R: Tick(context, dt)
+  D->>B: следующий update: SynchronizeRunningPlanStep
+  B->>S: GetActionStatus(agent, actionId)
+  Note over D,R: отмена: CancelPlanExecution → AISystem.CancelAction → AIActionTask.Cancel → R.Cancel (только если Running)

@@ -1,0 +1,13 @@
+%% title: Avoidance в контуре движения: кто передаёт query и где вызывается коррекция
+%% kind: data-flow
+%% level: обзор
+%% refs: AP-SET-QUERY, OA-PHYS-QUERY, OA-PHYS-PROBE, OA-PHYS-SUPPORT, NA-AGENT-AVOID, OA-APPLY, NA-ROUTE-APPLY, CP-MOVE-BINDING
+flowchart TB
+  J["JoltPhysicsWorld"] -->|"адаптер, маска StaticWorld"| Q["GameplayPhysicsObstacleQuery:<br/>Probe = ShapeCastClosest(sphere r)<br/>или RayCastClosest;<br/>ProbeSupport = RayCast вниз"]
+  Q -->|"SetObstacleQuery (App)"| GR["GameplayRuntime::obstacleQuery_"]
+  GR -->|"передаётся"| D["прямые StartAIFollowRoute / MoveTo /<br/>FollowTarget / FleeTarget"]
+  GR -.->|"НЕ передаётся"| G["GOAP move_to из ассетов<br/>(binding без query)"]
+  D --> R["runtime: базовое намерение<br/>(follower / Seek / Flee)"]
+  R --> A["ApplyGameplayAgentObstacleAvoidance:<br/>origin = база + половина полной высоты,<br/>radius из физики, скорость мотора, max slope"]
+  A --> O["ApplyGameplayObstacleAvoidance:<br/>probes, escape, опора, сторона"]
+  O -->|"скорректированное намерение"| C["ApplyGameplayMovementIntent → команда"]

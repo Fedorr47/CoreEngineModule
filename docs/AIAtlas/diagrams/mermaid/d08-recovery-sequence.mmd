@@ -1,0 +1,27 @@
+%% title: Target Recovery: временная недоступность цели и восстановление живого решения
+%% kind: sequence (по кадрам)
+%% level: детали
+%% refs: AS-SC-RECOVERY, SC-REMOVE-TARGET, CP-SPATIAL-OBSERVE, DR-CONTINUATION, DR-UPDATE, GR-START-DECISION, CP-MOVE-RESOLVE
+sequenceDiagram
+  participant SC as сценарий (App)
+  participant W as мир
+  participant I as instance решения
+  participant D as AIDecisionRuntime
+  participant S as AISystem / FollowRoute
+  SC->>I: StartAIDecision: первый update, план [move_to/destination] → Ready
+  I->>D: следующий update: старт шага
+  D->>S: StartAction → Running (движение к goal)
+  Note over SC,W: агент прошёл половину 3D-дистанции до цели
+  SC->>W: RemoveInteractionPoint(goal), скрыть узел, засечь steady_clock
+  I->>I: Observe: goalAvailable = false, atDestination = false
+  I->>D: Update: continuation нарушено → поиск → плана нет
+  D->>S: CancelAction → follower.Cancel, команда = 0
+  Note over I,D: статус Failed, instance остаётся в activeAIDecisions_
+  loop каждые обновления ~5 с реального времени
+    I->>D: Update: нет исполнения → поиск → плана нет → Failed
+  end
+  SC->>W: SetInteractionPoint(goal), вернуть видимость
+  I->>I: Observe: goalAvailable = true
+  I->>D: Update: поиск → план найден → Ready
+  I->>D: следующий update: старт шага (маршрут origin → goal)
+  D->>S: Running, агент продолжает от текущей позиции к goal

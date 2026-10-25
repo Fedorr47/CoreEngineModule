@@ -1,0 +1,48 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Segoe UI, Noto Sans, Arial, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#e8f1fb",
+    "primaryBorderColor": "#3f6ea3",
+    "primaryTextColor": "#14212e",
+    "lineColor": "#3d4a57",
+    "secondaryColor": "#eef7ee",
+    "tertiaryColor": "#fff7e6",
+    "noteBkgColor": "#fff7d6",
+    "noteBorderColor": "#c9a83a",
+    "actorBkg": "#e8f1fb",
+    "actorBorder": "#3f6ea3",
+    "signalColor": "#2b3540",
+    "signalTextColor": "#14212e",
+    "labelBoxBkgColor": "#e8f1fb",
+    "edgeLabelBackground": "#ffffff",
+    "clusterBkg": "#f6f8fa",
+    "clusterBorder": "#9aa8b6"
+  },
+  "flowchart": {
+    "htmlLabels": false,
+    "curve": "basis",
+    "nodeSpacing": 40,
+    "rankSpacing": 48,
+    "padding": 10,
+    "wrappingWidth": 480
+  },
+  "sequence": {
+    "mirrorActors": false,
+    "showSequenceNumbers": true,
+    "actorMargin": 40,
+    "messageMargin": 34,
+    "wrap": true,
+    "width": 170,
+    "noteMargin": 12
+  },
+  "state": {
+    "htmlLabels": false
+  },
+  "class": {
+    "htmlLabels": false
+  },
+  "htmlLabels": false,
+  "themeCSS": ".edgeLabel rect, .edgeLabel .labelBkg { fill: #ffffff !important; opacity: 1 !important; } .edgeLabel { background-color: #ffffff; }"
+}

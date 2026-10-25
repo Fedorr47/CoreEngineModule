@@ -1,0 +1,18 @@
+%% title: Порядок расследования «агент не делает то, что ожидалось»
+%% kind: flowchart (диагностика)
+%% level: обзор
+%% refs: GR-START-DECISION, GG-DEBUGVM, DR-UPDATE, BR-START, CP-MOVE-RESOLVE, NA-ROUTE-TICK, OA-APPLY, PH-BLOCKED-CALC, CP-SPATIAL-OBSERVE
+flowchart TB
+  A(["симптом"]) --> B{"StartAIDecision вернул true?"}
+  B -->|"нет"| B1["режим Game? агент без активного решения,<br/>с компонентами AI, Transform, CharacterCommand, Motor, GameplayCharacterMovementStateComponent?<br/>текст diagnostic фабрики"]
+  B -->|"да"| C{"окно AI / GOAP: статус?"}
+  C -->|"Failed, плана нет"| C1["какие предусловия отклонены<br/>(Actions: rejected + actual)"]
+  C -->|"Ready долго"| C2["шаг не стартует: binding, ResolveRequest<br/>(sourceRadius), бронь, link"]
+  C -->|"Running"| D{"есть линия Navigation path<br/>(прямой запуск) или planned path?"}
+  D --> E{"steering: итоговое намерение ненулевое?"}
+  E -->|"нет"| E1["прибытие (r), обе стороны без опоры,<br/>Flee в спокойном состоянии"]
+  E -->|"да"| F{"физика: фактическая скорость ≈ 0,<br/>physicallyBlocked?"}
+  F -->|"да"| F1["коллизия, ступень, уклон, профиль;<br/>recovery нет"]
+  F -->|"нет, движется"| G{"шаг Succeeded, а цель не подтверждена?"}
+  G -->|"да"| G1["3D-радиус наблюдения против XZ-прибытия,<br/>снимок позиции роли, высота"]
+  C -->|"Succeeded"| H["цель подтверждена наблюдением — проверить,<br/>та ли цель и тот ли факт"]

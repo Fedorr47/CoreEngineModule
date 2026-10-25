@@ -1,0 +1,10 @@
+%% title: ПРЕДЛОЖЕНИЕ (PROPOSED): передача obstacle query и debug-реестров в ассетную GOAP-композицию
+%% kind: data-flow (не реализовано)
+%% level: обзор
+%% status: PROPOSED
+%% refs: GD-CREATION, CP-MOVE-BINDING, GR-START-DECISION, NA-MOVETO-BINDING
+flowchart LR
+  GR["GameplayRuntime::StartAIDecision"] -->|"PROPOSED: + obstacleQuery,<br/>steering/navigation debug"| C["GameplayAIDecisionCreationContext<br/>(сейчас без этих полей)"]
+  C -->|"PROPOSED"| M["MoveToCapability::CreateBinding"]
+  M -->|"PROPOSED: передать в существующий<br/>9-аргументный конструктор"| B["AIMoveToActionBinding"]
+  B --> R["AIFollowRouteActionRuntime<br/>(avoidance уже поддерживается)"]

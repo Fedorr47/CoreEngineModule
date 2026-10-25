@@ -1,0 +1,144 @@
+{
+ "pages": [
+  "chapters/05-planner.html",
+  "chapters/15-obstacle-avoidance.html",
+  "reference/runtime-quick-reference.html",
+  "reference/class-index.html"
+ ],
+ "widths": [
+  1280
+ ],
+ "zooms": [
+  1.25,
+  2
+ ],
+ "failures": [],
+ "jsErrors": [],
+ "consoleErrors": [],
+ "network": [],
+ "layout": [
+  {
+   "page": "chapters/05-planner.html",
+   "width": 1280,
+   "zoom": 1.25,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    0.8,
+    0.96
+   ]
+  },
+  {
+   "page": "chapters/05-planner.html",
+   "width": 1280,
+   "zoom": 2,
+   "overflow": 0,
+   "lineLength": 608,
+   "chars": 78,
+   "clipped": 0,
+   "svgs": [
+    0.66,
+    0.78
+   ]
+  },
+  {
+   "page": "chapters/15-obstacle-avoidance.html",
+   "width": 1280,
+   "zoom": 1.25,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    0.89,
+    0.93,
+    0.82,
+    1
+   ]
+  },
+  {
+   "page": "chapters/15-obstacle-avoidance.html",
+   "width": 1280,
+   "zoom": 2,
+   "overflow": 0,
+   "lineLength": 608,
+   "chars": 78,
+   "clipped": 0,
+   "svgs": [
+    0.72,
+    0.76,
+    0.67,
+    0.99
+   ]
+  },
+  {
+   "page": "reference/runtime-quick-reference.html",
+   "width": 1280,
+   "zoom": 1.25,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.89,
+    0.55,
+    0.55,
+    0.66,
+    0.79
+   ]
+  },
+  {
+   "page": "reference/runtime-quick-reference.html",
+   "width": 1280,
+   "zoom": 2,
+   "overflow": 0,
+   "lineLength": 608,
+   "chars": 78,
+   "clipped": 0,
+   "svgs": [
+    0.55,
+    0.73,
+    0.55,
+    0.55,
+    0.55,
+    0.65
+   ]
+  },
+  {
+   "page": "reference/class-index.html",
+   "width": 1280,
+   "zoom": 1.25,
+   "overflow": 0,
+   "lineLength": 728.78125,
+   "chars": 93,
+   "clipped": 0,
+   "svgs": []
+  },
+  {
+   "page": "reference/class-index.html",
+   "width": 1280,
+   "zoom": 2,
+   "overflow": 0,
+   "lineLength": 608,
+   "chars": 78,
+   "clipped": 0,
+   "svgs": []
+  }
+ ],
+ "viewer": [],
+ "search": [],
+ "demos": {},
+ "screenshots": [
+  "chapters_05-planner-1280-z1.25.png",
+  "chapters_05-planner-1280-z2.png",
+  "chapters_15-obstacle-avoidance-1280-z1.25.png",
+  "chapters_15-obstacle-avoidance-1280-z2.png",
+  "reference_runtime-quick-reference-1280-z1.25.png",
+  "reference_runtime-quick-reference-1280-z2.png",
+  "reference_class-index-1280-z1.25.png",
+  "reference_class-index-1280-z2.png"
+ ]
+}
